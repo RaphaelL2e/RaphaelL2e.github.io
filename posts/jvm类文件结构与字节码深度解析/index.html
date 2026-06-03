@@ -1,8 +1,898 @@
-<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>JVM 类文件结构与字节码深度解析 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
-<a href=https://raphaell2e.github.io/posts/>文章</a>
-<a href=https://raphaell2e.github.io/categories/>分类</a>
-<a href=https://raphaell2e.github.io/tags/>标签</a>
-<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-12 <span>/</span> jvm</div><h1>JVM 类文件结构与字节码深度解析</h1></div><div class=post-content><h1 id=jvm-类文件结构与字节码深度解析>JVM 类文件结构与字节码深度解析</h1><blockquote><p>面试高频问题：Class 文件的结构？字节码指令有哪些？类加载的过程？</p></blockquote><h2 id=引言>引言</h2><p>Java 的"一次编写，到处运行"依赖于 Class 文件这一中间格式。理解 Class 文件结构和字节码指令，是深入理解 JVM 的基础，也是性能调优、代码生成、字节码增强等技术的前提。</p><h2 id=一class-文件结构>一、Class 文件结构</h2><h3 id=11-整体结构>1.1 整体结构</h3><pre tabindex=0><code>┌──────────────────────────────────────────────┐
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JVM 类文件结构与字节码深度解析 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-05-12 <span>/</span> jvm </div>
+        <h1>JVM 类文件结构与字节码深度解析</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="jvm-类文件结构与字节码深度解析">JVM 类文件结构与字节码深度解析</h1>
+<blockquote>
+<p>面试高频问题：Class 文件的结构？字节码指令有哪些？类加载的过程？</p>
+</blockquote>
+<h2 id="引言">引言</h2>
+<p>Java 的&quot;一次编写，到处运行&quot;依赖于 Class 文件这一中间格式。理解 Class 文件结构和字节码指令，是深入理解 JVM 的基础，也是性能调优、代码生成、字节码增强等技术的前提。</p>
+<h2 id="一class-文件结构">一、Class 文件结构</h2>
+<h3 id="11-整体结构">1.1 整体结构</h3>
+<pre tabindex="0"><code>┌──────────────────────────────────────────────┐
 │              ClassFile 结构                    │
 ├──────────────────────────────────────────────┤
 │  magic（魔数）                               │
@@ -18,30 +908,169 @@
 │  methods_count + methods（方法）              │
 │  attributes_count + attributes（属性）        │
 └──────────────────────────────────────────────┘
-</code></pre><h3 id=12-魔数与版本号>1.2 魔数与版本号</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 魔数：0xCAFEBABE（咖啡宝贝）
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// 每个 Class 文件开头都是这个
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>CA FE BA BE <span style=color:#ae81ff>00</span> <span style=color:#ae81ff>00</span> <span style=color:#ae81ff>00</span> <span style=color:#ae81ff>37</span>  <span style=color:#75715e>// Java 55 (JDK 11)
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 版本号对应关系
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// JDK 1.1 → 45
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// JDK 1.2 → 46
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// JDK 1.5 → 49
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// JDK 1.8 → 52
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// JDK 9   → 53
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// JDK 11  → 55
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// JDK 17  → 61
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// JDK 21  → 65
-</span></span></span></code></pre></div><h3 id=13-常量池>1.3 常量池</h3><p>常量池是 Class 文件中最大的数据项，存储字面量和符号引用。</p><p><strong>常量池项目类型</strong>：</p><table><thead><tr><th>常量类型</th><th>值</th><th>说明</th></tr></thead><tbody><tr><td><code>CONSTANT_Utf8</code></td><td>1</td><td>UTF-8 编码字符串</td></tr><tr><td><code>CONSTANT_Integer</code></td><td>3</td><td>int 型字面量</td></tr><tr><td><code>CONSTANT_Float</code></td><td>4</td><td>float 型字面量</td></tr><tr><td><code>CONSTANT_Long</code></td><td>5</td><td>long 型字面量</td></tr><tr><td><code>CONSTANT_Double</code></td><td>6</td><td>double 型字面量</td></tr><tr><td><code>CONSTANT_Class</code></td><td>7</td><td>类或接口的符号引用</td></tr><tr><td><code>CONSTANT_String</code></td><td>8</td><td>String 型字面量</td></tr><tr><td><code>CONSTANT_Fieldref</code></td><td>9</td><td>字段的符号引用</td></tr><tr><td><code>CONSTANT_Methodref</code></td><td>10</td><td>方法的符号引用</td></tr><tr><td><code>CONSTANT_InterfaceMethodref</code></td><td>11</td><td>接口方法的符号引用</td></tr><tr><td><code>CONSTANT_NameAndType</code></td><td>12</td><td>名称和类型的符号引用</td></tr><tr><td><code>CONSTANT_MethodHandle</code></td><td>15</td><td>方法句柄</td></tr><tr><td><code>CONSTANT_MethodType</code></td><td>16</td><td>方法类型</td></tr><tr><td><code>CONSTANT_InvokeDynamic</code></td><td>18</td><td>动态调用点</td></tr></tbody></table><h3 id=14-访问标志>1.4 访问标志</h3><table><thead><tr><th>标志名</th><th>值</th><th>说明</th></tr></thead><tbody><tr><td>ACC_PUBLIC</td><td>0x0001</td><td>public</td></tr><tr><td>ACC_FINAL</td><td>0x0010</td><td>final</td></tr><tr><td>ACC_SUPER</td><td>0x0020</td><td>使用 invokespecial</td></tr><tr><td>ACC_INTERFACE</td><td>0x0200</td><td>接口</td></tr><tr><td>ACC_ABSTRACT</td><td>0x0400</td><td>abstract</td></tr><tr><td>ACC_SYNTHETIC</td><td>0x1000</td><td>编译器生成</td></tr><tr><td>ACC_ANNOTATION</td><td>0x2000</td><td>注解</td></tr><tr><td>ACC_ENUM</td><td>0x4000</td><td>枚举</td></tr></tbody></table><h3 id=15-实战查看-class-文件>1.5 实战：查看 Class 文件</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 编译</span>
-</span></span><span style=display:flex><span>javac Hello.java
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e># 查看字节码</span>
-</span></span><span style=display:flex><span>javap -v Hello.class
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e># 常用选项</span>
-</span></span><span style=display:flex><span>javap -c        <span style=color:#75715e># 反编译字节码指令</span>
-</span></span><span style=display:flex><span>javap -p        <span style=color:#75715e># 显示私有成员</span>
-</span></span><span style=display:flex><span>javap -verbose  <span style=color:#75715e># 详细信息（含常量池）</span>
-</span></span></code></pre></div><p><strong>示例输出</strong>：</p><pre tabindex=0><code>Classfile /Hello.class
+</code></pre><h3 id="12-魔数与版本号">1.2 魔数与版本号</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 魔数：0xCAFEBABE（咖啡宝贝）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 每个 Class 文件开头都是这个
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>CA FE BA BE <span style="color:#ae81ff">00</span> <span style="color:#ae81ff">00</span> <span style="color:#ae81ff">00</span> <span style="color:#ae81ff">37</span>  <span style="color:#75715e">// Java 55 (JDK 11)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 版本号对应关系
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// JDK 1.1 → 45
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// JDK 1.2 → 46
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// JDK 1.5 → 49
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// JDK 1.8 → 52
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// JDK 9   → 53
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// JDK 11  → 55
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// JDK 17  → 61
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// JDK 21  → 65
+</span></span></span></code></pre></div><h3 id="13-常量池">1.3 常量池</h3>
+<p>常量池是 Class 文件中最大的数据项，存储字面量和符号引用。</p>
+<p><strong>常量池项目类型</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>常量类型</th>
+<th>值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CONSTANT_Utf8</code></td>
+<td>1</td>
+<td>UTF-8 编码字符串</td>
+</tr>
+<tr>
+<td><code>CONSTANT_Integer</code></td>
+<td>3</td>
+<td>int 型字面量</td>
+</tr>
+<tr>
+<td><code>CONSTANT_Float</code></td>
+<td>4</td>
+<td>float 型字面量</td>
+</tr>
+<tr>
+<td><code>CONSTANT_Long</code></td>
+<td>5</td>
+<td>long 型字面量</td>
+</tr>
+<tr>
+<td><code>CONSTANT_Double</code></td>
+<td>6</td>
+<td>double 型字面量</td>
+</tr>
+<tr>
+<td><code>CONSTANT_Class</code></td>
+<td>7</td>
+<td>类或接口的符号引用</td>
+</tr>
+<tr>
+<td><code>CONSTANT_String</code></td>
+<td>8</td>
+<td>String 型字面量</td>
+</tr>
+<tr>
+<td><code>CONSTANT_Fieldref</code></td>
+<td>9</td>
+<td>字段的符号引用</td>
+</tr>
+<tr>
+<td><code>CONSTANT_Methodref</code></td>
+<td>10</td>
+<td>方法的符号引用</td>
+</tr>
+<tr>
+<td><code>CONSTANT_InterfaceMethodref</code></td>
+<td>11</td>
+<td>接口方法的符号引用</td>
+</tr>
+<tr>
+<td><code>CONSTANT_NameAndType</code></td>
+<td>12</td>
+<td>名称和类型的符号引用</td>
+</tr>
+<tr>
+<td><code>CONSTANT_MethodHandle</code></td>
+<td>15</td>
+<td>方法句柄</td>
+</tr>
+<tr>
+<td><code>CONSTANT_MethodType</code></td>
+<td>16</td>
+<td>方法类型</td>
+</tr>
+<tr>
+<td><code>CONSTANT_InvokeDynamic</code></td>
+<td>18</td>
+<td>动态调用点</td>
+</tr>
+</tbody>
+</table>
+<h3 id="14-访问标志">1.4 访问标志</h3>
+<table>
+<thead>
+<tr>
+<th>标志名</th>
+<th>值</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ACC_PUBLIC</td>
+<td>0x0001</td>
+<td>public</td>
+</tr>
+<tr>
+<td>ACC_FINAL</td>
+<td>0x0010</td>
+<td>final</td>
+</tr>
+<tr>
+<td>ACC_SUPER</td>
+<td>0x0020</td>
+<td>使用 invokespecial</td>
+</tr>
+<tr>
+<td>ACC_INTERFACE</td>
+<td>0x0200</td>
+<td>接口</td>
+</tr>
+<tr>
+<td>ACC_ABSTRACT</td>
+<td>0x0400</td>
+<td>abstract</td>
+</tr>
+<tr>
+<td>ACC_SYNTHETIC</td>
+<td>0x1000</td>
+<td>编译器生成</td>
+</tr>
+<tr>
+<td>ACC_ANNOTATION</td>
+<td>0x2000</td>
+<td>注解</td>
+</tr>
+<tr>
+<td>ACC_ENUM</td>
+<td>0x4000</td>
+<td>枚举</td>
+</tr>
+</tbody>
+</table>
+<h3 id="15-实战查看-class-文件">1.5 实战：查看 Class 文件</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 编译</span>
+</span></span><span style="display:flex;"><span>javac Hello.java
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 查看字节码</span>
+</span></span><span style="display:flex;"><span>javap -v Hello.class
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 常用选项</span>
+</span></span><span style="display:flex;"><span>javap -c        <span style="color:#75715e"># 反编译字节码指令</span>
+</span></span><span style="display:flex;"><span>javap -p        <span style="color:#75715e"># 显示私有成员</span>
+</span></span><span style="display:flex;"><span>javap -verbose  <span style="color:#75715e"># 详细信息（含常量池）</span>
+</span></span></code></pre></div><p><strong>示例输出</strong>：</p>
+<pre tabindex="0"><code>Classfile /Hello.class
   Last modified 2026-05-12; size 400 bytes
   MD5 checksum abc123
   Compiled from &#34;Hello.java&#34;
@@ -66,106 +1095,215 @@ Constant pool:
          1: invokespecial #1  // Method java/lang/Object.&#34;&lt;init&gt;&#34;:()V
          4: return
 }
-</code></pre><h2 id=二字节码指令>二、字节码指令</h2><h3 id=21-指令分类>2.1 指令分类</h3><table><thead><tr><th>类型</th><th>指令</th><th>说明</th></tr></thead><tbody><tr><td><strong>加载与存储</strong></td><td>aload、iload、astore、istore</td><td>局部变量 ↔ 操作数栈</td></tr><tr><td><strong>算术</strong></td><td>iadd、isub、imul、idiv</td><td>算术运算</td></tr><tr><td><strong>类型转换</strong></td><td>i2l、i2f、l2d</td><td>基本类型转换</td></tr><tr><td><strong>对象操作</strong></td><td>new、getfield、putfield</td><td>对象创建与访问</td></tr><tr><td><strong>方法调用</strong></td><td>invokevirtual、invokestatic</td><td>方法调用</td></tr><tr><td><strong>数组操作</strong></td><td>newarray、iaload、iastore</td><td>数组操作</td></tr><tr><td><strong>控制流</strong></td><td>ifeq、goto、tableswitch</td><td>条件跳转</td></tr><tr><td><strong>返回</strong></td><td>return、ireturn、areturn</td><td>方法返回</td></tr><tr><td><strong>异常</strong></td><td>athrow</td><td>抛出异常</td></tr><tr><td><strong>同步</strong></td><td>monitorenter、monitorexit</td><td>加锁/解锁</td></tr></tbody></table><h3 id=22-加载与存储指令>2.2 加载与存储指令</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 局部变量 → 操作数栈
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>iload     <span style=color:#75715e>// int 型
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>lload     <span style=color:#75715e>// long 型
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>fload     <span style=color:#75715e>// float 型
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>dload     <span style=color:#75715e>// double 型
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>aload     <span style=color:#75715e>// 对象引用
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 操作数栈 → 局部变量
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>istore    <span style=color:#75715e>// int 型
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>lstore    <span style=color:#75715e>// long 型
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>fstore    <span style=color:#75715e>// float 型
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>dstore    <span style=color:#75715e>// double 型
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>astore    <span style=color:#75715e>// 对象引用
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 常量 → 操作数栈
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>iconst_0  <span style=color:#75715e>// int 0
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>iconst_1  <span style=color:#75715e>// int 1
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>iconst_5  <span style=color:#75715e>// int 5
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>bipush    <span style=color:#75715e>// byte (-128~127)
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>sipush    <span style=color:#75715e>// short (-32768~32767)
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>ldc       <span style=color:#75715e>// int / float / String
-</span></span></span></code></pre></div><h3 id=23-方法调用指令>2.3 方法调用指令</h3><table><thead><tr><th>指令</th><th>说明</th><th>示例</th></tr></thead><tbody><tr><td><code>invokevirtual</code></td><td>虚方法（多态）</td><td>实例方法调用</td></tr><tr><td><code>invokestatic</code></td><td>静态方法</td><td><code>Math.max()</code></td></tr><tr><td><code>invokespecial</code></td><td>特殊方法</td><td>构造函数、private、super</td></tr><tr><td><code>invokeinterface</code></td><td>接口方法</td><td>通过接口引用调用</td></tr><tr><td><code>invokedynamic</code></td><td>动态调用</td><td>Lambda、方法引用</td></tr></tbody></table><p><strong>示例</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// Java 代码
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>Demo</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>test</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;hello&#34;</span><span style=color:#f92672>);</span>  <span style=color:#75715e>// invokevirtual
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        Math<span style=color:#f92672>.</span><span style=color:#a6e22e>max</span><span style=color:#f92672>(</span><span style=color:#ae81ff>1</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>2</span><span style=color:#f92672>);</span>              <span style=color:#75715e>// invokestatic
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>new</span> Object<span style=color:#f92672>();</span>                 <span style=color:#75715e>// invokespecial
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        Runnable r <span style=color:#f92672>=</span> <span style=color:#f92672>()</span> <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{};</span>        <span style=color:#75715e>// invokedynamic
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span></code></pre></div><h3 id=24-字节码实战>2.4 字节码实战</h3><p><strong>示例 1：i++ vs ++i</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// i++
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>incrementPost</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    i<span style=color:#f92672>++;</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 字节码
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>0</span><span style=color:#f92672>:</span> iconst_0      <span style=color:#75715e>// 将 0 压入操作数栈
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>1</span><span style=color:#f92672>:</span> istore_1      <span style=color:#75715e>// 存入局部变量表 slot 1（i = 0）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>2</span><span style=color:#f92672>:</span> iload_1       <span style=color:#75715e>// 加载 i 到操作数栈
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>3</span><span style=color:#f92672>:</span> iinc          <span style=color:#ae81ff>1</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>1</span>  <span style=color:#75715e>// 局部变量表 slot 1 加 1
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>6</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>return</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// ++i
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>incrementPre</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>++</span>i<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 字节码
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>0</span><span style=color:#f92672>:</span> iconst_0
-</span></span><span style=display:flex><span><span style=color:#ae81ff>1</span><span style=color:#f92672>:</span> istore_1
-</span></span><span style=display:flex><span><span style=color:#ae81ff>2</span><span style=color:#f92672>:</span> iinc          <span style=color:#ae81ff>1</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>1</span>  <span style=color:#75715e>// 局部变量表 slot 1 加 1（先加）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>5</span><span style=color:#f92672>:</span> iload_1       <span style=color:#75715e>// 加载 i 到操作数栈（后加载）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>6</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>return</span>
-</span></span></code></pre></div><p><strong>示例 2：synchronized 字节码</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// Java 代码
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>syncMethod</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>synchronized</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>this</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        count<span style=color:#f92672>++;</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 字节码
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>0</span><span style=color:#f92672>:</span> aload_0                     <span style=color:#75715e>// 加载 this
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>1</span><span style=color:#f92672>:</span> dup                         <span style=color:#75715e>// 复制引用
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>2</span><span style=color:#f92672>:</span> astore_1                    <span style=color:#75715e>// 存入临时变量
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>3</span><span style=color:#f92672>:</span> monitorenter                <span style=color:#75715e>// 加锁
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>4</span><span style=color:#f92672>:</span> aload_0                     <span style=color:#75715e>// 加载 this
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>5</span><span style=color:#f92672>:</span> dup                         <span style=color:#75715e>// 复制
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>6</span><span style=color:#f92672>:</span> getfield      <span style=color:#960050;background-color:#1e0010>#</span><span style=color:#ae81ff>2</span>            <span style=color:#75715e>// 读取 count
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>9</span><span style=color:#f92672>:</span> iconst_1                    <span style=color:#75715e>// 常量 1
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>10</span><span style=color:#f92672>:</span> iadd                       <span style=color:#75715e>// 加 1
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>11</span><span style=color:#f92672>:</span> putfield     <span style=color:#960050;background-color:#1e0010>#</span><span style=color:#ae81ff>2</span>            <span style=color:#75715e>// 写回 count
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>14</span><span style=color:#f92672>:</span> aload_1                    <span style=color:#75715e>// 加载临时变量
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>15</span><span style=color:#f92672>:</span> monitorexit                <span style=color:#75715e>// 解锁（正常路径）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>16</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>goto</span>          <span style=color:#ae81ff>24</span>           <span style=color:#75715e>// 跳转到 return
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>19</span><span style=color:#f92672>:</span> astore_2                   <span style=color:#75715e>// 异常处理
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>20</span><span style=color:#f92672>:</span> aload_1                    <span style=color:#75715e>// 加载临时变量
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>21</span><span style=color:#f92672>:</span> monitorexit                <span style=color:#75715e>// 解锁（异常路径）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>22</span><span style=color:#f92672>:</span> aload_2                    <span style=color:#75715e>// 重新抛出异常
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>23</span><span style=color:#f92672>:</span> athrow
-</span></span><span style=display:flex><span><span style=color:#ae81ff>24</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>return</span>
-</span></span></code></pre></div><p><strong>关键</strong>：synchronized 有两个 monitorexit（正常 + 异常路径），确保锁一定会释放。</p><h3 id=25-lambda-的字节码>2.5 Lambda 的字节码</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// Java 代码
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>lambdaDemo</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    Runnable r <span style=color:#f92672>=</span> <span style=color:#f92672>()</span> <span style=color:#f92672>-&gt;</span> System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;hello&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>    r<span style=color:#f92672>.</span><span style=color:#a6e22e>run</span><span style=color:#f92672>();</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 字节码
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>0</span><span style=color:#f92672>:</span> invokedynamic <span style=color:#960050;background-color:#1e0010>#</span><span style=color:#ae81ff>2</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>0</span>  <span style=color:#75715e>// InvokeDynamic Runnable.run:()V
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>5</span><span style=color:#f92672>:</span> astore_1
-</span></span><span style=display:flex><span><span style=color:#ae81ff>6</span><span style=color:#f92672>:</span> aload_1
-</span></span><span style=display:flex><span><span style=color:#ae81ff>7</span><span style=color:#f92672>:</span> invokeinterface <span style=color:#960050;background-color:#1e0010>#</span><span style=color:#ae81ff>3</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>1</span>  <span style=color:#75715e>// InterfaceMethod Runnable.run:()V
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#ae81ff>12</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>return</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// Lambda 体编译为私有静态方法
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>lambda$lambdaDemo$0</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;hello&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span></code></pre></div><h2 id=三栈帧结构>三、栈帧结构</h2><h3 id=31-栈帧组成>3.1 栈帧组成</h3><pre tabindex=0><code>┌──────────────────────────────────────────────┐
+</code></pre><h2 id="二字节码指令">二、字节码指令</h2>
+<h3 id="21-指令分类">2.1 指令分类</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>指令</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>加载与存储</strong></td>
+<td>aload、iload、astore、istore</td>
+<td>局部变量 ↔ 操作数栈</td>
+</tr>
+<tr>
+<td><strong>算术</strong></td>
+<td>iadd、isub、imul、idiv</td>
+<td>算术运算</td>
+</tr>
+<tr>
+<td><strong>类型转换</strong></td>
+<td>i2l、i2f、l2d</td>
+<td>基本类型转换</td>
+</tr>
+<tr>
+<td><strong>对象操作</strong></td>
+<td>new、getfield、putfield</td>
+<td>对象创建与访问</td>
+</tr>
+<tr>
+<td><strong>方法调用</strong></td>
+<td>invokevirtual、invokestatic</td>
+<td>方法调用</td>
+</tr>
+<tr>
+<td><strong>数组操作</strong></td>
+<td>newarray、iaload、iastore</td>
+<td>数组操作</td>
+</tr>
+<tr>
+<td><strong>控制流</strong></td>
+<td>ifeq、goto、tableswitch</td>
+<td>条件跳转</td>
+</tr>
+<tr>
+<td><strong>返回</strong></td>
+<td>return、ireturn、areturn</td>
+<td>方法返回</td>
+</tr>
+<tr>
+<td><strong>异常</strong></td>
+<td>athrow</td>
+<td>抛出异常</td>
+</tr>
+<tr>
+<td><strong>同步</strong></td>
+<td>monitorenter、monitorexit</td>
+<td>加锁/解锁</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-加载与存储指令">2.2 加载与存储指令</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 局部变量 → 操作数栈
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>iload     <span style="color:#75715e">// int 型
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>lload     <span style="color:#75715e">// long 型
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>fload     <span style="color:#75715e">// float 型
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>dload     <span style="color:#75715e">// double 型
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>aload     <span style="color:#75715e">// 对象引用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 操作数栈 → 局部变量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>istore    <span style="color:#75715e">// int 型
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>lstore    <span style="color:#75715e">// long 型
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>fstore    <span style="color:#75715e">// float 型
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>dstore    <span style="color:#75715e">// double 型
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>astore    <span style="color:#75715e">// 对象引用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 常量 → 操作数栈
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>iconst_0  <span style="color:#75715e">// int 0
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>iconst_1  <span style="color:#75715e">// int 1
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>iconst_5  <span style="color:#75715e">// int 5
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>bipush    <span style="color:#75715e">// byte (-128~127)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>sipush    <span style="color:#75715e">// short (-32768~32767)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>ldc       <span style="color:#75715e">// int / float / String
+</span></span></span></code></pre></div><h3 id="23-方法调用指令">2.3 方法调用指令</h3>
+<table>
+<thead>
+<tr>
+<th>指令</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>invokevirtual</code></td>
+<td>虚方法（多态）</td>
+<td>实例方法调用</td>
+</tr>
+<tr>
+<td><code>invokestatic</code></td>
+<td>静态方法</td>
+<td><code>Math.max()</code></td>
+</tr>
+<tr>
+<td><code>invokespecial</code></td>
+<td>特殊方法</td>
+<td>构造函数、private、super</td>
+</tr>
+<tr>
+<td><code>invokeinterface</code></td>
+<td>接口方法</td>
+<td>通过接口引用调用</td>
+</tr>
+<tr>
+<td><code>invokedynamic</code></td>
+<td>动态调用</td>
+<td>Lambda、方法引用</td>
+</tr>
+</tbody>
+</table>
+<p><strong>示例</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Java 代码
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Demo</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">test</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;hello&#34;</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// invokevirtual
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        Math<span style="color:#f92672">.</span><span style="color:#a6e22e">max</span><span style="color:#f92672">(</span><span style="color:#ae81ff">1</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">2</span><span style="color:#f92672">);</span>              <span style="color:#75715e">// invokestatic
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">new</span> Object<span style="color:#f92672">();</span>                 <span style="color:#75715e">// invokespecial
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        Runnable r <span style="color:#f92672">=</span> <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{};</span>        <span style="color:#75715e">// invokedynamic
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="24-字节码实战">2.4 字节码实战</h3>
+<p><strong>示例 1：i++ vs ++i</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// i++
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">incrementPost</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    i<span style="color:#f92672">++;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 字节码
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">0</span><span style="color:#f92672">:</span> iconst_0      <span style="color:#75715e">// 将 0 压入操作数栈
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">1</span><span style="color:#f92672">:</span> istore_1      <span style="color:#75715e">// 存入局部变量表 slot 1（i = 0）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">2</span><span style="color:#f92672">:</span> iload_1       <span style="color:#75715e">// 加载 i 到操作数栈
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">3</span><span style="color:#f92672">:</span> iinc          <span style="color:#ae81ff">1</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">1</span>  <span style="color:#75715e">// 局部变量表 slot 1 加 1
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">6</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ++i
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">incrementPre</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">++</span>i<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 字节码
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">0</span><span style="color:#f92672">:</span> iconst_0
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">1</span><span style="color:#f92672">:</span> istore_1
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">2</span><span style="color:#f92672">:</span> iinc          <span style="color:#ae81ff">1</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">1</span>  <span style="color:#75715e">// 局部变量表 slot 1 加 1（先加）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">5</span><span style="color:#f92672">:</span> iload_1       <span style="color:#75715e">// 加载 i 到操作数栈（后加载）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">6</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">return</span>
+</span></span></code></pre></div><p><strong>示例 2：synchronized 字节码</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Java 代码
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">syncMethod</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        count<span style="color:#f92672">++;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 字节码
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">0</span><span style="color:#f92672">:</span> aload_0                     <span style="color:#75715e">// 加载 this
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">1</span><span style="color:#f92672">:</span> dup                         <span style="color:#75715e">// 复制引用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">2</span><span style="color:#f92672">:</span> astore_1                    <span style="color:#75715e">// 存入临时变量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">3</span><span style="color:#f92672">:</span> monitorenter                <span style="color:#75715e">// 加锁
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">4</span><span style="color:#f92672">:</span> aload_0                     <span style="color:#75715e">// 加载 this
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">5</span><span style="color:#f92672">:</span> dup                         <span style="color:#75715e">// 复制
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">6</span><span style="color:#f92672">:</span> getfield      <span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">2</span>            <span style="color:#75715e">// 读取 count
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">9</span><span style="color:#f92672">:</span> iconst_1                    <span style="color:#75715e">// 常量 1
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">10</span><span style="color:#f92672">:</span> iadd                       <span style="color:#75715e">// 加 1
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">11</span><span style="color:#f92672">:</span> putfield     <span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">2</span>            <span style="color:#75715e">// 写回 count
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">14</span><span style="color:#f92672">:</span> aload_1                    <span style="color:#75715e">// 加载临时变量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">15</span><span style="color:#f92672">:</span> monitorexit                <span style="color:#75715e">// 解锁（正常路径）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">16</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">goto</span>          <span style="color:#ae81ff">24</span>           <span style="color:#75715e">// 跳转到 return
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">19</span><span style="color:#f92672">:</span> astore_2                   <span style="color:#75715e">// 异常处理
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">20</span><span style="color:#f92672">:</span> aload_1                    <span style="color:#75715e">// 加载临时变量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">21</span><span style="color:#f92672">:</span> monitorexit                <span style="color:#75715e">// 解锁（异常路径）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">22</span><span style="color:#f92672">:</span> aload_2                    <span style="color:#75715e">// 重新抛出异常
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">23</span><span style="color:#f92672">:</span> athrow
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">24</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">return</span>
+</span></span></code></pre></div><p><strong>关键</strong>：synchronized 有两个 monitorexit（正常 + 异常路径），确保锁一定会释放。</p>
+<h3 id="25-lambda-的字节码">2.5 Lambda 的字节码</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Java 代码
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">lambdaDemo</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    Runnable r <span style="color:#f92672">=</span> <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;hello&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    r<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 字节码
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">0</span><span style="color:#f92672">:</span> invokedynamic <span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">2</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">0</span>  <span style="color:#75715e">// InvokeDynamic Runnable.run:()V
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">5</span><span style="color:#f92672">:</span> astore_1
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">6</span><span style="color:#f92672">:</span> aload_1
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">7</span><span style="color:#f92672">:</span> invokeinterface <span style="color:#960050;background-color:#1e0010">#</span><span style="color:#ae81ff">3</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">1</span>  <span style="color:#75715e">// InterfaceMethod Runnable.run:()V
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">12</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">return</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Lambda 体编译为私有静态方法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">lambda$lambdaDemo$0</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;hello&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h2 id="三栈帧结构">三、栈帧结构</h2>
+<h3 id="31-栈帧组成">3.1 栈帧组成</h3>
+<pre tabindex="0"><code>┌──────────────────────────────────────────────┐
 │                  栈帧                         │
 ├──────────────────────────────────────────────┤
 │  局部变量表（Local Variable Table）           │
@@ -184,50 +1322,194 @@ Constant pool:
 │                                              │
 │  方法返回地址（Return Address）               │
 └──────────────────────────────────────────────┘
-</code></pre><h3 id=32-局部变量表>3.2 局部变量表</h3><ul><li>存储<strong>方法参数</strong>和<strong>局部变量</strong></li><li>以 slot 为单位（32 位类型占 1 slot，64 位占 2 slot）</li><li>实例方法 slot 0 是 <code>this</code></li></ul><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>test</span><span style=color:#f92672>(</span><span style=color:#66d9ef>int</span> a<span style=color:#f92672>,</span> <span style=color:#66d9ef>long</span> b<span style=color:#f92672>,</span> String c<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> d <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 局部变量表
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// slot 0: this
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// slot 1: a (int, 1 slot)
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// slot 2-3: b (long, 2 slots)
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// slot 4: c (String 引用, 1 slot)
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// slot 5: d (int, 1 slot)
-</span></span></span></code></pre></div><h2 id=四字节码增强技术>四、字节码增强技术</h2><h3 id=41-asm>4.1 ASM</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// ASM：底层字节码操作框架
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>ClassWriter cw <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ClassWriter<span style=color:#f92672>(</span>ClassWriter<span style=color:#f92672>.</span><span style=color:#a6e22e>COMPUTE_MAXS</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>cw<span style=color:#f92672>.</span><span style=color:#a6e22e>visit</span><span style=color:#f92672>(</span>V1_8<span style=color:#f92672>,</span> ACC_PUBLIC<span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;Hello&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;java/lang/Object&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 添加字段
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>FieldVisitor fv <span style=color:#f92672>=</span> cw<span style=color:#f92672>.</span><span style=color:#a6e22e>visitField</span><span style=color:#f92672>(</span>ACC_PRIVATE<span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;name&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;Ljava/lang/String;&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>fv<span style=color:#f92672>.</span><span style=color:#a6e22e>visitEnd</span><span style=color:#f92672>();</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 添加方法
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>MethodVisitor mv <span style=color:#f92672>=</span> cw<span style=color:#f92672>.</span><span style=color:#a6e22e>visitMethod</span><span style=color:#f92672>(</span>ACC_PUBLIC<span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;getName&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;()Ljava/lang/String;&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>mv<span style=color:#f92672>.</span><span style=color:#a6e22e>visitCode</span><span style=color:#f92672>();</span>
-</span></span><span style=display:flex><span>mv<span style=color:#f92672>.</span><span style=color:#a6e22e>visitVarInsn</span><span style=color:#f92672>(</span>ALOAD<span style=color:#f92672>,</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>mv<span style=color:#f92672>.</span><span style=color:#a6e22e>visitFieldInsn</span><span style=color:#f92672>(</span>GETFIELD<span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;Hello&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;name&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;Ljava/lang/String;&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>mv<span style=color:#f92672>.</span><span style=color:#a6e22e>visitInsn</span><span style=color:#f92672>(</span>ARETURN<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>mv<span style=color:#f92672>.</span><span style=color:#a6e22e>visitMaxs</span><span style=color:#f92672>(</span><span style=color:#ae81ff>1</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>1</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>mv<span style=color:#f92672>.</span><span style=color:#a6e22e>visitEnd</span><span style=color:#f92672>();</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>cw<span style=color:#f92672>.</span><span style=color:#a6e22e>visitEnd</span><span style=color:#f92672>();</span>
-</span></span><span style=display:flex><span><span style=color:#66d9ef>byte</span><span style=color:#f92672>[]</span> bytes <span style=color:#f92672>=</span> cw<span style=color:#f92672>.</span><span style=color:#a6e22e>toByteArray</span><span style=color:#f92672>();</span>
-</span></span></code></pre></div><h3 id=42-javassist>4.2 Javassist</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// Javassist：高层字节码操作
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>ClassPool pool <span style=color:#f92672>=</span> ClassPool<span style=color:#f92672>.</span><span style=color:#a6e22e>getDefault</span><span style=color:#f92672>();</span>
-</span></span><span style=display:flex><span>CtClass cc <span style=color:#f92672>=</span> pool<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;com.example.Hello&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 添加方法
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>CtMethod method <span style=color:#f92672>=</span> CtNewMethod<span style=color:#f92672>.</span><span style=color:#a6e22e>make</span><span style=color:#f92672>(</span>
-</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;public void hello() { System.out.println(\&#34;Hello\&#34;); }&#34;</span><span style=color:#f92672>,</span> 
-</span></span><span style=display:flex><span>    cc
-</span></span><span style=display:flex><span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>cc<span style=color:#f92672>.</span><span style=color:#a6e22e>addMethod</span><span style=color:#f92672>(</span>method<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 修改方法体
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>CtMethod existingMethod <span style=color:#f92672>=</span> cc<span style=color:#f92672>.</span><span style=color:#a6e22e>getDeclaredMethod</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;greet&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>existingMethod<span style=color:#f92672>.</span><span style=color:#a6e22e>insertBefore</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;{ System.out.println(\&#34;Before\&#34;); }&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>existingMethod<span style=color:#f92672>.</span><span style=color:#a6e22e>insertAfter</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;{ System.out.println(\&#34;After\&#34;); }&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span>cc<span style=color:#f92672>.</span><span style=color:#a6e22e>toClass</span><span style=color:#f92672>();</span>
-</span></span></code></pre></div><h3 id=43-应用场景>4.3 应用场景</h3><table><thead><tr><th>场景</th><th>工具</th></tr></thead><tbody><tr><td>AOP</td><td>AspectJ、Spring AOP</td></tr><tr><td>热部署</td><td>JRebel、HotSwap</td></tr><tr><td>性能监控</td><td>SkyWalking、Pinpoint</td></tr><tr><td>代码生成</td><td>Lombok、MapStruct</td></tr><tr><td>动态代理</td><td>JDK Proxy、CGLIB</td></tr></tbody></table><h2 id=五面试高频问题>五、面试高频问题</h2><h3 id=q1class-文件的结构>Q1：Class 文件的结构？</h3><p><strong>答</strong>：</p><ul><li>魔数（0xCAFEBABE）</li><li>版本号</li><li>常量池</li><li>访问标志</li><li>类/父类/接口</li><li>字段表</li><li>方法表</li><li>属性表</li></ul><h3 id=q2i-和-i-的字节码区别>Q2：i++ 和 ++i 的字节码区别？</h3><p><strong>答</strong>：</p><ul><li><code>i++</code>：先 iload（加载），再 iinc（加1）</li><li><code>++i</code>：先 iinc（加1），再 iload（加载）</li><li>单独使用时效果一样，赋值时结果不同</li></ul><h3 id=q3invokedynamic-是什么>Q3：invokedynamic 是什么？</h3><p><strong>答</strong>：</p><ul><li>Java 7 引入的动态调用指令</li><li>支持 Lambda 表达式、方法引用</li><li>运行时动态解析调用点</li><li>比 invokevirtual 更灵活</li></ul><h3 id=q4synchronized-的字节码实现>Q4：synchronized 的字节码实现？</h3><p><strong>答</strong>：</p><ul><li>同步代码块：<code>monitorenter</code> + <code>monitorexit</code></li><li>有两个 monitorexit（正常 + 异常），确保锁释放</li><li>同步方法：<code>ACC_SYNCHRONIZED</code> 标志</li></ul><h3 id=q5字节码增强有哪些应用>Q5：字节码增强有哪些应用？</h3><p><strong>答</strong>：</p><ul><li>AOP（Spring）</li><li>性能监控（SkyWalking）</li><li>代码生成（Lombok）</li><li>热部署（JRebel）</li></ul><h2 id=六总结>六、总结</h2><p><strong>Class 文件核心要点</strong>：</p><ul><li><strong>结构</strong>：魔数 → 版本 → 常量池 → 访问标志 → 类信息 → 字段 → 方法 → 属性</li><li><strong>常量池</strong>：存储字面量和符号引用</li><li><strong>字节码指令</strong>：加载、算术、类型转换、对象操作、方法调用、控制流</li></ul><p><strong>方法调用指令</strong>：</p><table><thead><tr><th>指令</th><th>用途</th></tr></thead><tbody><tr><td>invokevirtual</td><td>实例方法（多态）</td></tr><tr><td>invokestatic</td><td>静态方法</td></tr><tr><td>invokespecial</td><td>构造函数、private、super</td></tr><tr><td>invokeinterface</td><td>接口方法</td></tr><tr><td>invokedynamic</td><td>Lambda、动态调用</td></tr></tbody></table><p><strong>最佳实践</strong>：</p><ol><li>使用 <code>javap -v</code> 查看字节码</li><li>理解字节码有助于理解并发问题</li><li>字节码增强是高级技术，需要谨慎使用</li></ol><hr><p><strong>下一篇预告</strong>：Spring Boot 自动配置原理深度解析</p><p><strong>参考资料</strong>：</p><ul><li>《深入理解 Java 虚拟机》- 周志明</li><li>Java 虚拟机规范：https://docs.oracle.com/javase/specs/jvms/se17/html/</li><li>ASM 官方文档：https://asm.ow2.io/</li></ul></div></article></main><footer><p>&copy; 2026 Raphael</p></footer></body></html>
+</code></pre><h3 id="32-局部变量表">3.2 局部变量表</h3>
+<ul>
+<li>存储<strong>方法参数</strong>和<strong>局部变量</strong></li>
+<li>以 slot 为单位（32 位类型占 1 slot，64 位占 2 slot）</li>
+<li>实例方法 slot 0 是 <code>this</code></li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">test</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> a<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> b<span style="color:#f92672">,</span> String c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> d <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 局部变量表
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// slot 0: this
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// slot 1: a (int, 1 slot)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// slot 2-3: b (long, 2 slots)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// slot 4: c (String 引用, 1 slot)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// slot 5: d (int, 1 slot)
+</span></span></span></code></pre></div><h2 id="四字节码增强技术">四、字节码增强技术</h2>
+<h3 id="41-asm">4.1 ASM</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// ASM：底层字节码操作框架
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>ClassWriter cw <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ClassWriter<span style="color:#f92672">(</span>ClassWriter<span style="color:#f92672">.</span><span style="color:#a6e22e">COMPUTE_MAXS</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>cw<span style="color:#f92672">.</span><span style="color:#a6e22e">visit</span><span style="color:#f92672">(</span>V1_8<span style="color:#f92672">,</span> ACC_PUBLIC<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;Hello&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;java/lang/Object&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 添加字段
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>FieldVisitor fv <span style="color:#f92672">=</span> cw<span style="color:#f92672">.</span><span style="color:#a6e22e">visitField</span><span style="color:#f92672">(</span>ACC_PRIVATE<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;name&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;Ljava/lang/String;&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>fv<span style="color:#f92672">.</span><span style="color:#a6e22e">visitEnd</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 添加方法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>MethodVisitor mv <span style="color:#f92672">=</span> cw<span style="color:#f92672">.</span><span style="color:#a6e22e">visitMethod</span><span style="color:#f92672">(</span>ACC_PUBLIC<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;getName&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;()Ljava/lang/String;&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>mv<span style="color:#f92672">.</span><span style="color:#a6e22e">visitCode</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>mv<span style="color:#f92672">.</span><span style="color:#a6e22e">visitVarInsn</span><span style="color:#f92672">(</span>ALOAD<span style="color:#f92672">,</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>mv<span style="color:#f92672">.</span><span style="color:#a6e22e">visitFieldInsn</span><span style="color:#f92672">(</span>GETFIELD<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;Hello&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;name&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;Ljava/lang/String;&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>mv<span style="color:#f92672">.</span><span style="color:#a6e22e">visitInsn</span><span style="color:#f92672">(</span>ARETURN<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>mv<span style="color:#f92672">.</span><span style="color:#a6e22e">visitMaxs</span><span style="color:#f92672">(</span><span style="color:#ae81ff">1</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>mv<span style="color:#f92672">.</span><span style="color:#a6e22e">visitEnd</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>cw<span style="color:#f92672">.</span><span style="color:#a6e22e">visitEnd</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> bytes <span style="color:#f92672">=</span> cw<span style="color:#f92672">.</span><span style="color:#a6e22e">toByteArray</span><span style="color:#f92672">();</span>
+</span></span></code></pre></div><h3 id="42-javassist">4.2 Javassist</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Javassist：高层字节码操作
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>ClassPool pool <span style="color:#f92672">=</span> ClassPool<span style="color:#f92672">.</span><span style="color:#a6e22e">getDefault</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>CtClass cc <span style="color:#f92672">=</span> pool<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;com.example.Hello&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 添加方法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>CtMethod method <span style="color:#f92672">=</span> CtNewMethod<span style="color:#f92672">.</span><span style="color:#a6e22e">make</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;public void hello() { System.out.println(\&#34;Hello\&#34;); }&#34;</span><span style="color:#f92672">,</span> 
+</span></span><span style="display:flex;"><span>    cc
+</span></span><span style="display:flex;"><span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>cc<span style="color:#f92672">.</span><span style="color:#a6e22e">addMethod</span><span style="color:#f92672">(</span>method<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 修改方法体
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>CtMethod existingMethod <span style="color:#f92672">=</span> cc<span style="color:#f92672">.</span><span style="color:#a6e22e">getDeclaredMethod</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;greet&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>existingMethod<span style="color:#f92672">.</span><span style="color:#a6e22e">insertBefore</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;{ System.out.println(\&#34;Before\&#34;); }&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>existingMethod<span style="color:#f92672">.</span><span style="color:#a6e22e">insertAfter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;{ System.out.println(\&#34;After\&#34;); }&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>cc<span style="color:#f92672">.</span><span style="color:#a6e22e">toClass</span><span style="color:#f92672">();</span>
+</span></span></code></pre></div><h3 id="43-应用场景">4.3 应用场景</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>工具</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AOP</td>
+<td>AspectJ、Spring AOP</td>
+</tr>
+<tr>
+<td>热部署</td>
+<td>JRebel、HotSwap</td>
+</tr>
+<tr>
+<td>性能监控</td>
+<td>SkyWalking、Pinpoint</td>
+</tr>
+<tr>
+<td>代码生成</td>
+<td>Lombok、MapStruct</td>
+</tr>
+<tr>
+<td>动态代理</td>
+<td>JDK Proxy、CGLIB</td>
+</tr>
+</tbody>
+</table>
+<h2 id="五面试高频问题">五、面试高频问题</h2>
+<h3 id="q1class-文件的结构">Q1：Class 文件的结构？</h3>
+<p><strong>答</strong>：</p>
+<ul>
+<li>魔数（0xCAFEBABE）</li>
+<li>版本号</li>
+<li>常量池</li>
+<li>访问标志</li>
+<li>类/父类/接口</li>
+<li>字段表</li>
+<li>方法表</li>
+<li>属性表</li>
+</ul>
+<h3 id="q2i-和-i-的字节码区别">Q2：i++ 和 ++i 的字节码区别？</h3>
+<p><strong>答</strong>：</p>
+<ul>
+<li><code>i++</code>：先 iload（加载），再 iinc（加1）</li>
+<li><code>++i</code>：先 iinc（加1），再 iload（加载）</li>
+<li>单独使用时效果一样，赋值时结果不同</li>
+</ul>
+<h3 id="q3invokedynamic-是什么">Q3：invokedynamic 是什么？</h3>
+<p><strong>答</strong>：</p>
+<ul>
+<li>Java 7 引入的动态调用指令</li>
+<li>支持 Lambda 表达式、方法引用</li>
+<li>运行时动态解析调用点</li>
+<li>比 invokevirtual 更灵活</li>
+</ul>
+<h3 id="q4synchronized-的字节码实现">Q4：synchronized 的字节码实现？</h3>
+<p><strong>答</strong>：</p>
+<ul>
+<li>同步代码块：<code>monitorenter</code> + <code>monitorexit</code></li>
+<li>有两个 monitorexit（正常 + 异常），确保锁释放</li>
+<li>同步方法：<code>ACC_SYNCHRONIZED</code> 标志</li>
+</ul>
+<h3 id="q5字节码增强有哪些应用">Q5：字节码增强有哪些应用？</h3>
+<p><strong>答</strong>：</p>
+<ul>
+<li>AOP（Spring）</li>
+<li>性能监控（SkyWalking）</li>
+<li>代码生成（Lombok）</li>
+<li>热部署（JRebel）</li>
+</ul>
+<h2 id="六总结">六、总结</h2>
+<p><strong>Class 文件核心要点</strong>：</p>
+<ul>
+<li><strong>结构</strong>：魔数 → 版本 → 常量池 → 访问标志 → 类信息 → 字段 → 方法 → 属性</li>
+<li><strong>常量池</strong>：存储字面量和符号引用</li>
+<li><strong>字节码指令</strong>：加载、算术、类型转换、对象操作、方法调用、控制流</li>
+</ul>
+<p><strong>方法调用指令</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>指令</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>invokevirtual</td>
+<td>实例方法（多态）</td>
+</tr>
+<tr>
+<td>invokestatic</td>
+<td>静态方法</td>
+</tr>
+<tr>
+<td>invokespecial</td>
+<td>构造函数、private、super</td>
+</tr>
+<tr>
+<td>invokeinterface</td>
+<td>接口方法</td>
+</tr>
+<tr>
+<td>invokedynamic</td>
+<td>Lambda、动态调用</td>
+</tr>
+</tbody>
+</table>
+<p><strong>最佳实践</strong>：</p>
+<ol>
+<li>使用 <code>javap -v</code> 查看字节码</li>
+<li>理解字节码有助于理解并发问题</li>
+<li>字节码增强是高级技术，需要谨慎使用</li>
+</ol>
+<hr>
+<p><strong>下一篇预告</strong>：Spring Boot 自动配置原理深度解析</p>
+<p><strong>参考资料</strong>：</p>
+<ul>
+<li>《深入理解 Java 虚拟机》- 周志明</li>
+<li>Java 虚拟机规范：https://docs.oracle.com/javase/specs/jvms/se17/html/</li>
+<li>ASM 官方文档：https://asm.ow2.io/</li>
+</ul>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 Raphael</p>
+    </footer>
+</body>
+</html>

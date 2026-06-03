@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库面试八股文（六）——MySQL日志系统与主从复制 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-06-03 <span>/</span> 数据库 </div>
+        <h1>数据库面试八股文（六）——MySQL日志系统与主从复制</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="数据库面试八股文六mysql日志系统与主从复制">数据库面试八股文（六）——MySQL日志系统与主从复制</h1>
+<blockquote>
+<p>面试高频考点：MySQL三大日志的作用与协作机制、WAL技术、主从复制原理与延迟优化。本文从日志写入流程到底层复制机制，全面梳理面试必问知识点。</p>
+</blockquote>
+<hr>
+<h2 id="一mysql三大日志体系">一、MySQL三大日志体系</h2>
+<h3 id="11-日志全景">1.1 日志全景</h3>
+<table>
+<thead>
+<tr>
+<th>日志类型</th>
+<th>层级</th>
+<th>作用</th>
+<th>写入时机</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Redo Log</td>
+<td>InnoDB引擎层</td>
+<td>崩溃恢复，保证持久性</td>
+<td>事务执行中</td>
+</tr>
+<tr>
+<td>Undo Log</td>
+<td>InnoDB引擎层</td>
+<td>事务回滚，MVCC</td>
+<td>事务执行中</td>
+</tr>
+<tr>
+<td>Binlog</td>
+<td>Server层</td>
+<td>主从复制，数据备份</td>
+<td>事务提交时</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12-为什么需要三种日志">1.2 为什么需要三种日志？</h3>
+<p><strong>核心问题</strong>：如果只有一种日志，能同时满足崩溃恢复和数据复制吗？</p>
+<ul>
+<li><strong>Redo Log</strong> 是物理日志，记录&quot;某数据页做了什么修改&quot;，循环写入，空间固定会覆盖</li>
+<li><strong>Binlog</strong> 是逻辑日志，记录&quot;对某行执行了什么SQL&quot;，追加写入，不会覆盖</li>
+<li><strong>Undo Log</strong> 是逻辑日志，记录&quot;数据修改前的值&quot;，用于回滚和MVCC读</li>
+</ul>
+<blockquote>
+<p>💡 <strong>面试口诀</strong>：Redo保持久，Undo保回滚，Binlog保复制</p>
+</blockquote>
+<hr>
+<h2 id="二redo-log重做日志">二、Redo Log（重做日志）</h2>
+<h3 id="21-wal技术">2.1 WAL技术</h3>
+<p>WAL（Write-Ahead Logging）是Redo Log的核心思想：<strong>先写日志，再写磁盘</strong>。</p>
+<pre tabindex="0"><code>传统方式：修改数据页 → 写入磁盘（随机IO，慢）
+WAL方式：  修改数据页 → 写Redo Log（顺序IO，快）→ 异步刷盘
+</code></pre><p><strong>为什么WAL更快？</strong></p>
+<ul>
+<li>顺序写 &raquo; 随机写（机械硬盘差距100倍+，SSD差距也很大）</li>
+<li>Redo Log是固定大小循环写，不需要寻道</li>
+<li>数据页可以在合适时机批量刷盘（Checkpoint机制）</li>
+</ul>
+<h3 id="22-redo-log结构">2.2 Redo Log结构</h3>
+<pre tabindex="0"><code>┌──────────────────────────────────────────┐
+│              Redo Log Buffer             │
+│           (内存中的日志缓冲区)              │
+└──────────────┬───────────────────────────┘
+               │ os buffer
+               ▼
+┌──────────────────────────────────────────┐
+│           Redo Log File                  │
+│  ┌────┬────┬────┬────┐                   │
+│  │file0│file1│file2│file3│  (ib_logfile) │
+│  └────┴────┴────┴────┘                   │
+│  write pos →    ← checkpoint             │
+└──────────────────────────────────────────┘
+</code></pre><p><strong>关键概念</strong>：</p>
+<ul>
+<li><strong>write pos</strong>：当前写入位置，一边写一边后移</li>
+<li><strong>checkpoint</strong>：当前擦除位置，表示之前的脏页已刷盘</li>
+<li>两者之间空白区域为可用空间</li>
+<li>write pos追上checkpoint时需先推进checkpoint（强制刷脏页）</li>
+</ul>
+<h3 id="23-redo-log刷盘策略">2.3 Redo Log刷盘策略</h3>
+<p><code>innodb_flush_log_at_trx_commit</code> 控制刷盘时机：</p>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>行为</th>
+<th>安全性</th>
+<th>性能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>每秒刷一次</td>
+<td>可能丢1秒数据</td>
+<td>最高</td>
+</tr>
+<tr>
+<td>1</td>
+<td>每次提交都刷盘</td>
+<td>不丢数据</td>
+<td>最低</td>
+</tr>
+<tr>
+<td>2</td>
+<td>每次提交写os cache，每秒fsync</td>
+<td>os崩溃可能丢1秒</td>
+<td>中等</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>⚠️ <strong>面试重点</strong>：生产环境必须设为1，保证ACID的持久性</p>
+</blockquote>
+<h3 id="24-组提交group-commit">2.4 组提交（Group Commit）</h3>
+<p>为了缓解<code>innodb_flush_log_at_trx_commit=1</code>的性能问题，MySQL引入了组提交：</p>
+<pre tabindex="0"><code>事务T1 ──┐
+事务T2 ──┼──→ 一次fsync ──→ 磁盘
+事务T3 ──┘
+</code></pre><p>三个阶段：</p>
+<ol>
+<li><strong>Flush Stage</strong>：将Redo Log写入Buffer</li>
+<li><strong>Sync Stage</strong>：执行fsync（只有一个线程做，其他等待）</li>
+<li><strong>Commit Stage</strong>：更新事务状态</li>
+</ol>
+<hr>
+<h2 id="三undo-log回滚日志">三、Undo Log（回滚日志）</h2>
+<h3 id="31-核心作用">3.1 核心作用</h3>
+<ol>
+<li><strong>事务回滚</strong>：保存数据修改前的值，ROLLBACK时恢复</li>
+<li><strong>MVCC</strong>：为快照读提供历史版本数据</li>
+</ol>
+<h3 id="32-undo-log与事务回滚">3.2 Undo Log与事务回滚</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 原始数据: id=1, name=&#39;张三&#39;, age=25
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">UPDATE</span> <span style="color:#66d9ef">user</span> <span style="color:#66d9ef">SET</span> age<span style="color:#f92672">=</span><span style="color:#ae81ff">30</span> <span style="color:#66d9ef">WHERE</span> id<span style="color:#f92672">=</span><span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- Undo Log记录: {id=1, name=&#39;张三&#39;, age=25}
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">ROLLBACK</span>;
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 读取Undo Log恢复: age=25
+</span></span></span></code></pre></div><h3 id="33-undo-log与mvcc">3.3 Undo Log与MVCC</h3>
+<p>每行数据都有隐藏列：</p>
+<ul>
+<li><strong>trx_id</strong>：最近修改的事务ID</li>
+<li><strong>roll_pointer</strong>：指向Undo Log中的前一个版本</li>
+</ul>
+<pre tabindex="0"><code>当前行: {id=1, name=&#39;张三&#39;, age=30, trx_id=300}
+           ↑ roll_pointer
+版本链: {age=25, trx_id=200} → {age=22, trx_id=100} → ...
+</code></pre><p><strong>ReadView机制</strong>决定能看到哪个版本：</p>
+<ul>
+<li><strong>min_trx_id</strong>：活跃事务最小ID</li>
+<li><strong>max_trx_id</strong>：下一个分配的事务ID</li>
+<li><strong>m_ids</strong>：活跃事务ID列表</li>
+</ul>
+<p>可见性判断：</p>
+<ol>
+<li>trx_id &lt; min_trx_id → 可见（事务已提交）</li>
+<li>trx_id ≥ max_trx_id → 不可见（事务在ReadView创建后开始）</li>
+<li>min_trx_id ≤ trx_id &lt; max_trx_id → 在m_ids中则不可见，不在则可见</li>
+</ol>
+<h3 id="34-undo-log的清理">3.4 Undo Log的清理</h3>
+<ul>
+<li>当没有事务需要访问某个Undo Log版本时，由<strong>Purge线程</strong>清理</li>
+<li>长事务会导致Undo Log无法清理，占用大量空间</li>
+<li><code>innodb_max_undo_log_size</code>控制Undo表空间大小</li>
+</ul>
+<hr>
+<h2 id="四binlog归档日志">四、Binlog（归档日志）</h2>
+<h3 id="41-binlog-vs-redo-log">4.1 Binlog vs Redo Log</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Redo Log</th>
+<th>Binlog</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>层级</td>
+<td>InnoDB引擎</td>
+<td>Server层</td>
+</tr>
+<tr>
+<td>内容</td>
+<td>物理日志（数据页修改）</td>
+<td>逻辑日志（SQL/行变更）</td>
+</tr>
+<tr>
+<td>写入方式</td>
+<td>循环写，会覆盖</td>
+<td>追加写，不覆盖</td>
+</tr>
+<tr>
+<td>用途</td>
+<td>崩溃恢复</td>
+<td>主从复制、数据恢复</td>
+</tr>
+<tr>
+<td>事务性</td>
+<td>事务中持续写入</td>
+<td>事务提交时一次写入</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-binlog格式">4.2 Binlog格式</h3>
+<table>
+<thead>
+<tr>
+<th>格式</th>
+<th>说明</th>
+<th>优缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>STATEMENT</td>
+<td>记录SQL语句</td>
+<td>日志量小，但主从不一致风险（如NOW()）</td>
+</tr>
+<tr>
+<td>ROW</td>
+<td>记录行变更</td>
+<td>数据一致性好，日志量大</td>
+</tr>
+<tr>
+<td>MIXED</td>
+<td>混合模式</td>
+<td>普通SQL用STATEMENT，不确定SQL用ROW</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>💡 <strong>生产建议</strong>：推荐ROW格式，保证主从数据一致</p>
+</blockquote>
+<h3 id="43-binlog刷盘策略">4.3 Binlog刷盘策略</h3>
+<p><code>sync_binlog</code> 控制：</p>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>由os决定何时fsync</td>
+</tr>
+<tr>
+<td>1</td>
+<td>每次提交都fsync</td>
+</tr>
+<tr>
+<td>N</td>
+<td>每N次提交fsync一次</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>⚠️ 生产环境双1配置：<code>innodb_flush_log_at_trx_commit=1</code> + <code>sync_binlog=1</code></p>
+</blockquote>
+<hr>
+<h2 id="五两阶段提交2pc">五、两阶段提交（2PC）</h2>
+<h3 id="51-为什么需要两阶段提交">5.1 为什么需要两阶段提交？</h3>
+<p>Redo Log和Binlog是两个独立的日志系统，如果不保证一致性：</p>
+<p><strong>场景：UPDATE t SET c=c+1 WHERE id=1</strong></p>
+<table>
+<thead>
+<tr>
+<th>情况</th>
+<th>Redo Log</th>
+<th>Binlog</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>先写Redo后写Binlog，中间崩溃</td>
+<td>✅</td>
+<td>❌</td>
+<td>主从不一致</td>
+</tr>
+<tr>
+<td>先写Binlog后写Redo，中间崩溃</td>
+<td>❌</td>
+<td>✅</td>
+<td>从库多数据</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-两阶段提交流程">5.2 两阶段提交流程</h3>
+<pre tabindex="0"><code>┌─────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│ 1.写Redo │───→│ 2.写Binlog│───→│ 3.提交    │───→│ 返回客户端│
+│  (Prepare)│    │  (Commit) │    │          │    │          │
+└─────────┘    └──────────┘    └──────────┘    └──────────┘
+     ↑              ↑                ↑
+   阶段一         阶段二            完成
+</code></pre><p><strong>崩溃恢复规则</strong>：</p>
+<ol>
+<li>Prepare阶段崩溃 → 回滚（Redo有，Binlog无 → 不一致 → 回滚）</li>
+<li>Binlog写完但未Commit → 提交（Binlog有 → 从库会执行 → 主库也要提交）</li>
+<li>Commit后崩溃 → 已提交，无影响</li>
+</ol>
+<h3 id="53-组提交优化">5.3 组提交优化</h3>
+<p>Binlog的组提交分为三个阶段：</p>
+<ol>
+<li><strong>Flush Stage</strong>：多个事务将Binlog写入Cache</li>
+<li><strong>Sync Stage</strong>：一次fsync将多个事务的Binlog刷盘</li>
+<li><strong>Commit Stage</strong>：按顺序提交事务，更新Redo Log的Commit标记</li>
+</ol>
+<hr>
+<h2 id="六主从复制">六、主从复制</h2>
+<h3 id="61-复制原理">6.1 复制原理</h3>
+<pre tabindex="0"><code>┌──────────┐    Binlog    ┌──────────┐   Relay Log   ┌──────────┐
+│  Master  │─────────────→│  Slave   │──────────────→│  Slave   │
+│ (主库)    │              │ (IO线程)  │               │ (SQL线程) │
+└──────────┘              └──────────┘               └──────────┘
+</code></pre><p><strong>三个线程</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>线程</th>
+<th>所在位置</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Binlog Dump</td>
+<td>主库</td>
+<td>读取Binlog发送给从库</td>
+</tr>
+<tr>
+<td>IO Thread</td>
+<td>从库</td>
+<td>接收Binlog写入Relay Log</td>
+</tr>
+<tr>
+<td>SQL Thread</td>
+<td>从库</td>
+<td>执行Relay Log中的事件</td>
+</tr>
+</tbody>
+</table>
+<p><strong>复制步骤</strong>：</p>
+<ol>
+<li>主库事务提交 → 写入Binlog</li>
+<li>从库IO线程连接主库，请求Binlog</li>
+<li>主库Dump线程读取Binlog发送</li>
+<li>从库IO线程写入Relay Log</li>
+<li>从库SQL线程读取Relay Log并执行</li>
+</ol>
+<h3 id="62-同步方式">6.2 同步方式</h3>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>说明</th>
+<th>一致性</th>
+<th>性能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>异步复制</td>
+<td>主库不等待从库确认</td>
+<td>弱</td>
+<td>最好</td>
+</tr>
+<tr>
+<td>半同步复制</td>
+<td>至少一个从库确认收到</td>
+<td>中</td>
+<td>中等</td>
+</tr>
+<tr>
+<td>全同步复制</td>
+<td>所有从库执行完毕</td>
+<td>强</td>
+<td>最差</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>💡 <strong>MySQL默认异步复制</strong>，半同步需要安装插件</p>
+</blockquote>
+<h3 id="63-gtid复制">6.3 GTID复制</h3>
+<p>GTID（Global Transaction Identifier）= <code>server_uuid:transaction_id</code></p>
+<pre tabindex="0"><code>GTID = 3E11FA47-71CA-11E1-9E33-C80AA9429562:1-5
+</code></pre><p><strong>优势</strong>：</p>
+<ul>
+<li>自动定位复制位点，无需手动指定Binlog文件和位置</li>
+<li>主从切换简单</li>
+<li>校验主从数据一致性</li>
+</ul>
+<p><strong>配置</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-ini" data-lang="ini"><span style="display:flex;"><span><span style="color:#a6e22e">gtid_mode</span><span style="color:#f92672">=</span><span style="color:#e6db74">ON</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">enforce_gtid_consistency</span><span style="color:#f92672">=</span><span style="color:#e6db74">ON</span>
+</span></span></code></pre></div><h3 id="64-并行复制">6.4 并行复制</h3>
+<p>传统SQL线程是单线程执行，是主从延迟的主要原因。</p>
+<p><strong>按库并行（5.6）</strong>：</p>
+<ul>
+<li>不同库的事务可以并行执行</li>
+<li>效果有限，单库场景无法并行</li>
+</ul>
+<p><strong>按组提交并行（5.7）</strong>：</p>
+<ul>
+<li>同时处于Commit阶段的事务可以并行</li>
+<li><code>slave_parallel_type=LOGICAL_CLOCK</code></li>
+</ul>
+<p><strong>Writeset并行（8.0）</strong>：</p>
+<ul>
+<li>基于行变更的依赖关系，无冲突的事务可并行</li>
+<li><code>binlog_transaction_dependency_tracking=WRITESET</code></li>
+<li>最细粒度，效果最好</li>
+</ul>
+<h3 id="65-主从延迟">6.5 主从延迟</h3>
+<p><strong>产生原因</strong>：</p>
+<ol>
+<li>主库并行写，从库单线程执行（最大原因）</li>
+<li>主库执行大事务</li>
+<li>从库机器性能差</li>
+<li>从库执行大量查询，争抢CPU</li>
+<li>网络延迟</li>
+</ol>
+<p><strong>检测延迟</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 从库执行
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">SHOW</span> SLAVE STATUS<span style="color:#960050;background-color:#1e0010">\</span><span style="color:#66d9ef">G</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- Seconds_Behind_Master 字段
+</span></span></span></code></pre></div><p><strong>优化方案</strong>：</p>
+<ol>
+<li>开启并行复制</li>
+<li>缩小事务粒度</li>
+<li>从库使用更高配置</li>
+<li>使用半同步复制</li>
+<li>读请求路由到主库（强一致性场景）</li>
+</ol>
+<h3 id="66-主从切换">6.6 主从切换</h3>
+<p><strong>手动切换步骤</strong>：</p>
+<ol>
+<li>确认从库数据已同步</li>
+<li>从库停止复制：<code>STOP SLAVE</code></li>
+<li>从库提升为主库</li>
+<li>修改应用连接指向新主库</li>
+<li>其他从库指向新主库</li>
+</ol>
+<p><strong>MHA自动切换</strong>：</p>
+<ul>
+<li>监控主库健康状态</li>
+<li>主库故障时自动提升最先进的从库</li>
+<li>其他从库自动指向新主库</li>
+</ul>
+<hr>
+<h2 id="七日志与复制的面试高频题">七、日志与复制的面试高频题</h2>
+<h3 id="q1为什么redo-log是循环写而binlog是追加写">Q1：为什么Redo Log是循环写而Binlog是追加写？</h3>
+<p><strong>Redo Log循环写</strong>：</p>
+<ul>
+<li>空间固定，避免无限增长</li>
+<li>Checkpoint推进后旧日志可以覆盖</li>
+<li>崩溃恢复只需要最新的日志</li>
+</ul>
+<p><strong>Binlog追加写</strong>：</p>
+<ul>
+<li>用于数据恢复和主从复制，需要完整历史</li>
+<li>可以设置过期时间自动清理（<code>expire_logs_days</code>）</li>
+<li>增量备份依赖完整的Binlog</li>
+</ul>
+<h3 id="q2mysql如何保证redo-log和binlog的一致性">Q2：MySQL如何保证Redo Log和Binlog的一致性？</h3>
+<p>两阶段提交：</p>
+<ol>
+<li>Prepare阶段写Redo Log</li>
+<li>Commit阶段写Binlog并提交</li>
+<li>崩溃时根据两阶段状态决定提交或回滚</li>
+<li>Binlog的XID与Redo Log的XID对应</li>
+</ol>
+<h3 id="q3主从延迟怎么处理">Q3：主从延迟怎么处理？</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>允许弱一致</td>
+<td>继续读从库</td>
+</tr>
+<tr>
+<td>强一致性要求</td>
+<td>读主库 / 半同步复制</td>
+</tr>
+<tr>
+<td>优化性能</td>
+<td>并行复制 + 缩小事务</td>
+</tr>
+<tr>
+<td>根本解决</td>
+<td>分布式数据库</td>
+</tr>
+</tbody>
+</table>
+<h3 id="q4drop-table误操作如何恢复">Q4：drop table误操作如何恢复？</h3>
+<ol>
+<li>立即停止写入，保留Binlog</li>
+<li>找到drop操作前的位点</li>
+<li>用<code>mysqlbinlog</code>解析Binlog恢复数据</li>
+<li>如果有延迟从库，且还未执行drop，直接提升为新的主库</li>
+</ol>
+<h3 id="q5简述一条update语句的日志写入完整流程">Q5：简述一条UPDATE语句的日志写入完整流程</h3>
+<pre tabindex="0"><code>1. 执行器找到目标行（通过索引/全表扫描）
+2. InnoDB将旧值写入Undo Log
+3. 更新内存中的数据页（脏页）
+4. 写Redo Log Buffer（Prepare状态）
+5. 写Binlog Cache
+6. 提交事务（Redo Log状态改为Commit）
+7. Redo Log和Binlog分别按策略刷盘
+</code></pre><hr>
+<h2 id="总结">总结</h2>
+<table>
+<thead>
+<tr>
+<th>知识点</th>
+<th>核心内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Redo Log</td>
+<td>WAL + 循环写 + 崩溃恢复 + 刷盘策略</td>
+</tr>
+<tr>
+<td>Undo Log</td>
+<td>事务回滚 + MVCC版本链 + Purge清理</td>
+</tr>
+<tr>
+<td>Binlog</td>
+<td>逻辑日志 + 三种格式 + 主从复制基础</td>
+</tr>
+<tr>
+<td>两阶段提交</td>
+<td>Prepare → Binlog → Commit 保证一致性</td>
+</tr>
+<tr>
+<td>主从复制</td>
+<td>三线程 + GTID + 并行复制 + 延迟优化</td>
+</tr>
+</tbody>
+</table>
+<p>下期预告：</p>
+<ul>
+<li>数据库面试八股文（七）——Redis核心数据结构与应用场景</li>
+<li>数据库面试八股文（八）——Redis持久化、集群与缓存问题</li>
+</ul>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 Raphael</p>
+    </footer>
+</body>
+</html>

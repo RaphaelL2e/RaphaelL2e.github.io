@@ -1,21 +1,917 @@
-<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>数据库面试八股文（四）——MySQL事务与ACID特性 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
-<a href=https://raphaell2e.github.io/posts/>文章</a>
-<a href=https://raphaell2e.github.io/categories/>分类</a>
-<a href=https://raphaell2e.github.io/tags/>标签</a>
-<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-06-02 <span>/</span> 数据库</div><h1>数据库面试八股文（四）——MySQL事务与ACID特性</h1></div><div class=post-content><h1 id=数据库面试八股文四mysql事务与acid特性>数据库面试八股文（四）——MySQL事务与ACID特性</h1><h2 id=概述>概述</h2><p>事务（Transaction）是数据库最核心的概念之一，也是面试中出现频率最高的考点。上一篇文章我们了解了MySQL的架构和存储引擎，本文将深入讲解<strong>事务的ACID特性、隔离级别、实现原理</strong>，以及InnoDB如何通过<strong>MVCC</strong>实现高并发下的读写不阻塞。</p><h2 id=什么是事务>什么是事务</h2><p><strong>事务（Transaction）</strong> 是一组数据库操作的逻辑单元，这组操作要么全部成功，要么全部失败。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 典型的事务场景：银行转账
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>START</span> <span style=color:#66d9ef>TRANSACTION</span>;
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>UPDATE</span> account <span style=color:#66d9ef>SET</span> balance <span style=color:#f92672>=</span> balance <span style=color:#f92672>-</span> <span style=color:#ae81ff>1000</span> <span style=color:#66d9ef>WHERE</span> id <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;  <span style=color:#75715e>-- A扣钱
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>UPDATE</span> account <span style=color:#66d9ef>SET</span> balance <span style=color:#f92672>=</span> balance <span style=color:#f92672>+</span> <span style=color:#ae81ff>1000</span> <span style=color:#66d9ef>WHERE</span> id <span style=color:#f92672>=</span> <span style=color:#ae81ff>2</span>;  <span style=color:#75715e>-- B加钱
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>COMMIT</span>;
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 如果中间任何一步失败
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>ROLLBACK</span>;
-</span></span></code></pre></div><p><strong>事务的生命周期</strong>：</p><pre tabindex=0><code>START TRANSACTION / BEGIN
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库面试八股文（四）——MySQL事务与ACID特性 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-06-02 <span>/</span> 数据库 </div>
+        <h1>数据库面试八股文（四）——MySQL事务与ACID特性</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="数据库面试八股文四mysql事务与acid特性">数据库面试八股文（四）——MySQL事务与ACID特性</h1>
+<h2 id="概述">概述</h2>
+<p>事务（Transaction）是数据库最核心的概念之一，也是面试中出现频率最高的考点。上一篇文章我们了解了MySQL的架构和存储引擎，本文将深入讲解<strong>事务的ACID特性、隔离级别、实现原理</strong>，以及InnoDB如何通过<strong>MVCC</strong>实现高并发下的读写不阻塞。</p>
+<h2 id="什么是事务">什么是事务</h2>
+<p><strong>事务（Transaction）</strong> 是一组数据库操作的逻辑单元，这组操作要么全部成功，要么全部失败。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 典型的事务场景：银行转账
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">START</span> <span style="color:#66d9ef">TRANSACTION</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">UPDATE</span> account <span style="color:#66d9ef">SET</span> balance <span style="color:#f92672">=</span> balance <span style="color:#f92672">-</span> <span style="color:#ae81ff">1000</span> <span style="color:#66d9ef">WHERE</span> id <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;  <span style="color:#75715e">-- A扣钱
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">UPDATE</span> account <span style="color:#66d9ef">SET</span> balance <span style="color:#f92672">=</span> balance <span style="color:#f92672">+</span> <span style="color:#ae81ff">1000</span> <span style="color:#66d9ef">WHERE</span> id <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span>;  <span style="color:#75715e">-- B加钱
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">COMMIT</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 如果中间任何一步失败
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">ROLLBACK</span>;
+</span></span></code></pre></div><p><strong>事务的生命周期</strong>：</p>
+<pre tabindex="0"><code>START TRANSACTION / BEGIN
     → SQL1
     → SQL2
     → SQL3
     → COMMIT（提交）或 ROLLBACK（回滚）
-</code></pre><blockquote><p>💡 <strong>注意</strong>：DDL语句（CREATE、ALTER、DROP）会隐式提交事务，无法回滚。</p></blockquote><h2 id=acid特性详解>ACID特性详解</h2><p>ACID是事务的四大特性，面试必考！</p><h3 id=原子性atomicity>原子性（Atomicity）</h3><p><strong>定义</strong>：事务中的所有操作要么全部执行成功，要么全部不执行，不存在部分执行的状态。</p><p><strong>实现原理</strong>：<strong>undo log（回滚日志）</strong></p><pre tabindex=0><code>事务执行过程：
+</code></pre><blockquote>
+<p>💡 <strong>注意</strong>：DDL语句（CREATE、ALTER、DROP）会隐式提交事务，无法回滚。</p>
+</blockquote>
+<h2 id="acid特性详解">ACID特性详解</h2>
+<p>ACID是事务的四大特性，面试必考！</p>
+<h3 id="原子性atomicity">原子性（Atomicity）</h3>
+<p><strong>定义</strong>：事务中的所有操作要么全部执行成功，要么全部不执行，不存在部分执行的状态。</p>
+<p><strong>实现原理</strong>：<strong>undo log（回滚日志）</strong></p>
+<pre tabindex="0"><code>事务执行过程：
 INSERT → undo log记录DELETE操作
 UPDATE → undo log记录反向UPDATE（旧值）
 DELETE → undo log记录INSERT操作
@@ -23,69 +919,267 @@ DELETE → undo log记录INSERT操作
 回滚时：
 按undo log的逆序执行，恢复到事务开始前的状态
 </code></pre><p><strong>面试追问</strong>：如果事务执行到一半MySQL崩溃了怎么办？
-→ 重启时，未提交的事务通过undo log回滚，保证原子性。</p><h3 id=一致性consistency>一致性（Consistency）</h3><p><strong>定义</strong>：事务执行前后，数据库从一个一致性状态转换到另一个一致性状态。</p><p><strong>理解</strong>：一致性是ACID的<strong>最终目标</strong>，原子性、隔离性、持久性都是为了保证一致性。</p><p><strong>示例</strong>：</p><pre tabindex=0><code>转账前：A有2000，B有3000，总计5000（一致性状态）
+→ 重启时，未提交的事务通过undo log回滚，保证原子性。</p>
+<h3 id="一致性consistency">一致性（Consistency）</h3>
+<p><strong>定义</strong>：事务执行前后，数据库从一个一致性状态转换到另一个一致性状态。</p>
+<p><strong>理解</strong>：一致性是ACID的<strong>最终目标</strong>，原子性、隔离性、持久性都是为了保证一致性。</p>
+<p><strong>示例</strong>：</p>
+<pre tabindex="0"><code>转账前：A有2000，B有3000，总计5000（一致性状态）
 转账后：A有1000，B有4000，总计5000（一致性状态）
 如果A扣了钱但B没加钱：A有1000，B有3000，总计4000（不一致状态）→ 违反一致性
-</code></pre><p><strong>一致性的保障</strong>：</p><ul><li>原子性 → 保证事务不会部分执行</li><li>隔离性 → 保证并发事务不会互相干扰</li><li>持久性 → 保证已提交的数据不会丢失</li><li>业务约束 → 主键、外键、唯一约束、CHECK约束</li></ul><h3 id=隔离性isolation>隔离性（Isolation）</h3><p><strong>定义</strong>：并发执行的多个事务之间互不干扰，一个事务的中间状态对其他事务不可见。</p><p><strong>实现原理</strong>：<strong>锁 + MVCC</strong></p><p>隔离性是最复杂的特性，后续"隔离级别"和"MVCC"章节会详细讲解。</p><h3 id=持久性durability>持久性（Durability）</h3><p><strong>定义</strong>：事务一旦提交，对数据的修改就是永久的，即使系统崩溃也不会丢失。</p><p><strong>实现原理</strong>：<strong>redo log（重做日志）</strong></p><pre tabindex=0><code>事务提交时：
+</code></pre><p><strong>一致性的保障</strong>：</p>
+<ul>
+<li>原子性 → 保证事务不会部分执行</li>
+<li>隔离性 → 保证并发事务不会互相干扰</li>
+<li>持久性 → 保证已提交的数据不会丢失</li>
+<li>业务约束 → 主键、外键、唯一约束、CHECK约束</li>
+</ul>
+<h3 id="隔离性isolation">隔离性（Isolation）</h3>
+<p><strong>定义</strong>：并发执行的多个事务之间互不干扰，一个事务的中间状态对其他事务不可见。</p>
+<p><strong>实现原理</strong>：<strong>锁 + MVCC</strong></p>
+<p>隔离性是最复杂的特性，后续&quot;隔离级别&quot;和&quot;MVCC&quot;章节会详细讲解。</p>
+<h3 id="持久性durability">持久性（Durability）</h3>
+<p><strong>定义</strong>：事务一旦提交，对数据的修改就是永久的，即使系统崩溃也不会丢失。</p>
+<p><strong>实现原理</strong>：<strong>redo log（重做日志）</strong></p>
+<pre tabindex="0"><code>事务提交时：
 1. 将修改记录写入redo log buffer
 2. 根据innodb_flush_log_at_trx_commit配置刷盘
 3. 返回提交成功
 
 即使Buffer Pool中的脏页还没刷盘：
 → MySQL崩溃后，通过redo log恢复已提交的数据
-</code></pre><p><strong>关键配置</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 最安全（默认）：每次提交都刷盘
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>innodb_flush_log_at_trx_commit <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 折中：每次提交写OS缓存，每秒刷盘
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>innodb_flush_log_at_trx_commit <span style=color:#f92672>=</span> <span style=color:#ae81ff>2</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 最快：后台每秒刷盘（可能丢失1秒数据）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>innodb_flush_log_at_trx_commit <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>
-</span></span></code></pre></div><blockquote><p>💡 <strong>面试常问</strong>：为什么不直接写数据文件而要写redo log？
-→ redo log是<strong>顺序IO</strong>（追加写入），数据文件是<strong>随机IO</strong>（需要定位页），顺序IO比随机IO快很多。</p></blockquote><h2 id=并发事务带来的问题>并发事务带来的问题</h2><p>在没有隔离性的情况下，并发事务会导致以下问题：</p><h3 id=脏读dirty-read>脏读（Dirty Read）</h3><p><strong>一个事务读到了另一个事务未提交的数据</strong>。</p><pre tabindex=0><code>时间线    事务A                        事务B
+</code></pre><p><strong>关键配置</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 最安全（默认）：每次提交都刷盘
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>innodb_flush_log_at_trx_commit <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 折中：每次提交写OS缓存，每秒刷盘
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>innodb_flush_log_at_trx_commit <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 最快：后台每秒刷盘（可能丢失1秒数据）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>innodb_flush_log_at_trx_commit <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>
+</span></span></code></pre></div><blockquote>
+<p>💡 <strong>面试常问</strong>：为什么不直接写数据文件而要写redo log？
+→ redo log是<strong>顺序IO</strong>（追加写入），数据文件是<strong>随机IO</strong>（需要定位页），顺序IO比随机IO快很多。</p>
+</blockquote>
+<h2 id="并发事务带来的问题">并发事务带来的问题</h2>
+<p>在没有隔离性的情况下，并发事务会导致以下问题：</p>
+<h3 id="脏读dirty-read">脏读（Dirty Read）</h3>
+<p><strong>一个事务读到了另一个事务未提交的数据</strong>。</p>
+<pre tabindex="0"><code>时间线    事务A                        事务B
   T1      BEGIN;
   T2      UPDATE account SET balance = balance - 1000 WHERE id = 1;
   T3                                   BEGIN;
   T4                                   SELECT balance FROM account WHERE id = 1;  → 读到-1000后的值（脏数据）
   T5      ROLLBACK;  ← A回滚了，B读到的数据是无效的！
-</code></pre><h3 id=不可重复读non-repeatable-read>不可重复读（Non-Repeatable Read）</h3><p><strong>一个事务内，两次读取同一行数据的结果不同</strong>（被其他事务修改了）。</p><pre tabindex=0><code>时间线    事务A                        事务B
+</code></pre><h3 id="不可重复读non-repeatable-read">不可重复读（Non-Repeatable Read）</h3>
+<p><strong>一个事务内，两次读取同一行数据的结果不同</strong>（被其他事务修改了）。</p>
+<pre tabindex="0"><code>时间线    事务A                        事务B
   T1      BEGIN;
   T2      SELECT balance FROM account WHERE id = 1;  → 2000
   T3                                   BEGIN;
   T4                                   UPDATE account SET balance = 1000 WHERE id = 1;
   T5                                   COMMIT;
   T6      SELECT balance FROM account WHERE id = 1;  → 1000（两次读的结果不同！）
-</code></pre><h3 id=幻读phantom-read>幻读（Phantom Read）</h3><p><strong>一个事务内，两次执行相同的范围查询，结果集的行数不同</strong>（被其他事务插入或删除了行）。</p><pre tabindex=0><code>时间线    事务A                        事务B
+</code></pre><h3 id="幻读phantom-read">幻读（Phantom Read）</h3>
+<p><strong>一个事务内，两次执行相同的范围查询，结果集的行数不同</strong>（被其他事务插入或删除了行）。</p>
+<pre tabindex="0"><code>时间线    事务A                        事务B
   T1      BEGIN;
   T2      SELECT * FROM account WHERE balance &gt; 1000;  → 5行
   T3                                   BEGIN;
   T4                                   INSERT INTO account VALUES(6, &#39;新用户&#39;, 3000);
   T5                                   COMMIT;
   T6      SELECT * FROM account WHERE balance &gt; 1000;  → 6行（多了一行&#34;幻影&#34;！）
-</code></pre><h3 id=三者的区别>三者的区别</h3><table><thead><tr><th>问题</th><th>原因</th><th>影响</th></tr></thead><tbody><tr><td>脏读</td><td>读到未提交的数据</td><td>数据可能是错误的</td></tr><tr><td>不可重复读</td><td>其他事务修改了数据</td><td>同一事务内前后读取不一致</td></tr><tr><td>幻读</td><td>其他事务插入/删除了行</td><td>同一事务内范围查询结果不同</td></tr></tbody></table><blockquote><p>💡 <strong>记忆技巧</strong>：脏读→读未提交，不可重复读→读已提交但被改，幻读→读已提交但被增删。问题严重程度递减：脏读 > 不可重复读 > 幻读。</p></blockquote><h2 id=四大隔离级别>四大隔离级别</h2><p>SQL标准定义了四个隔离级别，从低到高：</p><table><thead><tr><th>隔离级别</th><th>脏读</th><th>不可重复读</th><th>幻读</th><th>性能</th></tr></thead><tbody><tr><td>读未提交（Read Uncommitted）</td><td>❌ 可能</td><td>❌ 可能</td><td>❌ 可能</td><td>最高</td></tr><tr><td>读已提交（Read Committed, RC）</td><td>✅ 避免</td><td>❌ 可能</td><td>❌ 可能</td><td>高</td></tr><tr><td>可重复读（Repeatable Read, RR）</td><td>✅ 避免</td><td>✅ 避免</td><td>❌ 可能*</td><td>中</td></tr><tr><td>串行化（Serializable）</td><td>✅ 避免</td><td>✅ 避免</td><td>✅ 避免</td><td>最低</td></tr></tbody></table><p>*注：InnoDB的RR级别通过<strong>间隙锁（Gap Lock）+ MVCC</strong>在一定程度上避免了幻读。</p><h3 id=查看和设置隔离级别>查看和设置隔离级别</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 查看全局隔离级别
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>SELECT</span> <span style=color:#f92672>@@</span><span style=color:#66d9ef>global</span>.transaction_isolation;
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 查看当前会话隔离级别
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>SELECT</span> <span style=color:#f92672>@@</span>transaction_isolation;
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 设置隔离级别
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>SET</span> <span style=color:#66d9ef>GLOBAL</span> <span style=color:#66d9ef>TRANSACTION</span> <span style=color:#66d9ef>ISOLATION</span> <span style=color:#66d9ef>LEVEL</span> <span style=color:#66d9ef>READ</span> <span style=color:#66d9ef>COMMITTED</span>;
-</span></span><span style=display:flex><span><span style=color:#66d9ef>SET</span> <span style=color:#66d9ef>SESSION</span> <span style=color:#66d9ef>TRANSACTION</span> <span style=color:#66d9ef>ISOLATION</span> <span style=color:#66d9ef>LEVEL</span> <span style=color:#66d9ef>READ</span> <span style=color:#66d9ef>COMMITTED</span>;
-</span></span></code></pre></div><h3 id=读未提交read-uncommitted>读未提交（Read Uncommitted）</h3><p>最低的隔离级别，一个事务可以读到另一个事务未提交的数据。</p><ul><li>实现方式：不加任何锁，直接读最新数据</li><li>实际项目中<strong>几乎不使用</strong></li></ul><h3 id=读已提交read-committed-rc>读已提交（Read Committed, RC）</h3><p>一个事务只能读到另一个事务<strong>已提交</strong>的数据。</p><p><strong>实现方式：MVCC + 临时读视图</strong></p><ul><li>每次SELECT都会创建一个新的Read View</li><li>所以同一事务内，两次SELECT可能读到不同的数据（不可重复读）</li></ul><pre tabindex=0><code>RC级别下的Read View生成时机：
+</code></pre><h3 id="三者的区别">三者的区别</h3>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>原因</th>
+<th>影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>脏读</td>
+<td>读到未提交的数据</td>
+<td>数据可能是错误的</td>
+</tr>
+<tr>
+<td>不可重复读</td>
+<td>其他事务修改了数据</td>
+<td>同一事务内前后读取不一致</td>
+</tr>
+<tr>
+<td>幻读</td>
+<td>其他事务插入/删除了行</td>
+<td>同一事务内范围查询结果不同</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>💡 <strong>记忆技巧</strong>：脏读→读未提交，不可重复读→读已提交但被改，幻读→读已提交但被增删。问题严重程度递减：脏读 &gt; 不可重复读 &gt; 幻读。</p>
+</blockquote>
+<h2 id="四大隔离级别">四大隔离级别</h2>
+<p>SQL标准定义了四个隔离级别，从低到高：</p>
+<table>
+<thead>
+<tr>
+<th>隔离级别</th>
+<th>脏读</th>
+<th>不可重复读</th>
+<th>幻读</th>
+<th>性能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>读未提交（Read Uncommitted）</td>
+<td>❌ 可能</td>
+<td>❌ 可能</td>
+<td>❌ 可能</td>
+<td>最高</td>
+</tr>
+<tr>
+<td>读已提交（Read Committed, RC）</td>
+<td>✅ 避免</td>
+<td>❌ 可能</td>
+<td>❌ 可能</td>
+<td>高</td>
+</tr>
+<tr>
+<td>可重复读（Repeatable Read, RR）</td>
+<td>✅ 避免</td>
+<td>✅ 避免</td>
+<td>❌ 可能*</td>
+<td>中</td>
+</tr>
+<tr>
+<td>串行化（Serializable）</td>
+<td>✅ 避免</td>
+<td>✅ 避免</td>
+<td>✅ 避免</td>
+<td>最低</td>
+</tr>
+</tbody>
+</table>
+<p>*注：InnoDB的RR级别通过<strong>间隙锁（Gap Lock）+ MVCC</strong>在一定程度上避免了幻读。</p>
+<h3 id="查看和设置隔离级别">查看和设置隔离级别</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 查看全局隔离级别
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">SELECT</span> <span style="color:#f92672">@@</span><span style="color:#66d9ef">global</span>.transaction_isolation;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 查看当前会话隔离级别
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">SELECT</span> <span style="color:#f92672">@@</span>transaction_isolation;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 设置隔离级别
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">SET</span> <span style="color:#66d9ef">GLOBAL</span> <span style="color:#66d9ef">TRANSACTION</span> <span style="color:#66d9ef">ISOLATION</span> <span style="color:#66d9ef">LEVEL</span> <span style="color:#66d9ef">READ</span> <span style="color:#66d9ef">COMMITTED</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">SET</span> <span style="color:#66d9ef">SESSION</span> <span style="color:#66d9ef">TRANSACTION</span> <span style="color:#66d9ef">ISOLATION</span> <span style="color:#66d9ef">LEVEL</span> <span style="color:#66d9ef">READ</span> <span style="color:#66d9ef">COMMITTED</span>;
+</span></span></code></pre></div><h3 id="读未提交read-uncommitted">读未提交（Read Uncommitted）</h3>
+<p>最低的隔离级别，一个事务可以读到另一个事务未提交的数据。</p>
+<ul>
+<li>实现方式：不加任何锁，直接读最新数据</li>
+<li>实际项目中<strong>几乎不使用</strong></li>
+</ul>
+<h3 id="读已提交read-committed-rc">读已提交（Read Committed, RC）</h3>
+<p>一个事务只能读到另一个事务<strong>已提交</strong>的数据。</p>
+<p><strong>实现方式：MVCC + 临时读视图</strong></p>
+<ul>
+<li>每次SELECT都会创建一个新的Read View</li>
+<li>所以同一事务内，两次SELECT可能读到不同的数据（不可重复读）</li>
+</ul>
+<pre tabindex="0"><code>RC级别下的Read View生成时机：
 SELECT 1 → 创建Read View 1 → 读到某版本
 （其他事务提交了修改）
 SELECT 2 → 创建Read View 2 → 读到新版本
-</code></pre><p><strong>Oracle和PostgreSQL的默认隔离级别</strong>。</p><h3 id=可重复读repeatable-read-rr>可重复读（Repeatable Read, RR）</h3><p><strong>MySQL的默认隔离级别</strong>。一个事务内，多次读取同一数据结果相同。</p><p><strong>实现方式：MVCC + 第一次SELECT时创建Read View</strong></p><ul><li>事务内第一次SELECT时创建Read View，后续SELECT复用同一个</li><li>因此同一事务内，多次读取的结果一致</li></ul><pre tabindex=0><code>RR级别下的Read View生成时机：
+</code></pre><p><strong>Oracle和PostgreSQL的默认隔离级别</strong>。</p>
+<h3 id="可重复读repeatable-read-rr">可重复读（Repeatable Read, RR）</h3>
+<p><strong>MySQL的默认隔离级别</strong>。一个事务内，多次读取同一数据结果相同。</p>
+<p><strong>实现方式：MVCC + 第一次SELECT时创建Read View</strong></p>
+<ul>
+<li>事务内第一次SELECT时创建Read View，后续SELECT复用同一个</li>
+<li>因此同一事务内，多次读取的结果一致</li>
+</ul>
+<pre tabindex="0"><code>RR级别下的Read View生成时机：
 BEGIN;
 SELECT 1 → 创建Read View（整个事务共用）
 （其他事务提交了修改）
 SELECT 2 → 复用同一个Read View → 读到的还是旧版本
-</code></pre><p><strong>InnoDB如何在一定程度上避免幻读</strong>：</p><ol><li><strong>快照读</strong>（普通SELECT）：通过MVCC的Read View，始终读到事务开始时的快照</li><li><strong>当前读</strong>（SELECT &mldr; FOR UPDATE / INSERT / UPDATE / DELETE）：通过<strong>间隙锁（Gap Lock）</strong> 阻止其他事务在范围内插入新行</li></ol><blockquote><p>⚠️ <strong>注意</strong>：RR级别下，先快照读后当前读，仍可能出现幻读！因为当前读读的是最新数据，不是快照。</p></blockquote><h3 id=串行化serializable>串行化（Serializable）</h3><p>最高的隔离级别，所有事务串行执行。</p><ul><li>实现方式：所有SELECT自动加<strong>共享锁</strong>（LOCK IN SHARE MODE）</li><li>性能最差，实际项目中<strong>几乎不使用</strong></li></ul><h2 id=mvcc深度解析>MVCC深度解析</h2><p><strong>MVCC（Multi-Version Concurrency Control，多版本并发控制）</strong> 是InnoDB实现高并发的核心机制，让<strong>读不阻塞写，写不阻塞读</strong>。</p><h3 id=隐藏列>隐藏列</h3><p>每行数据有两个隐藏列：</p><table><thead><tr><th>隐藏列</th><th>大小</th><th>说明</th></tr></thead><tbody><tr><td>DB_TRX_ID</td><td>6字节</td><td>最后修改该行的事务ID</td></tr><tr><td>DB_ROLL_PTR</td><td>7字节</td><td>回滚指针，指向undo log中的上一个版本</td></tr></tbody></table><h3 id=undo-log版本链>undo log版本链</h3><p>每次修改数据时，旧版本存入undo log，通过DB_ROLL_PTR形成版本链：</p><pre tabindex=0><code>当前行：{id=1, name=&#39;王五&#39;, DB_TRX_ID=300, DB_ROLL_PTR→undo2}
+</code></pre><p><strong>InnoDB如何在一定程度上避免幻读</strong>：</p>
+<ol>
+<li><strong>快照读</strong>（普通SELECT）：通过MVCC的Read View，始终读到事务开始时的快照</li>
+<li><strong>当前读</strong>（SELECT &hellip; FOR UPDATE / INSERT / UPDATE / DELETE）：通过<strong>间隙锁（Gap Lock）</strong> 阻止其他事务在范围内插入新行</li>
+</ol>
+<blockquote>
+<p>⚠️ <strong>注意</strong>：RR级别下，先快照读后当前读，仍可能出现幻读！因为当前读读的是最新数据，不是快照。</p>
+</blockquote>
+<h3 id="串行化serializable">串行化（Serializable）</h3>
+<p>最高的隔离级别，所有事务串行执行。</p>
+<ul>
+<li>实现方式：所有SELECT自动加<strong>共享锁</strong>（LOCK IN SHARE MODE）</li>
+<li>性能最差，实际项目中<strong>几乎不使用</strong></li>
+</ul>
+<h2 id="mvcc深度解析">MVCC深度解析</h2>
+<p><strong>MVCC（Multi-Version Concurrency Control，多版本并发控制）</strong> 是InnoDB实现高并发的核心机制，让<strong>读不阻塞写，写不阻塞读</strong>。</p>
+<h3 id="隐藏列">隐藏列</h3>
+<p>每行数据有两个隐藏列：</p>
+<table>
+<thead>
+<tr>
+<th>隐藏列</th>
+<th>大小</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DB_TRX_ID</td>
+<td>6字节</td>
+<td>最后修改该行的事务ID</td>
+</tr>
+<tr>
+<td>DB_ROLL_PTR</td>
+<td>7字节</td>
+<td>回滚指针，指向undo log中的上一个版本</td>
+</tr>
+</tbody>
+</table>
+<h3 id="undo-log版本链">undo log版本链</h3>
+<p>每次修改数据时，旧版本存入undo log，通过DB_ROLL_PTR形成版本链：</p>
+<pre tabindex="0"><code>当前行：{id=1, name=&#39;王五&#39;, DB_TRX_ID=300, DB_ROLL_PTR→undo2}
 
 undo2：{id=1, name=&#39;李四&#39;, DB_TRX_ID=200, DB_ROLL_PTR→undo1}
 
 undo1：{id=1, name=&#39;张三&#39;, DB_TRX_ID=100, DB_ROLL_PTR→NULL}
-</code></pre><h3 id=read-view>Read View</h3><p>Read View是事务在进行<strong>快照读</strong>时创建的"可见性判断规则"。</p><p><strong>Read View的四个核心字段</strong>：</p><table><thead><tr><th>字段</th><th>说明</th></tr></thead><tbody><tr><td>m_ids</td><td>创建Read View时，当前所有活跃（未提交）事务的ID列表</td></tr><tr><td>min_trx_id</td><td>m_ids中的最小值</td></tr><tr><td>max_trx_id</td><td>创建Read View时系统应该分配给下一个事务的ID</td></tr><tr><td>creator_trx_id</td><td>创建该Read View的事务ID</td></tr></tbody></table><p><strong>可见性判断规则</strong>：</p><pre tabindex=0><code>对于版本链中的某个版本（其DB_TRX_ID = trx_id）：
+</code></pre><h3 id="read-view">Read View</h3>
+<p>Read View是事务在进行<strong>快照读</strong>时创建的&quot;可见性判断规则&quot;。</p>
+<p><strong>Read View的四个核心字段</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>m_ids</td>
+<td>创建Read View时，当前所有活跃（未提交）事务的ID列表</td>
+</tr>
+<tr>
+<td>min_trx_id</td>
+<td>m_ids中的最小值</td>
+</tr>
+<tr>
+<td>max_trx_id</td>
+<td>创建Read View时系统应该分配给下一个事务的ID</td>
+</tr>
+<tr>
+<td>creator_trx_id</td>
+<td>创建该Read View的事务ID</td>
+</tr>
+</tbody>
+</table>
+<p><strong>可见性判断规则</strong>：</p>
+<pre tabindex="0"><code>对于版本链中的某个版本（其DB_TRX_ID = trx_id）：
 
 1. trx_id == creator_trx_id → 可见（自己修改的）
 2. trx_id &lt; min_trx_id → 可见（在Read View创建前已提交）
@@ -94,7 +1188,30 @@ undo1：{id=1, name=&#39;张三&#39;, DB_TRX_ID=100, DB_ROLL_PTR→NULL}
    - 如果trx_id在m_ids中 → 不可见（事务还未提交）
    - 如果trx_id不在m_ids中 → 可见（事务已提交）
 5. 如果不可见，沿DB_ROLL_PTR找上一个版本，重复判断
-</code></pre><h3 id=rc和rr的区别>RC和RR的区别</h3><table><thead><tr><th>隔离级别</th><th>Read View生成时机</th><th>效果</th></tr></thead><tbody><tr><td>RC</td><td>每次SELECT都生成新的</td><td>能看到其他事务已提交的最新数据</td></tr><tr><td>RR</td><td>事务内第一次SELECT时生成</td><td>始终看到事务开始时的快照</td></tr></tbody></table><h3 id=mvcc完整示例>MVCC完整示例</h3><pre tabindex=0><code>假设事务ID递增：100, 200, 300...
+</code></pre><h3 id="rc和rr的区别">RC和RR的区别</h3>
+<table>
+<thead>
+<tr>
+<th>隔离级别</th>
+<th>Read View生成时机</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RC</td>
+<td>每次SELECT都生成新的</td>
+<td>能看到其他事务已提交的最新数据</td>
+</tr>
+<tr>
+<td>RR</td>
+<td>事务内第一次SELECT时生成</td>
+<td>始终看到事务开始时的快照</td>
+</tr>
+</tbody>
+</table>
+<h3 id="mvcc完整示例">MVCC完整示例</h3>
+<pre tabindex="0"><code>假设事务ID递增：100, 200, 300...
 
 初始数据：
   {id=1, balance=1000, DB_TRX_ID=100, DB_ROLL_PTR=NULL}
@@ -129,30 +1246,157 @@ T6: 事务A 再次 SELECT balance FROM account WHERE id=1
   判断当前行（DB_TRX_ID=300）：
     300不在m_ids中 → 可见！
   → 事务A读到 balance=500 ✅（不可重复读，但避免了脏读）
-</code></pre><h2 id=当前读-vs-快照读>当前读 vs 快照读</h2><table><thead><tr><th>类型</th><th>SQL</th><th>说明</th></tr></thead><tbody><tr><td>快照读</td><td>普通SELECT</td><td>读MVCC快照，不加锁</td></tr><tr><td>当前读</td><td>SELECT &mldr; FOR UPDATE</td><td>读最新数据，加X锁</td></tr><tr><td>当前读</td><td>SELECT &mldr; LOCK IN SHARE MODE</td><td>读最新数据，加S锁</td></tr><tr><td>当前读</td><td>INSERT / UPDATE / DELETE</td><td>操作最新数据，加锁</td></tr></tbody></table><p><strong>当前读为什么不使用MVCC</strong>：</p><ul><li>修改数据必须基于最新版本，否则会覆盖其他事务的修改</li><li>通过加锁保证当前读的正确性</li></ul><h2 id=事务的传播行为spring>事务的传播行为（Spring）</h2><p>在Spring框架中，事务还有传播行为的概念（面试常问）：</p><table><thead><tr><th>传播行为</th><th>说明</th></tr></thead><tbody><tr><td>REQUIRED（默认）</td><td>有事务就加入，没有就新建</td></tr><tr><td>REQUIRES_NEW</td><td>总是新建事务，挂起当前事务</td></tr><tr><td>NESTED</td><td>嵌套事务（保存点），外层回滚内层也回滚</td></tr><tr><td>SUPPORTS</td><td>有事务就加入，没有就非事务执行</td></tr><tr><td>NOT_SUPPORTED</td><td>总是非事务执行，挂起当前事务</td></tr><tr><td>MANDATORY</td><td>必须在事务中，否则抛异常</td></tr><tr><td>NEVER</td><td>必须不在事务中，否则抛异常</td></tr></tbody></table><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
-</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderService</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Transactional</span><span style=color:#f92672>(</span>propagation <span style=color:#f92672>=</span> Propagation<span style=color:#f92672>.</span><span style=color:#a6e22e>REQUIRED</span><span style=color:#f92672>)</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>createOrder</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 主事务
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>insert</span><span style=color:#f92672>(</span>order<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        pointService<span style=color:#f92672>.</span><span style=color:#a6e22e>addPoints</span><span style=color:#f92672>();</span>  <span style=color:#75715e>// 加入当前事务
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Transactional</span><span style=color:#f92672>(</span>propagation <span style=color:#f92672>=</span> Propagation<span style=color:#f92672>.</span><span style=color:#a6e22e>REQUIRES_NEW</span><span style=color:#f92672>)</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>addPoints</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 新事务：即使主事务回滚，积分也不回滚
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        pointMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>insert</span><span style=color:#f92672>(</span>point<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span></code></pre></div><h2 id=常见面试题>常见面试题</h2><h3 id=q1-mysql的rr级别能完全避免幻读吗>Q1: MySQL的RR级别能完全避免幻读吗？</h3><p><strong>不能完全避免</strong>。以下场景仍会出现幻读：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 事务A
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>BEGIN</span>;
-</span></span><span style=display:flex><span><span style=color:#66d9ef>SELECT</span> <span style=color:#f92672>*</span> <span style=color:#66d9ef>FROM</span> users <span style=color:#66d9ef>WHERE</span> age <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>20</span>;  <span style=color:#75715e>-- 快照读，读到3行
-</span></span></span><span style=display:flex><span><span style=color:#75715e>-- 事务B在此插入了一条age=25的记录并提交
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>UPDATE</span> users <span style=color:#66d9ef>SET</span> name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#39;new&#39;</span> <span style=color:#66d9ef>WHERE</span> age <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>20</span>;  <span style=color:#75715e>-- 当前读，更新了4行！
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>SELECT</span> <span style=color:#f92672>*</span> <span style=color:#66d9ef>FROM</span> users <span style=color:#66d9ef>WHERE</span> age <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>20</span>;  <span style=color:#75715e>-- 现在能看到4行（包括自己更新的）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>COMMIT</span>;
-</span></span></code></pre></div><p>原因：UPDATE是当前读，会读取最新数据并加锁，导致事务A"看到"了新插入的行。</p><h3 id=q2-为什么mysql默认用rr而不是rc>Q2: 为什么MySQL默认用RR而不是RC？</h3><ol><li><strong>数据一致性</strong>：RR保证同一事务内读取一致，更安全</li><li><strong>binlog格式</strong>：RR配合binlog_format=ROW是安全的；RC必须用ROW格式</li><li><strong>主从复制</strong>：RC级别下statement格式的binlog可能导致主从不一致</li></ol><h3 id=q3-事务太大有什么问题>Q3: 事务太大有什么问题？</h3><ol><li><strong>undo log膨胀</strong>：大量修改产生大量undo log</li><li><strong>锁持有时间长</strong>：阻塞其他事务</li><li><strong>Buffer Pool压力</strong>：脏页积累</li><li><strong>长事务增加崩溃恢复时间</strong></li></ol><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 查看长事务
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>SELECT</span> <span style=color:#f92672>*</span> <span style=color:#66d9ef>FROM</span> information_schema.INNODB_TRX 
-</span></span><span style=display:flex><span><span style=color:#66d9ef>WHERE</span> TIME_TO_SEC(TIMEDIFF(NOW(), trx_started)) <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>60</span>;
-</span></span></code></pre></div><h3 id=q4-分布式事务如何保证acid>Q4: 分布式事务如何保证ACID？</h3><p>分布式事务通常无法严格保证ACID，而是追求<strong>最终一致性</strong>：</p><ul><li><strong>2PC（两阶段提交）</strong>：协调者→参与者，强一致性但性能差</li><li><strong>3PC（三阶段提交）</strong>：增加CanCommit阶段，减少阻塞</li><li><strong>TCC（Try-Confirm-Cancel）</strong>：业务层面的补偿事务</li><li><strong>Saga模式</strong>：长事务拆分为多个本地事务，失败时执行补偿操作</li><li><strong>Seata</strong>：阿里开源的分布式事务框架</li></ul><h2 id=总结>总结</h2><p>本文深入讲解了MySQL事务与ACID特性：</p><ol><li><strong>ACID特性</strong>：原子性（undo log）、一致性（目标）、隔离性（锁+MVCC）、持久性（redo log）</li><li><strong>并发问题</strong>：脏读 → 不可重复读 → 幻读（严重程度递减）</li><li><strong>隔离级别</strong>：读未提交 → 读已提交 → 可重复读 → 串行化（隔离强度递增，性能递减）</li><li><strong>MVCC</strong>：隐藏列 + undo log版本链 + Read View，实现读写不阻塞</li><li><strong>RC vs RR</strong>：Read View生成时机不同，导致可见性不同</li><li><strong>当前读 vs 快照读</strong>：普通SELECT是快照读，加锁SELECT/写操作是当前读</li></ol><p>下期预告：</p><ul><li>数据库面试八股文（五）——MySQL锁机制（行锁、表锁、间隙锁、MVCC）</li><li>数据库面试八股文（六）——MySQL日志系统与主从复制</li></ul></div></article></main><footer><p>&copy; 2026 Raphael</p></footer></body></html>
+</code></pre><h2 id="当前读-vs-快照读">当前读 vs 快照读</h2>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>SQL</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>快照读</td>
+<td>普通SELECT</td>
+<td>读MVCC快照，不加锁</td>
+</tr>
+<tr>
+<td>当前读</td>
+<td>SELECT &hellip; FOR UPDATE</td>
+<td>读最新数据，加X锁</td>
+</tr>
+<tr>
+<td>当前读</td>
+<td>SELECT &hellip; LOCK IN SHARE MODE</td>
+<td>读最新数据，加S锁</td>
+</tr>
+<tr>
+<td>当前读</td>
+<td>INSERT / UPDATE / DELETE</td>
+<td>操作最新数据，加锁</td>
+</tr>
+</tbody>
+</table>
+<p><strong>当前读为什么不使用MVCC</strong>：</p>
+<ul>
+<li>修改数据必须基于最新版本，否则会覆盖其他事务的修改</li>
+<li>通过加锁保证当前读的正确性</li>
+</ul>
+<h2 id="事务的传播行为spring">事务的传播行为（Spring）</h2>
+<p>在Spring框架中，事务还有传播行为的概念（面试常问）：</p>
+<table>
+<thead>
+<tr>
+<th>传播行为</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REQUIRED（默认）</td>
+<td>有事务就加入，没有就新建</td>
+</tr>
+<tr>
+<td>REQUIRES_NEW</td>
+<td>总是新建事务，挂起当前事务</td>
+</tr>
+<tr>
+<td>NESTED</td>
+<td>嵌套事务（保存点），外层回滚内层也回滚</td>
+</tr>
+<tr>
+<td>SUPPORTS</td>
+<td>有事务就加入，没有就非事务执行</td>
+</tr>
+<tr>
+<td>NOT_SUPPORTED</td>
+<td>总是非事务执行，挂起当前事务</td>
+</tr>
+<tr>
+<td>MANDATORY</td>
+<td>必须在事务中，否则抛异常</td>
+</tr>
+<tr>
+<td>NEVER</td>
+<td>必须不在事务中，否则抛异常</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Service</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Transactional</span><span style="color:#f92672">(</span>propagation <span style="color:#f92672">=</span> Propagation<span style="color:#f92672">.</span><span style="color:#a6e22e">REQUIRED</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">createOrder</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 主事务
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        orderMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">insert</span><span style="color:#f92672">(</span>order<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        pointService<span style="color:#f92672">.</span><span style="color:#a6e22e">addPoints</span><span style="color:#f92672">();</span>  <span style="color:#75715e">// 加入当前事务
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Transactional</span><span style="color:#f92672">(</span>propagation <span style="color:#f92672">=</span> Propagation<span style="color:#f92672">.</span><span style="color:#a6e22e">REQUIRES_NEW</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">addPoints</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 新事务：即使主事务回滚，积分也不回滚
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        pointMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">insert</span><span style="color:#f92672">(</span>point<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h2 id="常见面试题">常见面试题</h2>
+<h3 id="q1-mysql的rr级别能完全避免幻读吗">Q1: MySQL的RR级别能完全避免幻读吗？</h3>
+<p><strong>不能完全避免</strong>。以下场景仍会出现幻读：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 事务A
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">BEGIN</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">SELECT</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">FROM</span> users <span style="color:#66d9ef">WHERE</span> age <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">20</span>;  <span style="color:#75715e">-- 快照读，读到3行
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">-- 事务B在此插入了一条age=25的记录并提交
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">UPDATE</span> users <span style="color:#66d9ef">SET</span> name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;new&#39;</span> <span style="color:#66d9ef">WHERE</span> age <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">20</span>;  <span style="color:#75715e">-- 当前读，更新了4行！
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">SELECT</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">FROM</span> users <span style="color:#66d9ef">WHERE</span> age <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">20</span>;  <span style="color:#75715e">-- 现在能看到4行（包括自己更新的）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">COMMIT</span>;
+</span></span></code></pre></div><p>原因：UPDATE是当前读，会读取最新数据并加锁，导致事务A&quot;看到&quot;了新插入的行。</p>
+<h3 id="q2-为什么mysql默认用rr而不是rc">Q2: 为什么MySQL默认用RR而不是RC？</h3>
+<ol>
+<li><strong>数据一致性</strong>：RR保证同一事务内读取一致，更安全</li>
+<li><strong>binlog格式</strong>：RR配合binlog_format=ROW是安全的；RC必须用ROW格式</li>
+<li><strong>主从复制</strong>：RC级别下statement格式的binlog可能导致主从不一致</li>
+</ol>
+<h3 id="q3-事务太大有什么问题">Q3: 事务太大有什么问题？</h3>
+<ol>
+<li><strong>undo log膨胀</strong>：大量修改产生大量undo log</li>
+<li><strong>锁持有时间长</strong>：阻塞其他事务</li>
+<li><strong>Buffer Pool压力</strong>：脏页积累</li>
+<li><strong>长事务增加崩溃恢复时间</strong></li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 查看长事务
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">SELECT</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">FROM</span> information_schema.INNODB_TRX 
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">WHERE</span> TIME_TO_SEC(TIMEDIFF(NOW(), trx_started)) <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">60</span>;
+</span></span></code></pre></div><h3 id="q4-分布式事务如何保证acid">Q4: 分布式事务如何保证ACID？</h3>
+<p>分布式事务通常无法严格保证ACID，而是追求<strong>最终一致性</strong>：</p>
+<ul>
+<li><strong>2PC（两阶段提交）</strong>：协调者→参与者，强一致性但性能差</li>
+<li><strong>3PC（三阶段提交）</strong>：增加CanCommit阶段，减少阻塞</li>
+<li><strong>TCC（Try-Confirm-Cancel）</strong>：业务层面的补偿事务</li>
+<li><strong>Saga模式</strong>：长事务拆分为多个本地事务，失败时执行补偿操作</li>
+<li><strong>Seata</strong>：阿里开源的分布式事务框架</li>
+</ul>
+<h2 id="总结">总结</h2>
+<p>本文深入讲解了MySQL事务与ACID特性：</p>
+<ol>
+<li><strong>ACID特性</strong>：原子性（undo log）、一致性（目标）、隔离性（锁+MVCC）、持久性（redo log）</li>
+<li><strong>并发问题</strong>：脏读 → 不可重复读 → 幻读（严重程度递减）</li>
+<li><strong>隔离级别</strong>：读未提交 → 读已提交 → 可重复读 → 串行化（隔离强度递增，性能递减）</li>
+<li><strong>MVCC</strong>：隐藏列 + undo log版本链 + Read View，实现读写不阻塞</li>
+<li><strong>RC vs RR</strong>：Read View生成时机不同，导致可见性不同</li>
+<li><strong>当前读 vs 快照读</strong>：普通SELECT是快照读，加锁SELECT/写操作是当前读</li>
+</ol>
+<p>下期预告：</p>
+<ul>
+<li>数据库面试八股文（五）——MySQL锁机制（行锁、表锁、间隙锁、MVCC）</li>
+<li>数据库面试八股文（六）——MySQL日志系统与主从复制</li>
+</ul>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 Raphael</p>
+    </footer>
+</body>
+</html>
