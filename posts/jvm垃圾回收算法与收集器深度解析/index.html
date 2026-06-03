@@ -1,938 +1,29 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JVM 垃圾回收算法与收集器深度解析 - Raphael Tech Blog</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a25;
-            --text-primary: #e4e4e7;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --accent-glow: rgba(59, 130, 246, 0.3);
-            --border: #27272a;
-            --code-bg: #0f0f15;
-        }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-        
-         
-        header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-        }
-        
-        .header-content {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 1rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-        
-        header h1 a {
-            color: var(--text-primary);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        header h1 a::before {
-            content: '◆';
-            color: var(--accent);
-            font-size: 0.875rem;
-        }
-        
-        nav {
-            display: flex;
-            gap: 1.5rem;
-        }
-        
-        nav a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: color 0.2s;
-            position: relative;
-        }
-        
-        nav a:hover {
-            color: var(--text-primary);
-        }
-        
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--accent);
-            transition: width 0.2s;
-        }
-        
-        nav a:hover::after {
-            width: 100%;
-        }
-        
-         
-        main {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
-        
-         
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            transition: all 0.2s;
-        }
-        
-        article:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 20px var(--accent-glow);
-        }
-        
-        article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        
-        article h2 a {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-        
-        article h2 a:hover {
-            color: var(--accent);
-        }
-        
-        .meta {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.75rem;
-        }
-        
-        .meta span {
-            color: var(--accent);
-        }
-        
-        .summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-        
-        .summary a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
-            margin-left: 0.5rem;
-        }
-        
-        .summary a:hover {
-            text-decoration: underline;
-        }
-        
-         
-        .post-header {
-            margin-bottom: 2rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            line-height: 1.3;
-            margin-bottom: 1rem;
-        }
-        
-        .post-content {
-            font-size: 1rem;
-            line-height: 1.8;
-        }
-        
-        .post-content h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 2.5rem 0 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-content h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 2rem 0 1rem;
-            color: var(--accent);
-        }
-        
-        .post-content h4 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin: 1.5rem 0 0.75rem;
-        }
-        
-        .post-content p {
-            margin-bottom: 1.25rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-        
-        .post-content a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        
-        .post-content a:hover {
-            text-decoration: underline;
-        }
-        
-        .post-content ul, .post-content ol {
-            margin: 1rem 0 1.5rem 1.5rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content li {
-            margin-bottom: 0.5rem;
-        }
-        
-        .post-content code {
-            font-family: 'JetBrains Mono', monospace;
-            background: var(--code-bg);
-            color: var(--accent);
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-size: 0.875em;
-        }
-        
-        .post-content pre {
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.25rem;
-            overflow-x: auto;
-            margin: 1.5rem 0;
-        }
-        
-        .post-content pre code {
-            background: none;
-            color: var(--text-primary);
-            padding: 0;
-        }
-        
-        .post-content blockquote {
-            border-left: 3px solid var(--accent);
-            background: var(--bg-tertiary);
-            padding: 1rem 1.25rem;
-            margin: 1.5rem 0;
-            border-radius: 0 8px 8px 0;
-        }
-        
-        .post-content blockquote p {
-            margin: 0;
-            color: var(--text-secondary);
-        }
-        
-        .post-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-            font-size: 0.9375rem;
-        }
-        
-        .post-content th {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-weight: 600;
-            text-align: left;
-            padding: 0.75rem 1rem;
-            border-bottom: 2px solid var(--border);
-        }
-        
-        .post-content td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-secondary);
-        }
-        
-        .post-content tr:hover td {
-            background: var(--bg-tertiary);
-        }
-        
-         
-        footer {
-            max-width: 900px;
-            margin: 4rem auto 0;
-            padding: 2rem 1.5rem;
-            border-top: 1px solid var(--border);
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-         
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: var(--bg-secondary);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
-        
-         
-        ::selection {
-            background: var(--accent-glow);
-            color: var(--text-primary);
-        }
-
-         
-         
-        .tags-container {
-            max-width: 900px;
-        }
-
-        .tags-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 2rem;
-        }
-
-        .tag-card {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.625rem 1rem;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .tag-card:hover {
-            border-color: var(--accent);
-            background: var(--bg-tertiary);
-            transform: translateY(-1px);
-        }
-
-        .tag-card .tag-name {
-            color: var(--text-primary);
-            font-size: 0.9375rem;
-            font-weight: 500;
-        }
-
-        .tag-card .tag-num {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.125rem 0.5rem;
-            border-radius: 4px;
-            line-height: 1;
-        }
-
-         
-        .categories-container {
-            max-width: 900px;
-        }
-
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 80vh;
-            overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-        }
-
-        .modal-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-        }
-
-        .modal-close {
-            font-size: 1.5rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: color 0.2s;
-            line-height: 1;
-        }
-
-        .modal-close:hover {
-            color: var(--text-primary);
-        }
-
-        .modal-body {
-            padding: 1rem;
-            overflow-y: auto;
-            max-height: calc(80vh - 80px);
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.25rem;
-            margin-bottom: 0.5rem;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .tag-card {
-            cursor: pointer;
-        }
-
-         
-        .tag-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .tag-modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 800px;
-            height: 600px;
-            overflow: hidden;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .tag-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            flex-shrink: 0;
-        }
-
-        .tag-modal-header h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 700;
-            padding: 0.375rem 1rem;
-            border-radius: 20px;
-        }
-
-        .tag-modal-close {
-            font-size: 2rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-        }
-
-        .tag-modal-close:hover {
-            color: var(--text-primary);
-            background: var(--bg-tertiary);
-        }
-
-        .tag-modal-body {
-            padding: 1.5rem 2rem;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.25rem 1.5rem;
-            margin-bottom: 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            text-decoration: none;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            transform: translateX(8px);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-            font-size: 1rem;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-         
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .taxonomy-detail {
-            max-width: 900px;
-        }
-
-        .taxonomy-stats {
-            margin-bottom: 2rem;
-        }
-
-        .stat-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-        }
-
-        .taxonomy-articles {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .taxonomy-article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .taxonomy-article:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--accent-glow);
-        }
-
-        .article-link {
-            display: block;
-            padding: 1.5rem;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .taxonomy-article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .article-meta {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .article-summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="header-content">
-            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
-            <nav>
-                <a href="https://raphaell2e.github.io/">首页</a>
-                <a href="https://raphaell2e.github.io/posts/">文章</a>
-                <a href="https://raphaell2e.github.io/categories/">分类</a>
-                <a href="https://raphaell2e.github.io/tags/">标签</a>
-                <a href="https://raphaell2e.github.io/about/">关于</a>
-            </nav>
-        </div>
-    </header>
-    <main>
-        
-<article class="post">
-    <div class="post-header">
-        <div class="meta">2026-05-09 <span>/</span> java </div>
-        <h1>JVM 垃圾回收算法与收集器深度解析</h1>
-    </div>
-    <div class="post-content">
-        <h1 id="jvm-垃圾回收算法与收集器深度解析">JVM 垃圾回收算法与收集器深度解析</h1>
-<blockquote>
-<p>面试高频问题：GC 有哪些算法？CMS 和 G1 有什么区别？ZGC 为什么能做到几乎不停顿？</p>
-</blockquote>
-<h2 id="引言">引言</h2>
-<p>Java 与 C++ 的核心区别之一是内存管理。在 C++ 中，程序员需要手动分配和释放内存；而在 Java 中，垃圾回收器（Garbage Collector）自动完成这项工作。理解 GC 算法和收集器是 Java 面试的必考知识点。本文将从基础算法到高级收集器，全面解析 JVM 的垃圾回收机制。</p>
-<h2 id="一为什么要垃圾回收">一、为什么要垃圾回收？</h2>
-<h3 id="11-内存泄漏与溢出">1.1 内存泄漏与溢出</h3>
-<p><strong>内存泄漏（Memory Leak）</strong>：程序申请内存后，无法释放已申请的内存空间，导致内存浪费。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 内存泄漏示例：集合类持有对象引用
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>List<span style="color:#f92672">&lt;</span>Object<span style="color:#f92672">&gt;</span> list <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ArrayList<span style="color:#f92672">&lt;&gt;();</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">true</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    list<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> Object<span style="color:#f92672">());</span>  <span style="color:#75715e">// 只添加不清理，内存持续增长
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><p><strong>内存溢出（OutOfMemoryError）</strong>：程序申请内存时，没有足够的内存空间供其使用。</p>
-<h3 id="12-gc-的价值">1.2 GC 的价值</h3>
-<ul>
-<li><strong>自动管理内存</strong>：程序员无需手动释放，减少内存泄漏</li>
-<li><strong>提高开发效率</strong>：减少 dangling pointer、double free 等错误</li>
-<li><strong>安全性提升</strong>：防止缓冲区溢出等安全漏洞</li>
-</ul>
-<h2 id="二对象存活判断">二、对象存活判断</h2>
-<p>GC 之前需要判断哪些对象是&quot;死去&quot;的（不再被使用），只有&quot;死去&quot;的对象才能被回收。</p>
-<h3 id="21-引用计数法">2.1 引用计数法</h3>
-<p>给对象添加引用计数器，有引用就 +1，引用失效就 -1。计数器为 0 的对象可回收。</p>
-<pre tabindex="0"><code>┌─────────┐
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>JVM 垃圾回收算法与收集器深度解析 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
+<a href=https://raphaell2e.github.io/posts/>文章</a>
+<a href=https://raphaell2e.github.io/categories/>分类</a>
+<a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-09 <span>/</span> java</div><h1>JVM 垃圾回收算法与收集器深度解析</h1></div><div class=post-content><h1 id=jvm-垃圾回收算法与收集器深度解析>JVM 垃圾回收算法与收集器深度解析</h1><blockquote><p>面试高频问题：GC 有哪些算法？CMS 和 G1 有什么区别？ZGC 为什么能做到几乎不停顿？</p></blockquote><h2 id=引言>引言</h2><p>Java 与 C++ 的核心区别之一是内存管理。在 C++ 中，程序员需要手动分配和释放内存；而在 Java 中，垃圾回收器（Garbage Collector）自动完成这项工作。理解 GC 算法和收集器是 Java 面试的必考知识点。本文将从基础算法到高级收集器，全面解析 JVM 的垃圾回收机制。</p><h2 id=一为什么要垃圾回收>一、为什么要垃圾回收？</h2><h3 id=11-内存泄漏与溢出>1.1 内存泄漏与溢出</h3><p><strong>内存泄漏（Memory Leak）</strong>：程序申请内存后，无法释放已申请的内存空间，导致内存浪费。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 内存泄漏示例：集合类持有对象引用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>List<span style=color:#f92672>&lt;</span>Object<span style=color:#f92672>&gt;</span> list <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ArrayList<span style=color:#f92672>&lt;&gt;();</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>while</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>true</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    list<span style=color:#f92672>.</span><span style=color:#a6e22e>add</span><span style=color:#f92672>(</span><span style=color:#66d9ef>new</span> Object<span style=color:#f92672>());</span>  <span style=color:#75715e>// 只添加不清理，内存持续增长
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>内存溢出（OutOfMemoryError）</strong>：程序申请内存时，没有足够的内存空间供其使用。</p><h3 id=12-gc-的价值>1.2 GC 的价值</h3><ul><li><strong>自动管理内存</strong>：程序员无需手动释放，减少内存泄漏</li><li><strong>提高开发效率</strong>：减少 dangling pointer、double free 等错误</li><li><strong>安全性提升</strong>：防止缓冲区溢出等安全漏洞</li></ul><h2 id=二对象存活判断>二、对象存活判断</h2><p>GC 之前需要判断哪些对象是"死去"的（不再被使用），只有"死去"的对象才能被回收。</p><h3 id=21-引用计数法>2.1 引用计数法</h3><p>给对象添加引用计数器，有引用就 +1，引用失效就 -1。计数器为 0 的对象可回收。</p><pre tabindex=0><code>┌─────────┐
 │ Object  │
 │  count=3│ ← 被 3 个引用持有
 └─────────┘
 </code></pre><p><strong>优点</strong>：实现简单，判定效率高
-<strong>缺点</strong>：无法解决循环引用问题</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 循环引用示例
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Object a <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Object<span style="color:#f92672">();</span>  <span style="color:#75715e">// a count=1
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Object b <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Object<span style="color:#f92672">();</span>  <span style="color:#75715e">// b count=1
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>a<span style="color:#f92672">.</span><span style="color:#a6e22e">ref</span> <span style="color:#f92672">=</span> b<span style="color:#f92672">;</span>               <span style="color:#75715e">// a count=1, b count=2
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>b<span style="color:#f92672">.</span><span style="color:#a6e22e">ref</span> <span style="color:#f92672">=</span> a<span style="color:#f92672">;</span>               <span style="color:#75715e">// a count=2, b count=2
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// a = null 后，a count=1, b count=2（无法回收）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>a <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>b <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 此时 a 和 b 相互引用，但已经无法访问
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 引用计数法无法回收，JVM 未采用
-</span></span></span></code></pre></div><blockquote>
-<p>💡 <strong>面试题</strong>：Python 采用引用计数，为什么 Java 不采用？</p>
-<p><strong>答</strong>：引用计数无法处理循环引用，且每次引用变化都需要更新计数器，有性能开销。Java 采用可达性分析。</p>
-</blockquote>
-<h3 id="22-可达性分析jvm-采用">2.2 可达性分析（JVM 采用）</h3>
-<p>通过一系列 &ldquo;GC Roots&rdquo; 对象作为起点，向下搜索，形成&quot;引用链&quot;。不在引用链上的对象可回收。</p>
-<pre tabindex="0"><code>        GC Root
+<strong>缺点</strong>：无法解决循环引用问题</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 循环引用示例
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>Object a <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Object<span style=color:#f92672>();</span>  <span style=color:#75715e>// a count=1
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>Object b <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Object<span style=color:#f92672>();</span>  <span style=color:#75715e>// b count=1
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>a<span style=color:#f92672>.</span><span style=color:#a6e22e>ref</span> <span style=color:#f92672>=</span> b<span style=color:#f92672>;</span>               <span style=color:#75715e>// a count=1, b count=2
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>b<span style=color:#f92672>.</span><span style=color:#a6e22e>ref</span> <span style=color:#f92672>=</span> a<span style=color:#f92672>;</span>               <span style=color:#75715e>// a count=2, b count=2
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// a = null 后，a count=1, b count=2（无法回收）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>a <span style=color:#f92672>=</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>b <span style=color:#f92672>=</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 此时 a 和 b 相互引用，但已经无法访问
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 引用计数法无法回收，JVM 未采用
+</span></span></span></code></pre></div><blockquote><p>💡 <strong>面试题</strong>：Python 采用引用计数，为什么 Java 不采用？</p><p><strong>答</strong>：引用计数无法处理循环引用，且每次引用变化都需要更新计数器，有性能开销。Java 采用可达性分析。</p></blockquote><h3 id=22-可达性分析jvm-采用>2.2 可达性分析（JVM 采用）</h3><p>通过一系列 &ldquo;GC Roots&rdquo; 对象作为起点，向下搜索，形成"引用链"。不在引用链上的对象可回收。</p><pre tabindex=0><code>        GC Root
             │
     ┌───────┼───────┐
     │       │       │
@@ -950,95 +41,21 @@
  ┌─────┐    │       └── 可达，但无引用链
  │  F  │ ← ┘           (假设 F 无外部引用)
  └─────┘               F 不可达，可回收
-</code></pre><p><strong>GC Roots 对象包括</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>类型</th>
-<th>示例</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>虚拟机栈中引用的对象</td>
-<td>方法中的局部变量、参数</td>
-</tr>
-<tr>
-<td>方法区中类静态属性引用的对象</td>
-<td>static Object obj</td>
-</tr>
-<tr>
-<td>方法区中常量引用的对象</td>
-<td>final Object CONST</td>
-</tr>
-<tr>
-<td>本地方法栈中 JNI 引用的对象</td>
-<td>native 方法中的对象</td>
-</tr>
-<tr>
-<td>JVM 内部引用</td>
-<td>ClassLoader、异常对象</td>
-</tr>
-<tr>
-<td>同步锁持有的对象</td>
-<td>synchronized(obj) 中的 obj</td>
-</tr>
-</tbody>
-</table>
-<h3 id="23-四种引用类型">2.3 四种引用类型</h3>
-<table>
-<thead>
-<tr>
-<th>引用类型</th>
-<th>回收时机</th>
-<th>场景</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>强引用</strong></td>
-<td>从不回收</td>
-<td><code>Object obj = new Object()</code></td>
-</tr>
-<tr>
-<td><strong>软引用</strong></td>
-<td>内存不足时回收</td>
-<td>缓存</td>
-</tr>
-<tr>
-<td><strong>弱引用</strong></td>
-<td>下次 GC 时回收</td>
-<td>缓存、Map 引用</td>
-</tr>
-<tr>
-<td><strong>虚引用</strong></td>
-<td>随时可能回收</td>
-<td>对象跟踪、堆外内存管理</td>
-</tr>
-</tbody>
-</table>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 强引用
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Object strong <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Object<span style="color:#f92672">();</span>  <span style="color:#75715e">// 永远不会 GC
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 软引用
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>SoftReference<span style="color:#f92672">&lt;</span>Object<span style="color:#f92672">&gt;</span> soft <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SoftReference<span style="color:#f92672">&lt;&gt;(</span><span style="color:#66d9ef">new</span> Object<span style="color:#f92672">());</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 内存不足时回收
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 弱引用
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>WeakReference<span style="color:#f92672">&lt;</span>Object<span style="color:#f92672">&gt;</span> weak <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> WeakReference<span style="color:#f92672">&lt;&gt;(</span><span style="color:#66d9ef">new</span> Object<span style="color:#f92672">());</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 下次 GC 时回收
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 虚引用（必须和 ReferenceQueue 配合）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>ReferenceQueue<span style="color:#f92672">&lt;</span>Object<span style="color:#f92672">&gt;</span> queue <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ReferenceQueue<span style="color:#f92672">&lt;&gt;();</span>
-</span></span><span style="display:flex;"><span>PhantomReference<span style="color:#f92672">&lt;</span>Object<span style="color:#f92672">&gt;</span> phantom <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> PhantomReference<span style="color:#f92672">&lt;&gt;(</span><span style="color:#66d9ef">new</span> Object<span style="color:#f92672">(),</span> queue<span style="color:#f92672">);</span>
-</span></span></code></pre></div><h2 id="三垃圾回收算法">三、垃圾回收算法</h2>
-<h3 id="31-标记-清除算法mark-sweep">3.1 标记-清除算法（Mark-Sweep）</h3>
-<p><strong>步骤</strong>：</p>
-<ol>
-<li>标记：找出所有需要回收的对象并标记</li>
-<li>清除：统一回收被标记的对象</li>
-</ol>
-<pre tabindex="0"><code>标记前：
+</code></pre><p><strong>GC Roots 对象包括</strong>：</p><table><thead><tr><th>类型</th><th>示例</th></tr></thead><tbody><tr><td>虚拟机栈中引用的对象</td><td>方法中的局部变量、参数</td></tr><tr><td>方法区中类静态属性引用的对象</td><td>static Object obj</td></tr><tr><td>方法区中常量引用的对象</td><td>final Object CONST</td></tr><tr><td>本地方法栈中 JNI 引用的对象</td><td>native 方法中的对象</td></tr><tr><td>JVM 内部引用</td><td>ClassLoader、异常对象</td></tr><tr><td>同步锁持有的对象</td><td>synchronized(obj) 中的 obj</td></tr></tbody></table><h3 id=23-四种引用类型>2.3 四种引用类型</h3><table><thead><tr><th>引用类型</th><th>回收时机</th><th>场景</th></tr></thead><tbody><tr><td><strong>强引用</strong></td><td>从不回收</td><td><code>Object obj = new Object()</code></td></tr><tr><td><strong>软引用</strong></td><td>内存不足时回收</td><td>缓存</td></tr><tr><td><strong>弱引用</strong></td><td>下次 GC 时回收</td><td>缓存、Map 引用</td></tr><tr><td><strong>虚引用</strong></td><td>随时可能回收</td><td>对象跟踪、堆外内存管理</td></tr></tbody></table><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 强引用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>Object strong <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Object<span style=color:#f92672>();</span>  <span style=color:#75715e>// 永远不会 GC
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 软引用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>SoftReference<span style=color:#f92672>&lt;</span>Object<span style=color:#f92672>&gt;</span> soft <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> SoftReference<span style=color:#f92672>&lt;&gt;(</span><span style=color:#66d9ef>new</span> Object<span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 内存不足时回收
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 弱引用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>WeakReference<span style=color:#f92672>&lt;</span>Object<span style=color:#f92672>&gt;</span> weak <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> WeakReference<span style=color:#f92672>&lt;&gt;(</span><span style=color:#66d9ef>new</span> Object<span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 下次 GC 时回收
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 虚引用（必须和 ReferenceQueue 配合）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>ReferenceQueue<span style=color:#f92672>&lt;</span>Object<span style=color:#f92672>&gt;</span> queue <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ReferenceQueue<span style=color:#f92672>&lt;&gt;();</span>
+</span></span><span style=display:flex><span>PhantomReference<span style=color:#f92672>&lt;</span>Object<span style=color:#f92672>&gt;</span> phantom <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> PhantomReference<span style=color:#f92672>&lt;&gt;(</span><span style=color:#66d9ef>new</span> Object<span style=color:#f92672>(),</span> queue<span style=color:#f92672>);</span>
+</span></span></code></pre></div><h2 id=三垃圾回收算法>三、垃圾回收算法</h2><h3 id=31-标记-清除算法mark-sweep>3.1 标记-清除算法（Mark-Sweep）</h3><p><strong>步骤</strong>：</p><ol><li>标记：找出所有需要回收的对象并标记</li><li>清除：统一回收被标记的对象</li></ol><pre tabindex=0><code>标记前：
 ┌────────────────────────────┐
 │  可用  │ 已标记 │  可用   │
 │  内存  │ (回收) │  内存   │
@@ -1049,19 +66,12 @@
 │  可用  │  清除   │  可用   │
 │  内存  │ (空)   │  内存   │
 └────────────────────────────┘
-</code></pre><p><strong>缺点</strong>：</p>
-<ul>
-<li><strong>效率问题</strong>：标记和清除都需要遍历所有对象</li>
-<li><strong>空间问题</strong>：产生大量不连续内存碎片</li>
-</ul>
-<pre tabindex="0"><code>内存碎片问题：
+</code></pre><p><strong>缺点</strong>：</p><ul><li><strong>效率问题</strong>：标记和清除都需要遍历所有对象</li><li><strong>空间问题</strong>：产生大量不连续内存碎片</li></ul><pre tabindex=0><code>内存碎片问题：
 ┌──┐┌────┐┌──┐┌──────┐┌┐┌────┐┌──┐
 │  ││    ││  ││      ││││    ││  │
 └──┘└────┘└──┘└──────┘└┘└────┘└──┘
  ↑ 碎片   ↑ 碎片      ↑ 碎片
-</code></pre><h3 id="32-复制算法copying">3.2 复制算法（Copying）</h3>
-<p>将内存分为两块，每次只使用一块。GC 时将存活对象复制到另一块，然后清空原块。</p>
-<pre tabindex="0"><code>原区域：                      目标区域：
+</code></pre><h3 id=32-复制算法copying>3.2 复制算法（Copying）</h3><p>将内存分为两块，每次只使用一块。GC 时将存活对象复制到另一块，然后清空原块。</p><pre tabindex=0><code>原区域：                      目标区域：
 ┌────────────────────┐        ┌────────────────────┐
 │ A │ B │ C │   D   │        │        (空)         │
 └────────────────────┘        └────────────────────┘
@@ -1071,20 +81,7 @@
 ┌────────────────────┐        ┌────────────────────┐
 │        (空)        │        │  A  │  B  │  C   │
 └────────────────────┘        └────────────────────┘
-</code></pre><p><strong>优点</strong>：</p>
-<ul>
-<li>无内存碎片</li>
-<li>实现简单，运行高效</li>
-</ul>
-<p><strong>缺点</strong>：</p>
-<ul>
-<li>浪费一半内存</li>
-<li>如果存活对象多，复制成本高</li>
-</ul>
-<p><strong>应用</strong>：新生代 Eden:Survivor:Survivor = 8:1:1</p>
-<h3 id="33-标记-整理算法mark-compact">3.3 标记-整理算法（Mark-Compact）</h3>
-<p>在标记-清除基础上，增加整理步骤，让存活对象向一端移动。</p>
-<pre tabindex="0"><code>整理前：
+</code></pre><p><strong>优点</strong>：</p><ul><li>无内存碎片</li><li>实现简单，运行高效</li></ul><p><strong>缺点</strong>：</p><ul><li>浪费一半内存</li><li>如果存活对象多，复制成本高</li></ul><p><strong>应用</strong>：新生代 Eden:Survivor:Survivor = 8:1:1</p><h3 id=33-标记-整理算法mark-compact>3.3 标记-整理算法（Mark-Compact）</h3><p>在标记-清除基础上，增加整理步骤，让存活对象向一端移动。</p><pre tabindex=0><code>整理前：
 ┌────┬────────┬──┬────┬────┬──┐
 │存活│  已死   │存活│已死│存活│死│
 └────┴────────┴──┴────┴────┴──┘
@@ -1096,11 +93,7 @@
 └────────────────────────────┴──┘
                          ↑连续内存
 </code></pre><p><strong>优点</strong>：无内存碎片，充分利用内存
-<strong>缺点</strong>：整理过程需要移动对象，有性能开销</p>
-<p><strong>应用</strong>：老年代（存活对象多，不适合复制算法）</p>
-<h3 id="34-分代收集算法generational-collection">3.4 分代收集算法（Generational Collection）</h3>
-<p>根据对象存活周期将内存分为新生代和老年代，不同区域采用不同算法。</p>
-<pre tabindex="0"><code>┌─────────────────────────────────────┐
+<strong>缺点</strong>：整理过程需要移动对象，有性能开销</p><p><strong>应用</strong>：老年代（存活对象多，不适合复制算法）</p><h3 id=34-分代收集算法generational-collection>3.4 分代收集算法（Generational Collection）</h3><p>根据对象存活周期将内存分为新生代和老年代，不同区域采用不同算法。</p><pre tabindex=0><code>┌─────────────────────────────────────┐
 │              堆内存                   │
 ├─────────────────┬───────────────────┤
 │     新生代       │      老年代        │
@@ -1111,65 +104,12 @@
 │ └───┴───┴───┘  │                   │
 │  8    1   1   │                   │
 └─────────────────┴───────────────────┘
-</code></pre><table>
-<thead>
-<tr>
-<th>区域</th>
-<th>对象特征</th>
-<th>算法</th>
-<th>GC 频率</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>新生代</td>
-<td>朝生夕死</td>
-<td>复制算法</td>
-<td>高</td>
-</tr>
-<tr>
-<td>老年代</td>
-<td>长寿对象</td>
-<td>标记-整理</td>
-<td>低</td>
-</tr>
-</tbody>
-</table>
-<h3 id="35-三种-gc-类型">3.5 三种 GC 类型</h3>
-<table>
-<thead>
-<tr>
-<th>类型</th>
-<th>发生区域</th>
-<th>触发条件</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Minor GC</strong></td>
-<td>新生代</td>
-<td>Eden 满</td>
-</tr>
-<tr>
-<td><strong>Major GC</strong></td>
-<td>老年代</td>
-<td>老年代满</td>
-</tr>
-<tr>
-<td><strong>Full GC</strong></td>
-<td>整堆</td>
-<td>多种条件触发</td>
-</tr>
-</tbody>
-</table>
-<pre tabindex="0"><code>触发 Full GC 的情况：
+</code></pre><table><thead><tr><th>区域</th><th>对象特征</th><th>算法</th><th>GC 频率</th></tr></thead><tbody><tr><td>新生代</td><td>朝生夕死</td><td>复制算法</td><td>高</td></tr><tr><td>老年代</td><td>长寿对象</td><td>标记-整理</td><td>低</td></tr></tbody></table><h3 id=35-三种-gc-类型>3.5 三种 GC 类型</h3><table><thead><tr><th>类型</th><th>发生区域</th><th>触发条件</th></tr></thead><tbody><tr><td><strong>Minor GC</strong></td><td>新生代</td><td>Eden 满</td></tr><tr><td><strong>Major GC</strong></td><td>老年代</td><td>老年代满</td></tr><tr><td><strong>Full GC</strong></td><td>整堆</td><td>多种条件触发</td></tr></tbody></table><pre tabindex=0><code>触发 Full GC 的情况：
 1. 老年代空间不足
 2. System.gc()（不保证执行）
 3. MetaSpace 空间不足
 4. Minor GC 前的检查失败
-</code></pre><h2 id="四垃圾收集器">四、垃圾收集器</h2>
-<p>JVM 提供多种垃圾收集器，不同收集器适用于不同场景。</p>
-<pre tabindex="0"><code>┌─────────────────────────────────────────────────────────────┐
+</code></pre><h2 id=四垃圾收集器>四、垃圾收集器</h2><p>JVM 提供多种垃圾收集器，不同收集器适用于不同场景。</p><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────┐
 │                     垃圾收集器                               │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
@@ -1193,71 +133,39 @@
 │                            │        ┌─────────┐              │
 │                            ├─────── │ Shenandoah │           │
 └────────────────────────────┴────────┴─────────┘              │
-</code></pre><h3 id="41-serial-收集器">4.1 Serial 收集器</h3>
-<p>最古老、最简单的收集器，单线程执行 GC。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启用</span>
-</span></span><span style="display:flex;"><span>-XX:+UseSerialGC
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 工作模式</span>
-</span></span><span style="display:flex;"><span>新生代：Serial（复制算法）
-</span></span><span style="display:flex;"><span>老年代：Serial Old（标记-整理）
-</span></span></code></pre></div><p><strong>特点</strong>：</p>
-<ul>
-<li>单线程，Stop The World</li>
-<li>简单高效，没有线程切换开销</li>
-<li>适用于桌面应用（内存小，GC 时间可接受）</li>
-</ul>
-<h3 id="42-parnew-收集器">4.2 ParNew 收集器</h3>
-<p>Serial 的多线程版本，平行收集。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启用</span>
-</span></span><span style="display:flex;"><span>-XX:+UseParNewGC
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 工作模式</span>
-</span></span><span style="display:flex;"><span>新生代：ParNew（复制算法，多线程）
-</span></span><span style="display:flex;"><span>老年代：Serial Old 或 CMS
-</span></span></code></pre></div><p><strong>特点</strong>：</p>
-<ul>
-<li>多线程并行收集</li>
-<li>默认线程数 = CPU 核心数</li>
-<li><strong>只能与 CMS 配合</strong>（JDK 9 已移除 ParNew + Serial Old 组合）</li>
-</ul>
-<h3 id="43-parallel-scavenge-收集器">4.3 Parallel Scavenge 收集器</h3>
-<p>专注于吞吐量（Throughput）的收集器。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启用</span>
-</span></span><span style="display:flex;"><span>-XX:+UseParallelGC
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 参数配置</span>
-</span></span><span style="display:flex;"><span>-XX:MaxGCPauseMillis<span style="color:#f92672">=</span>&lt;ms&gt;   <span style="color:#75715e"># 最大 GC 停顿时间（目标，不保证）</span>
-</span></span><span style="display:flex;"><span>-XX:GCTimeRatio<span style="color:#f92672">=</span>&lt;ratio&gt;     <span style="color:#75715e"># GC 时间占总时间比例（默认 99，即 1%）</span>
-</span></span><span style="display:flex;"><span>-XX:+UseAdaptiveSizePolicy   <span style="color:#75715e"># 自适应调节（自动调整 Eden/Survivor 比例）</span>
-</span></span></code></pre></div><p><strong>特点</strong>：</p>
-<ul>
-<li>吞吐量优先</li>
-<li>自适应调节</li>
-<li>JDK 8 默认新生代收集器</li>
-</ul>
-<h3 id="44-serial-old-收集器">4.4 Serial Old 收集器</h3>
-<p>Serial 的老年代版本，使用标记-整理算法。</p>
-<h3 id="45-parallel-old-收集器">4.5 Parallel Old 收集器</h3>
-<p>Parallel Scavenge 的老年代版本，使用标记-整理算法。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启用</span>
-</span></span><span style="display:flex;"><span>-XX:+UseParallelOldGC
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 组合</span>
-</span></span><span style="display:flex;"><span>新生代：Parallel Scavenge
-</span></span><span style="display:flex;"><span>老年代：Parallel Old
-</span></span></code></pre></div><p><strong>JDK 8 默认组合</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>-XX:+UseParallelGC  <span style="color:#75715e"># 等价于 Parallel Scavenge + Parallel Old</span>
-</span></span></code></pre></div><h3 id="46-cms-收集器concurrent-mark-sweep">4.6 CMS 收集器（Concurrent Mark Sweep）</h3>
-<p>以最短停顿时间为目标的收集器。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启用</span>
-</span></span><span style="display:flex;"><span>-XX:+UseConcMarkSweepGC
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 组合</span>
-</span></span><span style="display:flex;"><span>新生代：ParNew
-</span></span><span style="display:flex;"><span>老年代：CMS
-</span></span></code></pre></div><p><strong>工作过程</strong>：</p>
-<pre tabindex="0"><code>1. 初始标记（Initial Mark）
+</code></pre><h3 id=41-serial-收集器>4.1 Serial 收集器</h3><p>最古老、最简单的收集器，单线程执行 GC。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 启用</span>
+</span></span><span style=display:flex><span>-XX:+UseSerialGC
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 工作模式</span>
+</span></span><span style=display:flex><span>新生代：Serial（复制算法）
+</span></span><span style=display:flex><span>老年代：Serial Old（标记-整理）
+</span></span></code></pre></div><p><strong>特点</strong>：</p><ul><li>单线程，Stop The World</li><li>简单高效，没有线程切换开销</li><li>适用于桌面应用（内存小，GC 时间可接受）</li></ul><h3 id=42-parnew-收集器>4.2 ParNew 收集器</h3><p>Serial 的多线程版本，平行收集。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 启用</span>
+</span></span><span style=display:flex><span>-XX:+UseParNewGC
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 工作模式</span>
+</span></span><span style=display:flex><span>新生代：ParNew（复制算法，多线程）
+</span></span><span style=display:flex><span>老年代：Serial Old 或 CMS
+</span></span></code></pre></div><p><strong>特点</strong>：</p><ul><li>多线程并行收集</li><li>默认线程数 = CPU 核心数</li><li><strong>只能与 CMS 配合</strong>（JDK 9 已移除 ParNew + Serial Old 组合）</li></ul><h3 id=43-parallel-scavenge-收集器>4.3 Parallel Scavenge 收集器</h3><p>专注于吞吐量（Throughput）的收集器。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 启用</span>
+</span></span><span style=display:flex><span>-XX:+UseParallelGC
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 参数配置</span>
+</span></span><span style=display:flex><span>-XX:MaxGCPauseMillis<span style=color:#f92672>=</span>&lt;ms&gt;   <span style=color:#75715e># 最大 GC 停顿时间（目标，不保证）</span>
+</span></span><span style=display:flex><span>-XX:GCTimeRatio<span style=color:#f92672>=</span>&lt;ratio&gt;     <span style=color:#75715e># GC 时间占总时间比例（默认 99，即 1%）</span>
+</span></span><span style=display:flex><span>-XX:+UseAdaptiveSizePolicy   <span style=color:#75715e># 自适应调节（自动调整 Eden/Survivor 比例）</span>
+</span></span></code></pre></div><p><strong>特点</strong>：</p><ul><li>吞吐量优先</li><li>自适应调节</li><li>JDK 8 默认新生代收集器</li></ul><h3 id=44-serial-old-收集器>4.4 Serial Old 收集器</h3><p>Serial 的老年代版本，使用标记-整理算法。</p><h3 id=45-parallel-old-收集器>4.5 Parallel Old 收集器</h3><p>Parallel Scavenge 的老年代版本，使用标记-整理算法。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 启用</span>
+</span></span><span style=display:flex><span>-XX:+UseParallelOldGC
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 组合</span>
+</span></span><span style=display:flex><span>新生代：Parallel Scavenge
+</span></span><span style=display:flex><span>老年代：Parallel Old
+</span></span></code></pre></div><p><strong>JDK 8 默认组合</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>-XX:+UseParallelGC  <span style=color:#75715e># 等价于 Parallel Scavenge + Parallel Old</span>
+</span></span></code></pre></div><h3 id=46-cms-收集器concurrent-mark-sweep>4.6 CMS 收集器（Concurrent Mark Sweep）</h3><p>以最短停顿时间为目标的收集器。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 启用</span>
+</span></span><span style=display:flex><span>-XX:+UseConcMarkSweepGC
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 组合</span>
+</span></span><span style=display:flex><span>新生代：ParNew
+</span></span><span style=display:flex><span>老年代：CMS
+</span></span></code></pre></div><p><strong>工作过程</strong>：</p><pre tabindex=0><code>1. 初始标记（Initial Mark）
    └─ Stop The World
    └─ 标记 GC Roots 直接关联的对象
    
@@ -1272,25 +180,14 @@
 4. 并发清除（Concurrent Sweep）
    └─ 与用户线程并发执行
    └─ 清除死亡对象
-</code></pre><pre tabindex="0"><code>时间轴：
+</code></pre><pre tabindex=0><code>时间轴：
 ──┬────────────────┬──────┬────────────────────┬──
   │  Initial Mark   │      │       Remark        │
   ▼                 ▼      ▼                     ▼
  STW               STW    STW                    运行
   │                 │      │                    │
  └─ 并发标记 ───────┘      └─ 并发清除 ──────────┘
-</code></pre><p><strong>优点</strong>：</p>
-<ul>
-<li>并发收集，低停顿</li>
-<li>适合对响应时间有要求的应用</li>
-</ul>
-<p><strong>缺点</strong>：</p>
-<ul>
-<li>CPU 敏感（占用 CPU 资源）</li>
-<li>无法处理浮动垃圾</li>
-<li>产生内存碎片（标记-清除算法）</li>
-</ul>
-<pre tabindex="0"><code>CMS 缺点详解：
+</code></pre><p><strong>优点</strong>：</p><ul><li>并发收集，低停顿</li><li>适合对响应时间有要求的应用</li></ul><p><strong>缺点</strong>：</p><ul><li>CPU 敏感（占用 CPU 资源）</li><li>无法处理浮动垃圾</li><li>产生内存碎片（标记-清除算法）</li></ul><pre tabindex=0><code>CMS 缺点详解：
 
 1. CPU 敏感
    └─ 并发阶段占用 25% CPU
@@ -1304,23 +201,18 @@
    └─ 标记-清除算法，不整理
    └─ Full GC 时进行碎片整理（Serial Old）
    └─ 导致长时间停顿
-</code></pre><p><strong>CMS 触发条件</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 老年代空间使用率达到阈值</span>
-</span></span><span style="display:flex;"><span>-XX:CMSInitiatingOccupancyFraction<span style="color:#f92672">=</span>&lt;percent&gt;  <span style="color:#75715e"># 默认 92%</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 老年代空间不足</span>
-</span></span><span style="display:flex;"><span>-XX:+UseCMSInitiatingOccupancyOnly              <span style="color:#75715e"># 只用阈值判断</span>
-</span></span></code></pre></div><h3 id="47-g1-收集器garbage-first">4.7 G1 收集器（Garbage First）</h3>
-<p>JDK 7 引入，JDK 9 成为默认收集器。</p>
-<p><strong>核心思想</strong>：将堆划分为多个大小相等的 Region，按回收收益优先回收。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启用</span>
-</span></span><span style="display:flex;"><span>-XX:+UseG1GC
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 参数配置</span>
-</span></span><span style="display:flex;"><span>-XX:MaxGCPauseMillis<span style="color:#f92672">=</span>&lt;ms&gt;   <span style="color:#75715e"># 最大停顿时间（目标）</span>
-</span></span><span style="display:flex;"><span>-XX:G1HeapRegionSize<span style="color:#f92672">=</span>&lt;size&gt;  <span style="color:#75715e"># Region 大小（1MB-32MB，必须是 2 的幂）</span>
-</span></span></code></pre></div><p><strong>Region 划分</strong>：</p>
-<pre tabindex="0"><code>┌────────────────────────────────────────────────────────────┐
+</code></pre><p><strong>CMS 触发条件</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 老年代空间使用率达到阈值</span>
+</span></span><span style=display:flex><span>-XX:CMSInitiatingOccupancyFraction<span style=color:#f92672>=</span>&lt;percent&gt;  <span style=color:#75715e># 默认 92%</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 老年代空间不足</span>
+</span></span><span style=display:flex><span>-XX:+UseCMSInitiatingOccupancyOnly              <span style=color:#75715e># 只用阈值判断</span>
+</span></span></code></pre></div><h3 id=47-g1-收集器garbage-first>4.7 G1 收集器（Garbage First）</h3><p>JDK 7 引入，JDK 9 成为默认收集器。</p><p><strong>核心思想</strong>：将堆划分为多个大小相等的 Region，按回收收益优先回收。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 启用</span>
+</span></span><span style=display:flex><span>-XX:+UseG1GC
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 参数配置</span>
+</span></span><span style=display:flex><span>-XX:MaxGCPauseMillis<span style=color:#f92672>=</span>&lt;ms&gt;   <span style=color:#75715e># 最大停顿时间（目标）</span>
+</span></span><span style=display:flex><span>-XX:G1HeapRegionSize<span style=color:#f92672>=</span>&lt;size&gt;  <span style=color:#75715e># Region 大小（1MB-32MB，必须是 2 的幂）</span>
+</span></span></code></pre></div><p><strong>Region 划分</strong>：</p><pre tabindex=0><code>┌────────────────────────────────────────────────────────────┐
 │                        堆内存                               │
 │  ┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐ │
 │  │ Eden ││ Eden ││ S0 ││ S1 ││ Old ││ Old ││ H  ││    │ │
@@ -1329,40 +221,7 @@
 │           │                │          │  │  (大对象)│     │
 │           └────────────────┴──────────┴──┴──────────┘     │
 └────────────────────────────────────────────────────────────┘
-</code></pre><p><strong>G1 的优势</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>特性</th>
-<th>Serial/ParNew/CMS</th>
-<th>G1</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>内存管理</td>
-<td>新生代/老年代固定</td>
-<td>Region 动态划分</td>
-</tr>
-<tr>
-<td>碎片问题</td>
-<td>有（除 G1 外）</td>
-<td>整理减少碎片</td>
-</tr>
-<tr>
-<td>停顿模型</td>
-<td>整堆停顿</td>
-<td>可预测停顿</td>
-</tr>
-<tr>
-<td>吞吐量</td>
-<td>较低</td>
-<td>较高</td>
-</tr>
-</tbody>
-</table>
-<p><strong>G1 工作过程</strong>：</p>
-<pre tabindex="0"><code>1. 初始标记（Initial Mark）
+</code></pre><p><strong>G1 的优势</strong>：</p><table><thead><tr><th>特性</th><th>Serial/ParNew/CMS</th><th>G1</th></tr></thead><tbody><tr><td>内存管理</td><td>新生代/老年代固定</td><td>Region 动态划分</td></tr><tr><td>碎片问题</td><td>有（除 G1 外）</td><td>整理减少碎片</td></tr><tr><td>停顿模型</td><td>整堆停顿</td><td>可预测停顿</td></tr><tr><td>吞吐量</td><td>较低</td><td>较高</td></tr></tbody></table><p><strong>G1 工作过程</strong>：</p><pre tabindex=0><code>1. 初始标记（Initial Mark）
    └─ Stop The World
    └─ 标记 GC Roots，直接关联对象
 
@@ -1378,7 +237,7 @@
    └─ Stop The World
    └─ 按回收价值和成本排序
    └─ 回收选定 Region
-</code></pre><pre tabindex="0"><code>G1 vs CMS 对比：
+</code></pre><pre tabindex=0><code>G1 vs CMS 对比：
 
 CMS：
 ┌──────────────────────────────────────────┐
@@ -1394,86 +253,12 @@ G1：
      ↑            ↑            ↑        ↑
     STW          并发         STW      STW
                               (可预测停顿)
-</code></pre><p><strong>适用场景</strong>：</p>
-<ul>
-<li>堆内存 &gt; 6GB</li>
-<li>需要可控停顿时间</li>
-<li>应用注重响应速度</li>
-</ul>
-<h3 id="48-zgcz-garbage-collector">4.8 ZGC（Z Garbage Collector）</h3>
-<p>JDK 11 引入，JDK 15 成为正式特性。目标：停顿时间 &lt; 1ms，停顿时间不随堆大小增加。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启用</span>
-</span></span><span style="display:flex;"><span>-XX:+UseZGC
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># JDK 21+ 推荐配置</span>
-</span></span><span style="display:flex;"><span>-XX:+UseZGC -Xmx16g
-</span></span></code></pre></div><p><strong>核心技术</strong>：</p>
-<ol>
-<li>
-<p><strong>着色指针（Colored Pointers）</strong></p>
-<ul>
-<li>利用 64 位指针的低 4-5 位存储标记信息</li>
-<li>不需要 Stop The World 就能访问对象状态</li>
-</ul>
-</li>
-<li>
-<p><strong>读屏障（Load Barrier）</strong></p>
-<ul>
-<li>读取对象时检查指针状态</li>
-<li>触发时快速处理（几乎无感知）</li>
-</ul>
-</li>
-<li>
-<p><strong>并发处理</strong></p>
-<ul>
-<li>大部分阶段与用户线程并发执行</li>
-<li>只有短暂的初始化和最终标记阶段需要 STW</li>
-</ul>
-</li>
-</ol>
-<p><strong>ZGC vs G1 对比</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>特性</th>
-<th>G1</th>
-<th>ZGC</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>最大停顿</td>
-<td>&lt; 200ms</td>
-<td>&lt; 1ms</td>
-</tr>
-<tr>
-<td>停顿来源</td>
-<td>Root 扫描、Card 扫描</td>
-<td>初始化、最终标记</td>
-</tr>
-<tr>
-<td>内存占用</td>
-<td>高</td>
-<td>中</td>
-</tr>
-<tr>
-<td>吞吐量</td>
-<td>高</td>
-<td>中</td>
-</tr>
-<tr>
-<td>堆大小支持</td>
-<td>数十 GB</td>
-<td>16TB+</td>
-</tr>
-<tr>
-<td>GC 阶段</td>
-<td>4 阶段</td>
-<td>7 阶段（大部分并发）</td>
-</tr>
-</tbody>
-</table>
-<pre tabindex="0"><code>ZGC 停顿时间：
+</code></pre><p><strong>适用场景</strong>：</p><ul><li>堆内存 > 6GB</li><li>需要可控停顿时间</li><li>应用注重响应速度</li></ul><h3 id=48-zgcz-garbage-collector>4.8 ZGC（Z Garbage Collector）</h3><p>JDK 11 引入，JDK 15 成为正式特性。目标：停顿时间 &lt; 1ms，停顿时间不随堆大小增加。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 启用</span>
+</span></span><span style=display:flex><span>-XX:+UseZGC
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># JDK 21+ 推荐配置</span>
+</span></span><span style=display:flex><span>-XX:+UseZGC -Xmx16g
+</span></span></code></pre></div><p><strong>核心技术</strong>：</p><ol><li><p><strong>着色指针（Colored Pointers）</strong></p><ul><li>利用 64 位指针的低 4-5 位存储标记信息</li><li>不需要 Stop The World 就能访问对象状态</li></ul></li><li><p><strong>读屏障（Load Barrier）</strong></p><ul><li>读取对象时检查指针状态</li><li>触发时快速处理（几乎无感知）</li></ul></li><li><p><strong>并发处理</strong></p><ul><li>大部分阶段与用户线程并发执行</li><li>只有短暂的初始化和最终标记阶段需要 STW</li></ul></li></ol><p><strong>ZGC vs G1 对比</strong>：</p><table><thead><tr><th>特性</th><th>G1</th><th>ZGC</th></tr></thead><tbody><tr><td>最大停顿</td><td>&lt; 200ms</td><td>&lt; 1ms</td></tr><tr><td>停顿来源</td><td>Root 扫描、Card 扫描</td><td>初始化、最终标记</td></tr><tr><td>内存占用</td><td>高</td><td>中</td></tr><tr><td>吞吐量</td><td>高</td><td>中</td></tr><tr><td>堆大小支持</td><td>数十 GB</td><td>16TB+</td></tr><tr><td>GC 阶段</td><td>4 阶段</td><td>7 阶段（大部分并发）</td></tr></tbody></table><pre tabindex=0><code>ZGC 停顿时间：
 ┌────────────────────────────────────────────────────────┐
 │ ZGC                                                      │
 │ ├─ 初始标记   : ~1ms                                     │
@@ -1483,17 +268,9 @@ G1：
 │                                                          │
 │ 全程停顿时间 &lt; 10ms，停顿不随堆大小线性增长                │
 └────────────────────────────────────────────────────────┘
-</code></pre><h3 id="49-shenandoah红岩">4.9 Shenandoah（红岩）</h3>
-<p>Red Hat 开发的低停顿收集器，与 ZGC 类似，但非 Oracle 官方维护。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启用（JDK 12+）</span>
-</span></span><span style="display:flex;"><span>-XX:+UseShenandoahGC
-</span></span></code></pre></div><p><strong>与 ZGC 的区别</strong>：</p>
-<ul>
-<li>ZGC 使用着色指针</li>
-<li>Shenandoah 使用转发指针（Brooks Pointer）</li>
-</ul>
-<h3 id="410-收集器选择指南">4.10 收集器选择指南</h3>
-<pre tabindex="0"><code>┌────────────────────────────────────────────────────────┐
+</code></pre><h3 id=49-shenandoah红岩>4.9 Shenandoah（红岩）</h3><p>Red Hat 开发的低停顿收集器，与 ZGC 类似，但非 Oracle 官方维护。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 启用（JDK 12+）</span>
+</span></span><span style=display:flex><span>-XX:+UseShenandoahGC
+</span></span></code></pre></div><p><strong>与 ZGC 的区别</strong>：</p><ul><li>ZGC 使用着色指针</li><li>Shenandoah 使用转发指针（Brooks Pointer）</li></ul><h3 id=410-收集器选择指南>4.10 收集器选择指南</h3><pre tabindex=0><code>┌────────────────────────────────────────────────────────┐
 │                   收集器选择决策树                       │
 └────────────────────────────────────────────────────────┘
 
@@ -1513,253 +290,47 @@ JDK 11+，追求最低停顿？
 
 不确定？
   └─ G1（大多数场景的良好选择）
-</code></pre><h2 id="五jvm-参数配置">五、JVM 参数配置</h2>
-<h3 id="51-常用-gc-参数">5.1 常用 GC 参数</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 通用参数</span>
-</span></span><span style="display:flex;"><span>-Xms512m              <span style="color:#75715e"># 初始堆大小</span>
-</span></span><span style="display:flex;"><span>-Xmx2g                <span style="color:#75715e"># 最大堆大小</span>
-</span></span><span style="display:flex;"><span>-Xmn256m              <span style="color:#75715e"># 新生代大小</span>
-</span></span><span style="display:flex;"><span>-XX:MetaspaceSize<span style="color:#f92672">=</span>256m   <span style="color:#75715e"># 元空间大小</span>
-</span></span><span style="display:flex;"><span>-XX:MaxMetaspaceSize<span style="color:#f92672">=</span>512m
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 新生代比例</span>
-</span></span><span style="display:flex;"><span>-XX:NewRatio<span style="color:#f92672">=</span><span style="color:#ae81ff">2</span>        <span style="color:#75715e"># 老年代/新生代 = 2:1（默认）</span>
-</span></span><span style="display:flex;"><span>-XX:SurvivorRatio<span style="color:#f92672">=</span><span style="color:#ae81ff">8</span>   <span style="color:#75715e"># Eden/Survivor = 8:1（默认）</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 日志参数</span>
-</span></span><span style="display:flex;"><span>-XX:+PrintGCDetails   <span style="color:#75715e"># 打印 GC 详情</span>
-</span></span><span style="display:flex;"><span>-XX:+PrintGCDateStamps   <span style="color:#75715e"># 打印时间戳</span>
-</span></span><span style="display:flex;"><span>-Xloggc:gc.log       <span style="color:#75715e"># GC 日志输出到文件</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 常用收集器组合</span>
-</span></span><span style="display:flex;"><span>-XX:+UseSerialGC         <span style="color:#75715e"># Serial + Serial Old</span>
-</span></span><span style="display:flex;"><span>-XX:+UseParNewGC         <span style="color:#75715e"># ParNew + CMS（已废弃）</span>
-</span></span><span style="display:flex;"><span>-XX:+UseParallelGC        <span style="color:#75715e"># Parallel Scavenge + Parallel Old（默认）</span>
-</span></span><span style="display:flex;"><span>-XX:+UseConcMarkSweepGC   <span style="color:#75715e"># ParNew + CMS（已废弃）</span>
-</span></span><span style="display:flex;"><span>-XX:+UseG1GC             <span style="color:#75715e"># G1</span>
-</span></span><span style="display:flex;"><span>-XX:+UseZGC              <span style="color:#75715e"># ZGC</span>
-</span></span></code></pre></div><h3 id="52-gc-日志分析">5.2 GC 日志分析</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 示例 GC 日志</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>GC <span style="color:#f92672">(</span>Allocation Failure<span style="color:#f92672">)</span> <span style="color:#f92672">[</span>ParNew: 139776K-&gt;8704K<span style="color:#f92672">(</span>157248K<span style="color:#f92672">)</span>, 0.0312345 secs<span style="color:#f92672">]</span> 258912K-&gt;128840K<span style="color:#f92672">(</span>506816K<span style="color:#f92672">)</span>, 0.0315678 secs<span style="color:#f92672">]</span> <span style="color:#f92672">[</span>Times: user<span style="color:#f92672">=</span>0.12 sys<span style="color:#f92672">=</span>0.02, real<span style="color:#f92672">=</span>0.03 secs<span style="color:#f92672">]</span>
-</span></span></code></pre></div><p><strong>日志解读</strong>：</p>
-<pre tabindex="0"><code>[GC 类型] [收集器名称: 回收前-&gt;回收后(总大小), 耗时]
+</code></pre><h2 id=五jvm-参数配置>五、JVM 参数配置</h2><h3 id=51-常用-gc-参数>5.1 常用 GC 参数</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 通用参数</span>
+</span></span><span style=display:flex><span>-Xms512m              <span style=color:#75715e># 初始堆大小</span>
+</span></span><span style=display:flex><span>-Xmx2g                <span style=color:#75715e># 最大堆大小</span>
+</span></span><span style=display:flex><span>-Xmn256m              <span style=color:#75715e># 新生代大小</span>
+</span></span><span style=display:flex><span>-XX:MetaspaceSize<span style=color:#f92672>=</span>256m   <span style=color:#75715e># 元空间大小</span>
+</span></span><span style=display:flex><span>-XX:MaxMetaspaceSize<span style=color:#f92672>=</span>512m
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 新生代比例</span>
+</span></span><span style=display:flex><span>-XX:NewRatio<span style=color:#f92672>=</span><span style=color:#ae81ff>2</span>        <span style=color:#75715e># 老年代/新生代 = 2:1（默认）</span>
+</span></span><span style=display:flex><span>-XX:SurvivorRatio<span style=color:#f92672>=</span><span style=color:#ae81ff>8</span>   <span style=color:#75715e># Eden/Survivor = 8:1（默认）</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 日志参数</span>
+</span></span><span style=display:flex><span>-XX:+PrintGCDetails   <span style=color:#75715e># 打印 GC 详情</span>
+</span></span><span style=display:flex><span>-XX:+PrintGCDateStamps   <span style=color:#75715e># 打印时间戳</span>
+</span></span><span style=display:flex><span>-Xloggc:gc.log       <span style=color:#75715e># GC 日志输出到文件</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 常用收集器组合</span>
+</span></span><span style=display:flex><span>-XX:+UseSerialGC         <span style=color:#75715e># Serial + Serial Old</span>
+</span></span><span style=display:flex><span>-XX:+UseParNewGC         <span style=color:#75715e># ParNew + CMS（已废弃）</span>
+</span></span><span style=display:flex><span>-XX:+UseParallelGC        <span style=color:#75715e># Parallel Scavenge + Parallel Old（默认）</span>
+</span></span><span style=display:flex><span>-XX:+UseConcMarkSweepGC   <span style=color:#75715e># ParNew + CMS（已废弃）</span>
+</span></span><span style=display:flex><span>-XX:+UseG1GC             <span style=color:#75715e># G1</span>
+</span></span><span style=display:flex><span>-XX:+UseZGC              <span style=color:#75715e># ZGC</span>
+</span></span></code></pre></div><h3 id=52-gc-日志分析>5.2 GC 日志分析</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 示例 GC 日志</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>[</span>GC <span style=color:#f92672>(</span>Allocation Failure<span style=color:#f92672>)</span> <span style=color:#f92672>[</span>ParNew: 139776K-&gt;8704K<span style=color:#f92672>(</span>157248K<span style=color:#f92672>)</span>, 0.0312345 secs<span style=color:#f92672>]</span> 258912K-&gt;128840K<span style=color:#f92672>(</span>506816K<span style=color:#f92672>)</span>, 0.0315678 secs<span style=color:#f92672>]</span> <span style=color:#f92672>[</span>Times: user<span style=color:#f92672>=</span>0.12 sys<span style=color:#f92672>=</span>0.02, real<span style=color:#f92672>=</span>0.03 secs<span style=color:#f92672>]</span>
+</span></span></code></pre></div><p><strong>日志解读</strong>：</p><pre tabindex=0><code>[GC 类型] [收集器名称: 回收前-&gt;回收后(总大小), 耗时]
          [堆总使用: 回收前-&gt;回收后(总大小), 总耗时]
          [CPU 时间: user=用户态 sys=内核态 real=实际]
-</code></pre><h3 id="53-gc-日志可视化工具">5.3 GC 日志可视化工具</h3>
-<table>
-<thead>
-<tr>
-<th>工具</th>
-<th>特点</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>GCViewer</strong></td>
-<td>开源，命令行友好</td>
-</tr>
-<tr>
-<td><strong>GCEasy</strong></td>
-<td>在线工具，无需安装</td>
-</tr>
-<tr>
-<td><strong>GCPlot</strong></td>
-<td>在线，实时分析</td>
-</tr>
-<tr>
-<td><strong>VisualVM</strong></td>
-<td>JDK 自带，图形界面</td>
-</tr>
-</tbody>
-</table>
-<h2 id="六面试高频问题">六、面试高频问题</h2>
-<h3 id="q1minor-gc-和-full-gc-有什么区别">Q1：Minor GC 和 Full GC 有什么区别？</h3>
-<p><strong>答</strong>：</p>
-<ul>
-<li><strong>Minor GC</strong>：发生在新生代，Eden 区满时触发，频率高，停顿时间短</li>
-<li><strong>Full GC</strong>：发生在老年代或整堆，条件更多（老年代满、显式调用等），停顿时间长</li>
-</ul>
-<h3 id="q2对象进入老年代的条件">Q2：对象进入老年代的条件？</h3>
-<p><strong>答</strong>：</p>
-<ol>
-<li><strong>年龄达标</strong>：经历过 N 次 Minor GC（默认 15 次，可配置 <code>-XX:MaxTenuringThreshold</code>）</li>
-<li><strong>大对象</strong>：对象大小超过 <code>-XX:PretenureSizeThreshold</code>（只对 Serial/ParNew 生效）</li>
-<li><strong>动态年龄判断</strong>：Survivor 中相同年龄对象总和 &gt; Survivor 的 50%</li>
-<li><strong>空间担保失败</strong>：Minor GC 前的检查</li>
-</ol>
-<h3 id="q3cms-和-g1-的区别">Q3：CMS 和 G1 的区别？</h3>
-<p><strong>答</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>特性</th>
-<th>CMS</th>
-<th>G1</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>算法</td>
-<td>标记-清除</td>
-<td>标记-整理</td>
-</tr>
-<tr>
-<td>内存管理</td>
-<td>新生代/老年代固定</td>
-<td>Region 动态划分</td>
-</tr>
-<tr>
-<td>停顿模型</td>
-<td>不可预测</td>
-<td>可预测</td>
-</tr>
-<tr>
-<td>碎片问题</td>
-<td>有</td>
-<td>整理减少碎片</td>
-</tr>
-<tr>
-<td>适用堆大小</td>
-<td>&lt; 6GB</td>
-<td>&gt; 6GB</td>
-</tr>
-</tbody>
-</table>
-<h3 id="q4zgc-为什么能做到低停顿">Q4：ZGC 为什么能做到低停顿？</h3>
-<p><strong>答</strong>：</p>
-<ol>
-<li><strong>着色指针</strong>：利用指针位存储 GC 状态，读取时通过读屏障快速处理</li>
-<li><strong>并发执行</strong>：标记、转移等阶段与用户线程并发</li>
-<li><strong>最短停顿</strong>：只保留必要的 STW 阶段（初始化、最终标记）</li>
-<li><strong>不整理</strong>：采用染色整理而非移动对象</li>
-</ol>
-<h3 id="q5如何减少-gc-停顿时间">Q5：如何减少 GC 停顿时间？</h3>
-<p><strong>答</strong>：</p>
-<ol>
-<li><strong>选择合适的收集器</strong>：G1/ZGC 适合大堆</li>
-<li><strong>合理设置停顿目标</strong>：<code>MaxGCPauseMillis</code></li>
-<li><strong>减少对象分配</strong>：对象池、复用、栈上分配</li>
-<li><strong>减少大对象</strong>：避免创建大数组</li>
-<li><strong>优化代码</strong>：避免频繁创建对象</li>
-</ol>
-<h3 id="q6什么情况下会触发-full-gc">Q6：什么情况下会触发 Full GC？</h3>
-<p><strong>答</strong>：</p>
-<ol>
-<li>老年代空间不足</li>
-<li>System.gc()（可被禁用 <code>-XX:+DisableExplicitGC</code>）</li>
-<li>MetaSpace 空间不足</li>
-<li>Minor GC 前的检查失败</li>
-<li>CMS 收集失败（Concurrent Mode Failure）</li>
-<li>RMI 定时触发</li>
-</ol>
-<h2 id="七实战案例">七、实战案例</h2>
-<h3 id="案例-1频繁-full-gc">案例 1：频繁 Full GC</h3>
-<p><strong>现象</strong>：应用响应缓慢，GC 日志显示频繁 Full GC</p>
-<p><strong>排查步骤</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 1. 查看 GC 日志</span>
-</span></span><span style="display:flex;"><span>-XX:+PrintGCDetails -Xloggc:gc.log
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 2. 使用工具分析</span>
-</span></span><span style="display:flex;"><span>java -jar gcviewer.jar gc.log
-</span></span></code></pre></div><p><strong>常见原因</strong>：</p>
-<ul>
-<li>内存泄漏</li>
-<li>大对象分配</li>
-<li>字符串常量池膨胀</li>
-<li>元空间不足</li>
-</ul>
-<p><strong>解决方案</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 增加堆大小</span>
-</span></span><span style="display:flex;"><span>-Xmx4g -Xms4g
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 优化 CMS</span>
-</span></span><span style="display:flex;"><span>-XX:CMSInitiatingOccupancyFraction<span style="color:#f92672">=</span><span style="color:#ae81ff">70</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 使用 G1</span>
-</span></span><span style="display:flex;"><span>-XX:+UseG1GC -XX:MaxGCPauseMillis<span style="color:#f92672">=</span><span style="color:#ae81ff">200</span>
-</span></span></code></pre></div><h3 id="案例-2gc-时间过长">案例 2：GC 时间过长</h3>
-<p><strong>排查</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 查看停顿时间</span>
-</span></span><span style="display:flex;"><span>grep <span style="color:#e6db74">&#34;real=&#34;</span> gc.log | awk <span style="color:#e6db74">&#39;{sum+=$2; count++} END {print &#34;平均停顿:&#34;, sum/count &#34;s&#34;}&#39;</span>
-</span></span></code></pre></div><p><strong>优化方向</strong>：</p>
-<ul>
-<li>减少对象分配</li>
-<li>使用大 Survivor 区</li>
-<li>调整晋升阈值</li>
-</ul>
-<h2 id="八总结">八、总结</h2>
-<p><strong>GC 核心知识</strong>：</p>
-<ul>
-<li>对象存活判断：引用计数 vs 可达性分析</li>
-<li>GC 算法：标记-清除、复制、标记-整理、分代收集</li>
-<li>收集器选择：根据场景选择合适的收集器</li>
-</ul>
-<p><strong>收集器对比</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>收集器</th>
-<th>停顿时间</th>
-<th>吞吐量</th>
-<th>适用场景</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Serial</td>
-<td>长</td>
-<td>低</td>
-<td>桌面应用</td>
-</tr>
-<tr>
-<td>Parallel</td>
-<td>长</td>
-<td>高</td>
-<td>后台批处理</td>
-</tr>
-<tr>
-<td>CMS</td>
-<td>短</td>
-<td>中</td>
-<td>Web 应用</td>
-</tr>
-<tr>
-<td>G1</td>
-<td>可控</td>
-<td>高</td>
-<td>大规模应用</td>
-</tr>
-<tr>
-<td>ZGC</td>
-<td>&lt; 1ms</td>
-<td>高</td>
-<td>超大堆应用</td>
-</tr>
-</tbody>
-</table>
-<p><strong>最佳实践</strong>：</p>
-<ol>
-<li>了解应用特性（吞吐量 vs 响应时间）</li>
-<li>选择合适的收集器</li>
-<li>合理设置 JVM 参数</li>
-<li>持续监控 GC 状态</li>
-<li>根据实际情况调优</li>
-</ol>
-<hr>
-<p><strong>下一篇预告</strong>：JVM 调优实战 —— 从参数配置到问题排查</p>
-<p><strong>参考资料</strong>：</p>
-<ul>
-<li>《深入理解 Java 虚拟机》- 周志明</li>
-<li>《Java 性能权威指南》- Scott Oaks</li>
-<li>JVM 官方文档</li>
-</ul>
-
-    </div>
-</article>
-
-    </main>
-    <footer>
-        <p>&copy; 2026 Raphael</p>
-    </footer>
-</body>
-</html>
+</code></pre><h3 id=53-gc-日志可视化工具>5.3 GC 日志可视化工具</h3><table><thead><tr><th>工具</th><th>特点</th></tr></thead><tbody><tr><td><strong>GCViewer</strong></td><td>开源，命令行友好</td></tr><tr><td><strong>GCEasy</strong></td><td>在线工具，无需安装</td></tr><tr><td><strong>GCPlot</strong></td><td>在线，实时分析</td></tr><tr><td><strong>VisualVM</strong></td><td>JDK 自带，图形界面</td></tr></tbody></table><h2 id=六面试高频问题>六、面试高频问题</h2><h3 id=q1minor-gc-和-full-gc-有什么区别>Q1：Minor GC 和 Full GC 有什么区别？</h3><p><strong>答</strong>：</p><ul><li><strong>Minor GC</strong>：发生在新生代，Eden 区满时触发，频率高，停顿时间短</li><li><strong>Full GC</strong>：发生在老年代或整堆，条件更多（老年代满、显式调用等），停顿时间长</li></ul><h3 id=q2对象进入老年代的条件>Q2：对象进入老年代的条件？</h3><p><strong>答</strong>：</p><ol><li><strong>年龄达标</strong>：经历过 N 次 Minor GC（默认 15 次，可配置 <code>-XX:MaxTenuringThreshold</code>）</li><li><strong>大对象</strong>：对象大小超过 <code>-XX:PretenureSizeThreshold</code>（只对 Serial/ParNew 生效）</li><li><strong>动态年龄判断</strong>：Survivor 中相同年龄对象总和 > Survivor 的 50%</li><li><strong>空间担保失败</strong>：Minor GC 前的检查</li></ol><h3 id=q3cms-和-g1-的区别>Q3：CMS 和 G1 的区别？</h3><p><strong>答</strong>：</p><table><thead><tr><th>特性</th><th>CMS</th><th>G1</th></tr></thead><tbody><tr><td>算法</td><td>标记-清除</td><td>标记-整理</td></tr><tr><td>内存管理</td><td>新生代/老年代固定</td><td>Region 动态划分</td></tr><tr><td>停顿模型</td><td>不可预测</td><td>可预测</td></tr><tr><td>碎片问题</td><td>有</td><td>整理减少碎片</td></tr><tr><td>适用堆大小</td><td>&lt; 6GB</td><td>> 6GB</td></tr></tbody></table><h3 id=q4zgc-为什么能做到低停顿>Q4：ZGC 为什么能做到低停顿？</h3><p><strong>答</strong>：</p><ol><li><strong>着色指针</strong>：利用指针位存储 GC 状态，读取时通过读屏障快速处理</li><li><strong>并发执行</strong>：标记、转移等阶段与用户线程并发</li><li><strong>最短停顿</strong>：只保留必要的 STW 阶段（初始化、最终标记）</li><li><strong>不整理</strong>：采用染色整理而非移动对象</li></ol><h3 id=q5如何减少-gc-停顿时间>Q5：如何减少 GC 停顿时间？</h3><p><strong>答</strong>：</p><ol><li><strong>选择合适的收集器</strong>：G1/ZGC 适合大堆</li><li><strong>合理设置停顿目标</strong>：<code>MaxGCPauseMillis</code></li><li><strong>减少对象分配</strong>：对象池、复用、栈上分配</li><li><strong>减少大对象</strong>：避免创建大数组</li><li><strong>优化代码</strong>：避免频繁创建对象</li></ol><h3 id=q6什么情况下会触发-full-gc>Q6：什么情况下会触发 Full GC？</h3><p><strong>答</strong>：</p><ol><li>老年代空间不足</li><li>System.gc()（可被禁用 <code>-XX:+DisableExplicitGC</code>）</li><li>MetaSpace 空间不足</li><li>Minor GC 前的检查失败</li><li>CMS 收集失败（Concurrent Mode Failure）</li><li>RMI 定时触发</li></ol><h2 id=七实战案例>七、实战案例</h2><h3 id=案例-1频繁-full-gc>案例 1：频繁 Full GC</h3><p><strong>现象</strong>：应用响应缓慢，GC 日志显示频繁 Full GC</p><p><strong>排查步骤</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 1. 查看 GC 日志</span>
+</span></span><span style=display:flex><span>-XX:+PrintGCDetails -Xloggc:gc.log
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 2. 使用工具分析</span>
+</span></span><span style=display:flex><span>java -jar gcviewer.jar gc.log
+</span></span></code></pre></div><p><strong>常见原因</strong>：</p><ul><li>内存泄漏</li><li>大对象分配</li><li>字符串常量池膨胀</li><li>元空间不足</li></ul><p><strong>解决方案</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 增加堆大小</span>
+</span></span><span style=display:flex><span>-Xmx4g -Xms4g
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 优化 CMS</span>
+</span></span><span style=display:flex><span>-XX:CMSInitiatingOccupancyFraction<span style=color:#f92672>=</span><span style=color:#ae81ff>70</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 使用 G1</span>
+</span></span><span style=display:flex><span>-XX:+UseG1GC -XX:MaxGCPauseMillis<span style=color:#f92672>=</span><span style=color:#ae81ff>200</span>
+</span></span></code></pre></div><h3 id=案例-2gc-时间过长>案例 2：GC 时间过长</h3><p><strong>排查</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 查看停顿时间</span>
+</span></span><span style=display:flex><span>grep <span style=color:#e6db74>&#34;real=&#34;</span> gc.log | awk <span style=color:#e6db74>&#39;{sum+=$2; count++} END {print &#34;平均停顿:&#34;, sum/count &#34;s&#34;}&#39;</span>
+</span></span></code></pre></div><p><strong>优化方向</strong>：</p><ul><li>减少对象分配</li><li>使用大 Survivor 区</li><li>调整晋升阈值</li></ul><h2 id=八总结>八、总结</h2><p><strong>GC 核心知识</strong>：</p><ul><li>对象存活判断：引用计数 vs 可达性分析</li><li>GC 算法：标记-清除、复制、标记-整理、分代收集</li><li>收集器选择：根据场景选择合适的收集器</li></ul><p><strong>收集器对比</strong>：</p><table><thead><tr><th>收集器</th><th>停顿时间</th><th>吞吐量</th><th>适用场景</th></tr></thead><tbody><tr><td>Serial</td><td>长</td><td>低</td><td>桌面应用</td></tr><tr><td>Parallel</td><td>长</td><td>高</td><td>后台批处理</td></tr><tr><td>CMS</td><td>短</td><td>中</td><td>Web 应用</td></tr><tr><td>G1</td><td>可控</td><td>高</td><td>大规模应用</td></tr><tr><td>ZGC</td><td>&lt; 1ms</td><td>高</td><td>超大堆应用</td></tr></tbody></table><p><strong>最佳实践</strong>：</p><ol><li>了解应用特性（吞吐量 vs 响应时间）</li><li>选择合适的收集器</li><li>合理设置 JVM 参数</li><li>持续监控 GC 状态</li><li>根据实际情况调优</li></ol><hr><p><strong>下一篇预告</strong>：JVM 调优实战 —— 从参数配置到问题排查</p><p><strong>参考资料</strong>：</p><ul><li>《深入理解 Java 虚拟机》- 周志明</li><li>《Java 性能权威指南》- Scott Oaks</li><li>JVM 官方文档</li></ul></div></article></main><footer><p>&copy; 2026 Raphael</p></footer></body></html>
