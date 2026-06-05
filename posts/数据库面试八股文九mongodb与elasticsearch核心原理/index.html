@@ -1,0 +1,2037 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库面试八股文（九）——MongoDB与Elasticsearch核心原理 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-06-04 <span>/</span> 数据库 </div>
+        <h1>数据库面试八股文（九）——MongoDB与Elasticsearch核心原理</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="数据库面试八股文九mongodb与elasticsearch核心原理">数据库面试八股文（九）——MongoDB与Elasticsearch核心原理</h1>
+<blockquote>
+<p>面试高频考点：MongoDB文档模型与存储引擎、副本集与分片集群、聚合管道；Elasticsearch倒排索引原理、分片与路由、搜索与聚合DSL。本文从NoSQL文档数据库到搜索引擎，全面覆盖MongoDB与ES面试题。</p>
+</blockquote>
+<hr>
+<h2 id="一mongodb概述">一、MongoDB概述</h2>
+<h3 id="11-mongodb是什么">1.1 MongoDB是什么</h3>
+<p>MongoDB是面向文档的NoSQL数据库，核心特点：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文档模型</td>
+<td>数据以BSON文档存储，类似JSON</td>
+</tr>
+<tr>
+<td>灵活Schema</td>
+<td>同一集合中文档结构可以不同</td>
+</tr>
+<tr>
+<td>水平扩展</td>
+<td>原生支持分片集群</td>
+</tr>
+<tr>
+<td>丰富查询</td>
+<td>支持索引、聚合管道、全文搜索</td>
+</tr>
+<tr>
+<td>ACID事务</td>
+<td>4.0+支持多文档事务</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12-mongodb-vs-mysql">1.2 MongoDB vs MySQL</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>MongoDB</th>
+<th>MySQL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数据模型</td>
+<td>文档（BSON）</td>
+<td>表（行与列）</td>
+</tr>
+<tr>
+<td>Schema</td>
+<td>灵活，可嵌套</td>
+<td>固定，需DDL</td>
+</tr>
+<tr>
+<td>关联方式</td>
+<td>嵌入文档 / 引用</td>
+<td>外键JOIN</td>
+</tr>
+<tr>
+<td>扩展方式</td>
+<td>水平分片</td>
+<td>垂直扩展为主</td>
+</tr>
+<tr>
+<td>事务</td>
+<td>4.0+支持</td>
+<td>原生ACID</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>非结构化、快速迭代</td>
+<td>结构化、强一致</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="二mongodb存储引擎">二、MongoDB存储引擎</h2>
+<h3 id="21-wiredtiger引擎默认">2.1 WiredTiger引擎（默认）</h3>
+<p>MongoDB 3.2+默认使用WiredTiger存储引擎：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文档级并发</td>
+<td>不同文档可并发修改</td>
+</tr>
+<tr>
+<td>压缩</td>
+<td>Snappy（默认）/ Zlib / Zstd</td>
+</tr>
+<tr>
+<td>检查点</td>
+<td>每60秒或日志超过2GB时</td>
+</tr>
+<tr>
+<td>日志</td>
+<td>WAL（Write-Ahead Log）保证持久性</td>
+</tr>
+</tbody>
+</table>
+<p><strong>内存管理</strong>：</p>
+<pre tabindex="0"><code>WiredTiger Cache（默认 max(256MB, 50%物理内存 - 1GB)）
+       ↓
+  ┌────────────────┐
+  │  索引缓存       │ ← B树节点
+  │  数据缓存       │ ← 文档页
+  │  压缩缓存       │ ← 解压后的数据
+  └────────────────┘
+</code></pre><h3 id="22-bson格式">2.2 BSON格式</h3>
+<p>BSON（Binary JSON）是MongoDB的数据序列化格式：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;_id&#34;</span>: <span style="color:#960050;background-color:#1e0010">ObjectId(</span><span style="color:#e6db74">&#34;6507...&#34;</span><span style="color:#960050;background-color:#1e0010">)</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;张三&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;age&#34;</span>: <span style="color:#ae81ff">28</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;skills&#34;</span>: [<span style="color:#e6db74">&#34;Java&#34;</span>, <span style="color:#e6db74">&#34;Python&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;address&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;city&#34;</span>: <span style="color:#e6db74">&#34;北京&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;street&#34;</span>: <span style="color:#e6db74">&#34;中关村&#34;</span>
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;createdAt&#34;</span>: <span style="color:#960050;background-color:#1e0010">ISODate(</span><span style="color:#e6db74">&#34;2024-01-01&#34;</span><span style="color:#960050;background-color:#1e0010">)</span>
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p><strong>BSON vs JSON</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>JSON</th>
+<th>BSON</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>格式</td>
+<td>文本</td>
+<td>二进制</td>
+</tr>
+<tr>
+<td>类型</td>
+<td>少（6种）</td>
+<td>多（Date、ObjectId、Int32等）</td>
+</tr>
+<tr>
+<td>遍历</td>
+<td>需解析</td>
+<td>有长度前缀，可跳过</td>
+</tr>
+<tr>
+<td>体积</td>
+<td>小（纯文本）</td>
+<td>略大（有类型和长度信息）</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="三mongodb索引">三、MongoDB索引</h2>
+<h3 id="31-索引类型">3.1 索引类型</h3>
+<table>
+<thead>
+<tr>
+<th>索引类型</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>单字段索引</td>
+<td>对单个字段建索引</td>
+<td><code>{name: 1}</code></td>
+</tr>
+<tr>
+<td>复合索引</td>
+<td>多字段联合索引</td>
+<td><code>{name: 1, age: -1}</code></td>
+</tr>
+<tr>
+<td>多键索引</td>
+<td>对数组字段建索引</td>
+<td><code>{tags: 1}</code></td>
+</tr>
+<tr>
+<td>地理空间索引</td>
+<td>2dsphere / 2d</td>
+<td><code>{location: &quot;2dsphere&quot;}</code></td>
+</tr>
+<tr>
+<td>文本索引</td>
+<td>全文搜索</td>
+<td><code>{content: &quot;text&quot;}</code></td>
+</tr>
+<tr>
+<td>哈希索引</td>
+<td>分片键用</td>
+<td><code>{_id: &quot;hashed&quot;}</code></td>
+</tr>
+<tr>
+<td>TTL索引</td>
+<td>自动过期删除</td>
+<td><code>{createdAt: 1}</code> + expireAfterSeconds</td>
+</tr>
+</tbody>
+</table>
+<h3 id="32-复合索引最左前缀原则">3.2 复合索引最左前缀原则</h3>
+<p>与MySQL类似，MongoDB复合索引也遵循最左前缀原则：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// 索引: {name: 1, age: -1, city: 1}
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ✅ 命中索引
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">users</span>.<span style="color:#a6e22e">find</span>({<span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;张三&#34;</span>})
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">users</span>.<span style="color:#a6e22e">find</span>({<span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;张三&#34;</span>, <span style="color:#a6e22e">age</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">25</span>})
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">users</span>.<span style="color:#a6e22e">find</span>({<span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;张三&#34;</span>, <span style="color:#a6e22e">age</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">25</span>, <span style="color:#a6e22e">city</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;北京&#34;</span>})
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ❌ 不命中索引
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">users</span>.<span style="color:#a6e22e">find</span>({<span style="color:#a6e22e">age</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">25</span>})         <span style="color:#75715e">// 跳过name
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">users</span>.<span style="color:#a6e22e">find</span>({<span style="color:#a6e22e">city</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;北京&#34;</span>})     <span style="color:#75715e">// 跳过name和age
+</span></span></span></code></pre></div><h3 id="33-esr原则等值排序范围">3.3 ESR原则（等值→排序→范围）</h3>
+<p>复合索引字段排列的最优顺序：</p>
+<ol>
+<li><strong>E</strong>quality（等值查询）放最前</li>
+<li><strong>S</strong>ort（排序）放中间</li>
+<li><strong>R</strong>ange（范围查询）放最后</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// 查询: {status: &#34;active&#34;} + sort({createdAt: -1}) + {age: {$gte: 18}}
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 最优索引: {status: 1, createdAt: -1, age: 1}
+</span></span></span></code></pre></div><h3 id="34-explain分析">3.4 explain()分析</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">users</span>.<span style="color:#a6e22e">find</span>({<span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;张三&#34;</span>}).<span style="color:#a6e22e">explain</span>(<span style="color:#e6db74">&#34;executionStats&#34;</span>)
+</span></span></code></pre></div><table>
+<thead>
+<tr>
+<th>关键字段</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>winningPlan.stage</td>
+<td>COLLSCAN（全表扫描）/ IXSCAN（索引扫描）/ FETCH（回表）</td>
+</tr>
+<tr>
+<td>executionStats.totalDocsExamined</td>
+<td>扫描文档数</td>
+</tr>
+<tr>
+<td>executionStats.executionTimeMillis</td>
+<td>执行时间</td>
+</tr>
+<tr>
+<td>executionStats.nReturned</td>
+<td>返回文档数</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>💡 <strong>面试重点</strong>：理想情况 nReturned ≈ totalDocsExamined，差距大说明需要优化索引。</p>
+</blockquote>
+<hr>
+<h2 id="四mongodb副本集">四、MongoDB副本集</h2>
+<h3 id="41-副本集架构">4.1 副本集架构</h3>
+<pre tabindex="0"><code>     Primary（读写）
+    /       \
+Secondary   Secondary
+（只读）    （只读，可配置隐藏/延迟）
+    |
+  Arbiter（仲裁者，不存数据，仅投票）
+</code></pre><h3 id="42-副本集选举">4.2 副本集选举</h3>
+<p><strong>触发条件</strong>：</p>
+<ul>
+<li>主节点不可达（心跳超时，默认10秒）</li>
+<li>主节点主动stepDown</li>
+<li>副本集初始化</li>
+</ul>
+<p><strong>选举规则</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>优先级因素</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>priority</td>
+<td>优先级高的优先成为主（默认1，可设0-1000）</td>
+</tr>
+<tr>
+<td>optime</td>
+<td>操作日志最新的优先</td>
+</tr>
+<tr>
+<td>数据新鲜度</td>
+<td>数据最新的优先</td>
+</tr>
+<tr>
+<td>心跳检测</td>
+<td>多数节点同意才能当选</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>⚠️ <strong>面试重点</strong>：选举需要<strong>多数节点</strong>同意（N/2+1），所以3节点副本集可以容忍1个节点故障，5节点可容忍2个。</p>
+</blockquote>
+<h3 id="43-写关注write-concern">4.3 写关注（Write Concern）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// 确认写操作被几个节点持久化
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">products</span>.<span style="color:#a6e22e">insertOne</span>(
+</span></span><span style="display:flex;"><span>  {<span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;手机&#34;</span>},
+</span></span><span style="display:flex;"><span>  {<span style="color:#a6e22e">writeConcern</span><span style="color:#f92672">:</span> {<span style="color:#a6e22e">w</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;majority&#34;</span>, <span style="color:#a6e22e">j</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>, <span style="color:#a6e22e">wtimeout</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">5000</span>}}
+</span></span><span style="display:flex;"><span>)
+</span></span></code></pre></div><table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>w: 1</td>
+<td>主节点确认即可（默认）</td>
+</tr>
+<tr>
+<td>w: &ldquo;majority&rdquo;</td>
+<td>多数节点确认</td>
+</tr>
+<tr>
+<td>j: true</td>
+<td>等待journal刷盘</td>
+</tr>
+<tr>
+<td>wtimeout</td>
+<td>超时时间</td>
+</tr>
+</tbody>
+</table>
+<h3 id="44-读偏好read-preference">4.4 读偏好（Read Preference）</h3>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>primary</td>
+<td>只从主节点读（默认）</td>
+<td>强一致性</td>
+</tr>
+<tr>
+<td>primaryPreferred</td>
+<td>优先主节点</td>
+<td>一般场景</td>
+</tr>
+<tr>
+<td>secondary</td>
+<td>只从从节点读</td>
+<td>报表/分析</td>
+</tr>
+<tr>
+<td>secondaryPreferred</td>
+<td>优先从节点</td>
+<td>读多写少</td>
+</tr>
+<tr>
+<td>nearest</td>
+<td>延迟最低的节点</td>
+<td>延迟敏感</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="五mongodb分片集群">五、MongoDB分片集群</h2>
+<h3 id="51-分片架构">5.1 分片架构</h3>
+<pre tabindex="0"><code> mongos（路由）
+   ↓    ↓
+Shard1  Shard2  Shard3（数据分片）
+   ↓
+Config Servers（元数据）
+</code></pre><table>
+<thead>
+<tr>
+<th>组件</th>
+<th>作用</th>
+<th>最少数量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>mongos</td>
+<td>查询路由</td>
+<td>1（生产建议2+）</td>
+</tr>
+<tr>
+<td>Config Server</td>
+<td>存储集群元数据</td>
+<td>3（副本集）</td>
+</tr>
+<tr>
+<td>Shard</td>
+<td>存储数据</td>
+<td>1（生产建议3+）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-分片键shard-key">5.2 分片键（Shard Key）</h3>
+<p>选择分片键是最重要的决策：</p>
+<p><strong>好的分片键</strong>：</p>
+<ul>
+<li>取值范围大（避免数据倾斜）</li>
+<li>写操作均匀分布</li>
+<li>查询经常用到（避免广播查询）</li>
+</ul>
+<p><strong>分片策略</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>说明</th>
+<th>优缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>范围分片</td>
+<td>按值范围划分</td>
+<td>范围查询高效，但可能热点</td>
+</tr>
+<tr>
+<td>哈希分片</td>
+<td>按hash值划分</td>
+<td>数据均匀，但范围查询低效</td>
+</tr>
+<tr>
+<td>区域分片</td>
+<td>按地理区域</td>
+<td>数据本地化</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-chunk与均衡器">5.3 Chunk与均衡器</h3>
+<ul>
+<li>每个Chunk默认64MB</li>
+<li>均衡器（Balancer）自动在Shard间迁移Chunk</li>
+<li>Chunk分裂：超过大小时一分为二</li>
+</ul>
+<pre tabindex="0"><code>Shard1: [chunk1] [chunk2]        ← 数据多
+Shard2: [chunk3]                 ← 数据少
+
+均衡器自动迁移chunk2到Shard2:
+
+Shard1: [chunk1]                 
+Shard2: [chunk3] [chunk2]        ← 数据均匀
+</code></pre><hr>
+<h2 id="六mongodb聚合管道">六、MongoDB聚合管道</h2>
+<h3 id="61-常用阶段">6.1 常用阶段</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">orders</span>.<span style="color:#a6e22e">aggregate</span>([
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// 1. $match - 过滤
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  { <span style="color:#a6e22e">$match</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">status</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;completed&#34;</span>, <span style="color:#a6e22e">year</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">2024</span> } },
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// 2. $group - 分组
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  { <span style="color:#a6e22e">$group</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">_id</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;$categoryId&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">totalSales</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">$sum</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;$amount&#34;</span> },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">avgPrice</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">$avg</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;$price&#34;</span> },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">count</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">$sum</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span> }
+</span></span><span style="display:flex;"><span>  }},
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// 3. $sort - 排序
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  { <span style="color:#a6e22e">$sort</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">totalSales</span><span style="color:#f92672">:</span> <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span> } },
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// 4. $limit - 限制
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  { <span style="color:#a6e22e">$limit</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">10</span> },
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// 5. $project - 投影
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  { <span style="color:#a6e22e">$project</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">categoryId</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;$_id&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">totalSales</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">avgPrice</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">$round</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#34;$avgPrice&#34;</span>, <span style="color:#ae81ff">2</span>] }
+</span></span><span style="display:flex;"><span>  }}
+</span></span><span style="display:flex;"><span>])
+</span></span></code></pre></div><h3 id="62-其他常用操作符">6.2 其他常用操作符</h3>
+<table>
+<thead>
+<tr>
+<th>操作符</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>$lookup</td>
+<td>左连接（类似SQL LEFT JOIN）</td>
+</tr>
+<tr>
+<td>$unwind</td>
+<td>展开数组</td>
+</tr>
+<tr>
+<td>$facet</td>
+<td>多管道并行执行</td>
+</tr>
+<tr>
+<td>$bucket</td>
+<td>分桶统计</td>
+</tr>
+<tr>
+<td>$merge</td>
+<td>结果写入集合</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-lookup关联查询">6.3 $lookup关联查询</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">db</span>.<span style="color:#a6e22e">orders</span>.<span style="color:#a6e22e">aggregate</span>([
+</span></span><span style="display:flex;"><span>  {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">$lookup</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">from</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;users&#34;</span>,           <span style="color:#75715e">// 关联集合
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">localField</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;userId&#34;</span>,    <span style="color:#75715e">// 本地字段
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">foreignField</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;_id&#34;</span>,     <span style="color:#75715e">// 外键字段
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">as</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;userInfo&#34;</span>           <span style="color:#75715e">// 输出数组字段
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    }
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  { <span style="color:#a6e22e">$unwind</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;$userInfo&#34;</span> }     <span style="color:#75715e">// 展开数组
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>])
+</span></span></code></pre></div><blockquote>
+<p>⚠️ <strong>面试提醒</strong>：$lookup性能较差，不适合大量数据。设计时应优先考虑嵌入文档。</p>
+</blockquote>
+<hr>
+<h2 id="七elasticsearch概述">七、Elasticsearch概述</h2>
+<h3 id="71-elasticsearch是什么">7.1 Elasticsearch是什么</h3>
+<p>Elasticsearch是基于Lucene的分布式搜索和分析引擎：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>全文搜索</td>
+<td>倒排索引，毫秒级响应</td>
+</tr>
+<tr>
+<td>分布式</td>
+<td>天然支持集群，PB级数据</td>
+</tr>
+<tr>
+<td>近实时</td>
+<td>写入后1秒可搜索</td>
+</tr>
+<tr>
+<td>RESTful</td>
+<td>JSON over HTTP API</td>
+</tr>
+<tr>
+<td>聚合分析</td>
+<td>实时统计分析</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-核心概念对照">7.2 核心概念对照</h3>
+<table>
+<thead>
+<tr>
+<th>Elasticsearch</th>
+<th>MySQL</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Index</td>
+<td>Database</td>
+<td>索引（数据库）</td>
+</tr>
+<tr>
+<td>Type（已废弃）</td>
+<td>Table</td>
+<td>类型（7.x移除）</td>
+</tr>
+<tr>
+<td>Document</td>
+<td>Row</td>
+<td>文档（行）</td>
+</tr>
+<tr>
+<td>Field</td>
+<td>Column</td>
+<td>字段（列）</td>
+</tr>
+<tr>
+<td>Mapping</td>
+<td>Schema</td>
+<td>映射（表结构）</td>
+</tr>
+<tr>
+<td>Shard</td>
+<td>分区</td>
+<td>分片</td>
+</tr>
+<tr>
+<td>Replica</td>
+<td>副本</td>
+<td>副本</td>
+</tr>
+</tbody>
+</table>
+<h3 id="73-生命周期">7.3 生命周期</h3>
+<pre tabindex="0"><code>写入 → 内存Buffer → Refresh（1秒） → OS Cache（可搜索）
+                                     ↓
+                              Flush → 磁盘（持久化）
+</code></pre><p><strong>关键参数</strong>：</p>
+<ul>
+<li><code>refresh_interval</code>：默认1秒，可调大提升写入性能</li>
+<li><code>translog</code>：事务日志，保证数据不丢失</li>
+<li><code>flush</code>：将OS Cache中的segment刷到磁盘</li>
+</ul>
+<hr>
+<h2 id="八elasticsearch倒排索引">八、Elasticsearch倒排索引</h2>
+<h3 id="81-正排索引-vs-倒排索引">8.1 正排索引 vs 倒排索引</h3>
+<p><strong>正排索引</strong>（MySQL B+树）：id → 内容
+<strong>倒排索引</strong>（ES）：词 → 文档id列表</p>
+<h3 id="82-倒排索引构建过程">8.2 倒排索引构建过程</h3>
+<p><strong>文档</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>DocID</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Elasticsearch is a search engine</td>
+</tr>
+<tr>
+<td>2</td>
+<td>MongoDB is a document database</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Search engine for big data</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分词 → 倒排表</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>DocIDs</th>
+<th>词频</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>elasticsearch</td>
+<td>[1]</td>
+<td>1</td>
+</tr>
+<tr>
+<td>search</td>
+<td>[1, 3]</td>
+<td>2</td>
+</tr>
+<tr>
+<td>engine</td>
+<td>[1, 3]</td>
+<td>2</td>
+</tr>
+<tr>
+<td>mongodb</td>
+<td>[2]</td>
+<td>1</td>
+</tr>
+<tr>
+<td>document</td>
+<td>[2]</td>
+<td>1</td>
+</tr>
+<tr>
+<td>database</td>
+<td>[2]</td>
+<td>1</td>
+</tr>
+<tr>
+<td>big</td>
+<td>[3]</td>
+<td>1</td>
+</tr>
+<tr>
+<td>data</td>
+<td>[3]</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<h3 id="83-分词器analyzer">8.3 分词器（Analyzer）</h3>
+<pre tabindex="0"><code>文本 → Character Filters → Tokenizer → Token Filters → 词项(Terms)
+</code></pre><table>
+<thead>
+<tr>
+<th>分词器</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>standard</td>
+<td>默认，按词分割，小写</td>
+<td>&ldquo;Hello World&rdquo; → [&ldquo;hello&rdquo;, &ldquo;world&rdquo;]</td>
+</tr>
+<tr>
+<td>simple</td>
+<td>非字母分割，小写</td>
+<td>&ldquo;Hello, World!&rdquo; → [&ldquo;hello&rdquo;, &ldquo;world&rdquo;]</td>
+</tr>
+<tr>
+<td>whitespace</td>
+<td>按空格分割</td>
+<td>&ldquo;Hello World&rdquo; → [&ldquo;Hello&rdquo;, &ldquo;World&rdquo;]</td>
+</tr>
+<tr>
+<td>ik_max_word</td>
+<td>中文最细粒度</td>
+<td>&ldquo;中华人民共和国&rdquo; → [&ldquo;中华人民共和国&rdquo;, &ldquo;中华人民&rdquo;, &ldquo;中华&rdquo;, &ldquo;华人&rdquo;, &ldquo;人民共和国&rdquo;, &ldquo;人民&rdquo;, &ldquo;共和国&rdquo;, &ldquo;共和&rdquo;, &ldquo;国&rdquo;]</td>
+</tr>
+<tr>
+<td>ik_smart</td>
+<td>中文智能切分</td>
+<td>&ldquo;中华人民共和国&rdquo; → [&ldquo;中华人民共和国&rdquo;]</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>💡 <strong>面试重点</strong>：中文搜索必须安装IK分词器！默认standard分词器对中文按单字切分。</p>
+</blockquote>
+<h3 id="84-倒排索引不可变">8.4 倒排索引不可变</h3>
+<p>ES的segment是不可变的：</p>
+<ul>
+<li><strong>优点</strong>：不需要锁、常驻缓存、过滤快</li>
+<li><strong>缺点</strong>：更新=标记删除+新建、需段合并（merge）</li>
+</ul>
+<hr>
+<h2 id="九elasticsearch分片与路由">九、Elasticsearch分片与路由</h2>
+<h3 id="91-分片机制">9.1 分片机制</h3>
+<pre tabindex="0"><code>Index: products (3主分片，每分片1副本)
+                    
+  Shard0(P)  Shard1(P)  Shard2(P)    ← 主分片
+  Shard0(R)  Shard1(R)  Shard2(R)    ← 副本分片
+</code></pre><p><strong>分片数</strong>：创建索引时指定，不可修改（需reindex）
+<strong>副本数</strong>：可动态调整</p>
+<h3 id="92-文档路由">9.2 文档路由</h3>
+<p>文档写入哪个分片由路由公式决定：</p>
+<pre tabindex="0"><code>shard = hash(routing) % number_of_primary_shards
+</code></pre><p>默认routing = <code>_id</code></p>
+<blockquote>
+<p>⚠️ <strong>面试陷阱</strong>：这就是为什么主分片数创建后不能修改！改了路由公式对不上。</p>
+</blockquote>
+<h3 id="93-写入流程">9.3 写入流程</h3>
+<pre tabindex="0"><code>客户端 → 协调节点(Node1)
+              ↓
+    根据路由计算目标分片(Shard0)
+              ↓
+    转发到主分片所在节点(Node2)
+              ↓
+    主分片写入 → 同步到副本分片
+              ↓
+    等待确认（根据consistency设置）
+              ↓
+    返回客户端成功
+</code></pre><h3 id="94-查询流程">9.4 查询流程</h3>
+<p><strong>查询阶段</strong>：</p>
+<pre tabindex="0"><code>1. 协调节点将查询转发到所有分片（主或副本）
+2. 每个分片返回匹配文档的id和排序值
+3. 协调节点合并排序，取前N个id
+
+取回阶段：
+
+4. 协调节点根据id到对应分片取完整文档
+5. 返回客户端
+</code></pre><hr>
+<h2 id="十elasticsearch搜索dsl">十、Elasticsearch搜索DSL</h2>
+<h3 id="101-查询分类">10.1 查询分类</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>全文查询</td>
+<td>对文本字段分词搜索</td>
+<td>match, multi_match</td>
+</tr>
+<tr>
+<td>精确查询</td>
+<td>不分词精确匹配</td>
+<td>term, terms, range</td>
+</tr>
+<tr>
+<td>复合查询</td>
+<td>组合多个查询</td>
+<td>bool, boosting</td>
+</tr>
+<tr>
+<td>嵌套查询</td>
+<td>嵌套对象查询</td>
+<td>nested</td>
+</tr>
+<tr>
+<td>聚合查询</td>
+<td>统计分析</td>
+<td>terms, avg, histogram</td>
+</tr>
+</tbody>
+</table>
+<h3 id="102-match-vs-term">10.2 match vs term</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span><span style="color:#75715e">// match：全文检索，会分词
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#960050;background-color:#1e0010">GET</span> <span style="color:#960050;background-color:#1e0010">/products/_search</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;query&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;match&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;title&#34;</span>: <span style="color:#e6db74">&#34;华为手机&#34;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 搜索词 &#34;华为手机&#34; 被分词为 &#34;华为&#34; 和 &#34;手机&#34;，匹配包含任一词的文档
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// term：精确匹配，不分词
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#960050;background-color:#1e0010">GET</span> <span style="color:#960050;background-color:#1e0010">/products/_search</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;query&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;term&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;status&#34;</span>: <span style="color:#e6db74">&#34;active&#34;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 精确匹配status为&#34;active&#34;的文档
+</span></span></span></code></pre></div><blockquote>
+<p>⚠️ <strong>面试陷阱</strong>：不要对text字段用term查询！text字段存储时已分词，term不分词去匹配，几乎匹配不上。</p>
+</blockquote>
+<h3 id="103-bool复合查询">10.3 bool复合查询</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">GET</span> <span style="color:#960050;background-color:#1e0010">/products/_search</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;query&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;bool&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;must&#34;</span>: [
+</span></span><span style="display:flex;"><span>        { <span style="color:#f92672">&#34;match&#34;</span>: { <span style="color:#f92672">&#34;title&#34;</span>: <span style="color:#e6db74">&#34;手机&#34;</span> } }
+</span></span><span style="display:flex;"><span>      ],
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;should&#34;</span>: [
+</span></span><span style="display:flex;"><span>        { <span style="color:#f92672">&#34;term&#34;</span>: { <span style="color:#f92672">&#34;brand&#34;</span>: <span style="color:#e6db74">&#34;华为&#34;</span> } },
+</span></span><span style="display:flex;"><span>        { <span style="color:#f92672">&#34;term&#34;</span>: { <span style="color:#f92672">&#34;brand&#34;</span>: <span style="color:#e6db74">&#34;小米&#34;</span> } }
+</span></span><span style="display:flex;"><span>      ],
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;must_not&#34;</span>: [
+</span></span><span style="display:flex;"><span>        { <span style="color:#f92672">&#34;term&#34;</span>: { <span style="color:#f92672">&#34;status&#34;</span>: <span style="color:#e6db74">&#34;下架&#34;</span> } }
+</span></span><span style="display:flex;"><span>      ],
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;filter&#34;</span>: [
+</span></span><span style="display:flex;"><span>        { <span style="color:#f92672">&#34;range&#34;</span>: { <span style="color:#f92672">&#34;price&#34;</span>: { <span style="color:#f92672">&#34;gte&#34;</span>: <span style="color:#ae81ff">1000</span>, <span style="color:#f92672">&#34;lte&#34;</span>: <span style="color:#ae81ff">5000</span> } } }
+</span></span><span style="display:flex;"><span>      ]
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><table>
+<thead>
+<tr>
+<th>子句</th>
+<th>是否计算分数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>must</td>
+<td>是</td>
+<td>必须匹配</td>
+</tr>
+<tr>
+<td>should</td>
+<td>是</td>
+<td>至少匹配一个（或提升分数）</td>
+</tr>
+<tr>
+<td>must_not</td>
+<td>否</td>
+<td>必须不匹配</td>
+</tr>
+<tr>
+<td>filter</td>
+<td>否</td>
+<td>必须匹配，但不计分（可缓存）</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>💡 <strong>面试重点</strong>：filter不计算相关性分数，性能更好，尽量用filter替代must做过滤。</p>
+</blockquote>
+<h3 id="104-聚合查询">10.4 聚合查询</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">GET</span> <span style="color:#960050;background-color:#1e0010">/products/_search</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;size&#34;</span>: <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;aggs&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;brand_count&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;terms&#34;</span>: { <span style="color:#f92672">&#34;field&#34;</span>: <span style="color:#e6db74">&#34;brand&#34;</span>, <span style="color:#f92672">&#34;size&#34;</span>: <span style="color:#ae81ff">10</span> }
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;price_stats&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;stats&#34;</span>: { <span style="color:#f92672">&#34;field&#34;</span>: <span style="color:#e6db74">&#34;price&#34;</span> }
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;price_histogram&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;histogram&#34;</span>: {
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;field&#34;</span>: <span style="color:#e6db74">&#34;price&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">&#34;interval&#34;</span>: <span style="color:#ae81ff">1000</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="十一elasticsearch性能优化">十一、Elasticsearch性能优化</h2>
+<h3 id="111-写入优化">11.1 写入优化</h3>
+<table>
+<thead>
+<tr>
+<th>优化项</th>
+<th>方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>批量写入</td>
+<td>使用Bulk API</td>
+</tr>
+<tr>
+<td>调大refresh间隔</td>
+<td><code>refresh_interval: 30s</code></td>
+</tr>
+<tr>
+<td>关闭副本</td>
+<td>初始导入时 <code>number_of_replicas: 0</code></td>
+</tr>
+<tr>
+<td>预分配分片</td>
+<td>根据数据量合理规划</td>
+</tr>
+<tr>
+<td>段合并</td>
+<td>控制merge线程数</td>
+</tr>
+</tbody>
+</table>
+<h3 id="112-查询优化">11.2 查询优化</h3>
+<table>
+<thead>
+<tr>
+<th>优化项</th>
+<th>方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>用filter替代query</td>
+<td>不计分，可缓存</td>
+</tr>
+<tr>
+<td>避免深分页</td>
+<td>用search_after替代from/size</td>
+</tr>
+<tr>
+<td>避免通配符开头</td>
+<td><code>*abc</code> 无法走索引</td>
+</tr>
+<tr>
+<td>使用路由</td>
+<td>相关数据路由到同一分片</td>
+</tr>
+<tr>
+<td>控制返回字段</td>
+<td><code>_source: [&quot;field1&quot;, &quot;field2&quot;]</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="113-深分页问题">11.3 深分页问题</h3>
+<p><strong>from + size</strong>：深度分页时，每个分片返回from+size条数据到协调节点，内存爆炸。</p>
+<pre tabindex="0"><code>from=10000, size=10, 5个分片
+→ 协调节点需要处理 5 × 10010 = 50050 条数据
+</code></pre><p><strong>解决方案</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>原理</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>scroll</td>
+<td>快照遍历</td>
+<td>导出数据</td>
+</tr>
+<tr>
+<td>search_after</td>
+<td>基于排序值翻页</td>
+<td>实时分页</td>
+</tr>
+<tr>
+<td>index.max_result_window</td>
+<td>调大限制（不推荐）</td>
+<td>临时方案</td>
+</tr>
+</tbody>
+</table>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span><span style="color:#75715e">// search_after示例
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#960050;background-color:#1e0010">GET</span> <span style="color:#960050;background-color:#1e0010">/products/_search</span>
+</span></span><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;size&#34;</span>: <span style="color:#ae81ff">10</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;query&#34;</span>: { <span style="color:#f92672">&#34;match_all&#34;</span>: {} },
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;sort&#34;</span>: [
+</span></span><span style="display:flex;"><span>    { <span style="color:#f92672">&#34;price&#34;</span>: <span style="color:#e6db74">&#34;desc&#34;</span> },
+</span></span><span style="display:flex;"><span>    { <span style="color:#f92672">&#34;_id&#34;</span>: <span style="color:#e6db74">&#34;asc&#34;</span> }
+</span></span><span style="display:flex;"><span>  ],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;search_after&#34;</span>: [<span style="color:#ae81ff">5999</span>, <span style="color:#e6db74">&#34;product_123&#34;</span>]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><hr>
+<h2 id="十二mongodb与elasticsearch对比">十二、MongoDB与Elasticsearch对比</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>MongoDB</th>
+<th>Elasticsearch</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>定位</td>
+<td>文档数据库</td>
+<td>搜索引擎</td>
+</tr>
+<tr>
+<td>主索引</td>
+<td>B树</td>
+<td>倒排索引</td>
+</tr>
+<tr>
+<td>写入性能</td>
+<td>较高</td>
+<td>较低（需建倒排）</td>
+</tr>
+<tr>
+<td>搜索能力</td>
+<td>有限（文本索引）</td>
+<td>强大（全文搜索+聚合）</td>
+</tr>
+<tr>
+<td>事务</td>
+<td>4.0+支持</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>一致性</td>
+<td>强一致/最终一致</td>
+<td>最终一致（近实时）</td>
+</tr>
+<tr>
+<td>典型场景</td>
+<td>主数据库</td>
+<td>搜索/日志分析</td>
+</tr>
+</tbody>
+</table>
+<p><strong>最佳实践</strong>：MySQL/MongoDB做主存储，ES做搜索层，通过Canal/Change Stream同步。</p>
+<hr>
+<h2 id="总结">总结</h2>
+<table>
+<thead>
+<tr>
+<th>主题</th>
+<th>核心要点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MongoDB文档模型</td>
+<td>BSON格式、灵活Schema、嵌入式关联</td>
+</tr>
+<tr>
+<td>MongoDB索引</td>
+<td>复合索引ESR原则、explain分析</td>
+</tr>
+<tr>
+<td>副本集</td>
+<td>选举机制、写关注、读偏好</td>
+</tr>
+<tr>
+<td>分片集群</td>
+<td>分片键选择、Chunk均衡</td>
+</tr>
+<tr>
+<td>聚合管道</td>
+<td>$match→$group→$sort→$limit</td>
+</tr>
+<tr>
+<td>ES倒排索引</td>
+<td>分词→词项→倒排表，segment不可变</td>
+</tr>
+<tr>
+<td>ES分片路由</td>
+<td>hash(routing) % primary_shards，分片数不可改</td>
+</tr>
+<tr>
+<td>ES查询DSL</td>
+<td>match vs term，bool组合，filter优化</td>
+</tr>
+<tr>
+<td>ES深分页</td>
+<td>search_after替代from/size</td>
+</tr>
+<tr>
+<td>配合使用</td>
+<td>主库+ES搜索层，Change Stream同步</td>
+</tr>
+</tbody>
+</table>
+<p>下期预告：</p>
+<ul>
+<li>数据库面试八股文（十）——数据库综合面试题与实战</li>
+</ul>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>

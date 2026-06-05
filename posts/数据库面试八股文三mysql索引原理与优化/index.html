@@ -1,21 +1,982 @@
-<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>数据库面试八股文（三）——MySQL索引原理与优化 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
-<a href=https://raphaell2e.github.io/posts/>文章</a>
-<a href=https://raphaell2e.github.io/categories/>分类</a>
-<a href=https://raphaell2e.github.io/tags/>标签</a>
-<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-25 <span>/</span> 数据库</div><h1>数据库面试八股文（三）——MySQL索引原理与优化</h1></div><div class=post-content><h1 id=数据库面试八股文三mysql索引原理与优化>数据库面试八股文（三）——MySQL索引原理与优化</h1><h2 id=概述概述><a href=#%E6%A6%82%E8%BF%B0></a>概述</h2><p>索引是MySQL面试中<strong>最高频</strong>的考点。本文深入讲解B+树原理、聚簇索引vs非聚簇索引、覆盖索引、最左前缀原则、索引优化实战等核心内容。</p><h2 id=索引的基本概念索引的基本概念><a href=#%E7%B4%A2%E5%BC%95%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5></a>索引的基本概念</h2><h3 id=什么是索引什么是索引><a href=#%E4%BB%80%E4%B9%88%E6%98%AF%E7%B4%A2%E5%BC%95></a>什么是索引</h3><p><strong>索引（Index）</strong> 是帮助MySQL<strong>高效获取数据</strong>的<strong>排好序的数据结构</strong>。</p><blockquote><p>类比：书籍目录 —— 通过目录快速找到章节，而不是逐页翻阅。</p></blockquote><p><strong>优点</strong>：</p><ul><li>大幅<strong>提高查询速度</strong>（从O(N)到O(logN)）</li><li>保证数据的<strong>唯一性</strong>（唯一索引）</li><li>加速表连接（JOIN）</li></ul><p><strong>缺点</strong>：</p><ul><li><strong>占用磁盘空间</strong></li><li><strong>降低写操作速度</strong>（INSERT/UPDATE/DELETE需要维护索引）</li><li>索引需要<strong>定期维护</strong>（碎片整理）</li></ul><h3 id=索引的存储结构索引的存储结构><a href=#%E7%B4%A2%E5%BC%95%E7%9A%84%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84></a>索引的存储结构</h3><p>MySQL的InnoDB引擎使用 <strong>B+树</strong> 作为索引结构（而非二叉搜索树、红黑树、B树）。</p><p><strong>为什么不用二叉搜索树？</strong></p><ul><li>树的高度太大（100万数据 → 树高20），每次查询需要多次磁盘IO</li></ul><p><strong>为什么不用红黑树？</strong></p><ul><li>本质还是二叉树，树高问题依然存在</li></ul><p><strong>为什么不用B树？</strong></p><ul><li>B树的非叶子节点也存储数据，导致单个节点能存储的索引键更少</li><li>范围查询不如B+树高效</li></ul><h2 id=b树详解b树详解><a href=#B%E6%A0%91%E8%AF%A6%E8%A7%A3></a>B+树详解</h2><h3 id=b树的结构b树的结构><a href=#B%E6%A0%91%E7%9A%84%E7%BB%93%E6%9E%84></a>B+树的结构</h3><pre tabindex=0><code>B+树（m=3，即3阶B+树）
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数据库面试八股文（三）——MySQL索引原理与优化 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-05-25 <span>/</span> 数据库 </div>
+        <h1>数据库面试八股文（三）——MySQL索引原理与优化</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="数据库面试八股文三mysql索引原理与优化">数据库面试八股文（三）——MySQL索引原理与优化</h1>
+<h2 id="概述概述"><a href="#%E6%A6%82%E8%BF%B0"></a>概述</h2>
+<p>索引是MySQL面试中<strong>最高频</strong>的考点。本文深入讲解B+树原理、聚簇索引vs非聚簇索引、覆盖索引、最左前缀原则、索引优化实战等核心内容。</p>
+<h2 id="索引的基本概念索引的基本概念"><a href="#%E7%B4%A2%E5%BC%95%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5"></a>索引的基本概念</h2>
+<h3 id="什么是索引什么是索引"><a href="#%E4%BB%80%E4%B9%88%E6%98%AF%E7%B4%A2%E5%BC%95"></a>什么是索引</h3>
+<p><strong>索引（Index）</strong> 是帮助MySQL<strong>高效获取数据</strong>的<strong>排好序的数据结构</strong>。</p>
+<blockquote>
+<p>类比：书籍目录 —— 通过目录快速找到章节，而不是逐页翻阅。</p>
+</blockquote>
+<p><strong>优点</strong>：</p>
+<ul>
+<li>大幅<strong>提高查询速度</strong>（从O(N)到O(logN)）</li>
+<li>保证数据的<strong>唯一性</strong>（唯一索引）</li>
+<li>加速表连接（JOIN）</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li><strong>占用磁盘空间</strong></li>
+<li><strong>降低写操作速度</strong>（INSERT/UPDATE/DELETE需要维护索引）</li>
+<li>索引需要<strong>定期维护</strong>（碎片整理）</li>
+</ul>
+<h3 id="索引的存储结构索引的存储结构"><a href="#%E7%B4%A2%E5%BC%95%E7%9A%84%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84"></a>索引的存储结构</h3>
+<p>MySQL的InnoDB引擎使用 <strong>B+树</strong> 作为索引结构（而非二叉搜索树、红黑树、B树）。</p>
+<p><strong>为什么不用二叉搜索树？</strong></p>
+<ul>
+<li>树的高度太大（100万数据 → 树高20），每次查询需要多次磁盘IO</li>
+</ul>
+<p><strong>为什么不用红黑树？</strong></p>
+<ul>
+<li>本质还是二叉树，树高问题依然存在</li>
+</ul>
+<p><strong>为什么不用B树？</strong></p>
+<ul>
+<li>B树的非叶子节点也存储数据，导致单个节点能存储的索引键更少</li>
+<li>范围查询不如B+树高效</li>
+</ul>
+<h2 id="b树详解b树详解"><a href="#B%E6%A0%91%E8%AF%A6%E8%A7%A3"></a>B+树详解</h2>
+<h3 id="b树的结构b树的结构"><a href="#B%E6%A0%91%E7%9A%84%E7%BB%93%E6%9E%84"></a>B+树的结构</h3>
+<pre tabindex="0"><code>B+树（m=3，即3阶B+树）
                     [10, 20]
                    /     |      \
               [1,5]   [11,15]   [21,25]
              /  |  \   /  |  \   /  |  \
 [1,2,3] [4,5,6] [11,12] [15,16] [21,22] [25,26]
          (叶子节点通过指针连接)
-</code></pre><p><strong>B+树的特点</strong>：</p><ol><li><strong>非叶子节点只存储键</strong>（不存储数据）</li><li><strong>所有数据都存储在叶子节点</strong></li><li><strong>叶子节点通过双向链表连接</strong>（支持范围查询）</li><li><strong>树高度很低</strong>（通常2-4层，可存储千万级数据）</li></ol><h3 id=为什么b树高度低为什么b树高度低><a href=#%E4%B8%BA%E4%BB%80%E4%B9%88B%E6%A0%91%E9%AB%98%E5%BA%A6%E4%BD%8E></a>为什么B+树高度低？</h3><p>假设：</p><ul><li><p>InnoDB页大小 = 16KB</p></li><li><p>主键bigint = 8B</p></li><li><p>指针 = 6B</p></li><li><p>单个索引节点可存储：16KB/(8B+6B) ≈ 1170个键</p></li><li><p>树高为3时：1170 × 1170 × 16 = <strong>约2千万</strong>条数据</p></li></ul><h2 id=聚簇索引与非聚簇索引聚簇索引与非聚簇索引><a href=#%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95%E4%B8%8E%E9%9D%9E%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95></a>聚簇索引与非聚簇索引</h2><h3 id=聚簇索引clustered-index聚簇索引clustered-index><a href=#%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95Clustered-Index></a>聚簇索引（Clustered Index）</h3><p><strong>定义</strong>：索引键值的<strong>逻辑顺序</strong>与表中相应行的<strong>物理顺序</strong>相同。</p><p>InnoDB中，<strong>主键索引是聚簇索引</strong>：</p><ul><li>叶子节点存储<strong>完整的数据行</strong></li><li>一张表<strong>只能有一个</strong>聚簇索引</li></ul><pre tabindex=0><code>主键索引（聚簇索引）B+树
+</code></pre><p><strong>B+树的特点</strong>：</p>
+<ol>
+<li><strong>非叶子节点只存储键</strong>（不存储数据）</li>
+<li><strong>所有数据都存储在叶子节点</strong></li>
+<li><strong>叶子节点通过双向链表连接</strong>（支持范围查询）</li>
+<li><strong>树高度很低</strong>（通常2-4层，可存储千万级数据）</li>
+</ol>
+<h3 id="为什么b树高度低为什么b树高度低"><a href="#%E4%B8%BA%E4%BB%80%E4%B9%88B%E6%A0%91%E9%AB%98%E5%BA%A6%E4%BD%8E"></a>为什么B+树高度低？</h3>
+<p>假设：</p>
+<ul>
+<li>
+<p>InnoDB页大小 = 16KB</p>
+</li>
+<li>
+<p>主键bigint = 8B</p>
+</li>
+<li>
+<p>指针 = 6B</p>
+</li>
+<li>
+<p>单个索引节点可存储：16KB/(8B+6B) ≈ 1170个键</p>
+</li>
+<li>
+<p>树高为3时：1170 × 1170 × 16 = <strong>约2千万</strong>条数据</p>
+</li>
+</ul>
+<h2 id="聚簇索引与非聚簇索引聚簇索引与非聚簇索引"><a href="#%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95%E4%B8%8E%E9%9D%9E%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95"></a>聚簇索引与非聚簇索引</h2>
+<h3 id="聚簇索引clustered-index聚簇索引clustered-index"><a href="#%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95Clustered-Index"></a>聚簇索引（Clustered Index）</h3>
+<p><strong>定义</strong>：索引键值的<strong>逻辑顺序</strong>与表中相应行的<strong>物理顺序</strong>相同。</p>
+<p>InnoDB中，<strong>主键索引是聚簇索引</strong>：</p>
+<ul>
+<li>叶子节点存储<strong>完整的数据行</strong></li>
+<li>一张表<strong>只能有一个</strong>聚簇索引</li>
+</ul>
+<pre tabindex="0"><code>主键索引（聚簇索引）B+树
              [id=10]
             /         \
       [id=5]         [id=20]
       /      \         /      \
 [id=1,数据行] [id=5,数据行] [id=10,数据行] [id=20,数据行]
-</code></pre><h3 id=非聚簇索引secondary-index非聚簇索引secondary-index><a href=#%E9%9D%9E%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95Secondary-Index></a>非聚簇索引（Secondary Index）</h3><p><strong>定义</strong>：叶子节点<strong>不存储完整数据</strong>，只存储<strong>索引键 + 主键值</strong>。</p><p>InnoDB中，<strong>非主键索引都是非聚簇索引</strong>：</p><ul><li>叶子节点存储：索引键 + 主键值</li><li>通过主键值<strong>回表</strong>到聚簇索引取完整数据</li></ul><pre tabindex=0><code>非聚簇索引（例如：name索引）B+树
+</code></pre><h3 id="非聚簇索引secondary-index非聚簇索引secondary-index"><a href="#%E9%9D%9E%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95Secondary-Index"></a>非聚簇索引（Secondary Index）</h3>
+<p><strong>定义</strong>：叶子节点<strong>不存储完整数据</strong>，只存储<strong>索引键 + 主键值</strong>。</p>
+<p>InnoDB中，<strong>非主键索引都是非聚簇索引</strong>：</p>
+<ul>
+<li>叶子节点存储：索引键 + 主键值</li>
+<li>通过主键值<strong>回表</strong>到聚簇索引取完整数据</li>
+</ul>
+<pre tabindex="0"><code>非聚簇索引（例如：name索引）B+树
              [name=&#39;li&#39;]
             /             \
       [name=&#39;a&#39;]         [name=&#39;z&#39;]
@@ -23,47 +984,257 @@
 [name=&#39;a&#39;,id=1] [name=&#39;l&#39;,id=5] [name=&#39;l&#39;,id=10] [name=&#39;z&#39;,id=20]
                                          ↓ 回表
                             到主键索引取完整数据行
-</code></pre><h3 id=聚簇-vs-非聚簇对比聚簇-vs-非聚簇对比><a href=#%E8%81%9A%E7%B0%87-vs-%E9%9D%9E%E8%81%9A%E7%B0%87%E5%AF%B9%E6%AF%94></a>聚簇 vs 非聚簇对比</h3><table><thead><tr><th>特性</th><th>聚簇索引（InnoDB主键）</th><th>非聚簇索引（MyISAM）</th></tr></thead><tbody><tr><td>叶子节点存储</td><td>完整数据行</td><td>数据行的地址（指针）</td></tr><tr><td>索引数量</td><td>一张表只能有一个</td><td>一张表可以有多个</td></tr><tr><td>回表</td><td>不需要（主键查询）</td><td>需要（通过指针找数据）</td></tr><tr><td>范围查询</td><td>快（叶子节点链表）</td><td>慢（需要多次随机IO）</td></tr></tbody></table><h2 id=索引的类型索引的类型><a href=#%E7%B4%A2%E5%BC%95%E7%9A%84%E7%B1%BB%E5%9E%8B></a>索引的类型</h2><h3 id=主键索引primary-key主键索引primary-key><a href=#%E4%B8%BB%E9%94%AE%E7%B4%A2%E5%BC%95PRIMARY-KEY></a>主键索引（PRIMARY KEY）</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#66d9ef>CREATE</span> <span style=color:#66d9ef>TABLE</span> users (
-</span></span><span style=display:flex><span>    id INT <span style=color:#66d9ef>PRIMARY</span> <span style=color:#66d9ef>KEY</span> AUTO_INCREMENT,  <span style=color:#75715e>-- 主键索引
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    name VARCHAR(<span style=color:#ae81ff>50</span>)
-</span></span><span style=display:flex><span>);
-</span></span></code></pre></div><ul><li>唯一、非空</li><li>InnoDB自动创建聚簇索引</li></ul><h3 id=唯一索引unique-index唯一索引unique-index><a href=#%E5%94%AF%E4%B8%80%E7%B4%A2%E5%BC%95UNIQUE-INDEX></a>唯一索引（UNIQUE INDEX）</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#66d9ef>CREATE</span> <span style=color:#66d9ef>UNIQUE</span> <span style=color:#66d9ef>INDEX</span> idx_email <span style=color:#66d9ef>ON</span> users(email);
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 或
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>ALTER</span> <span style=color:#66d9ef>TABLE</span> users <span style=color:#66d9ef>ADD</span> <span style=color:#66d9ef>UNIQUE</span> <span style=color:#66d9ef>INDEX</span> idx_email (email);
-</span></span></code></pre></div><ul><li>值唯一，但允许<strong>多个NULL</strong>（NULL不等于NULL）</li></ul><h3 id=普通索引normal-index普通索引normal-index><a href=#%E6%99%AE%E9%80%9A%E7%B4%A2%E5%BC%95NORMAL-INDEX></a>普通索引（NORMAL INDEX）</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#66d9ef>CREATE</span> <span style=color:#66d9ef>INDEX</span> idx_name <span style=color:#66d9ef>ON</span> users(name);
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 或
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>ALTER</span> <span style=color:#66d9ef>TABLE</span> users <span style=color:#66d9ef>ADD</span> <span style=color:#66d9ef>INDEX</span> idx_name (name);
-</span></span></code></pre></div><ul><li>最常用，无唯一性约束</li></ul><h3 id=全文索引fulltext-index全文索引fulltext-index><a href=#%E5%85%A8%E6%96%87%E7%B4%A2%E5%BC%95FULLTEXT-INDEX></a>全文索引（FULLTEXT INDEX）</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#66d9ef>CREATE</span> FULLTEXT <span style=color:#66d9ef>INDEX</span> idx_content <span style=color:#66d9ef>ON</span> posts(content);
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 使用
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>SELECT</span> <span style=color:#f92672>*</span> <span style=color:#66d9ef>FROM</span> posts <span style=color:#66d9ef>WHERE</span> <span style=color:#66d9ef>MATCH</span>(content) AGAINST(<span style=color:#e6db74>&#39;MySQL索引&#39;</span>);
-</span></span></code></pre></div><ul><li>支持中文需要ngram解析器（MySQL 5.7+）</li></ul><h3 id=前缀索引prefix-index前缀索引prefix-index><a href=#%E5%89%8D%E7%BC%80%E7%B4%A2%E5%BC%95PREFIX-INDEX></a>前缀索引（PREFIX INDEX）</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 对长文本，只索引前N个字符
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>CREATE</span> <span style=color:#66d9ef>INDEX</span> idx_content_prefix <span style=color:#66d9ef>ON</span> posts(content(<span style=color:#ae81ff>100</span>));
-</span></span></code></pre></div><ul><li>节省索引空间</li><li>选择性降低（可能冲突）</li></ul><h2 id=覆盖索引覆盖索引><a href=#%E8%A6%86%E7%9B%96%E7%B4%A2%E5%BC%95></a>覆盖索引</h2><p><strong>定义</strong>：查询的<strong>所有列</strong>都包含在索引中，不需要<strong>回表</strong>。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 有联合索引：(name, age)
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>EXPLAIN</span> <span style=color:#66d9ef>SELECT</span> name, age <span style=color:#66d9ef>FROM</span> users <span style=color:#66d9ef>WHERE</span> name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#39;zhangsan&#39;</span>;
-</span></span><span style=display:flex><span><span style=color:#75715e>-- Extra: Using index  ← 覆盖索引，不需要回表！
-</span></span></span></code></pre></div><p><strong>优点</strong>：</p><ul><li>避免回表（减少磁盘IO）</li><li>提高查询速度</li></ul><p><strong>如何设计覆盖索引</strong>？</p><ul><li>将查询中使用的列都加入联合索引</li><li>例如：<code>SELECT name, age FROM users WHERE name = ?</code> → 联合索引 <code>(name, age)</code></li></ul><h2 id=最左前缀原则最左前缀原则><a href=#%E6%9C%80%E5%B7%A6%E5%89%8D%E7%BC%80%E5%8E%9F%E5%88%99></a>最左前缀原则</h2><p>联合索引遵循<strong>最左前缀原则</strong>：查询必须从索引的<strong>最左列开始</strong>，不能跳过。</p><p>假设有联合索引 <code>(a, b, c)</code>：</p><table><thead><tr><th>查询条件</th><th>是否使用索引</th><th>说明</th></tr></thead><tbody><tr><td><code>WHERE a = 1</code></td><td>✅ 使用索引</td><td>使用a</td></tr><tr><td><code>WHERE a = 1 AND b = 2</code></td><td>✅ 使用索引</td><td>使用a、b</td></tr><tr><td><code>WHERE a = 1 AND b = 2 AND c = 3</code></td><td>✅ 使用索引</td><td>使用a、b、c</td></tr><tr><td><code>WHERE b = 2</code></td><td>❌ 不使用索引</td><td>跳过a</td></tr><tr><td><code>WHERE a = 1 AND c = 3</code></td><td>⚠️ 部分使用</td><td>使用a，c失效</td></tr><tr><td><code>WHERE a > 1 AND b = 2</code></td><td>⚠️ 部分使用</td><td>a用范围查询，b失效</td></tr></tbody></table><p><strong>索引下推（Index Condition Pushdown，ICP）</strong>：</p><ul><li>MySQL 5.6+ 支持</li><li>将WHERE条件<strong>下推到存储引擎层过滤</strong>，减少回表次数</li></ul><h2 id=索引优化实战索引优化实战><a href=#%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98></a>索引优化实战</h2><h3 id=explain执行计划explain执行计划><a href=#EXPLAIN%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92></a>EXPLAIN执行计划</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#66d9ef>EXPLAIN</span> <span style=color:#66d9ef>SELECT</span> <span style=color:#f92672>*</span> <span style=color:#66d9ef>FROM</span> users <span style=color:#66d9ef>WHERE</span> name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#39;zhangsan&#39;</span>;
-</span></span></code></pre></div><p><strong>关键字段解读</strong>：</p><table><thead><tr><th>字段</th><th>说明</th></tr></thead><tbody><tr><td><code>id</code></td><td>查询序号</td></tr><tr><td><code>select_type</code></td><td>查询类型（SIMPLE、PRIMARY、SUBQUERY）</td></tr><tr><td><code>table</code></td><td>访问的表</td></tr><tr><td><code>type</code></td><td>访问类型（<strong>重要！</strong>）</td></tr><tr><td><code>possible_keys</code></td><td>可能使用的索引</td></tr><tr><td><code>key</code></td><td>实际使用的索引</td></tr><tr><td><code>rows</code></td><td>预估扫描行数</td></tr><tr><td><code>Extra</code></td><td>额外信息</td></tr></tbody></table><p><strong>type字段（从好到坏）</strong>：</p><pre tabindex=0><code>system &gt; const &gt; eq_ref &gt; ref &gt; range &gt; index &gt; ALL
-</code></pre><ul><li><code>const</code>：主键或唯一索引的等值查询</li><li><code>ref</code>：非唯一索引的等值查询</li><li><code>range</code>：范围查询（BETWEEN、IN、>、&lt;）</li><li><code>index</code>：全索引扫描</li><li><code>ALL</code>：全表扫描（<strong>最差，需优化</strong>）</li></ul><p><strong>Extra字段</strong>：</p><ul><li><code>Using index</code>：覆盖索引</li><li><code>Using where</code>：Server层过滤</li><li><code>Using temporary</code>：使用临时表（需优化）</li><li><code>Using filesort</code>：使用文件排序（需优化）</li></ul><h3 id=常见索引失效场景常见索引失效场景><a href=#%E5%B8%B8%E8%A7%81%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E5%9C%BA%E6%99%AF></a>常见索引失效场景</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 1. 使用函数或表达式
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> <span style=color:#66d9ef>YEAR</span>(create_time) <span style=color:#f92672>=</span> <span style=color:#ae81ff>2024</span>   <span style=color:#75715e>-- ❌ 索引失效
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> create_time <span style=color:#f92672>&gt;=</span> <span style=color:#e6db74>&#39;2024-01-01&#39;</span>  <span style=color:#75715e>-- ✅ 索引生效
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 2. 隐式类型转换
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> phone <span style=color:#f92672>=</span> <span style=color:#ae81ff>13800138000</span>   <span style=color:#75715e>-- ❌ phone是VARCHAR，索引失效
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> phone <span style=color:#f92672>=</span> <span style=color:#e6db74>&#39;13800138000&#39;</span>  <span style=color:#75715e>-- ✅ 索引生效
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 3. OR连接（部分情况）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#39;zhang&#39;</span> <span style=color:#66d9ef>OR</span> age <span style=color:#f92672>=</span> <span style=color:#ae81ff>25</span>  <span style=color:#75715e>-- ❌ 索引失效（除非age也有索引）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#39;zhang&#39;</span> <span style=color:#66d9ef>OR</span> id <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>    <span style=color:#75715e>-- ✅ 索引生效（id是主键）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 4. LIKE左模糊
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> name <span style=color:#66d9ef>LIKE</span> <span style=color:#e6db74>&#39;zhang%&#39;</span>   <span style=color:#75715e>-- ✅ 索引生效
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> name <span style=color:#66d9ef>LIKE</span> <span style=color:#e6db74>&#39;%zhang&#39;</span>   <span style=color:#75715e>-- ❌ 索引失效
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 5. 不等于
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> age <span style=color:#f92672>!=</span> <span style=color:#ae81ff>25</span>   <span style=color:#75715e>-- ❌ 索引失效
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> age <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>25</span>     <span style=color:#75715e>-- ✅ 索引生效（范围查询）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- 6. IS NULL / IS NOT NULL
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> name <span style=color:#66d9ef>IS</span> <span style=color:#66d9ef>NULL</span>       <span style=color:#75715e>-- ✅ 索引生效（MySQL 5.7+）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>WHERE</span> name <span style=color:#66d9ef>IS</span> <span style=color:#66d9ef>NOT</span> <span style=color:#66d9ef>NULL</span>   <span style=color:#75715e>-- ⚠️ 取决于NULL值比例
-</span></span></span></code></pre></div><h3 id=索引设计原则索引设计原则><a href=#%E7%B4%A2%E5%BC%95%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99></a>索引设计原则</h3><ol><li><strong>单列索引 vs 联合索引</strong>：优先使用联合索引（覆盖索引）</li><li><strong>索引列顺序</strong>：选择性高的列放前面（区分度大的列）</li><li><strong>避免过多索引</strong>：每张表索引不超过5-7个</li><li><strong>使用前缀索引</strong>：对TEXT/BLOB类型</li><li><strong>删除不使用的索引</strong>：通过<code>sys.schema_unused_indexes</code>查看</li></ol><h2 id=总结总结><a href=#%E6%80%BB%E7%BB%93></a>总结</h2><p>本文深入讲解了MySQL索引的核心知识：</p><ol><li><strong>索引的本质</strong>：排好序的B+树数据结构</li><li><strong>B+树原理</strong>：非叶子节点只存键，叶子节点存数据并通过链表连接</li><li><strong>聚簇索引</strong>：主键索引，叶子节点存完整数据行</li><li><strong>非聚簇索引</strong>：二级索引，叶子节点存主键值，需要回表</li><li><strong>覆盖索引</strong>：所有查询列都在索引中，避免回表</li><li><strong>最左前缀原则</strong>：联合索引必须从最左列开始</li><li><strong>索引优化</strong>：EXPLAIN分析、避免索引失效、合理设计索引</li></ol><p>下期预告：</p><ul><li>数据库面试八股文（四）——MySQL事务与ACID特性</li><li>数据库面试八股文（五）——MySQL锁机制（行锁、表锁、间隙锁、MVCC）</li></ul></div></article></main><footer><p>&copy; 2026 李亚飞</p></footer></body></html>
+</code></pre><h3 id="聚簇-vs-非聚簇对比聚簇-vs-非聚簇对比"><a href="#%E8%81%9A%E7%B0%87-vs-%E9%9D%9E%E8%81%9A%E7%B0%87%E5%AF%B9%E6%AF%94"></a>聚簇 vs 非聚簇对比</h3>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>聚簇索引（InnoDB主键）</th>
+<th>非聚簇索引（MyISAM）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>叶子节点存储</td>
+<td>完整数据行</td>
+<td>数据行的地址（指针）</td>
+</tr>
+<tr>
+<td>索引数量</td>
+<td>一张表只能有一个</td>
+<td>一张表可以有多个</td>
+</tr>
+<tr>
+<td>回表</td>
+<td>不需要（主键查询）</td>
+<td>需要（通过指针找数据）</td>
+</tr>
+<tr>
+<td>范围查询</td>
+<td>快（叶子节点链表）</td>
+<td>慢（需要多次随机IO）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="索引的类型索引的类型"><a href="#%E7%B4%A2%E5%BC%95%E7%9A%84%E7%B1%BB%E5%9E%8B"></a>索引的类型</h2>
+<h3 id="主键索引primary-key主键索引primary-key"><a href="#%E4%B8%BB%E9%94%AE%E7%B4%A2%E5%BC%95PRIMARY-KEY"></a>主键索引（PRIMARY KEY）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span> users (
+</span></span><span style="display:flex;"><span>    id INT <span style="color:#66d9ef">PRIMARY</span> <span style="color:#66d9ef">KEY</span> AUTO_INCREMENT,  <span style="color:#75715e">-- 主键索引
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    name VARCHAR(<span style="color:#ae81ff">50</span>)
+</span></span><span style="display:flex;"><span>);
+</span></span></code></pre></div><ul>
+<li>唯一、非空</li>
+<li>InnoDB自动创建聚簇索引</li>
+</ul>
+<h3 id="唯一索引unique-index唯一索引unique-index"><a href="#%E5%94%AF%E4%B8%80%E7%B4%A2%E5%BC%95UNIQUE-INDEX"></a>唯一索引（UNIQUE INDEX）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">UNIQUE</span> <span style="color:#66d9ef">INDEX</span> idx_email <span style="color:#66d9ef">ON</span> users(email);
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 或
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">ALTER</span> <span style="color:#66d9ef">TABLE</span> users <span style="color:#66d9ef">ADD</span> <span style="color:#66d9ef">UNIQUE</span> <span style="color:#66d9ef">INDEX</span> idx_email (email);
+</span></span></code></pre></div><ul>
+<li>值唯一，但允许<strong>多个NULL</strong>（NULL不等于NULL）</li>
+</ul>
+<h3 id="普通索引normal-index普通索引normal-index"><a href="#%E6%99%AE%E9%80%9A%E7%B4%A2%E5%BC%95NORMAL-INDEX"></a>普通索引（NORMAL INDEX）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">INDEX</span> idx_name <span style="color:#66d9ef">ON</span> users(name);
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 或
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">ALTER</span> <span style="color:#66d9ef">TABLE</span> users <span style="color:#66d9ef">ADD</span> <span style="color:#66d9ef">INDEX</span> idx_name (name);
+</span></span></code></pre></div><ul>
+<li>最常用，无唯一性约束</li>
+</ul>
+<h3 id="全文索引fulltext-index全文索引fulltext-index"><a href="#%E5%85%A8%E6%96%87%E7%B4%A2%E5%BC%95FULLTEXT-INDEX"></a>全文索引（FULLTEXT INDEX）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">CREATE</span> FULLTEXT <span style="color:#66d9ef">INDEX</span> idx_content <span style="color:#66d9ef">ON</span> posts(content);
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 使用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">SELECT</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">FROM</span> posts <span style="color:#66d9ef">WHERE</span> <span style="color:#66d9ef">MATCH</span>(content) AGAINST(<span style="color:#e6db74">&#39;MySQL索引&#39;</span>);
+</span></span></code></pre></div><ul>
+<li>支持中文需要ngram解析器（MySQL 5.7+）</li>
+</ul>
+<h3 id="前缀索引prefix-index前缀索引prefix-index"><a href="#%E5%89%8D%E7%BC%80%E7%B4%A2%E5%BC%95PREFIX-INDEX"></a>前缀索引（PREFIX INDEX）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 对长文本，只索引前N个字符
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">INDEX</span> idx_content_prefix <span style="color:#66d9ef">ON</span> posts(content(<span style="color:#ae81ff">100</span>));
+</span></span></code></pre></div><ul>
+<li>节省索引空间</li>
+<li>选择性降低（可能冲突）</li>
+</ul>
+<h2 id="覆盖索引覆盖索引"><a href="#%E8%A6%86%E7%9B%96%E7%B4%A2%E5%BC%95"></a>覆盖索引</h2>
+<p><strong>定义</strong>：查询的<strong>所有列</strong>都包含在索引中，不需要<strong>回表</strong>。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 有联合索引：(name, age)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">EXPLAIN</span> <span style="color:#66d9ef">SELECT</span> name, age <span style="color:#66d9ef">FROM</span> users <span style="color:#66d9ef">WHERE</span> name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;zhangsan&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- Extra: Using index  ← 覆盖索引，不需要回表！
+</span></span></span></code></pre></div><p><strong>优点</strong>：</p>
+<ul>
+<li>避免回表（减少磁盘IO）</li>
+<li>提高查询速度</li>
+</ul>
+<p><strong>如何设计覆盖索引</strong>？</p>
+<ul>
+<li>将查询中使用的列都加入联合索引</li>
+<li>例如：<code>SELECT name, age FROM users WHERE name = ?</code> → 联合索引 <code>(name, age)</code></li>
+</ul>
+<h2 id="最左前缀原则最左前缀原则"><a href="#%E6%9C%80%E5%B7%A6%E5%89%8D%E7%BC%80%E5%8E%9F%E5%88%99"></a>最左前缀原则</h2>
+<p>联合索引遵循<strong>最左前缀原则</strong>：查询必须从索引的<strong>最左列开始</strong>，不能跳过。</p>
+<p>假设有联合索引 <code>(a, b, c)</code>：</p>
+<table>
+<thead>
+<tr>
+<th>查询条件</th>
+<th>是否使用索引</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>WHERE a = 1</code></td>
+<td>✅ 使用索引</td>
+<td>使用a</td>
+</tr>
+<tr>
+<td><code>WHERE a = 1 AND b = 2</code></td>
+<td>✅ 使用索引</td>
+<td>使用a、b</td>
+</tr>
+<tr>
+<td><code>WHERE a = 1 AND b = 2 AND c = 3</code></td>
+<td>✅ 使用索引</td>
+<td>使用a、b、c</td>
+</tr>
+<tr>
+<td><code>WHERE b = 2</code></td>
+<td>❌ 不使用索引</td>
+<td>跳过a</td>
+</tr>
+<tr>
+<td><code>WHERE a = 1 AND c = 3</code></td>
+<td>⚠️ 部分使用</td>
+<td>使用a，c失效</td>
+</tr>
+<tr>
+<td><code>WHERE a &gt; 1 AND b = 2</code></td>
+<td>⚠️ 部分使用</td>
+<td>a用范围查询，b失效</td>
+</tr>
+</tbody>
+</table>
+<p><strong>索引下推（Index Condition Pushdown，ICP）</strong>：</p>
+<ul>
+<li>MySQL 5.6+ 支持</li>
+<li>将WHERE条件<strong>下推到存储引擎层过滤</strong>，减少回表次数</li>
+</ul>
+<h2 id="索引优化实战索引优化实战"><a href="#%E7%B4%A2%E5%BC%95%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98"></a>索引优化实战</h2>
+<h3 id="explain执行计划explain执行计划"><a href="#EXPLAIN%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92"></a>EXPLAIN执行计划</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">EXPLAIN</span> <span style="color:#66d9ef">SELECT</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">FROM</span> users <span style="color:#66d9ef">WHERE</span> name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;zhangsan&#39;</span>;
+</span></span></code></pre></div><p><strong>关键字段解读</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>查询序号</td>
+</tr>
+<tr>
+<td><code>select_type</code></td>
+<td>查询类型（SIMPLE、PRIMARY、SUBQUERY）</td>
+</tr>
+<tr>
+<td><code>table</code></td>
+<td>访问的表</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>访问类型（<strong>重要！</strong>）</td>
+</tr>
+<tr>
+<td><code>possible_keys</code></td>
+<td>可能使用的索引</td>
+</tr>
+<tr>
+<td><code>key</code></td>
+<td>实际使用的索引</td>
+</tr>
+<tr>
+<td><code>rows</code></td>
+<td>预估扫描行数</td>
+</tr>
+<tr>
+<td><code>Extra</code></td>
+<td>额外信息</td>
+</tr>
+</tbody>
+</table>
+<p><strong>type字段（从好到坏）</strong>：</p>
+<pre tabindex="0"><code>system &gt; const &gt; eq_ref &gt; ref &gt; range &gt; index &gt; ALL
+</code></pre><ul>
+<li><code>const</code>：主键或唯一索引的等值查询</li>
+<li><code>ref</code>：非唯一索引的等值查询</li>
+<li><code>range</code>：范围查询（BETWEEN、IN、&gt;、&lt;）</li>
+<li><code>index</code>：全索引扫描</li>
+<li><code>ALL</code>：全表扫描（<strong>最差，需优化</strong>）</li>
+</ul>
+<p><strong>Extra字段</strong>：</p>
+<ul>
+<li><code>Using index</code>：覆盖索引</li>
+<li><code>Using where</code>：Server层过滤</li>
+<li><code>Using temporary</code>：使用临时表（需优化）</li>
+<li><code>Using filesort</code>：使用文件排序（需优化）</li>
+</ul>
+<h3 id="常见索引失效场景常见索引失效场景"><a href="#%E5%B8%B8%E8%A7%81%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E5%9C%BA%E6%99%AF"></a>常见索引失效场景</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 1. 使用函数或表达式
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> <span style="color:#66d9ef">YEAR</span>(create_time) <span style="color:#f92672">=</span> <span style="color:#ae81ff">2024</span>   <span style="color:#75715e">-- ❌ 索引失效
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> create_time <span style="color:#f92672">&gt;=</span> <span style="color:#e6db74">&#39;2024-01-01&#39;</span>  <span style="color:#75715e">-- ✅ 索引生效
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 2. 隐式类型转换
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> phone <span style="color:#f92672">=</span> <span style="color:#ae81ff">13800138000</span>   <span style="color:#75715e">-- ❌ phone是VARCHAR，索引失效
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> phone <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;13800138000&#39;</span>  <span style="color:#75715e">-- ✅ 索引生效
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 3. OR连接（部分情况）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;zhang&#39;</span> <span style="color:#66d9ef">OR</span> age <span style="color:#f92672">=</span> <span style="color:#ae81ff">25</span>  <span style="color:#75715e">-- ❌ 索引失效（除非age也有索引）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;zhang&#39;</span> <span style="color:#66d9ef">OR</span> id <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>    <span style="color:#75715e">-- ✅ 索引生效（id是主键）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 4. LIKE左模糊
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> name <span style="color:#66d9ef">LIKE</span> <span style="color:#e6db74">&#39;zhang%&#39;</span>   <span style="color:#75715e">-- ✅ 索引生效
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> name <span style="color:#66d9ef">LIKE</span> <span style="color:#e6db74">&#39;%zhang&#39;</span>   <span style="color:#75715e">-- ❌ 索引失效
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 5. 不等于
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> age <span style="color:#f92672">!=</span> <span style="color:#ae81ff">25</span>   <span style="color:#75715e">-- ❌ 索引失效
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> age <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">25</span>     <span style="color:#75715e">-- ✅ 索引生效（范围查询）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 6. IS NULL / IS NOT NULL
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> name <span style="color:#66d9ef">IS</span> <span style="color:#66d9ef">NULL</span>       <span style="color:#75715e">-- ✅ 索引生效（MySQL 5.7+）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">WHERE</span> name <span style="color:#66d9ef">IS</span> <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span>   <span style="color:#75715e">-- ⚠️ 取决于NULL值比例
+</span></span></span></code></pre></div><h3 id="索引设计原则索引设计原则"><a href="#%E7%B4%A2%E5%BC%95%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99"></a>索引设计原则</h3>
+<ol>
+<li><strong>单列索引 vs 联合索引</strong>：优先使用联合索引（覆盖索引）</li>
+<li><strong>索引列顺序</strong>：选择性高的列放前面（区分度大的列）</li>
+<li><strong>避免过多索引</strong>：每张表索引不超过5-7个</li>
+<li><strong>使用前缀索引</strong>：对TEXT/BLOB类型</li>
+<li><strong>删除不使用的索引</strong>：通过<code>sys.schema_unused_indexes</code>查看</li>
+</ol>
+<h2 id="总结总结"><a href="#%E6%80%BB%E7%BB%93"></a>总结</h2>
+<p>本文深入讲解了MySQL索引的核心知识：</p>
+<ol>
+<li><strong>索引的本质</strong>：排好序的B+树数据结构</li>
+<li><strong>B+树原理</strong>：非叶子节点只存键，叶子节点存数据并通过链表连接</li>
+<li><strong>聚簇索引</strong>：主键索引，叶子节点存完整数据行</li>
+<li><strong>非聚簇索引</strong>：二级索引，叶子节点存主键值，需要回表</li>
+<li><strong>覆盖索引</strong>：所有查询列都在索引中，避免回表</li>
+<li><strong>最左前缀原则</strong>：联合索引必须从最左列开始</li>
+<li><strong>索引优化</strong>：EXPLAIN分析、避免索引失效、合理设计索引</li>
+</ol>
+<p>下期预告：</p>
+<ul>
+<li>数据库面试八股文（四）——MySQL事务与ACID特性</li>
+<li>数据库面试八股文（五）——MySQL锁机制（行锁、表锁、间隙锁、MVCC）</li>
+</ul>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>

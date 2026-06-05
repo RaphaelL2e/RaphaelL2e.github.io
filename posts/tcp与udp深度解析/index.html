@@ -1,8 +1,898 @@
-<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>TCP与UDP深度解析 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
-<a href=https://raphaell2e.github.io/posts/>文章</a>
-<a href=https://raphaell2e.github.io/categories/>分类</a>
-<a href=https://raphaell2e.github.io/tags/>标签</a>
-<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-17 <span>/</span> java</div><h1>TCP与UDP深度解析</h1></div><div class=post-content><h1 id=tcp与udp深度解析>TCP与UDP深度解析</h1><h2 id=引言>引言</h2><p>计算机网络是后端开发工程师面试的重点考察领域，而传输层协议TCP和UDP更是必考知识点。无论是互联网大厂还是创业公司，几乎每个技术面试官都会从TCP/UDP入手，逐步深入到HTTP、网络安全等高级话题。</p><p>据2025年技术面试数据分析，计算机网络相关题目在Java后端面试中出现频率高达85%，其中TCP三次握手/四次挥手、TCP可靠性机制、TCP vs UDP对比是最高频的3个题目，出现概率超过70%。</p><p>本文将从面试官的视角出发，深入剖析TCP和UDP的核心原理、实现细节和常见面试问题，帮助你构建完整的知识体系，从容应对各种面试挑战。</p><h2 id=一tcp与udp核心对比>一、TCP与UDP核心对比</h2><h3 id=11-协议头部对比>1.1 协议头部对比</h3><p><strong>TCP头部（20字节固定部分）</strong>：</p><pre tabindex=0><code> 0                   1                   2                   3
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCP与UDP深度解析 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-05-17 <span>/</span> java </div>
+        <h1>TCP与UDP深度解析</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="tcp与udp深度解析">TCP与UDP深度解析</h1>
+<h2 id="引言">引言</h2>
+<p>计算机网络是后端开发工程师面试的重点考察领域，而传输层协议TCP和UDP更是必考知识点。无论是互联网大厂还是创业公司，几乎每个技术面试官都会从TCP/UDP入手，逐步深入到HTTP、网络安全等高级话题。</p>
+<p>据2025年技术面试数据分析，计算机网络相关题目在Java后端面试中出现频率高达85%，其中TCP三次握手/四次挥手、TCP可靠性机制、TCP vs UDP对比是最高频的3个题目，出现概率超过70%。</p>
+<p>本文将从面试官的视角出发，深入剖析TCP和UDP的核心原理、实现细节和常见面试问题，帮助你构建完整的知识体系，从容应对各种面试挑战。</p>
+<h2 id="一tcp与udp核心对比">一、TCP与UDP核心对比</h2>
+<h3 id="11-协议头部对比">1.1 协议头部对比</h3>
+<p><strong>TCP头部（20字节固定部分）</strong>：</p>
+<pre tabindex="0"><code> 0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |         源端口号         |         目的端口号        |
@@ -19,14 +909,97 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                   选项（0-40字节）                       |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-</code></pre><p><strong>UDP头部（8字节固定）</strong>：</p><pre tabindex=0><code> 0                   1                   2                   3
+</code></pre><p><strong>UDP头部（8字节固定）</strong>：</p>
+<pre tabindex="0"><code> 0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |         源端口号         |         目的端口号        |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |           长度           |          校验和           |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-</code></pre><p><strong>关键差异</strong>：</p><table><thead><tr><th>维度</th><th>TCP</th><th>UDP</th></tr></thead><tbody><tr><td>头部大小</td><td>20-60字节</td><td>8字节</td></tr><tr><td>连接建立</td><td>需要三次握手</td><td>无需连接</td></tr><tr><td>可靠性</td><td>可靠（确认机制、重传、排序）</td><td>不可靠（尽最大努力交付）</td></tr><tr><td>有序性</td><td>保证有序（序列号排序）</td><td>不保证有序</td></tr><tr><td>流量控制</td><td>滑动窗口</td><td>无</td></tr><tr><td>拥塞控制</td><td>慢启动、拥塞避免、快重传、快恢复</td><td>无</td></tr><tr><td>传输效率</td><td>较低（头部大、机制复杂）</td><td>高（头部小、无状态）</td></tr><tr><td>广播/多播</td><td>不支持</td><td>支持</td></tr><tr><td>应用场景</td><td>文件传输、邮件、网页浏览</td><td>视频流、DNS、实时游戏</td></tr></tbody></table><h3 id=12-面试高频问题>1.2 面试高频问题</h3><p><strong>Q1：为什么TCP比UDP慢？</strong></p><p><strong>答</strong>：</p><ol><li><strong>连接建立开销</strong>：TCP需要三次握手建立连接，UDP无需连接</li><li><strong>头部开销</strong>：TCP头部20-60字节，UDP仅8字节</li><li><strong>确认机制</strong>：TCP每个数据包都需要ACK确认，UDP无确认</li><li><strong>拥塞控制</strong>：TCP在拥塞时会主动降低发送速率，UDP不会</li><li><strong>有序性保证</strong>：TCP需要排序和去重，UDP不保证</li></ol><p><strong>Q2：什么场景应该用TCP？什么场景用UDP？</strong></p><p><strong>答</strong>：</p><ul><li><strong>用TCP</strong>：文件传输（FTP）、邮件（SMTP）、网页（HTTP/HTTPS）、远程登录（SSH）——要求可靠传输</li><li><strong>用UDP</strong>：视频会议（Zoom）、直播、DNS查询、在线游戏、IoT传感器数据——要求低延迟，可容忍少量丢包</li></ul><p><strong>Q3：TCP能保证100%可靠吗？</strong></p><p><strong>答</strong>：不能。TCP只能在<strong>传输层</strong>提供可靠传输，但：</p><ul><li>如果应用程序崩溃，TCP无能为力</li><li>如果网络完全中断，TCP也会失败</li><li>TCP的可靠性是"尽最大努力"，不是100%保证</li></ul><h2 id=二tcp三次握手详解>二、TCP三次握手详解</h2><h3 id=21-三次握手流程>2.1 三次握手流程</h3><pre tabindex=0><code>客户端（Client）                  服务端（Server）
+</code></pre><p><strong>关键差异</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>TCP</th>
+<th>UDP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>头部大小</td>
+<td>20-60字节</td>
+<td>8字节</td>
+</tr>
+<tr>
+<td>连接建立</td>
+<td>需要三次握手</td>
+<td>无需连接</td>
+</tr>
+<tr>
+<td>可靠性</td>
+<td>可靠（确认机制、重传、排序）</td>
+<td>不可靠（尽最大努力交付）</td>
+</tr>
+<tr>
+<td>有序性</td>
+<td>保证有序（序列号排序）</td>
+<td>不保证有序</td>
+</tr>
+<tr>
+<td>流量控制</td>
+<td>滑动窗口</td>
+<td>无</td>
+</tr>
+<tr>
+<td>拥塞控制</td>
+<td>慢启动、拥塞避免、快重传、快恢复</td>
+<td>无</td>
+</tr>
+<tr>
+<td>传输效率</td>
+<td>较低（头部大、机制复杂）</td>
+<td>高（头部小、无状态）</td>
+</tr>
+<tr>
+<td>广播/多播</td>
+<td>不支持</td>
+<td>支持</td>
+</tr>
+<tr>
+<td>应用场景</td>
+<td>文件传输、邮件、网页浏览</td>
+<td>视频流、DNS、实时游戏</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12-面试高频问题">1.2 面试高频问题</h3>
+<p><strong>Q1：为什么TCP比UDP慢？</strong></p>
+<p><strong>答</strong>：</p>
+<ol>
+<li><strong>连接建立开销</strong>：TCP需要三次握手建立连接，UDP无需连接</li>
+<li><strong>头部开销</strong>：TCP头部20-60字节，UDP仅8字节</li>
+<li><strong>确认机制</strong>：TCP每个数据包都需要ACK确认，UDP无确认</li>
+<li><strong>拥塞控制</strong>：TCP在拥塞时会主动降低发送速率，UDP不会</li>
+<li><strong>有序性保证</strong>：TCP需要排序和去重，UDP不保证</li>
+</ol>
+<p><strong>Q2：什么场景应该用TCP？什么场景用UDP？</strong></p>
+<p><strong>答</strong>：</p>
+<ul>
+<li><strong>用TCP</strong>：文件传输（FTP）、邮件（SMTP）、网页（HTTP/HTTPS）、远程登录（SSH）——要求可靠传输</li>
+<li><strong>用UDP</strong>：视频会议（Zoom）、直播、DNS查询、在线游戏、IoT传感器数据——要求低延迟，可容忍少量丢包</li>
+</ul>
+<p><strong>Q3：TCP能保证100%可靠吗？</strong></p>
+<p><strong>答</strong>：不能。TCP只能在<strong>传输层</strong>提供可靠传输，但：</p>
+<ul>
+<li>如果应用程序崩溃，TCP无能为力</li>
+<li>如果网络完全中断，TCP也会失败</li>
+<li>TCP的可靠性是&quot;尽最大努力&quot;，不是100%保证</li>
+</ul>
+<h2 id="二tcp三次握手详解">二、TCP三次握手详解</h2>
+<h3 id="21-三次握手流程">2.1 三次握手流程</h3>
+<pre tabindex="0"><code>客户端（Client）                  服务端（Server）
     |                                |
     |-------- SYN=1, seq=x --------&gt;|  (第一次握手)
     |                                |  服务端：进入SYN_RCVD状态
@@ -37,9 +1010,82 @@
     |   ack=y+1                     |  (第三次握手)
     |                                |  服务端：进入ESTABLISHED状态
     |                                |
-</code></pre><p><strong>第一次握手（SYN=1, seq=x）</strong>：</p><ul><li>客户端发送SYN包，进入SYN_SENT状态</li><li>seq=x是随机初始序列号（防止旧连接干扰）</li><li>不携带数据，消耗1个序列号</li></ul><p><strong>第二次握手（SYN=1, ACK=1, seq=y, ack=x+1）</strong>：</p><ul><li>服务端发送SYN+ACK包，进入SYN_RCVD状态</li><li>seq=y是服务端的初始序列号</li><li>ack=x+1表示"期望收到客户端的下一个序列号是x+1"</li><li>不携带数据，消耗1个序列号</li></ul><p><strong>第三次握手（ACK=1, seq=x+1, ack=y+1）</strong>：</p><ul><li>客户端发送ACK包，进入ESTABLISHED状态</li><li>seq=x+1（因为第一次握手的SYN消耗了1个序列号）</li><li>ack=y+1表示"期望收到服务端的下一个序列号是y+1"</li><li><strong>可以携带数据</strong>（HTTP请求等）</li></ul><h3 id=22-为什么需要三次握手两次不行吗>2.2 为什么需要三次握手？两次不行吗？</h3><p><strong>核心原因：防止旧连接初始化请求（防止历史重复SYN包）</strong></p><p><strong>场景分析</strong>：
-假设只有两次握手：</p><ol><li>客户端发送第一个SYN（seq=100），因网络延迟未到达</li><li>客户端超时重传SYN（seq=200），服务端收到并建立连接</li><li>连接使用完毕后关闭</li><li><strong>旧的SYN（seq=100）终于到达服务端</strong></li><li>如果是两次握手，服务端会认为这是新的连接请求，发送SYN+ACK并进入ESTABLISHED状态</li><li>但客户端并不会理睬这个SYN+ACK（因为已经关闭了）</li><li><strong>服务端资源被浪费</strong>（一直等待客户端的数据）</li></ol><p><strong>三次握手的解决方案</strong>：</p><ol><li>旧SYN（seq=100）到达服务端，服务端发送SYN+ACK</li><li>客户端收到后，发现这不是自己当前连接的SYN+ACK（序列号不对）</li><li>客户端发送RST包，主动关闭连接</li><li><strong>服务端收到RST后，释放资源</strong></li></ol><p><strong>总结</strong>：</p><ul><li><strong>两次握手</strong>：无法处理旧连接请求，导致服务端资源浪费</li><li><strong>三次握手</strong>：客户端可以通过序列号判断是否是旧连接，主动RST关闭</li></ul><p><strong>RFC 793的解释</strong>：</p><blockquote><p>The principle reason for the three-way handshake is to prevent old duplicate connection initiations from causing confusion.</p></blockquote><h3 id=23-isn初始序列号为什么是随机的>2.3 ISN（初始序列号）为什么是随机的？</h3><p><strong>防止序列号预测攻击</strong>：
-如果ISN是固定的或从0开始，攻击者可以：</p><ol><li>预测客户端的下一个序列号</li><li>伪造客户端IP，发送伪造的ACK包</li><li>劫持TCP连接（Session Hijacking）</li></ol><p><strong>随机ISN的生成</strong>：</p><ul><li>Linux：采用半随机算法（基于时间戳+哈希）</li><li>时间窗口约4.55小时（32位序列号，带宽1Gbps）</li></ul><h3 id=24-四次握手>2.4 四次握手？</h3><p><strong>为什么是三次不是四次？</strong></p><ul><li>第二次握手（SYN+ACK）可以合并发送，无需分两次</li><li>TCP允许"捎带确认"（Piggybacking），减少网络开销</li></ul><p><strong>什么情况需要四次？</strong></p><ul><li>某些防御SYN Flood的场景，会采用"四次握手"（增加Cookie验证）</li><li>TCP Fast Open（TFO）技术可以在第一次握手时携带数据</li></ul><h2 id=三tcp四次挥手详解>三、TCP四次挥手详解</h2><h3 id=31-四次挥手流程>3.1 四次挥手流程</h3><pre tabindex=0><code>客户端（Client）                  服务端（Server）
+</code></pre><p><strong>第一次握手（SYN=1, seq=x）</strong>：</p>
+<ul>
+<li>客户端发送SYN包，进入SYN_SENT状态</li>
+<li>seq=x是随机初始序列号（防止旧连接干扰）</li>
+<li>不携带数据，消耗1个序列号</li>
+</ul>
+<p><strong>第二次握手（SYN=1, ACK=1, seq=y, ack=x+1）</strong>：</p>
+<ul>
+<li>服务端发送SYN+ACK包，进入SYN_RCVD状态</li>
+<li>seq=y是服务端的初始序列号</li>
+<li>ack=x+1表示&quot;期望收到客户端的下一个序列号是x+1&quot;</li>
+<li>不携带数据，消耗1个序列号</li>
+</ul>
+<p><strong>第三次握手（ACK=1, seq=x+1, ack=y+1）</strong>：</p>
+<ul>
+<li>客户端发送ACK包，进入ESTABLISHED状态</li>
+<li>seq=x+1（因为第一次握手的SYN消耗了1个序列号）</li>
+<li>ack=y+1表示&quot;期望收到服务端的下一个序列号是y+1&quot;</li>
+<li><strong>可以携带数据</strong>（HTTP请求等）</li>
+</ul>
+<h3 id="22-为什么需要三次握手两次不行吗">2.2 为什么需要三次握手？两次不行吗？</h3>
+<p><strong>核心原因：防止旧连接初始化请求（防止历史重复SYN包）</strong></p>
+<p><strong>场景分析</strong>：
+假设只有两次握手：</p>
+<ol>
+<li>客户端发送第一个SYN（seq=100），因网络延迟未到达</li>
+<li>客户端超时重传SYN（seq=200），服务端收到并建立连接</li>
+<li>连接使用完毕后关闭</li>
+<li><strong>旧的SYN（seq=100）终于到达服务端</strong></li>
+<li>如果是两次握手，服务端会认为这是新的连接请求，发送SYN+ACK并进入ESTABLISHED状态</li>
+<li>但客户端并不会理睬这个SYN+ACK（因为已经关闭了）</li>
+<li><strong>服务端资源被浪费</strong>（一直等待客户端的数据）</li>
+</ol>
+<p><strong>三次握手的解决方案</strong>：</p>
+<ol>
+<li>旧SYN（seq=100）到达服务端，服务端发送SYN+ACK</li>
+<li>客户端收到后，发现这不是自己当前连接的SYN+ACK（序列号不对）</li>
+<li>客户端发送RST包，主动关闭连接</li>
+<li><strong>服务端收到RST后，释放资源</strong></li>
+</ol>
+<p><strong>总结</strong>：</p>
+<ul>
+<li><strong>两次握手</strong>：无法处理旧连接请求，导致服务端资源浪费</li>
+<li><strong>三次握手</strong>：客户端可以通过序列号判断是否是旧连接，主动RST关闭</li>
+</ul>
+<p><strong>RFC 793的解释</strong>：</p>
+<blockquote>
+<p>The principle reason for the three-way handshake is to prevent old duplicate connection initiations from causing confusion.</p>
+</blockquote>
+<h3 id="23-isn初始序列号为什么是随机的">2.3 ISN（初始序列号）为什么是随机的？</h3>
+<p><strong>防止序列号预测攻击</strong>：
+如果ISN是固定的或从0开始，攻击者可以：</p>
+<ol>
+<li>预测客户端的下一个序列号</li>
+<li>伪造客户端IP，发送伪造的ACK包</li>
+<li>劫持TCP连接（Session Hijacking）</li>
+</ol>
+<p><strong>随机ISN的生成</strong>：</p>
+<ul>
+<li>Linux：采用半随机算法（基于时间戳+哈希）</li>
+<li>时间窗口约4.55小时（32位序列号，带宽1Gbps）</li>
+</ul>
+<h3 id="24-四次握手">2.4 四次握手？</h3>
+<p><strong>为什么是三次不是四次？</strong></p>
+<ul>
+<li>第二次握手（SYN+ACK）可以合并发送，无需分两次</li>
+<li>TCP允许&quot;捎带确认&quot;（Piggybacking），减少网络开销</li>
+</ul>
+<p><strong>什么情况需要四次？</strong></p>
+<ul>
+<li>某些防御SYN Flood的场景，会采用&quot;四次握手&quot;（增加Cookie验证）</li>
+<li>TCP Fast Open（TFO）技术可以在第一次握手时携带数据</li>
+</ul>
+<h2 id="三tcp四次挥手详解">三、TCP四次挥手详解</h2>
+<h3 id="31-四次挥手流程">3.1 四次挥手流程</h3>
+<pre tabindex="0"><code>客户端（Client）                  服务端（Server）
     |                                |
     |-------- FIN=1, seq=u --------&gt;|  (第一次挥手)
     |                                |  服务端：进入CLOSE_WAIT状态
@@ -55,13 +1101,182 @@
     |                                |  服务端：进入CLOSED状态
     | 客户端：进入TIME_WAIT状态      |
     |  (等待2MSL后进入CLOSED)       |
-</code></pre><p><strong>第一次挥手（FIN=1, seq=u）</strong>：</p><ul><li>客户端发送FIN包，进入FIN_WAIT_1状态</li><li>表示"我没有数据要发送了"（但还可以接收数据）</li></ul><p><strong>第二次挥手（ACK=1, seq=v, ack=u+1）</strong>：</p><ul><li>服务端发送ACK包，进入CLOSE_WAIT状态</li><li>表示"我知道你不发了，但我还有数据要发"</li><li><strong>此时进入"半关闭"状态</strong>（客户端→服务端方向关闭）</li></ul><p><strong>第三次挥手（FIN=1, ACK=1, seq=w, ack=u+1）</strong>：</p><ul><li>服务端发送FIN包，进入LAST_ACK状态</li><li>表示"我的数据也发完了，可以关闭了"</li></ul><p><strong>第四次挥手（ACK=1, seq=u+1, ack=w+1）</strong>：</p><ul><li>客户端发送ACK包，进入TIME_WAIT状态</li><li>等待2MSL（Maximum Segment Lifetime）后进入CLOSED状态</li><li>服务端收到ACK后，立即进入CLOSED状态</li></ul><h3 id=32-为什么需要四次挥手>3.2 为什么需要四次挥手？</h3><p><strong>核心原因：TCP是全双工的，需要双向关闭</strong></p><ul><li><strong>关闭连接 = 关闭发送方向 + 关闭接收方向</strong></li><li>第一次挥手：客户端关闭"发送方向"</li><li>第二次挥手：服务端确认"收到你的关闭请求"</li><li>第三次挥手：服务端关闭"发送方向"（等数据发完）</li><li>第四次挥手：客户端确认"收到你的关闭请求"</li></ul><p><strong>为什么不能像握手一样合并？</strong></p><ul><li>第二次挥手（ACK）和第三次挥手（FIN）<strong>不能同时发送</strong></li><li>因为服务端可能还有数据要发送（CLOSE_WAIT状态）</li><li>等数据发完后，才发送FIN</li></ul><p><strong>例外：TCP Half-Close</strong></p><ul><li>通过<code>shutdown(socket, SHUT_WR)</code>可以实现半关闭</li><li>客户端关闭发送，但可以继续接收</li></ul><h3 id=33-time_wait状态详解>3.3 TIME_WAIT状态详解</h3><p><strong>TIME_WAIT持续2MSL的原因</strong>：</p><ol><li><p><strong>确保最后一次ACK能够到达服务端</strong></p><ul><li>如果第四次挥手的ACK丢失，服务端会重传FIN</li><li>客户端需要在TIME_WAIT状态下重传ACK</li><li>MSL = 30秒~2分钟，2MSL = 1~4分钟</li></ul></li><li><p><strong>确保旧连接的数据包在网络中消失</strong></p><ul><li>防止旧连接的数据包干扰新连接（相同四元组）</li><li>2MSL确保旧数据包已过期</li></ul></li></ol><p><strong>TIME_WAIT过多的危害</strong>：</p><ul><li>占用端口（客户端）或内存（服务端）</li><li>默认1~4分钟，高并发下端口耗尽</li></ul><p><strong>解决方案</strong>：</p><ol><li><p><strong>调整内核参数</strong>（Linux）：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>net.ipv4.tcp_tw_reuse <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>  <span style=color:#75715e># 复用TIME_WAIT连接</span>
-</span></span><span style=display:flex><span>net.ipv4.tcp_tw_recycle <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span> <span style=color:#75715e># 快速回收（NAT环境下有问题）</span>
-</span></span><span style=display:flex><span>net.ipv4.tcp_fin_timeout <span style=color:#f92672>=</span> <span style=color:#ae81ff>30</span> <span style=color:#75715e># FIN_WAIT_2超时时间</span>
-</span></span></code></pre></div></li><li><p><strong>使用长连接</strong>（HTTP/1.1 Keep-Alive、连接池）</p></li><li><p><strong>增加服务端端口范围</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>net.ipv4.ip_local_port_range <span style=color:#f92672>=</span> <span style=color:#ae81ff>10000</span> <span style=color:#ae81ff>65535</span>
-</span></span></code></pre></div></li><li><p><strong>SO_LINGER选项</strong>（不推荐，可能丢数据）</p></li></ol><h2 id=四tcp可靠性机制>四、TCP可靠性机制</h2><h3 id=41-序列号与确认号>4.1 序列号与确认号</h3><p><strong>序列号（Sequence Number）</strong>：</p><ul><li>每个字节的数据都编号（不是每个包编号）</li><li>初始序列号（ISN）随机生成</li><li>用于排序和去重</li></ul><p><strong>确认号（Acknowledgment Number）</strong>：</p><ul><li>表示"期望收到的下一个字节的序列号"</li><li>累计确认：ack=501表示"1-500字节都已收到"</li></ul><p><strong>示例</strong>：</p><pre tabindex=0><code>客户端发送：seq=1, 1000字节数据  →  服务端收到后：ack=1001
+</code></pre><p><strong>第一次挥手（FIN=1, seq=u）</strong>：</p>
+<ul>
+<li>客户端发送FIN包，进入FIN_WAIT_1状态</li>
+<li>表示&quot;我没有数据要发送了&quot;（但还可以接收数据）</li>
+</ul>
+<p><strong>第二次挥手（ACK=1, seq=v, ack=u+1）</strong>：</p>
+<ul>
+<li>服务端发送ACK包，进入CLOSE_WAIT状态</li>
+<li>表示&quot;我知道你不发了，但我还有数据要发&quot;</li>
+<li><strong>此时进入&quot;半关闭&quot;状态</strong>（客户端→服务端方向关闭）</li>
+</ul>
+<p><strong>第三次挥手（FIN=1, ACK=1, seq=w, ack=u+1）</strong>：</p>
+<ul>
+<li>服务端发送FIN包，进入LAST_ACK状态</li>
+<li>表示&quot;我的数据也发完了，可以关闭了&quot;</li>
+</ul>
+<p><strong>第四次挥手（ACK=1, seq=u+1, ack=w+1）</strong>：</p>
+<ul>
+<li>客户端发送ACK包，进入TIME_WAIT状态</li>
+<li>等待2MSL（Maximum Segment Lifetime）后进入CLOSED状态</li>
+<li>服务端收到ACK后，立即进入CLOSED状态</li>
+</ul>
+<h3 id="32-为什么需要四次挥手">3.2 为什么需要四次挥手？</h3>
+<p><strong>核心原因：TCP是全双工的，需要双向关闭</strong></p>
+<ul>
+<li><strong>关闭连接 = 关闭发送方向 + 关闭接收方向</strong></li>
+<li>第一次挥手：客户端关闭&quot;发送方向&quot;</li>
+<li>第二次挥手：服务端确认&quot;收到你的关闭请求&quot;</li>
+<li>第三次挥手：服务端关闭&quot;发送方向&quot;（等数据发完）</li>
+<li>第四次挥手：客户端确认&quot;收到你的关闭请求&quot;</li>
+</ul>
+<p><strong>为什么不能像握手一样合并？</strong></p>
+<ul>
+<li>第二次挥手（ACK）和第三次挥手（FIN）<strong>不能同时发送</strong></li>
+<li>因为服务端可能还有数据要发送（CLOSE_WAIT状态）</li>
+<li>等数据发完后，才发送FIN</li>
+</ul>
+<p><strong>例外：TCP Half-Close</strong></p>
+<ul>
+<li>通过<code>shutdown(socket, SHUT_WR)</code>可以实现半关闭</li>
+<li>客户端关闭发送，但可以继续接收</li>
+</ul>
+<h3 id="33-time_wait状态详解">3.3 TIME_WAIT状态详解</h3>
+<p><strong>TIME_WAIT持续2MSL的原因</strong>：</p>
+<ol>
+<li>
+<p><strong>确保最后一次ACK能够到达服务端</strong></p>
+<ul>
+<li>如果第四次挥手的ACK丢失，服务端会重传FIN</li>
+<li>客户端需要在TIME_WAIT状态下重传ACK</li>
+<li>MSL = 30秒~2分钟，2MSL = 1~4分钟</li>
+</ul>
+</li>
+<li>
+<p><strong>确保旧连接的数据包在网络中消失</strong></p>
+<ul>
+<li>防止旧连接的数据包干扰新连接（相同四元组）</li>
+<li>2MSL确保旧数据包已过期</li>
+</ul>
+</li>
+</ol>
+<p><strong>TIME_WAIT过多的危害</strong>：</p>
+<ul>
+<li>占用端口（客户端）或内存（服务端）</li>
+<li>默认1~4分钟，高并发下端口耗尽</li>
+</ul>
+<p><strong>解决方案</strong>：</p>
+<ol>
+<li>
+<p><strong>调整内核参数</strong>（Linux）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>net.ipv4.tcp_tw_reuse <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>  <span style="color:#75715e"># 复用TIME_WAIT连接</span>
+</span></span><span style="display:flex;"><span>net.ipv4.tcp_tw_recycle <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span> <span style="color:#75715e"># 快速回收（NAT环境下有问题）</span>
+</span></span><span style="display:flex;"><span>net.ipv4.tcp_fin_timeout <span style="color:#f92672">=</span> <span style="color:#ae81ff">30</span> <span style="color:#75715e"># FIN_WAIT_2超时时间</span>
+</span></span></code></pre></div></li>
+<li>
+<p><strong>使用长连接</strong>（HTTP/1.1 Keep-Alive、连接池）</p>
+</li>
+<li>
+<p><strong>增加服务端端口范围</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>net.ipv4.ip_local_port_range <span style="color:#f92672">=</span> <span style="color:#ae81ff">10000</span> <span style="color:#ae81ff">65535</span>
+</span></span></code></pre></div></li>
+<li>
+<p><strong>SO_LINGER选项</strong>（不推荐，可能丢数据）</p>
+</li>
+</ol>
+<h2 id="四tcp可靠性机制">四、TCP可靠性机制</h2>
+<h3 id="41-序列号与确认号">4.1 序列号与确认号</h3>
+<p><strong>序列号（Sequence Number）</strong>：</p>
+<ul>
+<li>每个字节的数据都编号（不是每个包编号）</li>
+<li>初始序列号（ISN）随机生成</li>
+<li>用于排序和去重</li>
+</ul>
+<p><strong>确认号（Acknowledgment Number）</strong>：</p>
+<ul>
+<li>表示&quot;期望收到的下一个字节的序列号&quot;</li>
+<li>累计确认：ack=501表示&quot;1-500字节都已收到&quot;</li>
+</ul>
+<p><strong>示例</strong>：</p>
+<pre tabindex="0"><code>客户端发送：seq=1, 1000字节数据  →  服务端收到后：ack=1001
 客户端发送：seq=1001, 500字节数据  →  服务端收到后：ack=1501
-</code></pre><h3 id=42-超时重传>4.2 超时重传</h3><p><strong>RTO（Retransmission Timeout）计算</strong>：</p><ul><li>RTO = SRTT + 4 * RTTVAR</li><li>SRTT：平滑RTT</li><li>RTTVAR：RTT偏差</li></ul><p><strong>Karn算法</strong>：</p><ul><li>重传包的RTT不计入SRTT计算（避免误导）</li><li>每次重传，RTO指数退避（1秒、2秒、4秒&mldr;）</li></ul><p><strong>快速重传（Fast Retransmit）</strong>：</p><ul><li>收到3个重复ACK，立即重传（无需等RTO超时）</li><li>例如：收到ack=1001三次，说明seq=1001丢失</li></ul><h3 id=43-滑动窗口>4.3 滑动窗口</h3><p><strong>窗口大小（Window Size）</strong>：</p><ul><li>表示"接收端还能接收多少字节"</li><li>发送端根据窗口大小控制发送速率（流量控制）</li></ul><p><strong>零窗口探测（Zero Window Probe）</strong>：</p><ul><li>接收端窗口=0时，发送端停止发送</li><li>发送端定期发送1字节的ZWP探测包</li><li>接收端窗口恢复后，发送"窗口更新"通知</li></ul><p><strong>糊涂窗口综合症（Silly Window Syndrome）</strong>：</p><ul><li>接收端频繁通告小窗口（如1KB）</li><li>发送端频繁发送小包（如1KB）</li><li><strong>解决方案</strong>：<ul><li>接收端：Clark算法（窗口&lt; MSS时不通告）</li><li>发送端：Nagle算法（积攒到MSS或收到ACK才发）</li></ul></li></ul><h3 id=44-拥塞控制>4.4 拥塞控制</h3><p><strong>四种算法</strong>：</p><ol><li><p><strong>慢启动（Slow Start）</strong>：</p><ul><li>cwnd（拥塞窗口）从1 MSS开始</li><li>每收到一个ACK，cwnd翻倍（指数增长）</li><li>达到ssthresh（慢启动阈值）后，进入拥塞避免</li></ul></li><li><p><strong>拥塞避免（Congestion Avoidance）</strong>：</p><ul><li>cwnd线性增长（每个RTT增加1 MSS）</li><li>遇到丢包，ssthresh = cwnd / 2</li></ul></li><li><p><strong>快重传（Fast Retransmit）</strong>：</p><ul><li>收到3个重复ACK，立即重传</li><li>ssthresh = cwnd / 2，cwnd = ssthresh + 3</li></ul></li><li><p><strong>快恢复（Fast Recovery）</strong>：</p><ul><li>快重传后，不直接回到慢启动</li><li>cwnd = ssthresh，进入拥塞避免</li></ul></li></ol><p><strong>拥塞控制状态机</strong>：</p><pre tabindex=0><code>           慢启动
+</code></pre><h3 id="42-超时重传">4.2 超时重传</h3>
+<p><strong>RTO（Retransmission Timeout）计算</strong>：</p>
+<ul>
+<li>RTO = SRTT + 4 * RTTVAR</li>
+<li>SRTT：平滑RTT</li>
+<li>RTTVAR：RTT偏差</li>
+</ul>
+<p><strong>Karn算法</strong>：</p>
+<ul>
+<li>重传包的RTT不计入SRTT计算（避免误导）</li>
+<li>每次重传，RTO指数退避（1秒、2秒、4秒&hellip;）</li>
+</ul>
+<p><strong>快速重传（Fast Retransmit）</strong>：</p>
+<ul>
+<li>收到3个重复ACK，立即重传（无需等RTO超时）</li>
+<li>例如：收到ack=1001三次，说明seq=1001丢失</li>
+</ul>
+<h3 id="43-滑动窗口">4.3 滑动窗口</h3>
+<p><strong>窗口大小（Window Size）</strong>：</p>
+<ul>
+<li>表示&quot;接收端还能接收多少字节&quot;</li>
+<li>发送端根据窗口大小控制发送速率（流量控制）</li>
+</ul>
+<p><strong>零窗口探测（Zero Window Probe）</strong>：</p>
+<ul>
+<li>接收端窗口=0时，发送端停止发送</li>
+<li>发送端定期发送1字节的ZWP探测包</li>
+<li>接收端窗口恢复后，发送&quot;窗口更新&quot;通知</li>
+</ul>
+<p><strong>糊涂窗口综合症（Silly Window Syndrome）</strong>：</p>
+<ul>
+<li>接收端频繁通告小窗口（如1KB）</li>
+<li>发送端频繁发送小包（如1KB）</li>
+<li><strong>解决方案</strong>：
+<ul>
+<li>接收端：Clark算法（窗口&lt; MSS时不通告）</li>
+<li>发送端：Nagle算法（积攒到MSS或收到ACK才发）</li>
+</ul>
+</li>
+</ul>
+<h3 id="44-拥塞控制">4.4 拥塞控制</h3>
+<p><strong>四种算法</strong>：</p>
+<ol>
+<li>
+<p><strong>慢启动（Slow Start）</strong>：</p>
+<ul>
+<li>cwnd（拥塞窗口）从1 MSS开始</li>
+<li>每收到一个ACK，cwnd翻倍（指数增长）</li>
+<li>达到ssthresh（慢启动阈值）后，进入拥塞避免</li>
+</ul>
+</li>
+<li>
+<p><strong>拥塞避免（Congestion Avoidance）</strong>：</p>
+<ul>
+<li>cwnd线性增长（每个RTT增加1 MSS）</li>
+<li>遇到丢包，ssthresh = cwnd / 2</li>
+</ul>
+</li>
+<li>
+<p><strong>快重传（Fast Retransmit）</strong>：</p>
+<ul>
+<li>收到3个重复ACK，立即重传</li>
+<li>ssthresh = cwnd / 2，cwnd = ssthresh + 3</li>
+</ul>
+</li>
+<li>
+<p><strong>快恢复（Fast Recovery）</strong>：</p>
+<ul>
+<li>快重传后，不直接回到慢启动</li>
+<li>cwnd = ssthresh，进入拥塞避免</li>
+</ul>
+</li>
+</ol>
+<p><strong>拥塞控制状态机</strong>：</p>
+<pre tabindex="0"><code>           慢启动
          (cwnd &lt; ssthresh)
               |
               v
@@ -72,7 +1287,15 @@
               |
               v
          快重传 + 快恢复
-</code></pre><p><strong>BDP（Bandwidth-Delay Product）</strong>：</p><ul><li>BDP = 带宽 × RTT</li><li>例如：1Gbps带宽，RTT=100ms → BDP = 12.5MB</li><li><strong>发送窗口 ≥ BDP</strong> 才能充分利用带宽</li></ul><h2 id=五udp深度解析>五、UDP深度解析</h2><h3 id=51-udp首部结构>5.1 UDP首部结构</h3><pre tabindex=0><code> 0                   1                   2                   3
+</code></pre><p><strong>BDP（Bandwidth-Delay Product）</strong>：</p>
+<ul>
+<li>BDP = 带宽 × RTT</li>
+<li>例如：1Gbps带宽，RTT=100ms → BDP = 12.5MB</li>
+<li><strong>发送窗口 ≥ BDP</strong> 才能充分利用带宽</li>
+</ul>
+<h2 id="五udp深度解析">五、UDP深度解析</h2>
+<h3 id="51-udp首部结构">5.1 UDP首部结构</h3>
+<pre tabindex="0"><code> 0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |         源端口号         |         目的端口号        |
@@ -81,21 +1304,182 @@
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 |                            数据                            |
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-</code></pre><p><strong>字段说明</strong>：</p><ul><li><strong>源端口号</strong>（16位）：可选，不需要时可以置0</li><li><strong>目的端口号</strong>（16位）：必需</li><li><strong>长度</strong>（16位）：UDP头部+数据的总长度（最小8字节）</li><li><strong>校验和</strong>（16位）：可选（IPv4），必需（IPv6）</li></ul><h3 id=52-udp应用场景>5.2 UDP应用场景</h3><p><strong>1. DNS查询</strong>：</p><ul><li>端口53</li><li>查询包小（通常&lt;512字节），适合UDP</li><li>如果响应超过512字节，使用EDNS0或回退到TCP</li></ul><p><strong>2. 视频/音频流</strong>：</p><ul><li>实时性要求高，可容忍少量丢包</li><li>例如：RTSP、RTP协议</li></ul><p><strong>3. 在线游戏</strong>：</p><ul><li>低延迟优先</li><li>例如：王者荣耀、和平精英</li></ul><p><strong>4. IoT传感器</strong>：</p><ul><li>数据量小，电池受限</li><li>例如：CoAP协议（基于UDP）</li></ul><p><strong>5. QUIC协议</strong>：</p><ul><li>Google开发的基于UDP的传输层协议</li><li>HTTP/3的底层协议</li><li>集成了TCP的可靠性 + UDP的低延迟</li></ul><h3 id=53-udp可靠性增强>5.3 UDP可靠性增强</h3><p><strong>应用层实现可靠性</strong>（TCP在传输层，UDP在应用层）：</p><p><strong>1. RUDP（Reliable UDP）</strong>：</p><ul><li>添加序列号、ACK、重传机制</li><li>例如：QQ的文件传输</li></ul><p><strong>2. UDT（UDP-based Data Transfer Protocol）</strong>：</p><ul><li>高速数据传输（广域网）</li><li>用于科学计算、大数据传输</li></ul><p><strong>3. QUIC</strong>：</p><ul><li>谷歌开发，已标准化为HTTP/3</li><li>特性：<ul><li>0-RTT建立连接（TCP需要3-RTT）</li><li>内置TLS 1.3加密</li><li>多路复用（无队头阻塞）</li><li>内置拥塞控制</li></ul></li></ul><h2 id=六常见面试问题>六、常见面试问题</h2><h3 id=q1tcp如何保证可靠性>Q1：TCP如何保证可靠性？</h3><p><strong>答</strong>：</p><ol><li><strong>序列号+确认号</strong>：保证数据有序、不丢失</li><li><strong>校验和</strong>：检测数据损坏</li><li><strong>重传机制</strong>：超时重传、快重传</li><li><strong>流量控制</strong>：滑动窗口</li><li><strong>拥塞控制</strong>：慢启动、拥塞避免、快重传、快恢复</li></ol><h3 id=q2tcp粘包拆包问题如何解决>Q2：TCP粘包/拆包问题如何解决？</h3><p><strong>原因</strong>：</p><ul><li>TCP是<strong>流式协议</strong>，没有消息边界</li><li>发送端：Nagle算法可能合并小包</li><li>接收端：TCP接收缓冲区可能累积多个包</li></ul><p><strong>解决方案</strong>：</p><ol><li><strong>固定长度</strong>：每个包固定长度（简单但浪费）</li><li><strong>分隔符</strong>：用特殊字符分隔（如<code>\n</code>）</li><li><strong>长度前缀</strong>：在包头部加上长度字段（最常用）<pre tabindex=0><code>| 长度(4字节) | 数据 |
-</code></pre></li></ol><h3 id=q3http3为什么选择udp而不是tcp>Q3：HTTP/3为什么选择UDP而不是TCP？</h3><p><strong>答</strong>：</p><ol><li><strong>TCP队头阻塞</strong>：HTTP/2在TCP上，一个包丢失会影响所有流</li><li><strong>QUIC无队头阻塞</strong>：在UDP上实现，每个流独立</li><li><strong>0-RTT建立连接</strong>：TCP需要3-RTT，QUIC只需0-1-RTT</li><li><strong>内置加密</strong>：TLS 1.3集成在QUIC中</li><li><strong>连接迁移</strong>：切换网络时（WiFi→4G），TCP需要重新建立连接，QUIC只需更新IP</li></ol><h3 id=q4如何优化tcp性能>Q4：如何优化TCP性能？</h3><p><strong>答</strong>：</p><ol><li><strong>启用TCP Fast Open（TFO）</strong>：第一次握手可以携带数据</li><li><strong>调整内核参数</strong>：<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>net.ipv4.tcp_sack <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>         <span style=color:#75715e># 选择性确认</span>
-</span></span><span style=display:flex><span>net.ipv4.tcp_window_scaling <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span> <span style=color:#75715e># 窗口缩放（支持&gt;64KB窗口）</span>
-</span></span><span style=display:flex><span>net.core.rmem_max <span style=color:#f92672>=</span> <span style=color:#ae81ff>134217728</span>  <span style=color:#75715e># 接收缓冲区最大值</span>
-</span></span><span style=display:flex><span>net.core.wmem_max <span style=color:#f92672>=</span> <span style=color:#ae81ff>134217728</span>  <span style=color:#75715e># 发送缓冲区最大值</span>
-</span></span></code></pre></div></li><li><strong>使用长连接</strong>：减少握手/挥手开销</li><li><strong>启用HTTP/2或HTTP/3</strong>：多路复用</li><li><strong>CDN加速</strong>：减少RTT</li></ol><h2 id=七实战用wireshark分析tcp连接>七、实战：用Wireshark分析TCP连接</h2><h3 id=71-抓包命令>7.1 抓包命令</h3><p><strong>Linux</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>tcpdump -i eth0 -nn -vv port <span style=color:#ae81ff>80</span> -w tcp_http.pcap
-</span></span></code></pre></div><p><strong>macOS</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span>tcpdump -i en0 -nn -vv port <span style=color:#ae81ff>80</span> -w tcp_http.pcap
-</span></span></code></pre></div><h3 id=72-wireshark过滤语法>7.2 Wireshark过滤语法</h3><pre tabindex=0><code>tcp.port == 80              # 过滤端口80
+</code></pre><p><strong>字段说明</strong>：</p>
+<ul>
+<li><strong>源端口号</strong>（16位）：可选，不需要时可以置0</li>
+<li><strong>目的端口号</strong>（16位）：必需</li>
+<li><strong>长度</strong>（16位）：UDP头部+数据的总长度（最小8字节）</li>
+<li><strong>校验和</strong>（16位）：可选（IPv4），必需（IPv6）</li>
+</ul>
+<h3 id="52-udp应用场景">5.2 UDP应用场景</h3>
+<p><strong>1. DNS查询</strong>：</p>
+<ul>
+<li>端口53</li>
+<li>查询包小（通常&lt;512字节），适合UDP</li>
+<li>如果响应超过512字节，使用EDNS0或回退到TCP</li>
+</ul>
+<p><strong>2. 视频/音频流</strong>：</p>
+<ul>
+<li>实时性要求高，可容忍少量丢包</li>
+<li>例如：RTSP、RTP协议</li>
+</ul>
+<p><strong>3. 在线游戏</strong>：</p>
+<ul>
+<li>低延迟优先</li>
+<li>例如：王者荣耀、和平精英</li>
+</ul>
+<p><strong>4. IoT传感器</strong>：</p>
+<ul>
+<li>数据量小，电池受限</li>
+<li>例如：CoAP协议（基于UDP）</li>
+</ul>
+<p><strong>5. QUIC协议</strong>：</p>
+<ul>
+<li>Google开发的基于UDP的传输层协议</li>
+<li>HTTP/3的底层协议</li>
+<li>集成了TCP的可靠性 + UDP的低延迟</li>
+</ul>
+<h3 id="53-udp可靠性增强">5.3 UDP可靠性增强</h3>
+<p><strong>应用层实现可靠性</strong>（TCP在传输层，UDP在应用层）：</p>
+<p><strong>1. RUDP（Reliable UDP）</strong>：</p>
+<ul>
+<li>添加序列号、ACK、重传机制</li>
+<li>例如：QQ的文件传输</li>
+</ul>
+<p><strong>2. UDT（UDP-based Data Transfer Protocol）</strong>：</p>
+<ul>
+<li>高速数据传输（广域网）</li>
+<li>用于科学计算、大数据传输</li>
+</ul>
+<p><strong>3. QUIC</strong>：</p>
+<ul>
+<li>谷歌开发，已标准化为HTTP/3</li>
+<li>特性：
+<ul>
+<li>0-RTT建立连接（TCP需要3-RTT）</li>
+<li>内置TLS 1.3加密</li>
+<li>多路复用（无队头阻塞）</li>
+<li>内置拥塞控制</li>
+</ul>
+</li>
+</ul>
+<h2 id="六常见面试问题">六、常见面试问题</h2>
+<h3 id="q1tcp如何保证可靠性">Q1：TCP如何保证可靠性？</h3>
+<p><strong>答</strong>：</p>
+<ol>
+<li><strong>序列号+确认号</strong>：保证数据有序、不丢失</li>
+<li><strong>校验和</strong>：检测数据损坏</li>
+<li><strong>重传机制</strong>：超时重传、快重传</li>
+<li><strong>流量控制</strong>：滑动窗口</li>
+<li><strong>拥塞控制</strong>：慢启动、拥塞避免、快重传、快恢复</li>
+</ol>
+<h3 id="q2tcp粘包拆包问题如何解决">Q2：TCP粘包/拆包问题如何解决？</h3>
+<p><strong>原因</strong>：</p>
+<ul>
+<li>TCP是<strong>流式协议</strong>，没有消息边界</li>
+<li>发送端：Nagle算法可能合并小包</li>
+<li>接收端：TCP接收缓冲区可能累积多个包</li>
+</ul>
+<p><strong>解决方案</strong>：</p>
+<ol>
+<li><strong>固定长度</strong>：每个包固定长度（简单但浪费）</li>
+<li><strong>分隔符</strong>：用特殊字符分隔（如<code>\n</code>）</li>
+<li><strong>长度前缀</strong>：在包头部加上长度字段（最常用）
+<pre tabindex="0"><code>| 长度(4字节) | 数据 |
+</code></pre></li>
+</ol>
+<h3 id="q3http3为什么选择udp而不是tcp">Q3：HTTP/3为什么选择UDP而不是TCP？</h3>
+<p><strong>答</strong>：</p>
+<ol>
+<li><strong>TCP队头阻塞</strong>：HTTP/2在TCP上，一个包丢失会影响所有流</li>
+<li><strong>QUIC无队头阻塞</strong>：在UDP上实现，每个流独立</li>
+<li><strong>0-RTT建立连接</strong>：TCP需要3-RTT，QUIC只需0-1-RTT</li>
+<li><strong>内置加密</strong>：TLS 1.3集成在QUIC中</li>
+<li><strong>连接迁移</strong>：切换网络时（WiFi→4G），TCP需要重新建立连接，QUIC只需更新IP</li>
+</ol>
+<h3 id="q4如何优化tcp性能">Q4：如何优化TCP性能？</h3>
+<p><strong>答</strong>：</p>
+<ol>
+<li><strong>启用TCP Fast Open（TFO）</strong>：第一次握手可以携带数据</li>
+<li><strong>调整内核参数</strong>：
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>net.ipv4.tcp_sack <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>         <span style="color:#75715e"># 选择性确认</span>
+</span></span><span style="display:flex;"><span>net.ipv4.tcp_window_scaling <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span> <span style="color:#75715e"># 窗口缩放（支持&gt;64KB窗口）</span>
+</span></span><span style="display:flex;"><span>net.core.rmem_max <span style="color:#f92672">=</span> <span style="color:#ae81ff">134217728</span>  <span style="color:#75715e"># 接收缓冲区最大值</span>
+</span></span><span style="display:flex;"><span>net.core.wmem_max <span style="color:#f92672">=</span> <span style="color:#ae81ff">134217728</span>  <span style="color:#75715e"># 发送缓冲区最大值</span>
+</span></span></code></pre></div></li>
+<li><strong>使用长连接</strong>：减少握手/挥手开销</li>
+<li><strong>启用HTTP/2或HTTP/3</strong>：多路复用</li>
+<li><strong>CDN加速</strong>：减少RTT</li>
+</ol>
+<h2 id="七实战用wireshark分析tcp连接">七、实战：用Wireshark分析TCP连接</h2>
+<h3 id="71-抓包命令">7.1 抓包命令</h3>
+<p><strong>Linux</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>tcpdump -i eth0 -nn -vv port <span style="color:#ae81ff">80</span> -w tcp_http.pcap
+</span></span></code></pre></div><p><strong>macOS</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>tcpdump -i en0 -nn -vv port <span style="color:#ae81ff">80</span> -w tcp_http.pcap
+</span></span></code></pre></div><h3 id="72-wireshark过滤语法">7.2 Wireshark过滤语法</h3>
+<pre tabindex="0"><code>tcp.port == 80              # 过滤端口80
 tcp.flags.syn == 1         # 过滤SYN包
 tcp.flags.ack == 1         # 过滤ACK包
 tcp.flags.fin == 1         # 过滤FIN包
 tcp.seq == 1               # 过滤特定序列号
 tcp.analysis.retransmission # 过滤重传包
-</code></pre><h3 id=73-三次握手抓包示例>7.3 三次握手抓包示例</h3><pre tabindex=0><code>No.  Time        Source          Destination     Protocol Length Info
+</code></pre><h3 id="73-三次握手抓包示例">7.3 三次握手抓包示例</h3>
+<pre tabindex="0"><code>No.  Time        Source          Destination     Protocol Length Info
 1    0.000000    192.168.1.100  110.242.68.4   TCP      74     [SYN] Seq=0 Win=65535 Len=0
 2    0.023456    110.242.68.4   192.168.1.100  TCP      74     [SYN, ACK] Seq=0 Ack=1 Win=29200 Len=0
 3    0.023567    192.168.1.100  110.242.68.4   TCP      66     [ACK] Seq=1 Ack=1 Win=131744 Len=0
-</code></pre><p><strong>分析</strong>：</p><ul><li>第1行：客户端发送SYN（Seq=0）</li><li>第2行：服务端发送SYN+ACK（Seq=0, Ack=1）</li><li>第3行：客户端发送ACK（Seq=1, Ack=1）</li></ul><h2 id=八总结>八、总结</h2><p>本文深入解析了TCP和UDP的核心原理，包括：</p><ol><li><strong>TCP/UDP对比</strong>：可靠性、有序性、效率等维度</li><li><strong>三次握手</strong>：防止旧连接初始化，ISN随机化</li><li><strong>四次挥手</strong>：全双工关闭，TIME_WAIT状态的作用</li><li><strong>可靠性机制</strong>：序列号、重传、滑动窗口、拥塞控制</li><li><strong>UDP应用</strong>：DNS、视频流、QUIC协议</li><li><strong>面试高频问题</strong>：粘包/拆包、HTTP/3、性能优化</li></ol><p><strong>面试要点总结</strong>：</p><ul><li>三次握手：防止旧连接，不是提高可靠性</li><li>四次挥手：全双工关闭，不能合并</li><li>TIME_WAIT：2MSL，确保ACK到达+旧包消失</li><li>拥塞控制：慢启动→拥塞避免→快重传→快恢复</li></ul><p>在下一篇文章中，我们将深入解析HTTP/HTTPS协议，包括HTTP/1.1、HTTP/2、HTTP/3的演进历程和核心特性。</p><hr><p><strong>参考资料</strong>：</p><ol><li>RFC 793 - Transmission Control Protocol</li><li>RFC 768 - User Datagram Protocol</li><li>RFC 9000 - QUIC: A UDP-Based Multiplexed and Secure Transport</li><li>《TCP/IP详解 卷1：协议》 - W. Richard Stevens</li><li>《计算机网络：自顶向下方法》 - James F. Kurose</li></ol><p><strong>面试刷题推荐</strong>：</p><ul><li>LeetCode 数据库和计算机网络专项</li><li>牛客网计算机网络的 packagesDiscussion</li><li>思否（SegmentFault）TCP/UDP技术博客</li></ul><hr><p><em>作者：Raphael</em><br><em>发布时间：2026年5月</em><br><em>分类：Java面试、计算机网络</em><br><em>标签：TCP、UDP、三次握手、四次挥手、拥塞控制</em></p></div></article></main><footer><p>&copy; 2026 李亚飞</p></footer></body></html>
+</code></pre><p><strong>分析</strong>：</p>
+<ul>
+<li>第1行：客户端发送SYN（Seq=0）</li>
+<li>第2行：服务端发送SYN+ACK（Seq=0, Ack=1）</li>
+<li>第3行：客户端发送ACK（Seq=1, Ack=1）</li>
+</ul>
+<h2 id="八总结">八、总结</h2>
+<p>本文深入解析了TCP和UDP的核心原理，包括：</p>
+<ol>
+<li><strong>TCP/UDP对比</strong>：可靠性、有序性、效率等维度</li>
+<li><strong>三次握手</strong>：防止旧连接初始化，ISN随机化</li>
+<li><strong>四次挥手</strong>：全双工关闭，TIME_WAIT状态的作用</li>
+<li><strong>可靠性机制</strong>：序列号、重传、滑动窗口、拥塞控制</li>
+<li><strong>UDP应用</strong>：DNS、视频流、QUIC协议</li>
+<li><strong>面试高频问题</strong>：粘包/拆包、HTTP/3、性能优化</li>
+</ol>
+<p><strong>面试要点总结</strong>：</p>
+<ul>
+<li>三次握手：防止旧连接，不是提高可靠性</li>
+<li>四次挥手：全双工关闭，不能合并</li>
+<li>TIME_WAIT：2MSL，确保ACK到达+旧包消失</li>
+<li>拥塞控制：慢启动→拥塞避免→快重传→快恢复</li>
+</ul>
+<p>在下一篇文章中，我们将深入解析HTTP/HTTPS协议，包括HTTP/1.1、HTTP/2、HTTP/3的演进历程和核心特性。</p>
+<hr>
+<p><strong>参考资料</strong>：</p>
+<ol>
+<li>RFC 793 - Transmission Control Protocol</li>
+<li>RFC 768 - User Datagram Protocol</li>
+<li>RFC 9000 - QUIC: A UDP-Based Multiplexed and Secure Transport</li>
+<li>《TCP/IP详解 卷1：协议》 - W. Richard Stevens</li>
+<li>《计算机网络：自顶向下方法》 - James F. Kurose</li>
+</ol>
+<p><strong>面试刷题推荐</strong>：</p>
+<ul>
+<li>LeetCode 数据库和计算机网络专项</li>
+<li>牛客网计算机网络的 packagesDiscussion</li>
+<li>思否（SegmentFault）TCP/UDP技术博客</li>
+</ul>
+<hr>
+<p><em>作者：Raphael</em><br>
+<em>发布时间：2026年5月</em><br>
+<em>分类：Java面试、计算机网络</em><br>
+<em>标签：TCP、UDP、三次握手、四次挥手、拥塞控制</em></p>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>

@@ -1,8 +1,909 @@
-<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>分布式事务深度解析 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
-<a href=https://raphaell2e.github.io/posts/>文章</a>
-<a href=https://raphaell2e.github.io/categories/>分类</a>
-<a href=https://raphaell2e.github.io/tags/>标签</a>
-<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-14 <span>/</span> 分布式系统</div><h1>分布式事务深度解析</h1></div><div class=post-content><h1 id=分布式事务深度解析>分布式事务深度解析</h1><h2 id=一引言>一、引言</h2><p>在微服务架构下，一个业务操作往往涉及多个服务，每个服务有自己的数据库。如何保证跨服务的数据一致性，是分布式系统中最复杂的问题之一。分布式事务是面试中的核心考点，也是架构设计中必须面对的挑战。</p><p><strong>本文要点</strong>：</p><ol><li>分布式事务的背景与问题</li><li>2PC（两阶段提交）</li><li>3PC（三阶段提交）</li><li>TCC（Try-Confirm-Cancel）</li><li>Saga 模式</li><li>本地消息表</li><li>MQ 事务消息</li><li>方案对比与选型</li><li>面试高频问题</li></ol><hr><h2 id=二分布式事务的背景>二、分布式事务的背景</h2><h3 id=21-为什么需要分布式事务>2.1 为什么需要分布式事务</h3><p><strong>单体应用</strong>：一个数据库，本地事务保证一致性。</p><pre tabindex=0><code>@Transactional
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分布式事务深度解析 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-05-14 <span>/</span> 分布式系统 </div>
+        <h1>分布式事务深度解析</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="分布式事务深度解析">分布式事务深度解析</h1>
+<h2 id="一引言">一、引言</h2>
+<p>在微服务架构下，一个业务操作往往涉及多个服务，每个服务有自己的数据库。如何保证跨服务的数据一致性，是分布式系统中最复杂的问题之一。分布式事务是面试中的核心考点，也是架构设计中必须面对的挑战。</p>
+<p><strong>本文要点</strong>：</p>
+<ol>
+<li>分布式事务的背景与问题</li>
+<li>2PC（两阶段提交）</li>
+<li>3PC（三阶段提交）</li>
+<li>TCC（Try-Confirm-Cancel）</li>
+<li>Saga 模式</li>
+<li>本地消息表</li>
+<li>MQ 事务消息</li>
+<li>方案对比与选型</li>
+<li>面试高频问题</li>
+</ol>
+<hr>
+<h2 id="二分布式事务的背景">二、分布式事务的背景</h2>
+<h3 id="21-为什么需要分布式事务">2.1 为什么需要分布式事务</h3>
+<p><strong>单体应用</strong>：一个数据库，本地事务保证一致性。</p>
+<pre tabindex="0"><code>@Transactional
 public void createOrder(Order order) {
     // 1. 创建订单
     orderMapper.insert(order);
@@ -12,7 +913,8 @@ public void createOrder(Order order) {
     accountMapper.decrease(order.getUserId(), order.getAmount());
 }
 // 全部成功或全部回滚 ✅
-</code></pre><p><strong>微服务架构</strong>：多个数据库，本地事务无法保证跨服务一致性。</p><pre tabindex=0><code>订单服务 → 订单数据库
+</code></pre><p><strong>微服务架构</strong>：多个数据库，本地事务无法保证跨服务一致性。</p>
+<pre tabindex="0"><code>订单服务 → 订单数据库
 库存服务 → 库存数据库
 账户服务 → 账户数据库
 
@@ -22,7 +924,8 @@ createOrder() 需要跨三个服务：
 3. 账户服务：还没调用
 
 → 订单已创建但库存未扣减 → 数据不一致！
-</code></pre><h3 id=22-cap-与分布式事务>2.2 CAP 与分布式事务</h3><pre tabindex=0><code>CP 系统（强一致性）：
+</code></pre><h3 id="22-cap-与分布式事务">2.2 CAP 与分布式事务</h3>
+<pre tabindex="0"><code>CP 系统（强一致性）：
   → 使用 2PC/3PC
   → 宁可不可用，也要一致
   → 适合金融场景
@@ -31,7 +934,12 @@ AP 系统（最终一致性）：
   → 使用 TCC/Saga/消息
   → 宁可短暂不一致，也要可用
   → 适合电商场景
-</code></pre><hr><h2 id=三2pc两阶段提交>三、2PC（两阶段提交）</h2><h3 id=31-基本原理>3.1 基本原理</h3><p><strong>2PC</strong>（Two-Phase Commit）是最经典的分布式事务协议，由一个**协调者（Coordinator）<strong>和多个</strong>参与者（Participant）**组成。</p><p><strong>两个阶段</strong>：</p><pre tabindex=0><code>阶段一：Prepare（准备/投票）
+</code></pre><hr>
+<h2 id="三2pc两阶段提交">三、2PC（两阶段提交）</h2>
+<h3 id="31-基本原理">3.1 基本原理</h3>
+<p><strong>2PC</strong>（Two-Phase Commit）是最经典的分布式事务协议，由一个**协调者（Coordinator）<strong>和多个</strong>参与者（Participant）**组成。</p>
+<p><strong>两个阶段</strong>：</p>
+<pre tabindex="0"><code>阶段一：Prepare（准备/投票）
   1. 协调者向所有参与者发送 Prepare 请求
   2. 参与者执行事务操作，但不提交
   3. 参与者将 Undo/Redo 信息写入日志
@@ -41,7 +949,8 @@ AP 系统（最终一致性）：
   - 如果所有参与者返回 Yes → 协调者发送 Commit
   - 如果任一参与者返回 No → 协调者发送 Rollback
   - 参与者执行 Commit 或 Rollback
-</code></pre><p><strong>时序图</strong>：</p><pre tabindex=0><code>协调者           参与者A          参与者B
+</code></pre><p><strong>时序图</strong>：</p>
+<pre tabindex="0"><code>协调者           参与者A          参与者B
   │                │                │
   │─── Prepare ──→ │                │
   │─── Prepare ────────────────→ │
@@ -54,7 +963,9 @@ AP 系统（最终一致性）：
   │                │                │
   │←── ACK ──────│                │
   │←── ACK ────────────────────── │
-</code></pre><h3 id=32-异常情况分析>3.2 异常情况分析</h3><p><strong>情况一：参与者 A 在 Prepare 后宕机</strong></p><pre tabindex=0><code>协调者           参与者A          参与者B
+</code></pre><h3 id="32-异常情况分析">3.2 异常情况分析</h3>
+<p><strong>情况一：参与者 A 在 Prepare 后宕机</strong></p>
+<pre tabindex="0"><code>协调者           参与者A          参与者B
   │                │                │
   │─── Prepare ──→ │                │
   │─── Prepare ────────────────→ │
@@ -68,7 +979,8 @@ AP 系统（最终一致性）：
 
 问题：参与者 A 的事务状态不确定
 → 需要等待参与者 A 恢复后重新 Commit（阻塞）
-</code></pre><p><strong>情况二：协调者在发送 Commit 前宕机</strong></p><pre tabindex=0><code>协调者 ✘         参与者A          参与者B
+</code></pre><p><strong>情况二：协调者在发送 Commit 前宕机</strong></p>
+<pre tabindex="0"><code>协调者 ✘         参与者A          参与者B
   │                │                │
   │─── Prepare ──→ │                │
   │─── Prepare ────────────────→ │
@@ -82,7 +994,39 @@ AP 系统（最终一致性）：
 
 问题：所有参与者都阻塞等待协调者恢复
 → 资源长时间被锁定
-</code></pre><h3 id=33-2pc-的问题>3.3 2PC 的问题</h3><table><thead><tr><th>问题</th><th>描述</th></tr></thead><tbody><tr><td><strong>同步阻塞</strong></td><td>Prepare 后参与者锁定资源，直到 Commit/Rollback</td></tr><tr><td><strong>单点故障</strong></td><td>协调者宕机导致所有参与者阻塞</td></tr><tr><td><strong>数据不一致</strong></td><td>部分参与者收到 Commit，部分未收到</td></tr><tr><td><strong>太保守</strong></td><td>任一参与者返回 No 就回滚，没有超时机制</td></tr></tbody></table><hr><h2 id=四3pc三阶段提交>四、3PC（三阶段提交）</h2><h3 id=41-基本原理>4.1 基本原理</h3><p><strong>3PC</strong>（Three-Phase Commit）是 2PC 的改进版，增加了 <strong>CanCommit</strong> 阶段和<strong>超时机制</strong>。</p><p><strong>三个阶段</strong>：</p><pre tabindex=0><code>阶段一：CanCommit（询问）
+</code></pre><h3 id="33-2pc-的问题">3.3 2PC 的问题</h3>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>同步阻塞</strong></td>
+<td>Prepare 后参与者锁定资源，直到 Commit/Rollback</td>
+</tr>
+<tr>
+<td><strong>单点故障</strong></td>
+<td>协调者宕机导致所有参与者阻塞</td>
+</tr>
+<tr>
+<td><strong>数据不一致</strong></td>
+<td>部分参与者收到 Commit，部分未收到</td>
+</tr>
+<tr>
+<td><strong>太保守</strong></td>
+<td>任一参与者返回 No 就回滚，没有超时机制</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="四3pc三阶段提交">四、3PC（三阶段提交）</h2>
+<h3 id="41-基本原理">4.1 基本原理</h3>
+<p><strong>3PC</strong>（Three-Phase Commit）是 2PC 的改进版，增加了 <strong>CanCommit</strong> 阶段和<strong>超时机制</strong>。</p>
+<p><strong>三个阶段</strong>：</p>
+<pre tabindex="0"><code>阶段一：CanCommit（询问）
   1. 协调者向所有参与者发送 CanCommit 请求
   2. 参与者评估是否能执行事务（不执行，不锁资源）
   3. 参与者返回 Yes 或 No
@@ -96,14 +1040,90 @@ AP 系统（最终一致性）：
   1. 协调者发送 DoCommit
   2. 参与者提交事务
   3. 参与者返回 ACK
-</code></pre><p><strong>超时机制</strong>：</p><pre tabindex=0><code>参与者的超时：
+</code></pre><p><strong>超时机制</strong>：</p>
+<pre tabindex="0"><code>参与者的超时：
   - PreCommit 后，如果等待 DoCommit 超时 → 自动提交
   → 避免协调者宕机导致的永久阻塞
 
 协调者的超时：
   - CanCommit 后，如果等待参与者响应超时 → 中断事务
   - PreCommit 后，如果等待参与者 ACK 超时 → 中断事务
-</code></pre><h3 id=42-3pc-vs-2pc>4.2 3PC vs 2PC</h3><table><thead><tr><th>对比项</th><th>2PC</th><th>3PC</th></tr></thead><tbody><tr><td>阶段数</td><td>2</td><td>3</td></tr><tr><td>阻塞问题</td><td>严重</td><td>缓解（超时自动提交）</td></tr><tr><td>数据不一致</td><td>可能</td><td>可能（超时自动提交导致）</td></tr><tr><td>资源锁定</td><td>Prepare 后锁定</td><td>PreCommit 后锁定（延迟了）</td></tr><tr><td>实际使用</td><td>XA 协议</td><td>几乎不用</td></tr></tbody></table><p><strong>3PC 为什么几乎不用</strong>：</p><ul><li>仍然存在数据不一致的可能</li><li>增加了一轮 RPC，延迟更高</li><li>超时自动提交可能导致错误提交</li><li>工程实现复杂度高</li></ul><hr><h2 id=五tcctry-confirm-cancel>五、TCC（Try-Confirm-Cancel）</h2><h3 id=51-基本原理>5.1 基本原理</h3><p><strong>TCC</strong> 是一种业务层面的分布式事务方案，将一个事务拆分为三个阶段：</p><table><thead><tr><th>阶段</th><th>描述</th><th>操作</th></tr></thead><tbody><tr><td><strong>Try</strong></td><td>资源预留</td><td>检查资源，冻结部分资源</td></tr><tr><td><strong>Confirm</strong></td><td>确认提交</td><td>使用预留资源，完成业务操作</td></tr><tr><td><strong>Cancel</strong></td><td>取消回滚</td><td>释放预留资源，回滚业务操作</td></tr></tbody></table><p><strong>示例（下单场景）</strong>：</p><pre tabindex=0><code>Try 阶段：
+</code></pre><h3 id="42-3pc-vs-2pc">4.2 3PC vs 2PC</h3>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>2PC</th>
+<th>3PC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>阶段数</td>
+<td>2</td>
+<td>3</td>
+</tr>
+<tr>
+<td>阻塞问题</td>
+<td>严重</td>
+<td>缓解（超时自动提交）</td>
+</tr>
+<tr>
+<td>数据不一致</td>
+<td>可能</td>
+<td>可能（超时自动提交导致）</td>
+</tr>
+<tr>
+<td>资源锁定</td>
+<td>Prepare 后锁定</td>
+<td>PreCommit 后锁定（延迟了）</td>
+</tr>
+<tr>
+<td>实际使用</td>
+<td>XA 协议</td>
+<td>几乎不用</td>
+</tr>
+</tbody>
+</table>
+<p><strong>3PC 为什么几乎不用</strong>：</p>
+<ul>
+<li>仍然存在数据不一致的可能</li>
+<li>增加了一轮 RPC，延迟更高</li>
+<li>超时自动提交可能导致错误提交</li>
+<li>工程实现复杂度高</li>
+</ul>
+<hr>
+<h2 id="五tcctry-confirm-cancel">五、TCC（Try-Confirm-Cancel）</h2>
+<h3 id="51-基本原理">5.1 基本原理</h3>
+<p><strong>TCC</strong> 是一种业务层面的分布式事务方案，将一个事务拆分为三个阶段：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>描述</th>
+<th>操作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Try</strong></td>
+<td>资源预留</td>
+<td>检查资源，冻结部分资源</td>
+</tr>
+<tr>
+<td><strong>Confirm</strong></td>
+<td>确认提交</td>
+<td>使用预留资源，完成业务操作</td>
+</tr>
+<tr>
+<td><strong>Cancel</strong></td>
+<td>取消回滚</td>
+<td>释放预留资源，回滚业务操作</td>
+</tr>
+</tbody>
+</table>
+<p><strong>示例（下单场景）</strong>：</p>
+<pre tabindex="0"><code>Try 阶段：
   订单服务：创建订单（状态=待确认）
   库存服务：冻结库存（available → frozen）
   账户服务：冻结余额（available → frozen）
@@ -117,93 +1137,128 @@ Cancel 阶段：
   订单服务：更新订单状态（待确认 → 已取消）
   库存服务：释放冻结库存（frozen → available）
   账户服务：释放冻结余额（frozen → available）
-</code></pre><h3 id=52-tcc-的数据库设计>5.2 TCC 的数据库设计</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 库存表
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>CREATE</span> <span style=color:#66d9ef>TABLE</span> stock (
-</span></span><span style=display:flex><span>    product_id BIGINT <span style=color:#66d9ef>PRIMARY</span> <span style=color:#66d9ef>KEY</span>,
-</span></span><span style=display:flex><span>    total      INT,      <span style=color:#75715e>-- 总库存
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    frozen     INT       <span style=color:#75715e>-- 冻结库存
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>);
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- Try：冻结库存
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>UPDATE</span> stock <span style=color:#66d9ef>SET</span> frozen <span style=color:#f92672>=</span> frozen <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span> <span style=color:#66d9ef>WHERE</span> product_id <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span> <span style=color:#66d9ef>AND</span> total <span style=color:#f92672>-</span> frozen <span style=color:#f92672>&gt;=</span> <span style=color:#ae81ff>1</span>;
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- Confirm：扣减冻结库存
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>UPDATE</span> stock <span style=color:#66d9ef>SET</span> total <span style=color:#f92672>=</span> total <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span>, frozen <span style=color:#f92672>=</span> frozen <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span> <span style=color:#66d9ef>WHERE</span> product_id <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>-- Cancel：释放冻结库存
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>UPDATE</span> stock <span style=color:#66d9ef>SET</span> frozen <span style=color:#f92672>=</span> frozen <span style=color:#f92672>-</span> <span style=color:#ae81ff>1</span> <span style=color:#66d9ef>WHERE</span> product_id <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
-</span></span></code></pre></div><h3 id=53-tcc-代码实现>5.3 TCC 代码实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderTccService</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> OrderMapper orderMapper<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> StockTccService stockTccService<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> AccountTccService accountTccService<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// Try 阶段
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Transactional</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>tryCreateOrder</span><span style=color:#f92672>(</span>Order order<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 创建订单（状态=待确认）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        order<span style=color:#f92672>.</span><span style=color:#a6e22e>setStatus</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;TRYING&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>insert</span><span style=color:#f92672>(</span>order<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 2. 冻结库存
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        stockTccService<span style=color:#f92672>.</span><span style=color:#a6e22e>tryFreeze</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getProductId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getQuantity</span><span style=color:#f92672>());</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 3. 冻结余额
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        accountTccService<span style=color:#f92672>.</span><span style=color:#a6e22e>tryFreeze</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>());</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// Confirm 阶段
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Transactional</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>confirmCreateOrder</span><span style=color:#f92672>(</span>Long orderId<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        Order order <span style=color:#f92672>=</span> orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>selectById</span><span style=color:#f92672>(</span>orderId<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 确认订单
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        order<span style=color:#f92672>.</span><span style=color:#a6e22e>setStatus</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;CONFIRMED&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>updateById</span><span style=color:#f92672>(</span>order<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 2. 扣减库存
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        stockTccService<span style=color:#f92672>.</span><span style=color:#a6e22e>confirmDeduct</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getProductId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getQuantity</span><span style=color:#f92672>());</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 3. 扣减余额
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        accountTccService<span style=color:#f92672>.</span><span style=color:#a6e22e>confirmDeduct</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>());</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// Cancel 阶段
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Transactional</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>cancelCreateOrder</span><span style=color:#f92672>(</span>Long orderId<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        Order order <span style=color:#f92672>=</span> orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>selectById</span><span style=color:#f92672>(</span>orderId<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 取消订单
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        order<span style=color:#f92672>.</span><span style=color:#a6e22e>setStatus</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;CANCELLED&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>updateById</span><span style=color:#f92672>(</span>order<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 2. 释放库存
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        stockTccService<span style=color:#f92672>.</span><span style=color:#a6e22e>cancelFreeze</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getProductId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getQuantity</span><span style=color:#f92672>());</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 3. 释放余额
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        accountTccService<span style=color:#f92672>.</span><span style=color:#a6e22e>cancelFreeze</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>());</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span></code></pre></div><h3 id=54-tcc-的异常处理>5.4 TCC 的异常处理</h3><p><strong>空回滚</strong>：</p><pre tabindex=0><code>问题：Try 请求因网络丢失，未到达参与者 → TM 触发 Cancel
+</code></pre><h3 id="52-tcc-的数据库设计">5.2 TCC 的数据库设计</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 库存表
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span> stock (
+</span></span><span style="display:flex;"><span>    product_id BIGINT <span style="color:#66d9ef">PRIMARY</span> <span style="color:#66d9ef">KEY</span>,
+</span></span><span style="display:flex;"><span>    total      INT,      <span style="color:#75715e">-- 总库存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    frozen     INT       <span style="color:#75715e">-- 冻结库存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- Try：冻结库存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">UPDATE</span> stock <span style="color:#66d9ef">SET</span> frozen <span style="color:#f92672">=</span> frozen <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">WHERE</span> product_id <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">AND</span> total <span style="color:#f92672">-</span> frozen <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- Confirm：扣减冻结库存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">UPDATE</span> stock <span style="color:#66d9ef">SET</span> total <span style="color:#f92672">=</span> total <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span>, frozen <span style="color:#f92672">=</span> frozen <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">WHERE</span> product_id <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">-- Cancel：释放冻结库存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">UPDATE</span> stock <span style="color:#66d9ef">SET</span> frozen <span style="color:#f92672">=</span> frozen <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span> <span style="color:#66d9ef">WHERE</span> product_id <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;
+</span></span></code></pre></div><h3 id="53-tcc-代码实现">5.3 TCC 代码实现</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderTccService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> OrderMapper orderMapper<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> StockTccService stockTccService<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> AccountTccService accountTccService<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Try 阶段
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">@Transactional</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">tryCreateOrder</span><span style="color:#f92672">(</span>Order order<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 1. 创建订单（状态=待确认）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        order<span style="color:#f92672">.</span><span style="color:#a6e22e">setStatus</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;TRYING&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        orderMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">insert</span><span style="color:#f92672">(</span>order<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 2. 冻结库存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        stockTccService<span style="color:#f92672">.</span><span style="color:#a6e22e">tryFreeze</span><span style="color:#f92672">(</span>order<span style="color:#f92672">.</span><span style="color:#a6e22e">getProductId</span><span style="color:#f92672">(),</span> order<span style="color:#f92672">.</span><span style="color:#a6e22e">getQuantity</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 3. 冻结余额
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        accountTccService<span style="color:#f92672">.</span><span style="color:#a6e22e">tryFreeze</span><span style="color:#f92672">(</span>order<span style="color:#f92672">.</span><span style="color:#a6e22e">getUserId</span><span style="color:#f92672">(),</span> order<span style="color:#f92672">.</span><span style="color:#a6e22e">getAmount</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Confirm 阶段
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">@Transactional</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">confirmCreateOrder</span><span style="color:#f92672">(</span>Long orderId<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        Order order <span style="color:#f92672">=</span> orderMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">selectById</span><span style="color:#f92672">(</span>orderId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 1. 确认订单
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        order<span style="color:#f92672">.</span><span style="color:#a6e22e">setStatus</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;CONFIRMED&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        orderMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">updateById</span><span style="color:#f92672">(</span>order<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 2. 扣减库存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        stockTccService<span style="color:#f92672">.</span><span style="color:#a6e22e">confirmDeduct</span><span style="color:#f92672">(</span>order<span style="color:#f92672">.</span><span style="color:#a6e22e">getProductId</span><span style="color:#f92672">(),</span> order<span style="color:#f92672">.</span><span style="color:#a6e22e">getQuantity</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 3. 扣减余额
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        accountTccService<span style="color:#f92672">.</span><span style="color:#a6e22e">confirmDeduct</span><span style="color:#f92672">(</span>order<span style="color:#f92672">.</span><span style="color:#a6e22e">getUserId</span><span style="color:#f92672">(),</span> order<span style="color:#f92672">.</span><span style="color:#a6e22e">getAmount</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Cancel 阶段
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">@Transactional</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">cancelCreateOrder</span><span style="color:#f92672">(</span>Long orderId<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        Order order <span style="color:#f92672">=</span> orderMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">selectById</span><span style="color:#f92672">(</span>orderId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 1. 取消订单
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        order<span style="color:#f92672">.</span><span style="color:#a6e22e">setStatus</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;CANCELLED&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        orderMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">updateById</span><span style="color:#f92672">(</span>order<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 2. 释放库存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        stockTccService<span style="color:#f92672">.</span><span style="color:#a6e22e">cancelFreeze</span><span style="color:#f92672">(</span>order<span style="color:#f92672">.</span><span style="color:#a6e22e">getProductId</span><span style="color:#f92672">(),</span> order<span style="color:#f92672">.</span><span style="color:#a6e22e">getQuantity</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 3. 释放余额
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        accountTccService<span style="color:#f92672">.</span><span style="color:#a6e22e">cancelFreeze</span><span style="color:#f92672">(</span>order<span style="color:#f92672">.</span><span style="color:#a6e22e">getUserId</span><span style="color:#f92672">(),</span> order<span style="color:#f92672">.</span><span style="color:#a6e22e">getAmount</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="54-tcc-的异常处理">5.4 TCC 的异常处理</h3>
+<p><strong>空回滚</strong>：</p>
+<pre tabindex="0"><code>问题：Try 请求因网络丢失，未到达参与者 → TM 触发 Cancel
 → 参与者的 Cancel 没有 Try 对应
 
 解决：记录事务日志，Cancel 时检查是否执行过 Try
-</code></pre><p><strong>幂等性</strong>：</p><pre tabindex=0><code>问题：Confirm/Cancel 可能因网络重试被多次调用
+</code></pre><p><strong>幂等性</strong>：</p>
+<pre tabindex="0"><code>问题：Confirm/Cancel 可能因网络重试被多次调用
 → 必须保证幂等
 
 解决：每个事务分支记录全局事务 ID + 分支事务 ID
 → 判断是否已执行过
-</code></pre><p><strong>悬挂</strong>：</p><pre tabindex=0><code>问题：Cancel 比 Try 先到达参与者
+</code></pre><p><strong>悬挂</strong>：</p>
+<pre tabindex="0"><code>问题：Cancel 比 Try 先到达参与者
 → Cancel 执行后，Try 才到达 → 资源被冻结且无法释放
 
 解决：Cancel 执行时记录状态
 → Try 执行时检查是否已 Cancel → 如果已 Cancel，不再执行 Try
-</code></pre><h3 id=55-tcc-框架>5.5 TCC 框架</h3><table><thead><tr><th>框架</th><th>描述</th></tr></thead><tbody><tr><td><strong>Seata</strong></td><td>阿里开源，支持 AT/TCC/Saga/XA 四种模式</td></tr><tr><td><strong>Hmily</strong></td><td>金融级 TCC 框架，支持异步 Confirm/Cancel</td></tr><tr><td><strong>ByteTCC</strong></td><td>字节跳动开源，高性能 TCC</td></tr></tbody></table><hr><h2 id=六saga-模式>六、Saga 模式</h2><h3 id=61-基本原理>6.1 基本原理</h3><p><strong>Saga</strong> 是一种长事务解决方案，将一个大事务拆分为多个本地小事务，每个小事务都有对应的补偿操作。</p><p><strong>两种编排方式</strong>：</p><p><strong>1. 串联式（Choreography）</strong>：</p><pre tabindex=0><code>T1 → T2 → T3 → T4（正向）
+</code></pre><h3 id="55-tcc-框架">5.5 TCC 框架</h3>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Seata</strong></td>
+<td>阿里开源，支持 AT/TCC/Saga/XA 四种模式</td>
+</tr>
+<tr>
+<td><strong>Hmily</strong></td>
+<td>金融级 TCC 框架，支持异步 Confirm/Cancel</td>
+</tr>
+<tr>
+<td><strong>ByteTCC</strong></td>
+<td>字节跳动开源，高性能 TCC</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="六saga-模式">六、Saga 模式</h2>
+<h3 id="61-基本原理">6.1 基本原理</h3>
+<p><strong>Saga</strong> 是一种长事务解决方案，将一个大事务拆分为多个本地小事务，每个小事务都有对应的补偿操作。</p>
+<p><strong>两种编排方式</strong>：</p>
+<p><strong>1. 串联式（Choreography）</strong>：</p>
+<pre tabindex="0"><code>T1 → T2 → T3 → T4（正向）
                   ↓ 失败
 C4 ← C3 ← C2 ← C1（补偿）
 
@@ -212,123 +1267,144 @@ C4 ← C3 ← C2 ← C1（补偿）
   T2: 扣减库存 → C2: 恢复库存
   T3: 扣减余额 → C3: 恢复余额
   T4: 发货 → C4: 取消发货
-</code></pre><p><strong>2. 编排式（Orchestration）</strong>：</p><pre tabindex=0><code>         协调器
+</code></pre><p><strong>2. 编排式（Orchestration）</strong>：</p>
+<pre tabindex="0"><code>         协调器
         ↙  ↓  ↘
     T1   T2   T3
     ↓    ↓    ↓
     C1   C2   C3
 
 协调器决定执行顺序和补偿策略
-</code></pre><h3 id=62-saga-的补偿机制>6.2 Saga 的补偿机制</h3><p><strong>补偿操作 vs 回滚</strong>：</p><pre tabindex=0><code>2PC/3PC：回滚（Undo）→ 恢复到事务开始前的状态
+</code></pre><h3 id="62-saga-的补偿机制">6.2 Saga 的补偿机制</h3>
+<p><strong>补偿操作 vs 回滚</strong>：</p>
+<pre tabindex="0"><code>2PC/3PC：回滚（Undo）→ 恢复到事务开始前的状态
 Saga：补偿（Compensate）→ 执行一个反向操作，语义上等价于取消
 
 示例：
   正向：账户 A 转账 100 元给账户 B
   回滚：恢复 A 和 B 的余额到转账前
   补偿：账户 B 扣减 100 元（可能余额不足！）
-</code></pre><p><strong>补偿的局限</strong>：</p><ul><li>补偿操作不一定能完美恢复</li><li>可能产生脏数据</li><li>业务逻辑需要自行处理</li></ul><h3 id=63-saga-代码实现>6.3 Saga 代码实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 使用 Seata Saga 模式
-</span></span></span><span style=display:flex><span><span style=color:#75715e>// state.json 定义状态机
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;Name&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;createOrderSaga&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;Comment&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;创建订单 Saga&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;StartState&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;CreateOrder&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;States&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;CreateOrder&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Type&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;ServiceTask&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceName&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;orderService&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceMethod&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;create&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;CompensateState&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;CancelOrder&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Next&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;DeductStock&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Input&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>[</span><span style=color:#e6db74>&#34;$.orderId&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;$.productId&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;$.quantity&#34;</span><span style=color:#f92672>],</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Output&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>{</span><span style=color:#e6db74>&#34;orderId&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;$.orderId&#34;</span><span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>},</span>
-</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;DeductStock&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Type&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;ServiceTask&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceName&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;stockService&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceMethod&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;deduct&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;CompensateState&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;RestoreStock&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Next&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;DeductAccount&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Input&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>[</span><span style=color:#e6db74>&#34;$.productId&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;$.quantity&#34;</span><span style=color:#f92672>]</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>},</span>
-</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;DeductAccount&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Type&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;ServiceTask&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceName&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;accountService&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceMethod&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;deduct&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;CompensateState&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;RestoreAccount&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Next&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;Succeed&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Input&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>[</span><span style=color:#e6db74>&#34;$.userId&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;$.amount&#34;</span><span style=color:#f92672>]</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>},</span>
-</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;CancelOrder&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Type&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;ServiceTask&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceName&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;orderService&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceMethod&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;cancel&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Input&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>[</span><span style=color:#e6db74>&#34;$.orderId&#34;</span><span style=color:#f92672>]</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>},</span>
-</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;RestoreStock&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Type&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;ServiceTask&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceName&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;stockService&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceMethod&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;restore&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Input&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>[</span><span style=color:#e6db74>&#34;$.productId&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;$.quantity&#34;</span><span style=color:#f92672>]</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>},</span>
-</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;RestoreAccount&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Type&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;ServiceTask&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceName&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;accountService&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;ServiceMethod&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;restore&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Input&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>[</span><span style=color:#e6db74>&#34;$.userId&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;$.amount&#34;</span><span style=color:#f92672>]</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>},</span>
-</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;Succeed&#34;</span><span style=color:#f92672>:</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;Type&#34;</span><span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;Succeed&#34;</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span></code></pre></div><hr><h2 id=七本地消息表>七、本地消息表</h2><h3 id=71-基本原理>7.1 基本原理</h3><p><strong>本地消息表</strong>是 eBay 提出的方案，利用本地事务保证消息和业务操作的原子性。</p><p><strong>流程</strong>：</p><pre tabindex=0><code>1. 业务操作和写入消息表在同一个本地事务中
+</code></pre><p><strong>补偿的局限</strong>：</p>
+<ul>
+<li>补偿操作不一定能完美恢复</li>
+<li>可能产生脏数据</li>
+<li>业务逻辑需要自行处理</li>
+</ul>
+<h3 id="63-saga-代码实现">6.3 Saga 代码实现</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 使用 Seata Saga 模式
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// state.json 定义状态机
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;Name&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;createOrderSaga&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;Comment&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;创建订单 Saga&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;StartState&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;CreateOrder&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;States&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;CreateOrder&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Type&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;ServiceTask&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceName&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;orderService&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceMethod&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;create&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;CompensateState&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;CancelOrder&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Next&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;DeductStock&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Input&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;$.orderId&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;$.productId&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;$.quantity&#34;</span><span style="color:#f92672">],</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Output&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">{</span><span style="color:#e6db74">&#34;orderId&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;$.orderId&#34;</span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">},</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;DeductStock&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Type&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;ServiceTask&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceName&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;stockService&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceMethod&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;deduct&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;CompensateState&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;RestoreStock&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Next&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;DeductAccount&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Input&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;$.productId&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;$.quantity&#34;</span><span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">},</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;DeductAccount&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Type&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;ServiceTask&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceName&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;accountService&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceMethod&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;deduct&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;CompensateState&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;RestoreAccount&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Next&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;Succeed&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Input&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;$.userId&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;$.amount&#34;</span><span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">},</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;CancelOrder&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Type&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;ServiceTask&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceName&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;orderService&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceMethod&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;cancel&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Input&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;$.orderId&#34;</span><span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">},</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;RestoreStock&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Type&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;ServiceTask&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceName&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;stockService&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceMethod&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;restore&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Input&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;$.productId&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;$.quantity&#34;</span><span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">},</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;RestoreAccount&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Type&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;ServiceTask&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceName&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;accountService&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;ServiceMethod&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;restore&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Input&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">[</span><span style="color:#e6db74">&#34;$.userId&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;$.amount&#34;</span><span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">},</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;Succeed&#34;</span><span style="color:#f92672">:</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;Type&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;Succeed&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><hr>
+<h2 id="七本地消息表">七、本地消息表</h2>
+<h3 id="71-基本原理">7.1 基本原理</h3>
+<p><strong>本地消息表</strong>是 eBay 提出的方案，利用本地事务保证消息和业务操作的原子性。</p>
+<p><strong>流程</strong>：</p>
+<pre tabindex="0"><code>1. 业务操作和写入消息表在同一个本地事务中
 2. 后台线程定时扫描消息表，发送消息到 MQ
 3. 消费者消费消息，执行下游业务
 4. 消费者执行成功，更新消息状态
-</code></pre><h3 id=72-数据库设计>7.2 数据库设计</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 本地消息表
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>CREATE</span> <span style=color:#66d9ef>TABLE</span> local_message (
-</span></span><span style=display:flex><span>    id          BIGINT <span style=color:#66d9ef>PRIMARY</span> <span style=color:#66d9ef>KEY</span> AUTO_INCREMENT,
-</span></span><span style=display:flex><span>    message_id  VARCHAR(<span style=color:#ae81ff>64</span>) <span style=color:#66d9ef>UNIQUE</span>,      <span style=color:#75715e>-- 消息唯一 ID
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    topic       VARCHAR(<span style=color:#ae81ff>128</span>),             <span style=color:#75715e>-- MQ Topic
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    content     TEXT,                      <span style=color:#75715e>-- 消息内容
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    status      TINYINT,                  <span style=color:#75715e>-- 0=待发送, 1=已发送, 2=已消费, 3=失败
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    retry_count INT <span style=color:#66d9ef>DEFAULT</span> <span style=color:#ae81ff>0</span>,            <span style=color:#75715e>-- 重试次数
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    create_time DATETIME <span style=color:#66d9ef>DEFAULT</span> NOW(),
-</span></span><span style=display:flex><span>    update_time DATETIME <span style=color:#66d9ef>DEFAULT</span> NOW()
-</span></span><span style=display:flex><span>);
-</span></span></code></pre></div><h3 id=73-代码实现>7.3 代码实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Transactional</span>
-</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>createOrder</span><span style=color:#f92672>(</span>Order order<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// 1. 创建订单（业务操作）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>insert</span><span style=color:#f92672>(</span>order<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// 2. 写入消息表（同一事务）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    LocalMessage message <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> LocalMessage<span style=color:#f92672>();</span>
-</span></span><span style=display:flex><span>    message<span style=color:#f92672>.</span><span style=color:#a6e22e>setMessageId</span><span style=color:#f92672>(</span>UUID<span style=color:#f92672>.</span><span style=color:#a6e22e>randomUUID</span><span style=color:#f92672>().</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>());</span>
-</span></span><span style=display:flex><span>    message<span style=color:#f92672>.</span><span style=color:#a6e22e>setTopic</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;order-created&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>    message<span style=color:#f92672>.</span><span style=color:#a6e22e>setContent</span><span style=color:#f92672>(</span>JSON<span style=color:#f92672>.</span><span style=color:#a6e22e>toJSONString</span><span style=color:#f92672>(</span>order<span style=color:#f92672>));</span>
-</span></span><span style=display:flex><span>    message<span style=color:#f92672>.</span><span style=color:#a6e22e>setStatus</span><span style=color:#f92672>(</span><span style=color:#ae81ff>0</span><span style=color:#f92672>);</span>  <span style=color:#75715e>// 待发送
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    localMessageMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>insert</span><span style=color:#f92672>(</span>message<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 定时任务：扫描消息表，发送到 MQ
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Scheduled</span><span style=color:#f92672>(</span>fixedDelay <span style=color:#f92672>=</span> <span style=color:#ae81ff>5000</span><span style=color:#f92672>)</span>
-</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>sendPendingMessages</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    List<span style=color:#f92672>&lt;</span>LocalMessage<span style=color:#f92672>&gt;</span> messages <span style=color:#f92672>=</span> localMessageMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>selectByStatus</span><span style=color:#f92672>(</span><span style=color:#ae81ff>0</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span>LocalMessage msg <span style=color:#f92672>:</span> messages<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>try</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            rocketMQTemplate<span style=color:#f92672>.</span><span style=color:#a6e22e>syncSend</span><span style=color:#f92672>(</span>msg<span style=color:#f92672>.</span><span style=color:#a6e22e>getTopic</span><span style=color:#f92672>(),</span> msg<span style=color:#f92672>.</span><span style=color:#a6e22e>getContent</span><span style=color:#f92672>());</span>
-</span></span><span style=display:flex><span>            msg<span style=color:#f92672>.</span><span style=color:#a6e22e>setStatus</span><span style=color:#f92672>(</span><span style=color:#ae81ff>1</span><span style=color:#f92672>);</span>  <span style=color:#75715e>// 已发送
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            localMessageMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>updateById</span><span style=color:#f92672>(</span>msg<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span> <span style=color:#66d9ef>catch</span> <span style=color:#f92672>(</span>Exception e<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            msg<span style=color:#f92672>.</span><span style=color:#a6e22e>setRetryCount</span><span style=color:#f92672>(</span>msg<span style=color:#f92672>.</span><span style=color:#a6e22e>getRetryCount</span><span style=color:#f92672>()</span> <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>msg<span style=color:#f92672>.</span><span style=color:#a6e22e>getRetryCount</span><span style=color:#f92672>()</span> <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>5</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>                msg<span style=color:#f92672>.</span><span style=color:#a6e22e>setStatus</span><span style=color:#f92672>(</span><span style=color:#ae81ff>3</span><span style=color:#f92672>);</span>  <span style=color:#75715e>// 失败
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>            localMessageMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>updateById</span><span style=color:#f92672>(</span>msg<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span></code></pre></div><hr><h2 id=八mq-事务消息>八、MQ 事务消息</h2><h3 id=81-rocketmq-事务消息>8.1 RocketMQ 事务消息</h3><p><strong>流程</strong>：</p><pre tabindex=0><code>1. 生产者发送半消息（Half Message）到 MQ
+</code></pre><h3 id="72-数据库设计">7.2 数据库设计</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#75715e">-- 本地消息表
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span> local_message (
+</span></span><span style="display:flex;"><span>    id          BIGINT <span style="color:#66d9ef">PRIMARY</span> <span style="color:#66d9ef">KEY</span> AUTO_INCREMENT,
+</span></span><span style="display:flex;"><span>    message_id  VARCHAR(<span style="color:#ae81ff">64</span>) <span style="color:#66d9ef">UNIQUE</span>,      <span style="color:#75715e">-- 消息唯一 ID
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    topic       VARCHAR(<span style="color:#ae81ff">128</span>),             <span style="color:#75715e">-- MQ Topic
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    content     TEXT,                      <span style="color:#75715e">-- 消息内容
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    status      TINYINT,                  <span style="color:#75715e">-- 0=待发送, 1=已发送, 2=已消费, 3=失败
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    retry_count INT <span style="color:#66d9ef">DEFAULT</span> <span style="color:#ae81ff">0</span>,            <span style="color:#75715e">-- 重试次数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    create_time DATETIME <span style="color:#66d9ef">DEFAULT</span> NOW(),
+</span></span><span style="display:flex;"><span>    update_time DATETIME <span style="color:#66d9ef">DEFAULT</span> NOW()
+</span></span><span style="display:flex;"><span>);
+</span></span></code></pre></div><h3 id="73-代码实现">7.3 代码实现</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Transactional</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">createOrder</span><span style="color:#f92672">(</span>Order order<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 1. 创建订单（业务操作）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    orderMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">insert</span><span style="color:#f92672">(</span>order<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 2. 写入消息表（同一事务）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    LocalMessage message <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> LocalMessage<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    message<span style="color:#f92672">.</span><span style="color:#a6e22e">setMessageId</span><span style="color:#f92672">(</span>UUID<span style="color:#f92672">.</span><span style="color:#a6e22e">randomUUID</span><span style="color:#f92672">().</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>    message<span style="color:#f92672">.</span><span style="color:#a6e22e">setTopic</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;order-created&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    message<span style="color:#f92672">.</span><span style="color:#a6e22e">setContent</span><span style="color:#f92672">(</span>JSON<span style="color:#f92672">.</span><span style="color:#a6e22e">toJSONString</span><span style="color:#f92672">(</span>order<span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>    message<span style="color:#f92672">.</span><span style="color:#a6e22e">setStatus</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 待发送
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    localMessageMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">insert</span><span style="color:#f92672">(</span>message<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 定时任务：扫描消息表，发送到 MQ
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@Scheduled</span><span style="color:#f92672">(</span>fixedDelay <span style="color:#f92672">=</span> <span style="color:#ae81ff">5000</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">sendPendingMessages</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    List<span style="color:#f92672">&lt;</span>LocalMessage<span style="color:#f92672">&gt;</span> messages <span style="color:#f92672">=</span> localMessageMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">selectByStatus</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>LocalMessage msg <span style="color:#f92672">:</span> messages<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            rocketMQTemplate<span style="color:#f92672">.</span><span style="color:#a6e22e">syncSend</span><span style="color:#f92672">(</span>msg<span style="color:#f92672">.</span><span style="color:#a6e22e">getTopic</span><span style="color:#f92672">(),</span> msg<span style="color:#f92672">.</span><span style="color:#a6e22e">getContent</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>            msg<span style="color:#f92672">.</span><span style="color:#a6e22e">setStatus</span><span style="color:#f92672">(</span><span style="color:#ae81ff">1</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 已发送
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            localMessageMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">updateById</span><span style="color:#f92672">(</span>msg<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            msg<span style="color:#f92672">.</span><span style="color:#a6e22e">setRetryCount</span><span style="color:#f92672">(</span>msg<span style="color:#f92672">.</span><span style="color:#a6e22e">getRetryCount</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>msg<span style="color:#f92672">.</span><span style="color:#a6e22e">getRetryCount</span><span style="color:#f92672">()</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">5</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                msg<span style="color:#f92672">.</span><span style="color:#a6e22e">setStatus</span><span style="color:#f92672">(</span><span style="color:#ae81ff">3</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 失败
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            localMessageMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">updateById</span><span style="color:#f92672">(</span>msg<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><hr>
+<h2 id="八mq-事务消息">八、MQ 事务消息</h2>
+<h3 id="81-rocketmq-事务消息">8.1 RocketMQ 事务消息</h3>
+<p><strong>流程</strong>：</p>
+<pre tabindex="0"><code>1. 生产者发送半消息（Half Message）到 MQ
    → 半消息对消费者不可见
 
 2. MQ 返回发送成功
@@ -341,53 +1417,120 @@ Saga：补偿（Compensate）→ 执行一个反向操作，语义上等价于�
    - Unknown → MQ 回查本地事务状态
 
 5. 消费者消费消息，执行下游业务
-</code></pre><h3 id=82-代码实现>8.2 代码实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// RocketMQ 事务消息生产者
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@RestController</span>
-</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderController</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> RocketMQTemplate rocketMQTemplate<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>createOrder</span><span style=color:#f92672>(</span>Order order<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 发送事务消息
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        rocketMQTemplate<span style=color:#f92672>.</span><span style=color:#a6e22e>sendMessageInTransaction</span><span style=color:#f92672>(</span>
-</span></span><span style=display:flex><span>            <span style=color:#e6db74>&#34;order-created&#34;</span><span style=color:#f92672>,</span>
-</span></span><span style=display:flex><span>            MessageBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>withPayload</span><span style=color:#f92672>(</span>order<span style=color:#f92672>).</span><span style=color:#a6e22e>build</span><span style=color:#f92672>(),</span>
-</span></span><span style=display:flex><span>            order  <span style=color:#75715e>// 传递给本地事务的参数
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 本地事务监听器
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@RocketMQTransactionListener</span>
-</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderTransactionListener</span> <span style=color:#66d9ef>implements</span> RocketMQLocalTransactionListener <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> OrderMapper orderMapper<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> RocketMQLocalTransactionState <span style=color:#a6e22e>executeLocalTransaction</span><span style=color:#f92672>(</span>Message msg<span style=color:#f92672>,</span> Object arg<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>try</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            Order order <span style=color:#f92672>=</span> <span style=color:#f92672>(</span>Order<span style=color:#f92672>)</span> arg<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>            orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>insert</span><span style=color:#f92672>(</span>order<span style=color:#f92672>);</span>  <span style=color:#75715e>// 执行本地事务
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#66d9ef>return</span> RocketMQLocalTransactionState<span style=color:#f92672>.</span><span style=color:#a6e22e>COMMIT</span><span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span> <span style=color:#66d9ef>catch</span> <span style=color:#f92672>(</span>Exception e<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> RocketMQLocalTransactionState<span style=color:#f92672>.</span><span style=color:#a6e22e>ROLLBACK</span><span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> RocketMQLocalTransactionState <span style=color:#a6e22e>checkLocalTransaction</span><span style=color:#f92672>(</span>Message msg<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 回查本地事务状态
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        String orderId <span style=color:#f92672>=</span> <span style=color:#f92672>(</span>String<span style=color:#f92672>)</span> msg<span style=color:#f92672>.</span><span style=color:#a6e22e>getHeaders</span><span style=color:#f92672>().</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;orderId&#34;</span><span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        Order order <span style=color:#f92672>=</span> orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>selectById</span><span style=color:#f92672>(</span>orderId<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>order <span style=color:#f92672>!=</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> RocketMQLocalTransactionState<span style=color:#f92672>.</span><span style=color:#a6e22e>COMMIT</span><span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> RocketMQLocalTransactionState<span style=color:#f92672>.</span><span style=color:#a6e22e>ROLLBACK</span><span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span></code></pre></div><hr><h2 id=九方案对比与选型>九、方案对比与选型</h2><h3 id=91-全面对比>9.1 全面对比</h3><table><thead><tr><th>方案</th><th>一致性</th><th>性能</th><th>实现复杂度</th><th>业务侵入</th><th>适用场景</th></tr></thead><tbody><tr><td><strong>2PC/XA</strong></td><td>强一致</td><td>低</td><td>低</td><td>无</td><td>数据库层面</td></tr><tr><td><strong>3PC</strong></td><td>强一致</td><td>低</td><td>高</td><td>无</td><td>几乎不用</td></tr><tr><td><strong>TCC</strong></td><td>最终一致</td><td>中</td><td>高</td><td>高</td><td>资金/库存</td></tr><tr><td><strong>Saga</strong></td><td>最终一致</td><td>高</td><td>中</td><td>中</td><td>长流程业务</td></tr><tr><td><strong>本地消息表</strong></td><td>最终一致</td><td>高</td><td>中</td><td>低</td><td>异步通知</td></tr><tr><td><strong>MQ 事务消息</strong></td><td>最终一致</td><td>高</td><td>低</td><td>低</td><td>异步通知</td></tr></tbody></table><h3 id=92-选型建议>9.2 选型建议</h3><pre tabindex=0><code>场景一：强一致性要求（金融、支付）
+</code></pre><h3 id="82-代码实现">8.2 代码实现</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// RocketMQ 事务消息生产者
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@RestController</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderController</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> RocketMQTemplate rocketMQTemplate<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">createOrder</span><span style="color:#f92672">(</span>Order order<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 发送事务消息
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        rocketMQTemplate<span style="color:#f92672">.</span><span style="color:#a6e22e">sendMessageInTransaction</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;order-created&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            MessageBuilder<span style="color:#f92672">.</span><span style="color:#a6e22e">withPayload</span><span style="color:#f92672">(</span>order<span style="color:#f92672">).</span><span style="color:#a6e22e">build</span><span style="color:#f92672">(),</span>
+</span></span><span style="display:flex;"><span>            order  <span style="color:#75715e">// 传递给本地事务的参数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 本地事务监听器
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@RocketMQTransactionListener</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderTransactionListener</span> <span style="color:#66d9ef">implements</span> RocketMQLocalTransactionListener <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> OrderMapper orderMapper<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> RocketMQLocalTransactionState <span style="color:#a6e22e">executeLocalTransaction</span><span style="color:#f92672">(</span>Message msg<span style="color:#f92672">,</span> Object arg<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            Order order <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>Order<span style="color:#f92672">)</span> arg<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            orderMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">insert</span><span style="color:#f92672">(</span>order<span style="color:#f92672">);</span>  <span style="color:#75715e">// 执行本地事务
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">return</span> RocketMQLocalTransactionState<span style="color:#f92672">.</span><span style="color:#a6e22e">COMMIT</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> RocketMQLocalTransactionState<span style="color:#f92672">.</span><span style="color:#a6e22e">ROLLBACK</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> RocketMQLocalTransactionState <span style="color:#a6e22e">checkLocalTransaction</span><span style="color:#f92672">(</span>Message msg<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 回查本地事务状态
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        String orderId <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>String<span style="color:#f92672">)</span> msg<span style="color:#f92672">.</span><span style="color:#a6e22e">getHeaders</span><span style="color:#f92672">().</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;orderId&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        Order order <span style="color:#f92672">=</span> orderMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">selectById</span><span style="color:#f92672">(</span>orderId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>order <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> RocketMQLocalTransactionState<span style="color:#f92672">.</span><span style="color:#a6e22e">COMMIT</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> RocketMQLocalTransactionState<span style="color:#f92672">.</span><span style="color:#a6e22e">ROLLBACK</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><hr>
+<h2 id="九方案对比与选型">九、方案对比与选型</h2>
+<h3 id="91-全面对比">9.1 全面对比</h3>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>一致性</th>
+<th>性能</th>
+<th>实现复杂度</th>
+<th>业务侵入</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>2PC/XA</strong></td>
+<td>强一致</td>
+<td>低</td>
+<td>低</td>
+<td>无</td>
+<td>数据库层面</td>
+</tr>
+<tr>
+<td><strong>3PC</strong></td>
+<td>强一致</td>
+<td>低</td>
+<td>高</td>
+<td>无</td>
+<td>几乎不用</td>
+</tr>
+<tr>
+<td><strong>TCC</strong></td>
+<td>最终一致</td>
+<td>中</td>
+<td>高</td>
+<td>高</td>
+<td>资金/库存</td>
+</tr>
+<tr>
+<td><strong>Saga</strong></td>
+<td>最终一致</td>
+<td>高</td>
+<td>中</td>
+<td>中</td>
+<td>长流程业务</td>
+</tr>
+<tr>
+<td><strong>本地消息表</strong></td>
+<td>最终一致</td>
+<td>高</td>
+<td>中</td>
+<td>低</td>
+<td>异步通知</td>
+</tr>
+<tr>
+<td><strong>MQ 事务消息</strong></td>
+<td>最终一致</td>
+<td>高</td>
+<td>低</td>
+<td>低</td>
+<td>异步通知</td>
+</tr>
+</tbody>
+</table>
+<h3 id="92-选型建议">9.2 选型建议</h3>
+<pre tabindex="0"><code>场景一：强一致性要求（金融、支付）
 → 2PC/XA（数据库层面）
 → TCC（业务层面）
 
@@ -402,29 +1545,154 @@ Saga：补偿（Compensate）→ 执行一个反向操作，语义上等价于�
 场景四：高并发（秒杀、抢购）
 → TCC（资源预留）
 → MQ 异步（削峰填谷）
-</code></pre><hr><h2 id=十seata-框架实战>十、Seata 框架实战</h2><h3 id=101-seata-概述>10.1 Seata 概述</h3><p><strong>Seata</strong>（Simple Extensible Autonomous Transaction Architecture）是阿里开源的分布式事务框架，支持四种模式：</p><table><thead><tr><th>模式</th><th>描述</th><th>一致性</th><th>性能</th></tr></thead><tbody><tr><td><strong>AT</strong></td><td>自动补偿（拦截 SQL）</td><td>最终一致</td><td>高</td></tr><tr><td><strong>TCC</strong></td><td>手动补偿</td><td>最终一致</td><td>中</td></tr><tr><td><strong>Saga</strong></td><td>长事务补偿</td><td>最终一致</td><td>高</td></tr><tr><td><strong>XA</strong></td><td>2PC 协议</td><td>强一致</td><td>低</td></tr></tbody></table><h3 id=102-at-模式最常用>10.2 AT 模式（最常用）</h3><p><strong>原理</strong>：</p><pre tabindex=0><code>1. 拦截业务 SQL
+</code></pre><hr>
+<h2 id="十seata-框架实战">十、Seata 框架实战</h2>
+<h3 id="101-seata-概述">10.1 Seata 概述</h3>
+<p><strong>Seata</strong>（Simple Extensible Autonomous Transaction Architecture）是阿里开源的分布式事务框架，支持四种模式：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>描述</th>
+<th>一致性</th>
+<th>性能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>AT</strong></td>
+<td>自动补偿（拦截 SQL）</td>
+<td>最终一致</td>
+<td>高</td>
+</tr>
+<tr>
+<td><strong>TCC</strong></td>
+<td>手动补偿</td>
+<td>最终一致</td>
+<td>中</td>
+</tr>
+<tr>
+<td><strong>Saga</strong></td>
+<td>长事务补偿</td>
+<td>最终一致</td>
+<td>高</td>
+</tr>
+<tr>
+<td><strong>XA</strong></td>
+<td>2PC 协议</td>
+<td>强一致</td>
+<td>低</td>
+</tr>
+</tbody>
+</table>
+<h3 id="102-at-模式最常用">10.2 AT 模式（最常用）</h3>
+<p><strong>原理</strong>：</p>
+<pre tabindex="0"><code>1. 拦截业务 SQL
 2. 在执行 SQL 前，查询修改前的数据（Before Image）
 3. 执行业务 SQL
 4. 查询修改后的数据（After Image）
 5. 生成 Undo Log（Before Image + After Image）
 6. 全局提交 → 删除 Undo Log
 7. 全局回滚 → 根据 Undo Log 恢复数据
-</code></pre><p><strong>Undo Log 表</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#66d9ef>CREATE</span> <span style=color:#66d9ef>TABLE</span> undo_log (
-</span></span><span style=display:flex><span>    id            BIGINT <span style=color:#66d9ef>PRIMARY</span> <span style=color:#66d9ef>KEY</span> AUTO_INCREMENT,
-</span></span><span style=display:flex><span>    branch_id     BIGINT <span style=color:#66d9ef>NOT</span> <span style=color:#66d9ef>NULL</span>,
-</span></span><span style=display:flex><span>    xid           VARCHAR(<span style=color:#ae81ff>100</span>) <span style=color:#66d9ef>NOT</span> <span style=color:#66d9ef>NULL</span>,
-</span></span><span style=display:flex><span>    context       VARCHAR(<span style=color:#ae81ff>128</span>) <span style=color:#66d9ef>NOT</span> <span style=color:#66d9ef>NULL</span>,
-</span></span><span style=display:flex><span>    rollback_info LONGBLOB <span style=color:#66d9ef>NOT</span> <span style=color:#66d9ef>NULL</span>,
-</span></span><span style=display:flex><span>    log_status    INT <span style=color:#66d9ef>NOT</span> <span style=color:#66d9ef>NULL</span>,
-</span></span><span style=display:flex><span>    log_created   DATETIME <span style=color:#66d9ef>NOT</span> <span style=color:#66d9ef>NULL</span>,
-</span></span><span style=display:flex><span>    log_modified  DATETIME <span style=color:#66d9ef>NOT</span> <span style=color:#66d9ef>NULL</span>,
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>UNIQUE</span> <span style=color:#66d9ef>KEY</span> ux_undo_log (xid, branch_id)
-</span></span><span style=display:flex><span>);
-</span></span></code></pre></div><p><strong>使用方式</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 只需加一个注解！
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@GlobalTransactional</span>
-</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>createOrder</span><span style=color:#f92672>(</span>Order order<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>insert</span><span style=color:#f92672>(</span>order<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>    stockClient<span style=color:#f92672>.</span><span style=color:#a6e22e>deduct</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getProductId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getQuantity</span><span style=color:#f92672>());</span>
-</span></span><span style=display:flex><span>    accountClient<span style=color:#f92672>.</span><span style=color:#a6e22e>deduct</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>());</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span></code></pre></div><p><strong>AT 模式的限制</strong>：</p><ul><li>只支持关系数据库</li><li>需要创建 undo_log 表</li><li>不支持 NoSQL</li><li>全局锁可能导致性能下降</li></ul><hr><h2 id=十一面试高频问题>十一、面试高频问题</h2><h3 id=q1-2pc-和-3pc-的区别>Q1: 2PC 和 3PC 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>3PC 增加了 CanCommit 阶段（减少资源锁定时间）</li><li>3PC 增加了超时机制（协调者宕机不永久阻塞）</li><li>3PC 可能导致数据不一致（超时自动提交）</li><li>实际工程中几乎不用 3PC</li></ul><h3 id=q2-tcc-和-saga-的区别>Q2: TCC 和 Saga 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>TCC：Try 阶段预留资源，隔离性好</li><li>Saga：没有预留，直接执行，补偿操作反向抵消</li><li>TCC 业务侵入大（需要写 Try/Confirm/Cancel 三个方法）</li><li>Saga 适合长流程，TCC 适合短流程</li></ul><h3 id=q3-如何保证消息和本地事务的原子性>Q3: 如何保证消息和本地事务的原子性？</h3><p><strong>答案要点</strong>：</p><ul><li>方案一：本地消息表（业务和消息在同一事务）</li><li>方案二：MQ 事务消息（半消息 + 本地事务 + 回查）</li><li>方案三：Outbox 模式（CDC 监听数据库变更）</li></ul><h3 id=q4-seata-的-at-模式原理>Q4: Seata 的 AT 模式原理？</h3><p><strong>答案要点</strong>：</p><ul><li>拦截 SQL，生成 Before Image 和 After Image</li><li>写入 undo_log</li><li>全局提交时删除 undo_log</li><li>全局回滚时根据 undo_log 恢复数据</li><li>全局锁保证写隔离</li></ul><h3 id=q5-分布式事务如何选型>Q5: 分布式事务如何选型？</h3><p><strong>答案要点</strong>：</p><ul><li>强一致 → 2PC/XA</li><li>最终一致 + 短流程 → TCC</li><li>最终一致 + 长流程 → Saga</li><li>异步通知 → MQ 事务消息 / 本地消息表</li><li>快速接入 → Seata AT 模式</li></ul><hr><h2 id=十二总结>十二、总结</h2><p>本文系统梳理了分布式事务的主流方案：</p><ol><li><strong>2PC/XA</strong>：强一致，但阻塞严重，适合数据库层面</li><li><strong>3PC</strong>：2PC 改进，但几乎不用</li><li><strong>TCC</strong>：业务侵入大，隔离性好，适合资金/库存场景</li><li><strong>Saga</strong>：长事务补偿，适合流程编排</li><li><strong>本地消息表</strong>：简单可靠，适合异步通知</li><li><strong>MQ 事务消息</strong>：最优雅的异步方案</li></ol><p><strong>核心记忆</strong>：</p><ul><li>2PC 问题：同步阻塞 + 单点故障 + 数据不一致</li><li>TCC 三步：Try（预留）→ Confirm（确认）→ Cancel（补偿）</li><li>Saga：正向 + 补偿，无预留，适合长流程</li><li>Seata AT：拦截 SQL + Undo Log，最易接入</li><li>选型原则：强一致用 XA，最终一致用 TCC/Saga/消息</li></ul><p>下一篇将深入 <strong>分布式 ID 生成方案</strong>，包括 UUID、Snowflake、Leaf 等方案的原理与实战，敬请期待。</p><hr><p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p></div></article></main><footer><p>&copy; 2026 李亚飞</p></footer></body></html>
+</code></pre><p><strong>Undo Log 表</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#66d9ef">CREATE</span> <span style="color:#66d9ef">TABLE</span> undo_log (
+</span></span><span style="display:flex;"><span>    id            BIGINT <span style="color:#66d9ef">PRIMARY</span> <span style="color:#66d9ef">KEY</span> AUTO_INCREMENT,
+</span></span><span style="display:flex;"><span>    branch_id     BIGINT <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span>,
+</span></span><span style="display:flex;"><span>    xid           VARCHAR(<span style="color:#ae81ff">100</span>) <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span>,
+</span></span><span style="display:flex;"><span>    context       VARCHAR(<span style="color:#ae81ff">128</span>) <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span>,
+</span></span><span style="display:flex;"><span>    rollback_info LONGBLOB <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span>,
+</span></span><span style="display:flex;"><span>    log_status    INT <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span>,
+</span></span><span style="display:flex;"><span>    log_created   DATETIME <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span>,
+</span></span><span style="display:flex;"><span>    log_modified  DATETIME <span style="color:#66d9ef">NOT</span> <span style="color:#66d9ef">NULL</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">UNIQUE</span> <span style="color:#66d9ef">KEY</span> ux_undo_log (xid, branch_id)
+</span></span><span style="display:flex;"><span>);
+</span></span></code></pre></div><p><strong>使用方式</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 只需加一个注解！
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@GlobalTransactional</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">createOrder</span><span style="color:#f92672">(</span>Order order<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    orderMapper<span style="color:#f92672">.</span><span style="color:#a6e22e">insert</span><span style="color:#f92672">(</span>order<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    stockClient<span style="color:#f92672">.</span><span style="color:#a6e22e">deduct</span><span style="color:#f92672">(</span>order<span style="color:#f92672">.</span><span style="color:#a6e22e">getProductId</span><span style="color:#f92672">(),</span> order<span style="color:#f92672">.</span><span style="color:#a6e22e">getQuantity</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>    accountClient<span style="color:#f92672">.</span><span style="color:#a6e22e">deduct</span><span style="color:#f92672">(</span>order<span style="color:#f92672">.</span><span style="color:#a6e22e">getUserId</span><span style="color:#f92672">(),</span> order<span style="color:#f92672">.</span><span style="color:#a6e22e">getAmount</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>AT 模式的限制</strong>：</p>
+<ul>
+<li>只支持关系数据库</li>
+<li>需要创建 undo_log 表</li>
+<li>不支持 NoSQL</li>
+<li>全局锁可能导致性能下降</li>
+</ul>
+<hr>
+<h2 id="十一面试高频问题">十一、面试高频问题</h2>
+<h3 id="q1-2pc-和-3pc-的区别">Q1: 2PC 和 3PC 的区别？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>3PC 增加了 CanCommit 阶段（减少资源锁定时间）</li>
+<li>3PC 增加了超时机制（协调者宕机不永久阻塞）</li>
+<li>3PC 可能导致数据不一致（超时自动提交）</li>
+<li>实际工程中几乎不用 3PC</li>
+</ul>
+<h3 id="q2-tcc-和-saga-的区别">Q2: TCC 和 Saga 的区别？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>TCC：Try 阶段预留资源，隔离性好</li>
+<li>Saga：没有预留，直接执行，补偿操作反向抵消</li>
+<li>TCC 业务侵入大（需要写 Try/Confirm/Cancel 三个方法）</li>
+<li>Saga 适合长流程，TCC 适合短流程</li>
+</ul>
+<h3 id="q3-如何保证消息和本地事务的原子性">Q3: 如何保证消息和本地事务的原子性？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>方案一：本地消息表（业务和消息在同一事务）</li>
+<li>方案二：MQ 事务消息（半消息 + 本地事务 + 回查）</li>
+<li>方案三：Outbox 模式（CDC 监听数据库变更）</li>
+</ul>
+<h3 id="q4-seata-的-at-模式原理">Q4: Seata 的 AT 模式原理？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>拦截 SQL，生成 Before Image 和 After Image</li>
+<li>写入 undo_log</li>
+<li>全局提交时删除 undo_log</li>
+<li>全局回滚时根据 undo_log 恢复数据</li>
+<li>全局锁保证写隔离</li>
+</ul>
+<h3 id="q5-分布式事务如何选型">Q5: 分布式事务如何选型？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>强一致 → 2PC/XA</li>
+<li>最终一致 + 短流程 → TCC</li>
+<li>最终一致 + 长流程 → Saga</li>
+<li>异步通知 → MQ 事务消息 / 本地消息表</li>
+<li>快速接入 → Seata AT 模式</li>
+</ul>
+<hr>
+<h2 id="十二总结">十二、总结</h2>
+<p>本文系统梳理了分布式事务的主流方案：</p>
+<ol>
+<li><strong>2PC/XA</strong>：强一致，但阻塞严重，适合数据库层面</li>
+<li><strong>3PC</strong>：2PC 改进，但几乎不用</li>
+<li><strong>TCC</strong>：业务侵入大，隔离性好，适合资金/库存场景</li>
+<li><strong>Saga</strong>：长事务补偿，适合流程编排</li>
+<li><strong>本地消息表</strong>：简单可靠，适合异步通知</li>
+<li><strong>MQ 事务消息</strong>：最优雅的异步方案</li>
+</ol>
+<p><strong>核心记忆</strong>：</p>
+<ul>
+<li>2PC 问题：同步阻塞 + 单点故障 + 数据不一致</li>
+<li>TCC 三步：Try（预留）→ Confirm（确认）→ Cancel（补偿）</li>
+<li>Saga：正向 + 补偿，无预留，适合长流程</li>
+<li>Seata AT：拦截 SQL + Undo Log，最易接入</li>
+<li>选型原则：强一致用 XA，最终一致用 TCC/Saga/消息</li>
+</ul>
+<p>下一篇将深入 <strong>分布式 ID 生成方案</strong>，包括 UUID、Snowflake、Leaf 等方案的原理与实战，敬请期待。</p>
+<hr>
+<p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>

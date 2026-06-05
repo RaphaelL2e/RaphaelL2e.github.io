@@ -1,8 +1,906 @@
-<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>分布式缓存与一致性哈希深度解析 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
-<a href=https://raphaell2e.github.io/posts/>文章</a>
-<a href=https://raphaell2e.github.io/categories/>分类</a>
-<a href=https://raphaell2e.github.io/tags/>标签</a>
-<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-14 <span>/</span> 分布式系统</div><h1>分布式缓存与一致性哈希深度解析</h1></div><div class=post-content><h1 id=分布式缓存与一致性哈希深度解析>分布式缓存与一致性哈希深度解析</h1><h2 id=一引言>一、引言</h2><p>分布式缓存是提升系统性能的核心手段，而一致性哈希是分布式缓存中数据分片的关键算法。理解缓存策略和一致性哈希，对设计高性能分布式系统至关重要。</p><p><strong>本文要点</strong>：</p><ol><li>分布式缓存架构</li><li>缓存策略（Cache Aside、Read/Write Through、Write Behind）</li><li>数据分片策略（哈希取模、范围分片、一致性哈希）</li><li>一致性哈希算法详解</li><li>虚拟节点与平衡性</li><li>缓存迁移与扩缩容</li><li>面试高频问题</li></ol><hr><h2 id=二分布式缓存架构>二、分布式缓存架构</h2><h3 id=21-为什么需要分布式缓存>2.1 为什么需要分布式缓存</h3><pre tabindex=0><code>单机缓存（本地缓存）：
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分布式缓存与一致性哈希深度解析 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-05-14 <span>/</span> 分布式系统 </div>
+        <h1>分布式缓存与一致性哈希深度解析</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="分布式缓存与一致性哈希深度解析">分布式缓存与一致性哈希深度解析</h1>
+<h2 id="一引言">一、引言</h2>
+<p>分布式缓存是提升系统性能的核心手段，而一致性哈希是分布式缓存中数据分片的关键算法。理解缓存策略和一致性哈希，对设计高性能分布式系统至关重要。</p>
+<p><strong>本文要点</strong>：</p>
+<ol>
+<li>分布式缓存架构</li>
+<li>缓存策略（Cache Aside、Read/Write Through、Write Behind）</li>
+<li>数据分片策略（哈希取模、范围分片、一致性哈希）</li>
+<li>一致性哈希算法详解</li>
+<li>虚拟节点与平衡性</li>
+<li>缓存迁移与扩缩容</li>
+<li>面试高频问题</li>
+</ol>
+<hr>
+<h2 id="二分布式缓存架构">二、分布式缓存架构</h2>
+<h3 id="21-为什么需要分布式缓存">2.1 为什么需要分布式缓存</h3>
+<pre tabindex="0"><code>单机缓存（本地缓存）：
   - 容量有限（受 JVM 内存限制）
   - 多节点数据不一致
   - 节点故障缓存丢失
@@ -11,7 +909,8 @@
   - 容量可扩展（添加节点即可）
   - 数据全局一致
   - 高可用（主从复制 + 故障转移）
-</code></pre><h3 id=22-多级缓存架构>2.2 多级缓存架构</h3><pre tabindex=0><code>请求 → 本地缓存（Caffeine/Guava）
+</code></pre><h3 id="22-多级缓存架构">2.2 多级缓存架构</h3>
+<pre tabindex="0"><code>请求 → 本地缓存（Caffeine/Guava）
          ↓ 未命中
        分布式缓存（Redis Cluster）
          ↓ 未命中
@@ -20,7 +919,76 @@
        分布式缓存
          ↓ 回写
        本地缓存
-</code></pre><p><strong>各级缓存对比</strong>：</p><table><thead><tr><th>缓存层级</th><th>延迟</th><th>容量</th><th>一致性</th><th>典型实现</th></tr></thead><tbody><tr><td>本地缓存</td><td>~1μs</td><td>~100MB</td><td>最弱</td><td>Caffeine、Guava</td></tr><tr><td>分布式缓存</td><td>~1ms</td><td>~TB</td><td>弱</td><td>Redis、Memcached</td></tr><tr><td>数据库</td><td>~10ms</td><td>~PB</td><td>强</td><td>MySQL、PostgreSQL</td></tr></tbody></table><h3 id=23-缓存穿透击穿雪崩回顾>2.3 缓存穿透/击穿/雪崩回顾</h3><blockquote><p>详见本系列 Redis 缓存问题篇，此处简要回顾：</p></blockquote><table><thead><tr><th>问题</th><th>原因</th><th>解决方案</th></tr></thead><tbody><tr><td>穿透</td><td>查询不存在的数据</td><td>布隆过滤器 + 缓存空值</td></tr><tr><td>击穿</td><td>热点 Key 过期</td><td>互斥锁 / 逻辑过期</td></tr><tr><td>雪崩</td><td>大量 Key 同时过期</td><td>随机 TTL + 多级缓存</td></tr></tbody></table><hr><h2 id=三缓存策略>三、缓存策略</h2><h3 id=31-cache-aside旁路缓存>3.1 Cache Aside（旁路缓存）</h3><p><strong>最常用的缓存策略</strong>。</p><pre tabindex=0><code>读操作：
+</code></pre><p><strong>各级缓存对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>缓存层级</th>
+<th>延迟</th>
+<th>容量</th>
+<th>一致性</th>
+<th>典型实现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>本地缓存</td>
+<td>~1μs</td>
+<td>~100MB</td>
+<td>最弱</td>
+<td>Caffeine、Guava</td>
+</tr>
+<tr>
+<td>分布式缓存</td>
+<td>~1ms</td>
+<td>~TB</td>
+<td>弱</td>
+<td>Redis、Memcached</td>
+</tr>
+<tr>
+<td>数据库</td>
+<td>~10ms</td>
+<td>~PB</td>
+<td>强</td>
+<td>MySQL、PostgreSQL</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-缓存穿透击穿雪崩回顾">2.3 缓存穿透/击穿/雪崩回顾</h3>
+<blockquote>
+<p>详见本系列 Redis 缓存问题篇，此处简要回顾：</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>原因</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>穿透</td>
+<td>查询不存在的数据</td>
+<td>布隆过滤器 + 缓存空值</td>
+</tr>
+<tr>
+<td>击穿</td>
+<td>热点 Key 过期</td>
+<td>互斥锁 / 逻辑过期</td>
+</tr>
+<tr>
+<td>雪崩</td>
+<td>大量 Key 同时过期</td>
+<td>随机 TTL + 多级缓存</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="三缓存策略">三、缓存策略</h2>
+<h3 id="31-cache-aside旁路缓存">3.1 Cache Aside（旁路缓存）</h3>
+<p><strong>最常用的缓存策略</strong>。</p>
+<pre tabindex="0"><code>读操作：
 1. 先读缓存
 2. 缓存命中 → 返回
 3. 缓存未命中 → 读数据库 → 写入缓存 → 返回
@@ -28,7 +996,8 @@
 写操作：
 1. 先更新数据库
 2. 再删除缓存（不是更新缓存！）
-</code></pre><p><strong>为什么是删除而不是更新缓存</strong>：</p><pre tabindex=0><code>并发场景（更新缓存）：
+</code></pre><p><strong>为什么是删除而不是更新缓存</strong>：</p>
+<pre tabindex="0"><code>并发场景（更新缓存）：
 T1: A 更新 DB → name = &#34;Alice&#34;
 T2: B 更新 DB → name = &#34;Bob&#34;  
 T3: B 更新缓存 → cache = &#34;Bob&#34;
@@ -40,7 +1009,8 @@ T2: B 更新 DB → name = &#34;Bob&#34;
 T3: B 删除缓存
 T4: A 删除缓存
 T5: C 读缓存未命中 → 读 DB → &#34;Bob&#34; → 写入缓存 ✅
-</code></pre><p><strong>延迟双删策略</strong>：</p><pre tabindex=0><code>问题：先更新 DB，后删除缓存，中间可能读到旧缓存
+</code></pre><p><strong>延迟双删策略</strong>：</p>
+<pre tabindex="0"><code>问题：先更新 DB，后删除缓存，中间可能读到旧缓存
 
 解决：延迟双删
 1. 删除缓存
@@ -67,7 +1037,9 @@ public void update(String key, Object value) {
         }
     });
 }
-</code></pre><h3 id=32-readwrite-through>3.2 Read/Write Through</h3><p><strong>缓存层负责读写数据库，应用层只与缓存交互</strong>。</p><pre tabindex=0><code>读操作：
+</code></pre><h3 id="32-readwrite-through">3.2 Read/Write Through</h3>
+<p><strong>缓存层负责读写数据库，应用层只与缓存交互</strong>。</p>
+<pre tabindex="0"><code>读操作：
 1. 读缓存
 2. 缓存命中 → 返回
 3. 缓存未命中 → 缓存层从数据库加载 → 写入缓存 → 返回
@@ -76,17 +1048,37 @@ public void update(String key, Object value) {
 1. 写缓存
 2. 缓存层同步更新数据库
 </code></pre><p><strong>优点</strong>：应用层逻辑简单
-<strong>缺点</strong>：缓存层实现复杂</p><h3 id=33-write-behind异步写回>3.3 Write Behind（异步写回）</h3><p><strong>先更新缓存，异步批量写入数据库</strong>。</p><pre tabindex=0><code>写操作：
+<strong>缺点</strong>：缓存层实现复杂</p>
+<h3 id="33-write-behind异步写回">3.3 Write Behind（异步写回）</h3>
+<p><strong>先更新缓存，异步批量写入数据库</strong>。</p>
+<pre tabindex="0"><code>写操作：
 1. 只更新缓存
 2. 异步批量写入数据库
 
 读操作：
 1. 读缓存（缓存中有最新数据）
-</code></pre><p><strong>优点</strong>：</p><ul><li>写性能极高（只写缓存）</li><li>可批量写入数据库</li></ul><p><strong>缺点</strong>：</p><ul><li>数据可能丢失（缓存故障）</li><li>数据一致性弱</li></ul><p><strong>适用场景</strong>：写多读少、容忍数据丢失（如浏览量计数器）</p><hr><h2 id=四数据分片策略>四、数据分片策略</h2><h3 id=41-哈希取模分片>4.1 哈希取模分片</h3><p><strong>公式</strong>：<code>shard = hash(key) % N</code>（N 为节点数）</p><p><strong>示例</strong>：</p><pre tabindex=0><code>3 个 Redis 节点
+</code></pre><p><strong>优点</strong>：</p>
+<ul>
+<li>写性能极高（只写缓存）</li>
+<li>可批量写入数据库</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>数据可能丢失（缓存故障）</li>
+<li>数据一致性弱</li>
+</ul>
+<p><strong>适用场景</strong>：写多读少、容忍数据丢失（如浏览量计数器）</p>
+<hr>
+<h2 id="四数据分片策略">四、数据分片策略</h2>
+<h3 id="41-哈希取模分片">4.1 哈希取模分片</h3>
+<p><strong>公式</strong>：<code>shard = hash(key) % N</code>（N 为节点数）</p>
+<p><strong>示例</strong>：</p>
+<pre tabindex="0"><code>3 个 Redis 节点
 key = &#34;user:1&#34;  → hash(&#34;user:1&#34;) % 3 = 0 → 节点 0
 key = &#34;user:2&#34;  → hash(&#34;user:2&#34;) % 3 = 2 → 节点 2
 key = &#34;order:1&#34; → hash(&#34;order:1&#34;) % 3 = 1 → 节点 1
-</code></pre><p><strong>问题：扩缩容时数据大量迁移</strong></p><pre tabindex=0><code>3 节点 → 4 节点：
+</code></pre><p><strong>问题：扩缩容时数据大量迁移</strong></p>
+<pre tabindex="0"><code>3 节点 → 4 节点：
   key = &#34;user:1&#34; → hash % 3 = 0 → hash % 4 = ? 
   → 大量 Key 的节点发生变化
 
@@ -94,11 +1086,21 @@ key = &#34;order:1&#34; → hash(&#34;order:1&#34;) % 3 = 1 → 节点 1
 
 3 节点 → 5 节点：
   迁移比例 ≈ 1 - 3/5 = 60%
-</code></pre><h3 id=42-范围分片>4.2 范围分片</h3><p><strong>按 Key 的范围分片</strong>。</p><pre tabindex=0><code>节点 0: key ∈ [0, 1000000)
+</code></pre><h3 id="42-范围分片">4.2 范围分片</h3>
+<p><strong>按 Key 的范围分片</strong>。</p>
+<pre tabindex="0"><code>节点 0: key ∈ [0, 1000000)
 节点 1: key ∈ [1000000, 2000000)
 节点 2: key ∈ [2000000, 3000000)
 </code></pre><p><strong>优点</strong>：扩容只需增加新范围，不影响旧数据
-<strong>缺点</strong>：热点问题（某些范围访问量大）</p><h3 id=43-一致性哈希分片>4.3 一致性哈希分片</h3><p><strong>解决哈希取模的扩缩容问题</strong>。</p><p><strong>核心思想</strong>：将哈希值空间组织为虚拟的圆环（哈希环），扩缩容时只需迁移少量数据。</p><hr><h2 id=五一致性哈希算法>五、一致性哈希算法</h2><h3 id=51-基本原理>5.1 基本原理</h3><p><strong>哈希环</strong>：</p><pre tabindex=0><code>将整个哈希值空间组织为 0 ~ 2^32 - 1 的圆环
+<strong>缺点</strong>：热点问题（某些范围访问量大）</p>
+<h3 id="43-一致性哈希分片">4.3 一致性哈希分片</h3>
+<p><strong>解决哈希取模的扩缩容问题</strong>。</p>
+<p><strong>核心思想</strong>：将哈希值空间组织为虚拟的圆环（哈希环），扩缩容时只需迁移少量数据。</p>
+<hr>
+<h2 id="五一致性哈希算法">五、一致性哈希算法</h2>
+<h3 id="51-基本原理">5.1 基本原理</h3>
+<p><strong>哈希环</strong>：</p>
+<pre tabindex="0"><code>将整个哈希值空间组织为 0 ~ 2^32 - 1 的圆环
 
 1. 计算节点的哈希值，放置在环上
    hash(&#34;Node-A&#34;) = 1000
@@ -109,7 +1111,8 @@ key = &#34;order:1&#34; → hash(&#34;order:1&#34;) % 3 = 1 → 节点 1
    hash(&#34;key-1&#34;) = 1500 → 顺时针 → Node-B
    hash(&#34;key-2&#34;) = 4000 → 顺时针 → Node-C
    hash(&#34;key-3&#34;) = 800  → 顺时针 → Node-A
-</code></pre><p><strong>哈希环示意图</strong>：</p><pre tabindex=0><code>           0
+</code></pre><p><strong>哈希环示意图</strong>：</p>
+<pre tabindex="0"><code>           0
            │
      Node-A(1000)
       ╱          ╲
@@ -123,7 +1126,9 @@ key = &#34;order:1&#34; → hash(&#34;order:1&#34;) % 3 = 1 → 节点 1
 key-1(1500) → 顺时针 → Node-B
 key-2(4000) → 顺时针 → Node-C  
 key-3(800)  → 顺时针 → Node-A
-</code></pre><h3 id=52-扩容>5.2 扩容</h3><p><strong>添加 Node-D（hash = 4000）</strong>：</p><pre tabindex=0><code>扩容前：
+</code></pre><h3 id="52-扩容">5.2 扩容</h3>
+<p><strong>添加 Node-D（hash = 4000）</strong>：</p>
+<pre tabindex="0"><code>扩容前：
   key-2(4000) → Node-C
 
 扩容后：
@@ -131,22 +1136,32 @@ key-3(800)  → 顺时针 → Node-A
 
 迁移量：只有 Node-B 和 Node-C 之间的 Key 需要迁移
 迁移比例 ≈ 1/(N+1)（理想情况）
-</code></pre><p><strong>对比哈希取模</strong>：</p><pre tabindex=0><code>3→4 节点：
+</code></pre><p><strong>对比哈希取模</strong>：</p>
+<pre tabindex="0"><code>3→4 节点：
   哈希取模：迁移 ~75%
   一致性哈希：迁移 ~25%（理想）
-</code></pre><h3 id=53-缩容>5.3 缩容</h3><p><strong>移除 Node-B</strong>：</p><pre tabindex=0><code>缩容前：
+</code></pre><h3 id="53-缩容">5.3 缩容</h3>
+<p><strong>移除 Node-B</strong>：</p>
+<pre tabindex="0"><code>缩容前：
   key-1(1500) → Node-B
 
 缩容后：
   key-1(1500) → Node-C（顺时针下一个节点）
 
 迁移量：只有 Node-B 上的 Key 迁移到 Node-C
-</code></pre><h3 id=54-数据倾斜问题>5.4 数据倾斜问题</h3><p><strong>问题</strong>：如果节点较少，哈希值分布不均匀，导致某些节点负载过高。</p><pre tabindex=0><code>极端情况：
+</code></pre><h3 id="54-数据倾斜问题">5.4 数据倾斜问题</h3>
+<p><strong>问题</strong>：如果节点较少，哈希值分布不均匀，导致某些节点负载过高。</p>
+<pre tabindex="0"><code>极端情况：
   Node-A(100), Node-B(200), Node-C(8000)
   
   大部分 Key 的哈希值在 200~8000 之间 → 都落到 Node-C
   → Node-C 负载 &gt;&gt; Node-A、Node-B
-</code></pre><p><strong>解决方案：虚拟节点</strong></p><hr><h2 id=六虚拟节点>六、虚拟节点</h2><h3 id=61-虚拟节点的原理>6.1 虚拟节点的原理</h3><p><strong>核心思想</strong>：每个物理节点对应多个虚拟节点，虚拟节点均匀分布在哈希环上。</p><pre tabindex=0><code>物理节点 Node-A → 虚拟节点 Node-A-1, Node-A-2, ..., Node-A-100
+</code></pre><p><strong>解决方案：虚拟节点</strong></p>
+<hr>
+<h2 id="六虚拟节点">六、虚拟节点</h2>
+<h3 id="61-虚拟节点的原理">6.1 虚拟节点的原理</h3>
+<p><strong>核心思想</strong>：每个物理节点对应多个虚拟节点，虚拟节点均匀分布在哈希环上。</p>
+<pre tabindex="0"><code>物理节点 Node-A → 虚拟节点 Node-A-1, Node-A-2, ..., Node-A-100
 物理节点 Node-B → 虚拟节点 Node-B-1, Node-B-2, ..., Node-B-100
 物理节点 Node-C → 虚拟节点 Node-C-1, Node-C-2, ..., Node-C-100
 
@@ -154,76 +1169,201 @@ key-3(800)  → 顺时针 → Node-A
 → 总共 300 个虚拟节点
 → 均匀分布在哈希环上
 → 负载均衡
-</code></pre><p><strong>虚拟节点的计算</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 为每个物理节点创建 N 个虚拟节点
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> i <span style=color:#f92672>&lt;</span> virtualNodeCount<span style=color:#f92672>;</span> i<span style=color:#f92672>++)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    String virtualNodeName <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;Node-&#34;</span> <span style=color:#f92672>+</span> physicalNodeId <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34;-VN&#34;</span> <span style=color:#f92672>+</span> i<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> hash <span style=color:#f92672>=</span> hash<span style=color:#f92672>(</span>virtualNodeName<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>    ring<span style=color:#f92672>.</span><span style=color:#a6e22e>put</span><span style=color:#f92672>(</span>hash<span style=color:#f92672>,</span> physicalNodeId<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span></code></pre></div><h3 id=62-虚拟节点数量选择>6.2 虚拟节点数量选择</h3><table><thead><tr><th>虚拟节点数/物理节点</th><th>负载均衡</th><th>内存占用</th></tr></thead><tbody><tr><td>10</td><td>较差</td><td>低</td></tr><tr><td>100</td><td>较好</td><td>中</td></tr><tr><td>200</td><td>好</td><td>较高</td></tr><tr><td>500+</td><td>很好</td><td>高</td></tr></tbody></table><p><strong>经验值</strong>：150-200 个虚拟节点/物理节点</p><h3 id=63-一致性哈希的-java-实现>6.3 一致性哈希的 Java 实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>ConsistentHash</span><span style=color:#f92672>&lt;</span>T<span style=color:#f92672>&gt;</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// 哈希环（SortedMap 代替环）
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> SortedMap<span style=color:#f92672>&lt;</span>Integer<span style=color:#f92672>,</span> T<span style=color:#f92672>&gt;</span> ring <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> TreeMap<span style=color:#f92672>&lt;&gt;();</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// 哈希函数
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> HashFunction hashFunction<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// 虚拟节点数
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> <span style=color:#66d9ef>int</span> virtualNodeCount<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>ConsistentHash</span><span style=color:#f92672>(</span>HashFunction hashFunction<span style=color:#f92672>,</span> <span style=color:#66d9ef>int</span> virtualNodeCount<span style=color:#f92672>,</span> 
-</span></span><span style=display:flex><span>                          Collection<span style=color:#f92672>&lt;</span>T<span style=color:#f92672>&gt;</span> nodes<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>hashFunction</span> <span style=color:#f92672>=</span> hashFunction<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>virtualNodeCount</span> <span style=color:#f92672>=</span> virtualNodeCount<span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span>T node <span style=color:#f92672>:</span> nodes<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            addNode<span style=color:#f92672>(</span>node<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// 添加节点
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>addNode</span><span style=color:#f92672>(</span>T node<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> i <span style=color:#f92672>&lt;</span> virtualNodeCount<span style=color:#f92672>;</span> i<span style=color:#f92672>++)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>int</span> hash <span style=color:#f92672>=</span> hashFunction<span style=color:#f92672>.</span><span style=color:#a6e22e>hash</span><span style=color:#f92672>(</span>node<span style=color:#f92672>.</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34;-VN&#34;</span> <span style=color:#f92672>+</span> i<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>            ring<span style=color:#f92672>.</span><span style=color:#a6e22e>put</span><span style=color:#f92672>(</span>hash<span style=color:#f92672>,</span> node<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// 移除节点
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>removeNode</span><span style=color:#f92672>(</span>T node<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> i <span style=color:#f92672>&lt;</span> virtualNodeCount<span style=color:#f92672>;</span> i<span style=color:#f92672>++)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>int</span> hash <span style=color:#f92672>=</span> hashFunction<span style=color:#f92672>.</span><span style=color:#a6e22e>hash</span><span style=color:#f92672>(</span>node<span style=color:#f92672>.</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34;-VN&#34;</span> <span style=color:#f92672>+</span> i<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>            ring<span style=color:#f92672>.</span><span style=color:#a6e22e>remove</span><span style=color:#f92672>(</span>hash<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>    
-</span></span><span style=display:flex><span>    <span style=color:#75715e>// 查找 Key 对应的节点
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> T <span style=color:#a6e22e>getNode</span><span style=color:#f92672>(</span>String key<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>ring<span style=color:#f92672>.</span><span style=color:#a6e22e>isEmpty</span><span style=color:#f92672>())</span> <span style=color:#f92672>{</span>
-</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>;</span>
-</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> hash <span style=color:#f92672>=</span> hashFunction<span style=color:#f92672>.</span><span style=color:#a6e22e>hash</span><span style=color:#f92672>(</span>key<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 顺时针查找第一个节点
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        SortedMap<span style=color:#f92672>&lt;</span>Integer<span style=color:#f92672>,</span> T<span style=color:#f92672>&gt;</span> tailMap <span style=color:#f92672>=</span> ring<span style=color:#f92672>.</span><span style=color:#a6e22e>tailMap</span><span style=color:#f92672>(</span>hash<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#75715e>// 如果没有比 hash 大的节点，取环的第一个节点
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>int</span> nodeHash <span style=color:#f92672>=</span> tailMap<span style=color:#f92672>.</span><span style=color:#a6e22e>isEmpty</span><span style=color:#f92672>()</span> <span style=color:#f92672>?</span> ring<span style=color:#f92672>.</span><span style=color:#a6e22e>firstKey</span><span style=color:#f92672>()</span> <span style=color:#f92672>:</span> tailMap<span style=color:#f92672>.</span><span style=color:#a6e22e>firstKey</span><span style=color:#f92672>();</span>
-</span></span><span style=display:flex><span>        
-</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> ring<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span>nodeHash<span style=color:#f92672>);</span>
-</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
-</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
-</span></span></code></pre></div><hr><h2 id=七哈希函数选择>七、哈希函数选择</h2><h3 id=71-常见哈希函数对比>7.1 常见哈希函数对比</h3><table><thead><tr><th>哈希函数</th><th>分布均匀性</th><th>性能</th><th>冲突率</th></tr></thead><tbody><tr><td><strong>CRC32</strong></td><td>一般</td><td>高</td><td>较高</td></tr><tr><td><strong>MurmurHash3</strong></td><td>优秀</td><td>高</td><td>低</td></tr><tr><td><strong>FNV</strong></td><td>好</td><td>高</td><td>低</td></tr><tr><td><strong>Ketama</strong></td><td>优秀</td><td>中</td><td>最低</td></tr><tr><td><strong>MD5</strong></td><td>优秀</td><td>低</td><td>极低</td></tr></tbody></table><p><strong>推荐</strong>：<strong>MurmurHash3</strong>（性能好，分布均匀）</p><h3 id=72-murmurhash3-示例>7.2 MurmurHash3 示例</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 使用 Guava 的 MurmurHash3
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>int</span> hash <span style=color:#f92672>=</span> Hashing<span style=color:#f92672>.</span><span style=color:#a6e22e>murmur3_32</span><span style=color:#f92672>().</span><span style=color:#a6e22e>hashString</span><span style=color:#f92672>(</span>key<span style=color:#f92672>,</span> StandardCharsets<span style=color:#f92672>.</span><span style=color:#a6e22e>UTF_8</span><span style=color:#f92672>).</span><span style=color:#a6e22e>asInt</span><span style=color:#f92672>();</span>
-</span></span><span style=display:flex><span>
-</span></span><span style=display:flex><span><span style=color:#75715e>// 确保为正数
-</span></span></span><span style=display:flex><span><span style=color:#75715e></span>hash <span style=color:#f92672>=</span> hash <span style=color:#f92672>&amp;</span> <span style=color:#ae81ff>0x7FFFFFFF</span><span style=color:#f92672>;</span>
-</span></span></code></pre></div><hr><h2 id=八redis-cluster-的哈希槽>八、Redis Cluster 的哈希槽</h2><h3 id=81-redis-cluster-的分片方式>8.1 Redis Cluster 的分片方式</h3><p>Redis Cluster 使用 <strong>哈希槽（Hash Slot）</strong> 而不是一致性哈希。</p><p><strong>16384 个哈希槽</strong>：</p><pre tabindex=0><code>slot = CRC16(key) % 16384
+</code></pre><p><strong>虚拟节点的计算</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 为每个物理节点创建 N 个虚拟节点
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> virtualNodeCount<span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    String virtualNodeName <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;Node-&#34;</span> <span style="color:#f92672">+</span> physicalNodeId <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;-VN&#34;</span> <span style="color:#f92672">+</span> i<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> hash <span style="color:#f92672">=</span> hash<span style="color:#f92672">(</span>virtualNodeName<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    ring<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>hash<span style="color:#f92672">,</span> physicalNodeId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="62-虚拟节点数量选择">6.2 虚拟节点数量选择</h3>
+<table>
+<thead>
+<tr>
+<th>虚拟节点数/物理节点</th>
+<th>负载均衡</th>
+<th>内存占用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10</td>
+<td>较差</td>
+<td>低</td>
+</tr>
+<tr>
+<td>100</td>
+<td>较好</td>
+<td>中</td>
+</tr>
+<tr>
+<td>200</td>
+<td>好</td>
+<td>较高</td>
+</tr>
+<tr>
+<td>500+</td>
+<td>很好</td>
+<td>高</td>
+</tr>
+</tbody>
+</table>
+<p><strong>经验值</strong>：150-200 个虚拟节点/物理节点</p>
+<h3 id="63-一致性哈希的-java-实现">6.3 一致性哈希的 Java 实现</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ConsistentHash</span><span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 哈希环（SortedMap 代替环）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> SortedMap<span style="color:#f92672">&lt;</span>Integer<span style="color:#f92672">,</span> T<span style="color:#f92672">&gt;</span> ring <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> TreeMap<span style="color:#f92672">&lt;&gt;();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 哈希函数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> HashFunction hashFunction<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 虚拟节点数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">int</span> virtualNodeCount<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">ConsistentHash</span><span style="color:#f92672">(</span>HashFunction hashFunction<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> virtualNodeCount<span style="color:#f92672">,</span> 
+</span></span><span style="display:flex;"><span>                          Collection<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> nodes<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">hashFunction</span> <span style="color:#f92672">=</span> hashFunction<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">virtualNodeCount</span> <span style="color:#f92672">=</span> virtualNodeCount<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>T node <span style="color:#f92672">:</span> nodes<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            addNode<span style="color:#f92672">(</span>node<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 添加节点
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">addNode</span><span style="color:#f92672">(</span>T node<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> virtualNodeCount<span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">int</span> hash <span style="color:#f92672">=</span> hashFunction<span style="color:#f92672">.</span><span style="color:#a6e22e">hash</span><span style="color:#f92672">(</span>node<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;-VN&#34;</span> <span style="color:#f92672">+</span> i<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            ring<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>hash<span style="color:#f92672">,</span> node<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 移除节点
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">removeNode</span><span style="color:#f92672">(</span>T node<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> virtualNodeCount<span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">int</span> hash <span style="color:#f92672">=</span> hashFunction<span style="color:#f92672">.</span><span style="color:#a6e22e">hash</span><span style="color:#f92672">(</span>node<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;-VN&#34;</span> <span style="color:#f92672">+</span> i<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            ring<span style="color:#f92672">.</span><span style="color:#a6e22e">remove</span><span style="color:#f92672">(</span>hash<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 查找 Key 对应的节点
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> T <span style="color:#a6e22e">getNode</span><span style="color:#f92672">(</span>String key<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>ring<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">int</span> hash <span style="color:#f92672">=</span> hashFunction<span style="color:#f92672">.</span><span style="color:#a6e22e">hash</span><span style="color:#f92672">(</span>key<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 顺时针查找第一个节点
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        SortedMap<span style="color:#f92672">&lt;</span>Integer<span style="color:#f92672">,</span> T<span style="color:#f92672">&gt;</span> tailMap <span style="color:#f92672">=</span> ring<span style="color:#f92672">.</span><span style="color:#a6e22e">tailMap</span><span style="color:#f92672">(</span>hash<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 如果没有比 hash 大的节点，取环的第一个节点
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">int</span> nodeHash <span style="color:#f92672">=</span> tailMap<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">()</span> <span style="color:#f92672">?</span> ring<span style="color:#f92672">.</span><span style="color:#a6e22e">firstKey</span><span style="color:#f92672">()</span> <span style="color:#f92672">:</span> tailMap<span style="color:#f92672">.</span><span style="color:#a6e22e">firstKey</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> ring<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>nodeHash<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><hr>
+<h2 id="七哈希函数选择">七、哈希函数选择</h2>
+<h3 id="71-常见哈希函数对比">7.1 常见哈希函数对比</h3>
+<table>
+<thead>
+<tr>
+<th>哈希函数</th>
+<th>分布均匀性</th>
+<th>性能</th>
+<th>冲突率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CRC32</strong></td>
+<td>一般</td>
+<td>高</td>
+<td>较高</td>
+</tr>
+<tr>
+<td><strong>MurmurHash3</strong></td>
+<td>优秀</td>
+<td>高</td>
+<td>低</td>
+</tr>
+<tr>
+<td><strong>FNV</strong></td>
+<td>好</td>
+<td>高</td>
+<td>低</td>
+</tr>
+<tr>
+<td><strong>Ketama</strong></td>
+<td>优秀</td>
+<td>中</td>
+<td>最低</td>
+</tr>
+<tr>
+<td><strong>MD5</strong></td>
+<td>优秀</td>
+<td>低</td>
+<td>极低</td>
+</tr>
+</tbody>
+</table>
+<p><strong>推荐</strong>：<strong>MurmurHash3</strong>（性能好，分布均匀）</p>
+<h3 id="72-murmurhash3-示例">7.2 MurmurHash3 示例</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 使用 Guava 的 MurmurHash3
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> hash <span style="color:#f92672">=</span> Hashing<span style="color:#f92672">.</span><span style="color:#a6e22e">murmur3_32</span><span style="color:#f92672">().</span><span style="color:#a6e22e">hashString</span><span style="color:#f92672">(</span>key<span style="color:#f92672">,</span> StandardCharsets<span style="color:#f92672">.</span><span style="color:#a6e22e">UTF_8</span><span style="color:#f92672">).</span><span style="color:#a6e22e">asInt</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 确保为正数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>hash <span style="color:#f92672">=</span> hash <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">0x7FFFFFFF</span><span style="color:#f92672">;</span>
+</span></span></code></pre></div><hr>
+<h2 id="八redis-cluster-的哈希槽">八、Redis Cluster 的哈希槽</h2>
+<h3 id="81-redis-cluster-的分片方式">8.1 Redis Cluster 的分片方式</h3>
+<p>Redis Cluster 使用 <strong>哈希槽（Hash Slot）</strong> 而不是一致性哈希。</p>
+<p><strong>16384 个哈希槽</strong>：</p>
+<pre tabindex="0"><code>slot = CRC16(key) % 16384
 
 节点 A: slot 0 ~ 5460
 节点 B: slot 5461 ~ 10922
 节点 C: slot 10923 ~ 16383
-</code></pre><h3 id=82-哈希槽-vs-一致性哈希>8.2 哈希槽 vs 一致性哈希</h3><table><thead><tr><th>对比项</th><th>一致性哈希</th><th>哈希槽</th></tr></thead><tbody><tr><td><strong>分片方式</strong></td><td>哈希环</td><td>固定数量槽</td></tr><tr><td><strong>扩缩容</strong></td><td>自动迁移</td><td>手动迁移槽</td></tr><tr><td><strong>负载均衡</strong></td><td>依赖虚拟节点</td><td>槽均匀分配</td></tr><tr><td><strong>灵活性</strong></td><td>高</td><td>中</td></tr><tr><td><strong>实现复杂度</strong></td><td>高</td><td>低</td></tr></tbody></table><h3 id=83-哈希槽的扩缩容>8.3 哈希槽的扩缩容</h3><pre tabindex=0><code>添加节点 D：
+</code></pre><h3 id="82-哈希槽-vs-一致性哈希">8.2 哈希槽 vs 一致性哈希</h3>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>一致性哈希</th>
+<th>哈希槽</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>分片方式</strong></td>
+<td>哈希环</td>
+<td>固定数量槽</td>
+</tr>
+<tr>
+<td><strong>扩缩容</strong></td>
+<td>自动迁移</td>
+<td>手动迁移槽</td>
+</tr>
+<tr>
+<td><strong>负载均衡</strong></td>
+<td>依赖虚拟节点</td>
+<td>槽均匀分配</td>
+</tr>
+<tr>
+<td><strong>灵活性</strong></td>
+<td>高</td>
+<td>中</td>
+</tr>
+<tr>
+<td><strong>实现复杂度</strong></td>
+<td>高</td>
+<td>低</td>
+</tr>
+</tbody>
+</table>
+<h3 id="83-哈希槽的扩缩容">8.3 哈希槽的扩缩容</h3>
+<pre tabindex="0"><code>添加节点 D：
 1. 从 A、B、C 各迁移部分槽给 D
    节点 A: slot 0 ~ 4095 (迁移 1365 个槽)
    节点 D: slot 4096 ~ 5460 (来自 A)
@@ -233,12 +1373,16 @@ key-3(800)  → 顺时针 → Node-A
 2. 迁移过程中，客户端请求被重定向
    → ASK 重定向：迁移中的槽
    → MOVED 重定向：迁移完成的槽
-</code></pre><hr><h2 id=九缓存迁移实战>九、缓存迁移实战</h2><h3 id=91-扩容迁移步骤>9.1 扩容迁移步骤</h3><pre tabindex=0><code>1. 新增缓存节点
+</code></pre><hr>
+<h2 id="九缓存迁移实战">九、缓存迁移实战</h2>
+<h3 id="91-扩容迁移步骤">9.1 扩容迁移步骤</h3>
+<pre tabindex="0"><code>1. 新增缓存节点
 2. 修改路由规则（哈希槽/一致性哈希）
 3. 迁移数据
 4. 验证数据一致性
 5. 切换流量
-</code></pre><h3 id=92-平滑迁移双写>9.2 平滑迁移（双写）</h3><pre tabindex=0><code>阶段一：双写
+</code></pre><h3 id="92-平滑迁移双写">9.2 平滑迁移（双写）</h3>
+<pre tabindex="0"><code>阶段一：双写
   → 同时写入旧缓存和新缓存
   → 读从旧缓存读
 
@@ -252,4 +1396,72 @@ key-3(800)  → 顺时针 → Node-A
 阶段四：停止双写
   → 只写新缓存
   → 下线旧缓存
-</code></pre><hr><h2 id=十面试高频问题>十、面试高频问题</h2><h3 id=q1-一致性哈希的原理>Q1: 一致性哈希的原理？</h3><p><strong>答案要点</strong>：</p><ul><li>哈希环，Key 顺时针找到最近的节点</li><li>扩缩容只影响相邻节点</li><li>虚拟节点解决数据倾斜</li><li>迁移比例约 1/N</li></ul><h3 id=q2-一致性哈希的数据倾斜如何解决>Q2: 一致性哈希的数据倾斜如何解决？</h3><p><strong>答案要点</strong>：</p><ul><li>虚拟节点：每个物理节点对应多个虚拟节点</li><li>虚拟节点均匀分布在环上</li><li>推荐每个物理节点 150-200 个虚拟节点</li></ul><h3 id=q3-redis-cluster-为什么用哈希槽而不是一致性哈希>Q3: Redis Cluster 为什么用哈希槽而不是一致性哈希？</h3><p><strong>答案要点</strong>：</p><ul><li>哈希槽实现简单</li><li>槽可以手动迁移，控制更精确</li><li>16384 个槽足够均匀</li><li>扩缩容时可以灵活调整槽分配</li></ul><h3 id=q4-cache-aside-为什么是删除缓存而不是更新>Q4: Cache Aside 为什么是删除缓存而不是更新？</h3><p><strong>答案要点</strong>：</p><ul><li>并发写时更新缓存可能导致脏数据</li><li>删除缓存后，下次读自动加载最新数据</li><li>复杂数据更新缓存的代价可能比删除高</li></ul><h3 id=q5-延迟双删是什么>Q5: 延迟双删是什么？</h3><p><strong>答案要点</strong>：</p><ul><li>先删缓存 → 更新数据库 → 延迟后再删缓存</li><li>解决更新数据库和删除缓存之间的短暂不一致</li><li>延迟时间 = 读业务耗时 + 几百毫秒</li></ul><hr><h2 id=十一总结>十一、总结</h2><p>本文系统梳理了分布式缓存与一致性哈希的核心知识：</p><ol><li><strong>缓存策略</strong>：Cache Aside（推荐）、Read/Write Through、Write Behind</li><li><strong>数据分片</strong>：哈希取模（扩缩容差）、范围分片、一致性哈希</li><li><strong>一致性哈希</strong>：哈希环 + 顺时针查找，虚拟节点解决倾斜</li><li><strong>Redis Cluster</strong>：16384 哈希槽，手动迁移</li></ol><p><strong>核心记忆</strong>：</p><ul><li>Cache Aside：先更新 DB，再删除缓存</li><li>一致性哈希扩缩容迁移量 ≈ 1/N</li><li>虚拟节点数推荐 150-200/物理节点</li><li>Redis Cluster 用哈希槽（16384），不用一致性哈希</li><li>延迟双删：删缓存 → 更新 DB → 延迟 → 再删缓存</li></ul><p>下一篇将深入 <strong>消息队列理论深度解析</strong>，包括消息模型、投递语义、幂等性、顺序消息等，敬请期待。</p><hr><p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p></div></article></main><footer><p>&copy; 2026 李亚飞</p></footer></body></html>
+</code></pre><hr>
+<h2 id="十面试高频问题">十、面试高频问题</h2>
+<h3 id="q1-一致性哈希的原理">Q1: 一致性哈希的原理？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>哈希环，Key 顺时针找到最近的节点</li>
+<li>扩缩容只影响相邻节点</li>
+<li>虚拟节点解决数据倾斜</li>
+<li>迁移比例约 1/N</li>
+</ul>
+<h3 id="q2-一致性哈希的数据倾斜如何解决">Q2: 一致性哈希的数据倾斜如何解决？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>虚拟节点：每个物理节点对应多个虚拟节点</li>
+<li>虚拟节点均匀分布在环上</li>
+<li>推荐每个物理节点 150-200 个虚拟节点</li>
+</ul>
+<h3 id="q3-redis-cluster-为什么用哈希槽而不是一致性哈希">Q3: Redis Cluster 为什么用哈希槽而不是一致性哈希？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>哈希槽实现简单</li>
+<li>槽可以手动迁移，控制更精确</li>
+<li>16384 个槽足够均匀</li>
+<li>扩缩容时可以灵活调整槽分配</li>
+</ul>
+<h3 id="q4-cache-aside-为什么是删除缓存而不是更新">Q4: Cache Aside 为什么是删除缓存而不是更新？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>并发写时更新缓存可能导致脏数据</li>
+<li>删除缓存后，下次读自动加载最新数据</li>
+<li>复杂数据更新缓存的代价可能比删除高</li>
+</ul>
+<h3 id="q5-延迟双删是什么">Q5: 延迟双删是什么？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>先删缓存 → 更新数据库 → 延迟后再删缓存</li>
+<li>解决更新数据库和删除缓存之间的短暂不一致</li>
+<li>延迟时间 = 读业务耗时 + 几百毫秒</li>
+</ul>
+<hr>
+<h2 id="十一总结">十一、总结</h2>
+<p>本文系统梳理了分布式缓存与一致性哈希的核心知识：</p>
+<ol>
+<li><strong>缓存策略</strong>：Cache Aside（推荐）、Read/Write Through、Write Behind</li>
+<li><strong>数据分片</strong>：哈希取模（扩缩容差）、范围分片、一致性哈希</li>
+<li><strong>一致性哈希</strong>：哈希环 + 顺时针查找，虚拟节点解决倾斜</li>
+<li><strong>Redis Cluster</strong>：16384 哈希槽，手动迁移</li>
+</ol>
+<p><strong>核心记忆</strong>：</p>
+<ul>
+<li>Cache Aside：先更新 DB，再删除缓存</li>
+<li>一致性哈希扩缩容迁移量 ≈ 1/N</li>
+<li>虚拟节点数推荐 150-200/物理节点</li>
+<li>Redis Cluster 用哈希槽（16384），不用一致性哈希</li>
+<li>延迟双删：删缓存 → 更新 DB → 延迟 → 再删缓存</li>
+</ul>
+<p>下一篇将深入 <strong>消息队列理论深度解析</strong>，包括消息模型、投递语义、幂等性、顺序消息等，敬请期待。</p>
+<hr>
+<p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>
