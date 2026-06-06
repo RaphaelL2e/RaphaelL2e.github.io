@@ -1,909 +1,10 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Java设计模式（二十二）：解释器模式实战解析 - Raphael Tech Blog</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a25;
-            --text-primary: #e4e4e7;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --accent-glow: rgba(59, 130, 246, 0.3);
-            --border: #27272a;
-            --code-bg: #0f0f15;
-        }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-        
-         
-        header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-        }
-        
-        .header-content {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 1rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-        
-        header h1 a {
-            color: var(--text-primary);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        header h1 a::before {
-            content: '◆';
-            color: var(--accent);
-            font-size: 0.875rem;
-        }
-        
-        nav {
-            display: flex;
-            gap: 1.5rem;
-        }
-        
-        nav a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: color 0.2s;
-            position: relative;
-        }
-        
-        nav a:hover {
-            color: var(--text-primary);
-        }
-        
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--accent);
-            transition: width 0.2s;
-        }
-        
-        nav a:hover::after {
-            width: 100%;
-        }
-        
-         
-        main {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
-        
-         
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            transition: all 0.2s;
-        }
-        
-        article:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 20px var(--accent-glow);
-        }
-        
-        article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        
-        article h2 a {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-        
-        article h2 a:hover {
-            color: var(--accent);
-        }
-        
-        .meta {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.75rem;
-        }
-        
-        .meta span {
-            color: var(--accent);
-        }
-        
-        .summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-        
-        .summary a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
-            margin-left: 0.5rem;
-        }
-        
-        .summary a:hover {
-            text-decoration: underline;
-        }
-        
-         
-        .post-header {
-            margin-bottom: 2rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            line-height: 1.3;
-            margin-bottom: 1rem;
-        }
-        
-        .post-content {
-            font-size: 1rem;
-            line-height: 1.8;
-        }
-        
-        .post-content h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 2.5rem 0 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-content h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 2rem 0 1rem;
-            color: var(--accent);
-        }
-        
-        .post-content h4 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin: 1.5rem 0 0.75rem;
-        }
-        
-        .post-content p {
-            margin-bottom: 1.25rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-        
-        .post-content a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        
-        .post-content a:hover {
-            text-decoration: underline;
-        }
-        
-        .post-content ul, .post-content ol {
-            margin: 1rem 0 1.5rem 1.5rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content li {
-            margin-bottom: 0.5rem;
-        }
-        
-        .post-content code {
-            font-family: 'JetBrains Mono', monospace;
-            background: var(--code-bg);
-            color: var(--accent);
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-size: 0.875em;
-        }
-        
-        .post-content pre {
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.25rem;
-            overflow-x: auto;
-            margin: 1.5rem 0;
-        }
-        
-        .post-content pre code {
-            background: none;
-            color: var(--text-primary);
-            padding: 0;
-        }
-        
-        .post-content blockquote {
-            border-left: 3px solid var(--accent);
-            background: var(--bg-tertiary);
-            padding: 1rem 1.25rem;
-            margin: 1.5rem 0;
-            border-radius: 0 8px 8px 0;
-        }
-        
-        .post-content blockquote p {
-            margin: 0;
-            color: var(--text-secondary);
-        }
-        
-        .post-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-            font-size: 0.9375rem;
-        }
-        
-        .post-content th {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-weight: 600;
-            text-align: left;
-            padding: 0.75rem 1rem;
-            border-bottom: 2px solid var(--border);
-        }
-        
-        .post-content td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-secondary);
-        }
-        
-        .post-content tr:hover td {
-            background: var(--bg-tertiary);
-        }
-        
-         
-        footer {
-            max-width: 900px;
-            margin: 4rem auto 0;
-            padding: 2rem 1.5rem;
-            border-top: 1px solid var(--border);
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-         
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: var(--bg-secondary);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
-        
-         
-        ::selection {
-            background: var(--accent-glow);
-            color: var(--text-primary);
-        }
-
-         
-         
-        .tags-container {
-            max-width: 900px;
-        }
-
-        .tags-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 2rem;
-        }
-
-        .tag-card {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.625rem 1rem;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .tag-card:hover {
-            border-color: var(--accent);
-            background: var(--bg-tertiary);
-            transform: translateY(-1px);
-        }
-
-        .tag-card .tag-name {
-            color: var(--text-primary);
-            font-size: 0.9375rem;
-            font-weight: 500;
-        }
-
-        .tag-card .tag-num {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.125rem 0.5rem;
-            border-radius: 4px;
-            line-height: 1;
-        }
-
-         
-        .categories-container {
-            max-width: 900px;
-        }
-
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 80vh;
-            overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-        }
-
-        .modal-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-        }
-
-        .modal-close {
-            font-size: 1.5rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: color 0.2s;
-            line-height: 1;
-        }
-
-        .modal-close:hover {
-            color: var(--text-primary);
-        }
-
-        .modal-body {
-            padding: 1rem;
-            overflow-y: auto;
-            max-height: calc(80vh - 80px);
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.25rem;
-            margin-bottom: 0.5rem;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .tag-card {
-            cursor: pointer;
-        }
-
-         
-        .tag-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .tag-modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 800px;
-            height: 600px;
-            overflow: hidden;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .tag-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            flex-shrink: 0;
-        }
-
-        .tag-modal-header h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 700;
-            padding: 0.375rem 1rem;
-            border-radius: 20px;
-        }
-
-        .tag-modal-close {
-            font-size: 2rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-        }
-
-        .tag-modal-close:hover {
-            color: var(--text-primary);
-            background: var(--bg-tertiary);
-        }
-
-        .tag-modal-body {
-            padding: 1.5rem 2rem;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.25rem 1.5rem;
-            margin-bottom: 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            text-decoration: none;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            transform: translateX(8px);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-            font-size: 1rem;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-         
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .taxonomy-detail {
-            max-width: 900px;
-        }
-
-        .taxonomy-stats {
-            margin-bottom: 2rem;
-        }
-
-        .stat-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-        }
-
-        .taxonomy-articles {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .taxonomy-article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .taxonomy-article:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--accent-glow);
-        }
-
-        .article-link {
-            display: block;
-            padding: 1.5rem;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .taxonomy-article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .article-meta {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .article-summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="header-content">
-            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
-            <nav>
-                <a href="https://raphaell2e.github.io/">首页</a>
-                <a href="https://raphaell2e.github.io/posts/">文章</a>
-                <a href="https://raphaell2e.github.io/categories/">分类</a>
-                <a href="https://raphaell2e.github.io/tags/">标签</a>
-                <a href="https://raphaell2e.github.io/about/">关于</a>
-            </nav>
-        </div>
-    </header>
-    <main>
-        
-<article class="post">
-    <div class="post-header">
-        <div class="meta">2026-04-22 <span>/</span> JAVA </div>
-        <h1>Java设计模式（二十二）：解释器模式实战解析</h1>
-    </div>
-    <div class="post-content">
-        <h2 id="前言">前言</h2>
-<p>解释器模式（Interpreter Pattern）是一种行为型设计模式，它的核心思想是：<strong>给定一个语言，定义它的文法的一种表示，并定义一个解释器，这个解释器使用该表示来解释语言中的句子</strong>。</p>
-<p><strong>核心思想</strong>：用类来表示文法规则，通过组合这些类来解释表达式。</p>
-<h2 id="一为什么需要解释器模式">一、为什么需要解释器模式</h2>
-<h3 id="11-领域特定语言dsl">1.1 领域特定语言（DSL）</h3>
-<p>在许多应用中，我们需要解析特定领域的表达式：</p>
-<ul>
-<li>SQL 查询条件：<code>age &gt; 18 AND name = 'Alice'</code></li>
-<li>配置规则：<code>env == &quot;prod&quot; AND region IN [&quot;us&quot;, &quot;eu&quot;]</code></li>
-<li>数学表达式：<code>(1 + 2) * 3 - 4</code></li>
-<li>权限规则：<code>role == &quot;admin&quot; OR (role == &quot;user&quot; AND department == &quot;IT&quot;)</code></li>
-</ul>
-<p>解释器模式将这些表达式的文法规则映射为类，通过组合类来构建和解释表达式。</p>
-<h3 id="12-文法与类的关系">1.2 文法与类的关系</h3>
-<p>解释器模式的核心思想：<strong>每一条文法规则对应一个类</strong>。</p>
-<pre tabindex="0"><code>文法: Expression ::= Terminal | OrExpression | AndExpression
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Java设计模式（二十二）：解释器模式实战解析 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
+<a href=https://raphaell2e.github.io/posts/>文章</a>
+<a href=https://raphaell2e.github.io/categories/>分类</a>
+<a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-04-22 <span>/</span> JAVA</div><h1>Java设计模式（二十二）：解释器模式实战解析</h1></div><div class=post-content><h2 id=前言>前言</h2><p>解释器模式（Interpreter Pattern）是一种行为型设计模式，它的核心思想是：<strong>给定一个语言，定义它的文法的一种表示，并定义一个解释器，这个解释器使用该表示来解释语言中的句子</strong>。</p><p><strong>核心思想</strong>：用类来表示文法规则，通过组合这些类来解释表达式。</p><h2 id=一为什么需要解释器模式>一、为什么需要解释器模式</h2><h3 id=11-领域特定语言dsl>1.1 领域特定语言（DSL）</h3><p>在许多应用中，我们需要解析特定领域的表达式：</p><ul><li>SQL 查询条件：<code>age > 18 AND name = 'Alice'</code></li><li>配置规则：<code>env == "prod" AND region IN ["us", "eu"]</code></li><li>数学表达式：<code>(1 + 2) * 3 - 4</code></li><li>权限规则：<code>role == "admin" OR (role == "user" AND department == "IT")</code></li></ul><p>解释器模式将这些表达式的文法规则映射为类，通过组合类来构建和解释表达式。</p><h3 id=12-文法与类的关系>1.2 文法与类的关系</h3><p>解释器模式的核心思想：<strong>每一条文法规则对应一个类</strong>。</p><pre tabindex=0><code>文法: Expression ::= Terminal | OrExpression | AndExpression
 类:   Expression  ←  Terminal  |  OrExpression  |  AndExpression
-</code></pre><h2 id="二解释器模式的结构">二、解释器模式的结构</h2>
-<h3 id="21-类图">2.1 类图</h3>
-<pre tabindex="0"><code>┌─────────────────────────┐
+</code></pre><h2 id=二解释器模式的结构>二、解释器模式的结构</h2><h3 id=21-类图>2.1 类图</h3><pre tabindex=0><code>┌─────────────────────────┐
 │  AbstractExpression     │
 │─────────────────────────│
 │ + interpret(Context)    │
@@ -919,469 +20,327 @@
            │expr1  │
            │expr2  │
            └───────┘
-</code></pre><h3 id="22-核心角色">2.2 核心角色</h3>
-<table>
-<thead>
-<tr>
-<th>角色</th>
-<th>职责</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>AbstractExpression</td>
-<td>声明解释操作</td>
-</tr>
-<tr>
-<td>TerminalExpression</td>
-<td>终结符表达式（叶子节点）</td>
-</tr>
-<tr>
-<td>NonTerminalExpression</td>
-<td>非终结符表达式（组合节点）</td>
-</tr>
-<tr>
-<td>Context</td>
-<td>上下文，存储全局信息</td>
-</tr>
-</tbody>
-</table>
-<h3 id="23-完整实现布尔表达式解释器">2.3 完整实现：布尔表达式解释器</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// ========== 1. 上下文 ==========
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Context</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Boolean<span style="color:#f92672">&gt;</span> variables <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> HashMap<span style="color:#f92672">&lt;&gt;();</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">assign</span><span style="color:#f92672">(</span>String name<span style="color:#f92672">,</span> <span style="color:#66d9ef">boolean</span> value<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        variables<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>name<span style="color:#f92672">,</span> value<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">lookup</span><span style="color:#f92672">(</span>String name<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>variables<span style="color:#f92672">.</span><span style="color:#a6e22e">containsKey</span><span style="color:#f92672">(</span>name<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;未知变量: &#34;</span> <span style="color:#f92672">+</span> name<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> variables<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>name<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 2. 抽象表达式 ==========
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">BooleanExpression</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>Context context<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 3. 终结符：变量 ==========
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">VariableExpression</span> <span style="color:#66d9ef">implements</span> BooleanExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> String name<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">VariableExpression</span><span style="color:#f92672">(</span>String name<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">name</span> <span style="color:#f92672">=</span> name<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>Context context<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> context<span style="color:#f92672">.</span><span style="color:#a6e22e">lookup</span><span style="color:#f92672">(</span>name<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> name<span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 4. 终结符：常量 ==========
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ConstantExpression</span> <span style="color:#66d9ef">implements</span> BooleanExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">boolean</span> value<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">ConstantExpression</span><span style="color:#f92672">(</span><span style="color:#66d9ef">boolean</span> value<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">value</span> <span style="color:#f92672">=</span> value<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>Context context<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> value<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> String<span style="color:#f92672">.</span><span style="color:#a6e22e">valueOf</span><span style="color:#f92672">(</span>value<span style="color:#f92672">);</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 5. 非终结符：AND ==========
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AndExpression</span> <span style="color:#66d9ef">implements</span> BooleanExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> BooleanExpression left<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> BooleanExpression right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">AndExpression</span><span style="color:#f92672">(</span>BooleanExpression left<span style="color:#f92672">,</span> BooleanExpression right<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">left</span> <span style="color:#f92672">=</span> left<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">right</span> <span style="color:#f92672">=</span> right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>Context context<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> left<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>context<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> right<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>context<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;(&#34;</span> <span style="color:#f92672">+</span> left <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; AND &#34;</span> <span style="color:#f92672">+</span> right <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;)&#34;</span><span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 6. 非终结符：OR ==========
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrExpression</span> <span style="color:#66d9ef">implements</span> BooleanExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> BooleanExpression left<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> BooleanExpression right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">OrExpression</span><span style="color:#f92672">(</span>BooleanExpression left<span style="color:#f92672">,</span> BooleanExpression right<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">left</span> <span style="color:#f92672">=</span> left<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">right</span> <span style="color:#f92672">=</span> right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>Context context<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> left<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>context<span style="color:#f92672">)</span> <span style="color:#f92672">||</span> right<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>context<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;(&#34;</span> <span style="color:#f92672">+</span> left <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; OR &#34;</span> <span style="color:#f92672">+</span> right <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;)&#34;</span><span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 7. 非终结符：NOT ==========
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">NotExpression</span> <span style="color:#66d9ef">implements</span> BooleanExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> BooleanExpression expression<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">NotExpression</span><span style="color:#f92672">(</span>BooleanExpression expression<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">expression</span> <span style="color:#f92672">=</span> expression<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>Context context<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#f92672">!</span>expression<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>context<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;NOT(&#34;</span> <span style="color:#f92672">+</span> expression <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;)&#34;</span><span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 8. 客户端 ==========
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">BooleanInterpreterDemo</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 构建表达式：(isAdmin OR isEditor) AND NOT(isBanned)
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        BooleanExpression expr <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AndExpression<span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">new</span> OrExpression<span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">new</span> VariableExpression<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isAdmin&#34;</span><span style="color:#f92672">),</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">new</span> VariableExpression<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isEditor&#34;</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">),</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">new</span> NotExpression<span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">new</span> VariableExpression<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isBanned&#34;</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;表达式: &#34;</span> <span style="color:#f92672">+</span> expr<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 场景1：管理员，未封禁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        Context ctx1 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Context<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        ctx1<span style="color:#f92672">.</span><span style="color:#a6e22e">assign</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isAdmin&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        ctx1<span style="color:#f92672">.</span><span style="color:#a6e22e">assign</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isEditor&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        ctx1<span style="color:#f92672">.</span><span style="color:#a6e22e">assign</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isBanned&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;场景1: &#34;</span> <span style="color:#f92672">+</span> expr<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>ctx1<span style="color:#f92672">));</span>  <span style="color:#75715e">// true
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 场景2：编辑者，但被封禁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        Context ctx2 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Context<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        ctx2<span style="color:#f92672">.</span><span style="color:#a6e22e">assign</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isAdmin&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        ctx2<span style="color:#f92672">.</span><span style="color:#a6e22e">assign</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isEditor&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        ctx2<span style="color:#f92672">.</span><span style="color:#a6e22e">assign</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isBanned&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;场景2: &#34;</span> <span style="color:#f92672">+</span> expr<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>ctx2<span style="color:#f92672">));</span>  <span style="color:#75715e">// false
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 场景3：普通用户
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        Context ctx3 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Context<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        ctx3<span style="color:#f92672">.</span><span style="color:#a6e22e">assign</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isAdmin&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        ctx3<span style="color:#f92672">.</span><span style="color:#a6e22e">assign</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isEditor&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        ctx3<span style="color:#f92672">.</span><span style="color:#a6e22e">assign</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;isBanned&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;场景3: &#34;</span> <span style="color:#f92672">+</span> expr<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">(</span>ctx3<span style="color:#f92672">));</span>  <span style="color:#75715e">// false
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><p>运行结果：</p>
-<pre tabindex="0"><code>表达式: ((isAdmin OR isEditor) AND NOT(isBanned))
+</code></pre><h3 id=22-核心角色>2.2 核心角色</h3><table><thead><tr><th>角色</th><th>职责</th></tr></thead><tbody><tr><td>AbstractExpression</td><td>声明解释操作</td></tr><tr><td>TerminalExpression</td><td>终结符表达式（叶子节点）</td></tr><tr><td>NonTerminalExpression</td><td>非终结符表达式（组合节点）</td></tr><tr><td>Context</td><td>上下文，存储全局信息</td></tr></tbody></table><h3 id=23-完整实现布尔表达式解释器>2.3 完整实现：布尔表达式解释器</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// ========== 1. 上下文 ==========
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>Context</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> Map<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>,</span> Boolean<span style=color:#f92672>&gt;</span> variables <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> HashMap<span style=color:#f92672>&lt;&gt;();</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>assign</span><span style=color:#f92672>(</span>String name<span style=color:#f92672>,</span> <span style=color:#66d9ef>boolean</span> value<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        variables<span style=color:#f92672>.</span><span style=color:#a6e22e>put</span><span style=color:#f92672>(</span>name<span style=color:#f92672>,</span> value<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>lookup</span><span style=color:#f92672>(</span>String name<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(!</span>variables<span style=color:#f92672>.</span><span style=color:#a6e22e>containsKey</span><span style=color:#f92672>(</span>name<span style=color:#f92672>))</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>throw</span> <span style=color:#66d9ef>new</span> IllegalArgumentException<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;未知变量: &#34;</span> <span style=color:#f92672>+</span> name<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> variables<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span>name<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ========== 2. 抽象表达式 ==========
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>interface</span> <span style=color:#a6e22e>BooleanExpression</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>Context context<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ========== 3. 终结符：变量 ==========
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>VariableExpression</span> <span style=color:#66d9ef>implements</span> BooleanExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> String name<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>VariableExpression</span><span style=color:#f92672>(</span>String name<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>name</span> <span style=color:#f92672>=</span> name<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>Context context<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> context<span style=color:#f92672>.</span><span style=color:#a6e22e>lookup</span><span style=color:#f92672>(</span>name<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> name<span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ========== 4. 终结符：常量 ==========
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>ConstantExpression</span> <span style=color:#66d9ef>implements</span> BooleanExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> <span style=color:#66d9ef>boolean</span> value<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>ConstantExpression</span><span style=color:#f92672>(</span><span style=color:#66d9ef>boolean</span> value<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>value</span> <span style=color:#f92672>=</span> value<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>Context context<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> value<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> String<span style=color:#f92672>.</span><span style=color:#a6e22e>valueOf</span><span style=color:#f92672>(</span>value<span style=color:#f92672>);</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ========== 5. 非终结符：AND ==========
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>AndExpression</span> <span style=color:#66d9ef>implements</span> BooleanExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> BooleanExpression left<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> BooleanExpression right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>AndExpression</span><span style=color:#f92672>(</span>BooleanExpression left<span style=color:#f92672>,</span> BooleanExpression right<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>left</span> <span style=color:#f92672>=</span> left<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>right</span> <span style=color:#f92672>=</span> right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>Context context<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> left<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>context<span style=color:#f92672>)</span> <span style=color:#f92672>&amp;&amp;</span> right<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>context<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> <span style=color:#e6db74>&#34;(&#34;</span> <span style=color:#f92672>+</span> left <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34; AND &#34;</span> <span style=color:#f92672>+</span> right <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34;)&#34;</span><span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ========== 6. 非终结符：OR ==========
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrExpression</span> <span style=color:#66d9ef>implements</span> BooleanExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> BooleanExpression left<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> BooleanExpression right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>OrExpression</span><span style=color:#f92672>(</span>BooleanExpression left<span style=color:#f92672>,</span> BooleanExpression right<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>left</span> <span style=color:#f92672>=</span> left<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>right</span> <span style=color:#f92672>=</span> right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>Context context<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> left<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>context<span style=color:#f92672>)</span> <span style=color:#f92672>||</span> right<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>context<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> <span style=color:#e6db74>&#34;(&#34;</span> <span style=color:#f92672>+</span> left <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34; OR &#34;</span> <span style=color:#f92672>+</span> right <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34;)&#34;</span><span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ========== 7. 非终结符：NOT ==========
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>NotExpression</span> <span style=color:#66d9ef>implements</span> BooleanExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> BooleanExpression expression<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>NotExpression</span><span style=color:#f92672>(</span>BooleanExpression expression<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>expression</span> <span style=color:#f92672>=</span> expression<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>Context context<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#f92672>!</span>expression<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>context<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> <span style=color:#e6db74>&#34;NOT(&#34;</span> <span style=color:#f92672>+</span> expression <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34;)&#34;</span><span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ========== 8. 客户端 ==========
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>BooleanInterpreterDemo</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>main</span><span style=color:#f92672>(</span>String<span style=color:#f92672>[]</span> args<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 构建表达式：(isAdmin OR isEditor) AND NOT(isBanned)
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        BooleanExpression expr <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> AndExpression<span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>new</span> OrExpression<span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>new</span> VariableExpression<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isAdmin&#34;</span><span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>new</span> VariableExpression<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isEditor&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>new</span> NotExpression<span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>new</span> VariableExpression<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isBanned&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;表达式: &#34;</span> <span style=color:#f92672>+</span> expr<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 场景1：管理员，未封禁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        Context ctx1 <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Context<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        ctx1<span style=color:#f92672>.</span><span style=color:#a6e22e>assign</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isAdmin&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        ctx1<span style=color:#f92672>.</span><span style=color:#a6e22e>assign</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isEditor&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>false</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        ctx1<span style=color:#f92672>.</span><span style=color:#a6e22e>assign</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isBanned&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>false</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;场景1: &#34;</span> <span style=color:#f92672>+</span> expr<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>ctx1<span style=color:#f92672>));</span>  <span style=color:#75715e>// true
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 场景2：编辑者，但被封禁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        Context ctx2 <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Context<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        ctx2<span style=color:#f92672>.</span><span style=color:#a6e22e>assign</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isAdmin&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>false</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        ctx2<span style=color:#f92672>.</span><span style=color:#a6e22e>assign</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isEditor&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        ctx2<span style=color:#f92672>.</span><span style=color:#a6e22e>assign</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isBanned&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;场景2: &#34;</span> <span style=color:#f92672>+</span> expr<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>ctx2<span style=color:#f92672>));</span>  <span style=color:#75715e>// false
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 场景3：普通用户
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        Context ctx3 <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Context<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        ctx3<span style=color:#f92672>.</span><span style=color:#a6e22e>assign</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isAdmin&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>false</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        ctx3<span style=color:#f92672>.</span><span style=color:#a6e22e>assign</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isEditor&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>false</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        ctx3<span style=color:#f92672>.</span><span style=color:#a6e22e>assign</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;isBanned&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>false</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;场景3: &#34;</span> <span style=color:#f92672>+</span> expr<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>(</span>ctx3<span style=color:#f92672>));</span>  <span style=color:#75715e>// false
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p>运行结果：</p><pre tabindex=0><code>表达式: ((isAdmin OR isEditor) AND NOT(isBanned))
 场景1: true
 场景2: false
 场景3: false
-</code></pre><h2 id="三解释器模式的高级用法">三、解释器模式的高级用法</h2>
-<h3 id="31-数学表达式解释器">3.1 数学表达式解释器</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// ========== 抽象表达式 ==========
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">MathExpression</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">double</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 数字
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">NumberExpression</span> <span style="color:#66d9ef">implements</span> MathExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">double</span> value<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">NumberExpression</span><span style="color:#f92672">(</span><span style="color:#66d9ef">double</span> value<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">value</span> <span style="color:#f92672">=</span> value<span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span> <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">double</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> value<span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span> <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> String<span style="color:#f92672">.</span><span style="color:#a6e22e">valueOf</span><span style="color:#f92672">(</span>value<span style="color:#f92672">);</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 加法
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AddExpression</span> <span style="color:#66d9ef">implements</span> MathExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> MathExpression left<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> MathExpression right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">AddExpression</span><span style="color:#f92672">(</span>MathExpression left<span style="color:#f92672">,</span> MathExpression right<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">left</span> <span style="color:#f92672">=</span> left<span style="color:#f92672">;</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">right</span> <span style="color:#f92672">=</span> right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span> <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">double</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> left<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">()</span> <span style="color:#f92672">+</span> right<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">();</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span> <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;(&#34;</span> <span style="color:#f92672">+</span> left <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; + &#34;</span> <span style="color:#f92672">+</span> right <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;)&#34;</span><span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 减法
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SubtractExpression</span> <span style="color:#66d9ef">implements</span> MathExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> MathExpression left<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> MathExpression right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">SubtractExpression</span><span style="color:#f92672">(</span>MathExpression left<span style="color:#f92672">,</span> MathExpression right<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">left</span> <span style="color:#f92672">=</span> left<span style="color:#f92672">;</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">right</span> <span style="color:#f92672">=</span> right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span> <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">double</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> left<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">()</span> <span style="color:#f92672">-</span> right<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">();</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span> <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;(&#34;</span> <span style="color:#f92672">+</span> left <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; - &#34;</span> <span style="color:#f92672">+</span> right <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;)&#34;</span><span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 乘法
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MultiplyExpression</span> <span style="color:#66d9ef">implements</span> MathExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> MathExpression left<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> MathExpression right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">MultiplyExpression</span><span style="color:#f92672">(</span>MathExpression left<span style="color:#f92672">,</span> MathExpression right<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">left</span> <span style="color:#f92672">=</span> left<span style="color:#f92672">;</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">right</span> <span style="color:#f92672">=</span> right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span> <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">double</span> <span style="color:#a6e22e">interpret</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> left<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">()</span> <span style="color:#f92672">*</span> right<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">();</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span> <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;(&#34;</span> <span style="color:#f92672">+</span> left <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; * &#34;</span> <span style="color:#f92672">+</span> right <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;)&#34;</span><span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 简易解析器 ==========
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MathParser</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 解析 &#34;(1 + 2) * 3&#34; 这样的表达式
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> MathExpression <span style="color:#a6e22e">parse</span><span style="color:#f92672">(</span>String expression<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 简化版：使用递归下降解析
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> Parser<span style="color:#f92672">(</span>expression<span style="color:#f92672">.</span><span style="color:#a6e22e">trim</span><span style="color:#f92672">()).</span><span style="color:#a6e22e">parseExpression</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Parser</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> String input<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> pos <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        Parser<span style="color:#f92672">(</span>String input<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">input</span> <span style="color:#f92672">=</span> input<span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        MathExpression <span style="color:#a6e22e">parseExpression</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            MathExpression result <span style="color:#f92672">=</span> parseTerm<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>pos <span style="color:#f92672">&lt;</span> input<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">char</span> op <span style="color:#f92672">=</span> peek<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>op <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;+&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span> consume<span style="color:#f92672">();</span> result <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AddExpression<span style="color:#f92672">(</span>result<span style="color:#f92672">,</span> parseTerm<span style="color:#f92672">());</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>op <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;-&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span> consume<span style="color:#f92672">();</span> result <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SubtractExpression<span style="color:#f92672">(</span>result<span style="color:#f92672">,</span> parseTerm<span style="color:#f92672">());</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> result<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        MathExpression <span style="color:#a6e22e">parseTerm</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            MathExpression result <span style="color:#f92672">=</span> parseFactor<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>pos <span style="color:#f92672">&lt;</span> input<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">char</span> op <span style="color:#f92672">=</span> peek<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>op <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;*&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span> consume<span style="color:#f92672">();</span> result <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> MultiplyExpression<span style="color:#f92672">(</span>result<span style="color:#f92672">,</span> parseFactor<span style="color:#f92672">());</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> result<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        MathExpression <span style="color:#a6e22e">parseFactor</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            skipWhitespace<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>peek<span style="color:#f92672">()</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;(&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>                consume<span style="color:#f92672">();</span>  <span style="color:#75715e">// (
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                MathExpression expr <span style="color:#f92672">=</span> parseExpression<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>                consume<span style="color:#f92672">();</span>  <span style="color:#75715e">// )
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                <span style="color:#66d9ef">return</span> expr<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> parseNumber<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        MathExpression <span style="color:#a6e22e">parseNumber</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            skipWhitespace<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>            StringBuilder sb <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> StringBuilder<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>pos <span style="color:#f92672">&lt;</span> input<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">()</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">(</span>Character<span style="color:#f92672">.</span><span style="color:#a6e22e">isDigit</span><span style="color:#f92672">(</span>input<span style="color:#f92672">.</span><span style="color:#a6e22e">charAt</span><span style="color:#f92672">(</span>pos<span style="color:#f92672">))</span> <span style="color:#f92672">||</span> input<span style="color:#f92672">.</span><span style="color:#a6e22e">charAt</span><span style="color:#f92672">(</span>pos<span style="color:#f92672">)</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;.&#39;</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>                sb<span style="color:#f92672">.</span><span style="color:#a6e22e">append</span><span style="color:#f92672">(</span>input<span style="color:#f92672">.</span><span style="color:#a6e22e">charAt</span><span style="color:#f92672">(</span>pos<span style="color:#f92672">++));</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> NumberExpression<span style="color:#f92672">(</span>Double<span style="color:#f92672">.</span><span style="color:#a6e22e">parseDouble</span><span style="color:#f92672">(</span>sb<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">()));</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">char</span> <span style="color:#a6e22e">peek</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> skipWhitespace<span style="color:#f92672">();</span> <span style="color:#66d9ef">return</span> pos <span style="color:#f92672">&lt;</span> input<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">()</span> <span style="color:#f92672">?</span> input<span style="color:#f92672">.</span><span style="color:#a6e22e">charAt</span><span style="color:#f92672">(</span>pos<span style="color:#f92672">)</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;\0&#39;</span><span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">consume</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> pos<span style="color:#f92672">++;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">skipWhitespace</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>pos <span style="color:#f92672">&lt;</span> input<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">()</span> <span style="color:#f92672">&amp;&amp;</span> Character<span style="color:#f92672">.</span><span style="color:#a6e22e">isWhitespace</span><span style="color:#f92672">(</span>input<span style="color:#f92672">.</span><span style="color:#a6e22e">charAt</span><span style="color:#f92672">(</span>pos<span style="color:#f92672">)))</span> pos<span style="color:#f92672">++;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 使用
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>MathExpression expr <span style="color:#f92672">=</span> MathParser<span style="color:#f92672">.</span><span style="color:#a6e22e">parse</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;(1 + 2) * 3&#34;</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>expr <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; = &#34;</span> <span style="color:#f92672">+</span> expr<span style="color:#f92672">.</span><span style="color:#a6e22e">interpret</span><span style="color:#f92672">());</span>  <span style="color:#75715e">// (1.0 + 2.0) * 3.0 = 9.0
-</span></span></span></code></pre></div><h3 id="32-规则引擎解释器">3.2 规则引擎解释器</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 实现业务规则：price &gt; 100 AND category == &#34;electronics&#34;
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">RuleExpression</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">evaluate</span><span style="color:#f92672">(</span>Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;</span> facts<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ComparisonExpression</span> <span style="color:#66d9ef">implements</span> RuleExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> String field<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> String operator<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Object value<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">ComparisonExpression</span><span style="color:#f92672">(</span>String field<span style="color:#f92672">,</span> String operator<span style="color:#f92672">,</span> Object value<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">field</span> <span style="color:#f92672">=</span> field<span style="color:#f92672">;</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">operator</span> <span style="color:#f92672">=</span> operator<span style="color:#f92672">;</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">value</span> <span style="color:#f92672">=</span> value<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@SuppressWarnings</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;unchecked&#34;</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">evaluate</span><span style="color:#f92672">(</span>Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;</span> facts<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        Object factValue <span style="color:#f92672">=</span> facts<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>field<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>factValue <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">switch</span> <span style="color:#f92672">(</span>operator<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#34;&gt;&#34;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">return</span> <span style="color:#f92672">((</span>Comparable<span style="color:#f92672">)</span> factValue<span style="color:#f92672">).</span><span style="color:#a6e22e">compareTo</span><span style="color:#f92672">(</span>value<span style="color:#f92672">)</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#34;&lt;&#34;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">return</span> <span style="color:#f92672">((</span>Comparable<span style="color:#f92672">)</span> factValue<span style="color:#f92672">).</span><span style="color:#a6e22e">compareTo</span><span style="color:#f92672">(</span>value<span style="color:#f92672">)</span> <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#34;==&#34;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">return</span> factValue<span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span>value<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#34;!=&#34;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">return</span> <span style="color:#f92672">!</span>factValue<span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span>value<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">default</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IllegalArgumentException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;未知运算符: &#34;</span> <span style="color:#f92672">+</span> operator<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">toString</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> field <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; &#34;</span> <span style="color:#f92672">+</span> operator <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; &#34;</span> <span style="color:#f92672">+</span> value<span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AndRule</span> <span style="color:#66d9ef">implements</span> RuleExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> RuleExpression left<span style="color:#f92672">,</span> right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">AndRule</span><span style="color:#f92672">(</span>RuleExpression left<span style="color:#f92672">,</span> RuleExpression right<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">left</span> <span style="color:#f92672">=</span> left<span style="color:#f92672">;</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">right</span> <span style="color:#f92672">=</span> right<span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span> <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">evaluate</span><span style="color:#f92672">(</span>Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;</span> facts<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> left<span style="color:#f92672">.</span><span style="color:#a6e22e">evaluate</span><span style="color:#f92672">(</span>facts<span style="color:#f92672">)</span> <span style="color:#f92672">&amp;&amp;</span> right<span style="color:#f92672">.</span><span style="color:#a6e22e">evaluate</span><span style="color:#f92672">(</span>facts<span style="color:#f92672">);</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrRule</span> <span style="color:#66d9ef">implements</span> RuleExpression <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> RuleExpression left<span style="color:#f92672">,</span> right<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">OrRule</span><span style="color:#f92672">(</span>RuleExpression left<span style="color:#f92672">,</span> RuleExpression right<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">left</span> <span style="color:#f92672">=</span> left<span style="color:#f92672">;</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">right</span> <span style="color:#f92672">=</span> right<span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span> <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">evaluate</span><span style="color:#f92672">(</span>Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;</span> facts<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">return</span> left<span style="color:#f92672">.</span><span style="color:#a6e22e">evaluate</span><span style="color:#f92672">(</span>facts<span style="color:#f92672">)</span> <span style="color:#f92672">||</span> right<span style="color:#f92672">.</span><span style="color:#a6e22e">evaluate</span><span style="color:#f92672">(</span>facts<span style="color:#f92672">);</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 使用
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>RuleExpression rule <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AndRule<span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">new</span> ComparisonExpression<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;price&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;&gt;&#34;</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">100</span><span style="color:#f92672">),</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">new</span> ComparisonExpression<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;category&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;==&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;electronics&#34;</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>Map<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;</span> product <span style="color:#f92672">=</span> Map<span style="color:#f92672">.</span><span style="color:#a6e22e">of</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;price&#34;</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">299</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;category&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;electronics&#34;</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;规则匹配: &#34;</span> <span style="color:#f92672">+</span> rule<span style="color:#f92672">.</span><span style="color:#a6e22e">evaluate</span><span style="color:#f92672">(</span>product<span style="color:#f92672">));</span>  <span style="color:#75715e">// true
-</span></span></span></code></pre></div><h2 id="四解释器模式在-jdk-中的应用">四、解释器模式在 JDK 中的应用</h2>
-<h3 id="41-javautilregexpattern">4.1 java.util.regex.Pattern</h3>
-<p>正则表达式引擎是解释器模式的经典应用：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 正则表达式引擎解释模式
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Pattern pattern <span style="color:#f92672">=</span> Pattern<span style="color:#f92672">.</span><span style="color:#a6e22e">compile</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;a*b&#34;</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 文法规则
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Matcher matcher <span style="color:#f92672">=</span> pattern<span style="color:#f92672">.</span><span style="color:#a6e22e">matcher</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;aaaab&#34;</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 输入
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">boolean</span> matches <span style="color:#f92672">=</span> matcher<span style="color:#f92672">.</span><span style="color:#a6e22e">matches</span><span style="color:#f92672">();</span>  <span style="color:#75715e">// 解释/匹配
-</span></span></span></code></pre></div><h3 id="42-javatextformat">4.2 java.text.Format</h3>
-<p>格式化类可以看作解释器：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>SimpleDateFormat sdf <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SimpleDateFormat<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;yyyy-MM-dd&#34;</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 文法
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Date date <span style="color:#f92672">=</span> sdf<span style="color:#f92672">.</span><span style="color:#a6e22e">parse</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;2026-04-22&#34;</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 解释
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>String formatted <span style="color:#f92672">=</span> sdf<span style="color:#f92672">.</span><span style="color:#a6e22e">format</span><span style="color:#f92672">(</span>date<span style="color:#f92672">);</span>  <span style="color:#75715e">// 反向解释
-</span></span></span></code></pre></div><h3 id="43-el-表达式">4.3 EL 表达式</h3>
-<p>JSP/JSF 的 EL 表达式也是解释器：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// #{user.name} → 解释为 getUser().getName()
-</span></span></span></code></pre></div><h2 id="五解释器模式-vs-其他模式">五、解释器模式 vs 其他模式</h2>
-<h3 id="51-对比组合模式">5.1 对比组合模式</h3>
-<p>解释器模式通常基于组合模式来构建语法树。组合模式提供递归结构，解释器模式为组合结构添加解释语义。</p>
-<h3 id="52-对比访问者模式">5.2 对比访问者模式</h3>
-<table>
-<thead>
-<tr>
-<th>维度</th>
-<th>解释器模式</th>
-<th>访问者模式</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>目的</td>
-<td>解释/执行表达式</td>
-<td>对结构执行操作</td>
-</tr>
-<tr>
-<td>结构</td>
-<td>语法树</td>
-<td>任意对象结构</td>
-</tr>
-<tr>
-<td>扩展</td>
-<td>新增文法规则</td>
-<td>新增操作</td>
-</tr>
-</tbody>
-</table>
-<h2 id="六解释器模式的优缺点">六、解释器模式的优缺点</h2>
-<h3 id="优点">优点</h3>
-<ol>
-<li><strong>易于扩展文法</strong>：新增文法规则只需新增类</li>
-<li><strong>直观映射</strong>：文法规则与类一一对应</li>
-<li><strong>易于实现</strong>：简单的文法容易实现</li>
-</ol>
-<h3 id="缺点">缺点</h3>
-<ol>
-<li><strong>复杂文法难维护</strong>：文法复杂时类数量爆炸</li>
-<li><strong>性能问题</strong>：递归解释效率低</li>
-<li><strong>实用性有限</strong>：复杂解析通常用工具（ANTLR）</li>
-</ol>
-<h3 id="适用场景">适用场景</h3>
-<ul>
-<li>需要解释执行特定领域语言</li>
-<li>文法相对简单</li>
-<li>需要快速原型实现 DSL</li>
-<li>规则引擎、查询解析</li>
-</ul>
-<h2 id="七面试常见问题">七、面试常见问题</h2>
-<h3 id="q1-解释器模式的核心思想是什么">Q1: 解释器模式的核心思想是什么？</h3>
-<p>解释器模式将文法规则映射为类，每条文法规则对应一个类。通过组合这些类构建语法树，然后递归解释执行。本质是用面向对象的方式实现语言的解释器。</p>
-<h3 id="q2-解释器模式适合什么场景">Q2: 解释器模式适合什么场景？</h3>
-<p>适合需要解释执行特定领域语言（DSL）的场景，且文法相对简单。典型应用：布尔表达式求值、规则引擎、简单查询语言。复杂文法建议使用 ANTLR 等工具。</p>
-<h3 id="q3-解释器模式和组合模式有什么关系">Q3: 解释器模式和组合模式有什么关系？</h3>
-<p>解释器模式通常使用组合模式来构建语法树——终结符是叶子节点，非终结符是组合节点。解释器在组合结构的基础上添加 interpret 语义。</p>
-<h3 id="q4-为什么实际项目中很少用解释器模式">Q4: 为什么实际项目中很少用解释器模式？</h3>
-<p>因为对于复杂的文法，手写解释器类太多、性能差、维护难。实际项目中通常使用解析器生成工具（如 ANTLR、JavaCC）来自动生成解析代码。解释器模式更适合文法简单的场景。</p>
-<h2 id="八总结">八、总结</h2>
-<p>解释器模式是将文法规则映射为类的模式，它在简单 DSL 场景下非常优雅，但在复杂场景下通常被解析器生成工具替代。</p>
-<p><strong>核心要点</strong>：</p>
-<ol>
-<li><strong>文法即类</strong>：每条文法规则对应一个类</li>
-<li><strong>递归解释</strong>：语法树的递归遍历和解释</li>
-<li><strong>终结符/非终结符</strong>：叶子节点和组合节点</li>
-<li><strong>适用简单文法</strong>：复杂文法用工具生成</li>
-<li><strong>实际应用</strong>：正则表达式、规则引擎、简单 DSL</li>
-</ol>
-<p>解释器模式告诉我们：有时候最好的编程方式就是创造一种语言来描述问题。</p>
-<hr>
-<p><strong>相关设计模式系列</strong>：</p>
-<ul>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B8%80-%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E6%8C%87%E5%8D%97/">Java设计模式（一）：单例模式完全指南</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BA%8C-%E5%B7%A5%E5%8E%82%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%85%A5%E8%AF%A6%E8%A7%A3/">Java设计模式（二）：工厂模式深入详解</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B8%89-%E5%BB%BA%E9%80%A0%E8%80%85%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（三）：建造者模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%9B%9B-%E5%8E%9F%E5%9E%8B%E6%A8%A1%E5%BC%8F%E4%B8%8E%E5%AF%B9%E8%B1%A1%E5%85%8B%E9%9A%86/">Java设计模式（四）：原型模式与对象克隆</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BA%94-%E9%80%82%E9%85%8D%E5%99%A8%E6%A8%A1%E5%BC%8F%E5%AE%9E%E6%88%98%E8%A7%A3%E6%9E%90/">Java设计模式（五）：适配器模式实战解析</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%85%AD-%E8%A3%85%E9%A5%B0%E5%99%A8%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%85%A5%E5%AE%9E%E8%B7%B5/">Java设计模式（六）：装饰器模式深入实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B8%83-%E8%A7%82%E5%AF%9F%E8%80%85%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E8%A7%A3%E6%9E%90/">Java设计模式（七）：观察者模式完全解析</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%85%AB-%E7%AD%96%E7%95%A5%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（八）：策略模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B9%9D-%E6%A8%A1%E6%9D%BF%E6%96%B9%E6%B3%95%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E6%8C%87%E5%8D%97/">Java设计模式（九）：模板方法模式完全指南</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81-%E8%B4%A3%E4%BB%BB%E9%93%BE%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十）：责任链模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%B8%80-%E5%91%BD%E4%BB%A4%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E8%A7%A3%E6%9E%90/">Java设计模式（十一）：命令模式完全解析</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%BA%8C-%E8%BF%AD%E4%BB%A3%E5%99%A8%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十二）：迭代器模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%B8%89-%E8%AE%BF%E9%97%AE%E8%80%85%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十三）：访问者模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E5%9B%9B-%E7%BB%84%E5%90%88%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十四）：组合模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%BA%94-%E4%BA%AB%E5%85%83%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十五）：享元模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E5%85%AD-%E5%A4%96%E8%A7%82%E6%A8%A1%E5%BC%8F%E5%AE%9E%E6%88%98%E8%A7%A3%E6%9E%90/">Java设计模式（十六）：外观模式实战解析</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%B8%83-%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十七）：代理模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E5%85%AB-%E6%A1%A5%E6%8E%A5%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十八）：桥接模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%B9%9D-%E4%B8%AD%E4%BB%8B%E8%80%85%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十九）：中介者模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BA%8C%E5%8D%81-%E5%A4%87%E5%BF%98%E5%BD%95%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（二十）：备忘录模式深度实践</a></li>
-<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BA%8C%E5%8D%81%E4%B8%80-%E7%8A%B6%E6%80%81%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（二十一）：状态模式深度实践</a></li>
-</ul>
-    </div>
-</article>
-
-    </main>
-    <footer>
-        <p>&copy; 2026 李亚飞</p>
-    </footer>
-</body>
-</html>
+</code></pre><h2 id=三解释器模式的高级用法>三、解释器模式的高级用法</h2><h3 id=31-数学表达式解释器>3.1 数学表达式解释器</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// ========== 抽象表达式 ==========
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>interface</span> <span style=color:#a6e22e>MathExpression</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>double</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 数字
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>NumberExpression</span> <span style=color:#66d9ef>implements</span> MathExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> <span style=color:#66d9ef>double</span> value<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>NumberExpression</span><span style=color:#f92672>(</span><span style=color:#66d9ef>double</span> value<span style=color:#f92672>)</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>value</span> <span style=color:#f92672>=</span> value<span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span> <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>double</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> value<span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span> <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> String<span style=color:#f92672>.</span><span style=color:#a6e22e>valueOf</span><span style=color:#f92672>(</span>value<span style=color:#f92672>);</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 加法
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>AddExpression</span> <span style=color:#66d9ef>implements</span> MathExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> MathExpression left<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> MathExpression right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>AddExpression</span><span style=color:#f92672>(</span>MathExpression left<span style=color:#f92672>,</span> MathExpression right<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>left</span> <span style=color:#f92672>=</span> left<span style=color:#f92672>;</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>right</span> <span style=color:#f92672>=</span> right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span> <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>double</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> left<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>()</span> <span style=color:#f92672>+</span> right<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>();</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span> <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> <span style=color:#e6db74>&#34;(&#34;</span> <span style=color:#f92672>+</span> left <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34; + &#34;</span> <span style=color:#f92672>+</span> right <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34;)&#34;</span><span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 减法
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>SubtractExpression</span> <span style=color:#66d9ef>implements</span> MathExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> MathExpression left<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> MathExpression right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>SubtractExpression</span><span style=color:#f92672>(</span>MathExpression left<span style=color:#f92672>,</span> MathExpression right<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>left</span> <span style=color:#f92672>=</span> left<span style=color:#f92672>;</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>right</span> <span style=color:#f92672>=</span> right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span> <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>double</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> left<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>()</span> <span style=color:#f92672>-</span> right<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>();</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span> <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> <span style=color:#e6db74>&#34;(&#34;</span> <span style=color:#f92672>+</span> left <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34; - &#34;</span> <span style=color:#f92672>+</span> right <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34;)&#34;</span><span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 乘法
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>MultiplyExpression</span> <span style=color:#66d9ef>implements</span> MathExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> MathExpression left<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> MathExpression right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>MultiplyExpression</span><span style=color:#f92672>(</span>MathExpression left<span style=color:#f92672>,</span> MathExpression right<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>left</span> <span style=color:#f92672>=</span> left<span style=color:#f92672>;</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>right</span> <span style=color:#f92672>=</span> right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span> <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>double</span> <span style=color:#a6e22e>interpret</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> left<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>()</span> <span style=color:#f92672>*</span> right<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>();</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span> <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> <span style=color:#e6db74>&#34;(&#34;</span> <span style=color:#f92672>+</span> left <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34; * &#34;</span> <span style=color:#f92672>+</span> right <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34;)&#34;</span><span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ========== 简易解析器 ==========
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>MathParser</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 解析 &#34;(1 + 2) * 3&#34; 这样的表达式
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>static</span> MathExpression <span style=color:#a6e22e>parse</span><span style=color:#f92672>(</span>String expression<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 简化版：使用递归下降解析
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> Parser<span style=color:#f92672>(</span>expression<span style=color:#f92672>.</span><span style=color:#a6e22e>trim</span><span style=color:#f92672>()).</span><span style=color:#a6e22e>parseExpression</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>Parser</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> String input<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>int</span> pos <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        Parser<span style=color:#f92672>(</span>String input<span style=color:#f92672>)</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>input</span> <span style=color:#f92672>=</span> input<span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        MathExpression <span style=color:#a6e22e>parseExpression</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            MathExpression result <span style=color:#f92672>=</span> parseTerm<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>while</span> <span style=color:#f92672>(</span>pos <span style=color:#f92672>&lt;</span> input<span style=color:#f92672>.</span><span style=color:#a6e22e>length</span><span style=color:#f92672>())</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>char</span> op <span style=color:#f92672>=</span> peek<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>op <span style=color:#f92672>==</span> <span style=color:#e6db74>&#39;+&#39;</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span> consume<span style=color:#f92672>();</span> result <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> AddExpression<span style=color:#f92672>(</span>result<span style=color:#f92672>,</span> parseTerm<span style=color:#f92672>());</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>else</span> <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>op <span style=color:#f92672>==</span> <span style=color:#e6db74>&#39;-&#39;</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span> consume<span style=color:#f92672>();</span> result <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> SubtractExpression<span style=color:#f92672>(</span>result<span style=color:#f92672>,</span> parseTerm<span style=color:#f92672>());</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>else</span> <span style=color:#66d9ef>break</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> result<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        MathExpression <span style=color:#a6e22e>parseTerm</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            MathExpression result <span style=color:#f92672>=</span> parseFactor<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>while</span> <span style=color:#f92672>(</span>pos <span style=color:#f92672>&lt;</span> input<span style=color:#f92672>.</span><span style=color:#a6e22e>length</span><span style=color:#f92672>())</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>char</span> op <span style=color:#f92672>=</span> peek<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>op <span style=color:#f92672>==</span> <span style=color:#e6db74>&#39;*&#39;</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span> consume<span style=color:#f92672>();</span> result <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> MultiplyExpression<span style=color:#f92672>(</span>result<span style=color:#f92672>,</span> parseFactor<span style=color:#f92672>());</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>else</span> <span style=color:#66d9ef>break</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> result<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        MathExpression <span style=color:#a6e22e>parseFactor</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            skipWhitespace<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>peek<span style=color:#f92672>()</span> <span style=color:#f92672>==</span> <span style=color:#e6db74>&#39;(&#39;</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                consume<span style=color:#f92672>();</span>  <span style=color:#75715e>// (
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                MathExpression expr <span style=color:#f92672>=</span> parseExpression<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>                consume<span style=color:#f92672>();</span>  <span style=color:#75715e>// )
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                <span style=color:#66d9ef>return</span> expr<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> parseNumber<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        MathExpression <span style=color:#a6e22e>parseNumber</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            skipWhitespace<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            StringBuilder sb <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> StringBuilder<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>while</span> <span style=color:#f92672>(</span>pos <span style=color:#f92672>&lt;</span> input<span style=color:#f92672>.</span><span style=color:#a6e22e>length</span><span style=color:#f92672>()</span> <span style=color:#f92672>&amp;&amp;</span> <span style=color:#f92672>(</span>Character<span style=color:#f92672>.</span><span style=color:#a6e22e>isDigit</span><span style=color:#f92672>(</span>input<span style=color:#f92672>.</span><span style=color:#a6e22e>charAt</span><span style=color:#f92672>(</span>pos<span style=color:#f92672>))</span> <span style=color:#f92672>||</span> input<span style=color:#f92672>.</span><span style=color:#a6e22e>charAt</span><span style=color:#f92672>(</span>pos<span style=color:#f92672>)</span> <span style=color:#f92672>==</span> <span style=color:#e6db74>&#39;.&#39;</span><span style=color:#f92672>))</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                sb<span style=color:#f92672>.</span><span style=color:#a6e22e>append</span><span style=color:#f92672>(</span>input<span style=color:#f92672>.</span><span style=color:#a6e22e>charAt</span><span style=color:#f92672>(</span>pos<span style=color:#f92672>++));</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> NumberExpression<span style=color:#f92672>(</span>Double<span style=color:#f92672>.</span><span style=color:#a6e22e>parseDouble</span><span style=color:#f92672>(</span>sb<span style=color:#f92672>.</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>()));</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>char</span> <span style=color:#a6e22e>peek</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> skipWhitespace<span style=color:#f92672>();</span> <span style=color:#66d9ef>return</span> pos <span style=color:#f92672>&lt;</span> input<span style=color:#f92672>.</span><span style=color:#a6e22e>length</span><span style=color:#f92672>()</span> <span style=color:#f92672>?</span> input<span style=color:#f92672>.</span><span style=color:#a6e22e>charAt</span><span style=color:#f92672>(</span>pos<span style=color:#f92672>)</span> <span style=color:#f92672>:</span> <span style=color:#e6db74>&#39;\0&#39;</span><span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>consume</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> pos<span style=color:#f92672>++;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>skipWhitespace</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>while</span> <span style=color:#f92672>(</span>pos <span style=color:#f92672>&lt;</span> input<span style=color:#f92672>.</span><span style=color:#a6e22e>length</span><span style=color:#f92672>()</span> <span style=color:#f92672>&amp;&amp;</span> Character<span style=color:#f92672>.</span><span style=color:#a6e22e>isWhitespace</span><span style=color:#f92672>(</span>input<span style=color:#f92672>.</span><span style=color:#a6e22e>charAt</span><span style=color:#f92672>(</span>pos<span style=color:#f92672>)))</span> pos<span style=color:#f92672>++;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 使用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>MathExpression expr <span style=color:#f92672>=</span> MathParser<span style=color:#f92672>.</span><span style=color:#a6e22e>parse</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;(1 + 2) * 3&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span>expr <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34; = &#34;</span> <span style=color:#f92672>+</span> expr<span style=color:#f92672>.</span><span style=color:#a6e22e>interpret</span><span style=color:#f92672>());</span>  <span style=color:#75715e>// (1.0 + 2.0) * 3.0 = 9.0
+</span></span></span></code></pre></div><h3 id=32-规则引擎解释器>3.2 规则引擎解释器</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 实现业务规则：price &gt; 100 AND category == &#34;electronics&#34;
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>interface</span> <span style=color:#a6e22e>RuleExpression</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>evaluate</span><span style=color:#f92672>(</span>Map<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>,</span> Object<span style=color:#f92672>&gt;</span> facts<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>ComparisonExpression</span> <span style=color:#66d9ef>implements</span> RuleExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> String field<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> String operator<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> Object value<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>ComparisonExpression</span><span style=color:#f92672>(</span>String field<span style=color:#f92672>,</span> String operator<span style=color:#f92672>,</span> Object value<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>field</span> <span style=color:#f92672>=</span> field<span style=color:#f92672>;</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>operator</span> <span style=color:#f92672>=</span> operator<span style=color:#f92672>;</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>value</span> <span style=color:#f92672>=</span> value<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@SuppressWarnings</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;unchecked&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>evaluate</span><span style=color:#f92672>(</span>Map<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>,</span> Object<span style=color:#f92672>&gt;</span> facts<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        Object factValue <span style=color:#f92672>=</span> facts<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span>field<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>factValue <span style=color:#f92672>==</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>)</span> <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>false</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>switch</span> <span style=color:#f92672>(</span>operator<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>case</span> <span style=color:#e6db74>&#34;&gt;&#34;</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>return</span> <span style=color:#f92672>((</span>Comparable<span style=color:#f92672>)</span> factValue<span style=color:#f92672>).</span><span style=color:#a6e22e>compareTo</span><span style=color:#f92672>(</span>value<span style=color:#f92672>)</span> <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>case</span> <span style=color:#e6db74>&#34;&lt;&#34;</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>return</span> <span style=color:#f92672>((</span>Comparable<span style=color:#f92672>)</span> factValue<span style=color:#f92672>).</span><span style=color:#a6e22e>compareTo</span><span style=color:#f92672>(</span>value<span style=color:#f92672>)</span> <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>case</span> <span style=color:#e6db74>&#34;==&#34;</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>return</span> factValue<span style=color:#f92672>.</span><span style=color:#a6e22e>equals</span><span style=color:#f92672>(</span>value<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>case</span> <span style=color:#e6db74>&#34;!=&#34;</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>return</span> <span style=color:#f92672>!</span>factValue<span style=color:#f92672>.</span><span style=color:#a6e22e>equals</span><span style=color:#f92672>(</span>value<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>default</span><span style=color:#f92672>:</span> <span style=color:#66d9ef>throw</span> <span style=color:#66d9ef>new</span> IllegalArgumentException<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;未知运算符: &#34;</span> <span style=color:#f92672>+</span> operator<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>toString</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> field <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34; &#34;</span> <span style=color:#f92672>+</span> operator <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34; &#34;</span> <span style=color:#f92672>+</span> value<span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>AndRule</span> <span style=color:#66d9ef>implements</span> RuleExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> RuleExpression left<span style=color:#f92672>,</span> right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>AndRule</span><span style=color:#f92672>(</span>RuleExpression left<span style=color:#f92672>,</span> RuleExpression right<span style=color:#f92672>)</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>left</span> <span style=color:#f92672>=</span> left<span style=color:#f92672>;</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>right</span> <span style=color:#f92672>=</span> right<span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span> <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>evaluate</span><span style=color:#f92672>(</span>Map<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>,</span> Object<span style=color:#f92672>&gt;</span> facts<span style=color:#f92672>)</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> left<span style=color:#f92672>.</span><span style=color:#a6e22e>evaluate</span><span style=color:#f92672>(</span>facts<span style=color:#f92672>)</span> <span style=color:#f92672>&amp;&amp;</span> right<span style=color:#f92672>.</span><span style=color:#a6e22e>evaluate</span><span style=color:#f92672>(</span>facts<span style=color:#f92672>);</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrRule</span> <span style=color:#66d9ef>implements</span> RuleExpression <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> RuleExpression left<span style=color:#f92672>,</span> right<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>OrRule</span><span style=color:#f92672>(</span>RuleExpression left<span style=color:#f92672>,</span> RuleExpression right<span style=color:#f92672>)</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>left</span> <span style=color:#f92672>=</span> left<span style=color:#f92672>;</span> <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>right</span> <span style=color:#f92672>=</span> right<span style=color:#f92672>;</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span> <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>evaluate</span><span style=color:#f92672>(</span>Map<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>,</span> Object<span style=color:#f92672>&gt;</span> facts<span style=color:#f92672>)</span> <span style=color:#f92672>{</span> <span style=color:#66d9ef>return</span> left<span style=color:#f92672>.</span><span style=color:#a6e22e>evaluate</span><span style=color:#f92672>(</span>facts<span style=color:#f92672>)</span> <span style=color:#f92672>||</span> right<span style=color:#f92672>.</span><span style=color:#a6e22e>evaluate</span><span style=color:#f92672>(</span>facts<span style=color:#f92672>);</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 使用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>RuleExpression rule <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> AndRule<span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>new</span> ComparisonExpression<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;price&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;&gt;&#34;</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>100</span><span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>new</span> ComparisonExpression<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;category&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;==&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;electronics&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>Map<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>,</span> Object<span style=color:#f92672>&gt;</span> product <span style=color:#f92672>=</span> Map<span style=color:#f92672>.</span><span style=color:#a6e22e>of</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;price&#34;</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>299</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;category&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;electronics&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;规则匹配: &#34;</span> <span style=color:#f92672>+</span> rule<span style=color:#f92672>.</span><span style=color:#a6e22e>evaluate</span><span style=color:#f92672>(</span>product<span style=color:#f92672>));</span>  <span style=color:#75715e>// true
+</span></span></span></code></pre></div><h2 id=四解释器模式在-jdk-中的应用>四、解释器模式在 JDK 中的应用</h2><h3 id=41-javautilregexpattern>4.1 java.util.regex.Pattern</h3><p>正则表达式引擎是解释器模式的经典应用：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 正则表达式引擎解释模式
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>Pattern pattern <span style=color:#f92672>=</span> Pattern<span style=color:#f92672>.</span><span style=color:#a6e22e>compile</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;a*b&#34;</span><span style=color:#f92672>);</span>  <span style=color:#75715e>// 文法规则
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>Matcher matcher <span style=color:#f92672>=</span> pattern<span style=color:#f92672>.</span><span style=color:#a6e22e>matcher</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;aaaab&#34;</span><span style=color:#f92672>);</span>  <span style=color:#75715e>// 输入
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>boolean</span> matches <span style=color:#f92672>=</span> matcher<span style=color:#f92672>.</span><span style=color:#a6e22e>matches</span><span style=color:#f92672>();</span>  <span style=color:#75715e>// 解释/匹配
+</span></span></span></code></pre></div><h3 id=42-javatextformat>4.2 java.text.Format</h3><p>格式化类可以看作解释器：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span>SimpleDateFormat sdf <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> SimpleDateFormat<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;yyyy-MM-dd&#34;</span><span style=color:#f92672>);</span>  <span style=color:#75715e>// 文法
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>Date date <span style=color:#f92672>=</span> sdf<span style=color:#f92672>.</span><span style=color:#a6e22e>parse</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;2026-04-22&#34;</span><span style=color:#f92672>);</span>  <span style=color:#75715e>// 解释
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>String formatted <span style=color:#f92672>=</span> sdf<span style=color:#f92672>.</span><span style=color:#a6e22e>format</span><span style=color:#f92672>(</span>date<span style=color:#f92672>);</span>  <span style=color:#75715e>// 反向解释
+</span></span></span></code></pre></div><h3 id=43-el-表达式>4.3 EL 表达式</h3><p>JSP/JSF 的 EL 表达式也是解释器：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// #{user.name} → 解释为 getUser().getName()
+</span></span></span></code></pre></div><h2 id=五解释器模式-vs-其他模式>五、解释器模式 vs 其他模式</h2><h3 id=51-对比组合模式>5.1 对比组合模式</h3><p>解释器模式通常基于组合模式来构建语法树。组合模式提供递归结构，解释器模式为组合结构添加解释语义。</p><h3 id=52-对比访问者模式>5.2 对比访问者模式</h3><table><thead><tr><th>维度</th><th>解释器模式</th><th>访问者模式</th></tr></thead><tbody><tr><td>目的</td><td>解释/执行表达式</td><td>对结构执行操作</td></tr><tr><td>结构</td><td>语法树</td><td>任意对象结构</td></tr><tr><td>扩展</td><td>新增文法规则</td><td>新增操作</td></tr></tbody></table><h2 id=六解释器模式的优缺点>六、解释器模式的优缺点</h2><h3 id=优点>优点</h3><ol><li><strong>易于扩展文法</strong>：新增文法规则只需新增类</li><li><strong>直观映射</strong>：文法规则与类一一对应</li><li><strong>易于实现</strong>：简单的文法容易实现</li></ol><h3 id=缺点>缺点</h3><ol><li><strong>复杂文法难维护</strong>：文法复杂时类数量爆炸</li><li><strong>性能问题</strong>：递归解释效率低</li><li><strong>实用性有限</strong>：复杂解析通常用工具（ANTLR）</li></ol><h3 id=适用场景>适用场景</h3><ul><li>需要解释执行特定领域语言</li><li>文法相对简单</li><li>需要快速原型实现 DSL</li><li>规则引擎、查询解析</li></ul><h2 id=七面试常见问题>七、面试常见问题</h2><h3 id=q1-解释器模式的核心思想是什么>Q1: 解释器模式的核心思想是什么？</h3><p>解释器模式将文法规则映射为类，每条文法规则对应一个类。通过组合这些类构建语法树，然后递归解释执行。本质是用面向对象的方式实现语言的解释器。</p><h3 id=q2-解释器模式适合什么场景>Q2: 解释器模式适合什么场景？</h3><p>适合需要解释执行特定领域语言（DSL）的场景，且文法相对简单。典型应用：布尔表达式求值、规则引擎、简单查询语言。复杂文法建议使用 ANTLR 等工具。</p><h3 id=q3-解释器模式和组合模式有什么关系>Q3: 解释器模式和组合模式有什么关系？</h3><p>解释器模式通常使用组合模式来构建语法树——终结符是叶子节点，非终结符是组合节点。解释器在组合结构的基础上添加 interpret 语义。</p><h3 id=q4-为什么实际项目中很少用解释器模式>Q4: 为什么实际项目中很少用解释器模式？</h3><p>因为对于复杂的文法，手写解释器类太多、性能差、维护难。实际项目中通常使用解析器生成工具（如 ANTLR、JavaCC）来自动生成解析代码。解释器模式更适合文法简单的场景。</p><h2 id=八总结>八、总结</h2><p>解释器模式是将文法规则映射为类的模式，它在简单 DSL 场景下非常优雅，但在复杂场景下通常被解析器生成工具替代。</p><p><strong>核心要点</strong>：</p><ol><li><strong>文法即类</strong>：每条文法规则对应一个类</li><li><strong>递归解释</strong>：语法树的递归遍历和解释</li><li><strong>终结符/非终结符</strong>：叶子节点和组合节点</li><li><strong>适用简单文法</strong>：复杂文法用工具生成</li><li><strong>实际应用</strong>：正则表达式、规则引擎、简单 DSL</li></ol><p>解释器模式告诉我们：有时候最好的编程方式就是创造一种语言来描述问题。</p><hr><p><strong>相关设计模式系列</strong>：</p><ul><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B8%80-%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E6%8C%87%E5%8D%97/>Java设计模式（一）：单例模式完全指南</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BA%8C-%E5%B7%A5%E5%8E%82%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%85%A5%E8%AF%A6%E8%A7%A3/>Java设计模式（二）：工厂模式深入详解</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B8%89-%E5%BB%BA%E9%80%A0%E8%80%85%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（三）：建造者模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%9B%9B-%E5%8E%9F%E5%9E%8B%E6%A8%A1%E5%BC%8F%E4%B8%8E%E5%AF%B9%E8%B1%A1%E5%85%8B%E9%9A%86/>Java设计模式（四）：原型模式与对象克隆</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BA%94-%E9%80%82%E9%85%8D%E5%99%A8%E6%A8%A1%E5%BC%8F%E5%AE%9E%E6%88%98%E8%A7%A3%E6%9E%90/>Java设计模式（五）：适配器模式实战解析</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%85%AD-%E8%A3%85%E9%A5%B0%E5%99%A8%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%85%A5%E5%AE%9E%E8%B7%B5/>Java设计模式（六）：装饰器模式深入实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B8%83-%E8%A7%82%E5%AF%9F%E8%80%85%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E8%A7%A3%E6%9E%90/>Java设计模式（七）：观察者模式完全解析</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%85%AB-%E7%AD%96%E7%95%A5%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（八）：策略模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B9%9D-%E6%A8%A1%E6%9D%BF%E6%96%B9%E6%B3%95%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E6%8C%87%E5%8D%97/>Java设计模式（九）：模板方法模式完全指南</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81-%E8%B4%A3%E4%BB%BB%E9%93%BE%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（十）：责任链模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%B8%80-%E5%91%BD%E4%BB%A4%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E8%A7%A3%E6%9E%90/>Java设计模式（十一）：命令模式完全解析</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%BA%8C-%E8%BF%AD%E4%BB%A3%E5%99%A8%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（十二）：迭代器模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%B8%89-%E8%AE%BF%E9%97%AE%E8%80%85%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（十三）：访问者模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E5%9B%9B-%E7%BB%84%E5%90%88%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（十四）：组合模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%BA%94-%E4%BA%AB%E5%85%83%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（十五）：享元模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E5%85%AD-%E5%A4%96%E8%A7%82%E6%A8%A1%E5%BC%8F%E5%AE%9E%E6%88%98%E8%A7%A3%E6%9E%90/>Java设计模式（十六）：外观模式实战解析</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%B8%83-%E4%BB%A3%E7%90%86%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（十七）：代理模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E5%85%AB-%E6%A1%A5%E6%8E%A5%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（十八）：桥接模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%B9%9D-%E4%B8%AD%E4%BB%8B%E8%80%85%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（十九）：中介者模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BA%8C%E5%8D%81-%E5%A4%87%E5%BF%98%E5%BD%95%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（二十）：备忘录模式深度实践</a></li><li><a href=/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BA%8C%E5%8D%81%E4%B8%80-%E7%8A%B6%E6%80%81%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/>Java设计模式（二十一）：状态模式深度实践</a></li></ul></div></article></main><footer><p>&copy; 2026 李亚飞</p></footer></body></html>

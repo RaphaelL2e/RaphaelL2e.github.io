@@ -1,1398 +1,201 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>操作系统面试八股文（二）——线程与进程同步 - Raphael Tech Blog</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a25;
-            --text-primary: #e4e4e7;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --accent-glow: rgba(59, 130, 246, 0.3);
-            --border: #27272a;
-            --code-bg: #0f0f15;
-        }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-        
-         
-        header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-        }
-        
-        .header-content {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 1rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-        
-        header h1 a {
-            color: var(--text-primary);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        header h1 a::before {
-            content: '◆';
-            color: var(--accent);
-            font-size: 0.875rem;
-        }
-        
-        nav {
-            display: flex;
-            gap: 1.5rem;
-        }
-        
-        nav a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: color 0.2s;
-            position: relative;
-        }
-        
-        nav a:hover {
-            color: var(--text-primary);
-        }
-        
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--accent);
-            transition: width 0.2s;
-        }
-        
-        nav a:hover::after {
-            width: 100%;
-        }
-        
-         
-        main {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
-        
-         
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            transition: all 0.2s;
-        }
-        
-        article:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 20px var(--accent-glow);
-        }
-        
-        article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        
-        article h2 a {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-        
-        article h2 a:hover {
-            color: var(--accent);
-        }
-        
-        .meta {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.75rem;
-        }
-        
-        .meta span {
-            color: var(--accent);
-        }
-        
-        .summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-        
-        .summary a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
-            margin-left: 0.5rem;
-        }
-        
-        .summary a:hover {
-            text-decoration: underline;
-        }
-        
-         
-        .post-header {
-            margin-bottom: 2rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            line-height: 1.3;
-            margin-bottom: 1rem;
-        }
-        
-        .post-content {
-            font-size: 1rem;
-            line-height: 1.8;
-        }
-        
-        .post-content h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 2.5rem 0 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-content h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 2rem 0 1rem;
-            color: var(--accent);
-        }
-        
-        .post-content h4 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin: 1.5rem 0 0.75rem;
-        }
-        
-        .post-content p {
-            margin-bottom: 1.25rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-        
-        .post-content a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        
-        .post-content a:hover {
-            text-decoration: underline;
-        }
-        
-        .post-content ul, .post-content ol {
-            margin: 1rem 0 1.5rem 1.5rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content li {
-            margin-bottom: 0.5rem;
-        }
-        
-        .post-content code {
-            font-family: 'JetBrains Mono', monospace;
-            background: var(--code-bg);
-            color: var(--accent);
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-size: 0.875em;
-        }
-        
-        .post-content pre {
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.25rem;
-            overflow-x: auto;
-            margin: 1.5rem 0;
-        }
-        
-        .post-content pre code {
-            background: none;
-            color: var(--text-primary);
-            padding: 0;
-        }
-        
-        .post-content blockquote {
-            border-left: 3px solid var(--accent);
-            background: var(--bg-tertiary);
-            padding: 1rem 1.25rem;
-            margin: 1.5rem 0;
-            border-radius: 0 8px 8px 0;
-        }
-        
-        .post-content blockquote p {
-            margin: 0;
-            color: var(--text-secondary);
-        }
-        
-        .post-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-            font-size: 0.9375rem;
-        }
-        
-        .post-content th {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-weight: 600;
-            text-align: left;
-            padding: 0.75rem 1rem;
-            border-bottom: 2px solid var(--border);
-        }
-        
-        .post-content td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-secondary);
-        }
-        
-        .post-content tr:hover td {
-            background: var(--bg-tertiary);
-        }
-        
-         
-        footer {
-            max-width: 900px;
-            margin: 4rem auto 0;
-            padding: 2rem 1.5rem;
-            border-top: 1px solid var(--border);
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-         
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: var(--bg-secondary);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
-        
-         
-        ::selection {
-            background: var(--accent-glow);
-            color: var(--text-primary);
-        }
-
-         
-         
-        .tags-container {
-            max-width: 900px;
-        }
-
-        .tags-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 2rem;
-        }
-
-        .tag-card {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.625rem 1rem;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .tag-card:hover {
-            border-color: var(--accent);
-            background: var(--bg-tertiary);
-            transform: translateY(-1px);
-        }
-
-        .tag-card .tag-name {
-            color: var(--text-primary);
-            font-size: 0.9375rem;
-            font-weight: 500;
-        }
-
-        .tag-card .tag-num {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.125rem 0.5rem;
-            border-radius: 4px;
-            line-height: 1;
-        }
-
-         
-        .categories-container {
-            max-width: 900px;
-        }
-
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 80vh;
-            overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-        }
-
-        .modal-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-        }
-
-        .modal-close {
-            font-size: 1.5rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: color 0.2s;
-            line-height: 1;
-        }
-
-        .modal-close:hover {
-            color: var(--text-primary);
-        }
-
-        .modal-body {
-            padding: 1rem;
-            overflow-y: auto;
-            max-height: calc(80vh - 80px);
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.25rem;
-            margin-bottom: 0.5rem;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .tag-card {
-            cursor: pointer;
-        }
-
-         
-        .tag-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .tag-modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 800px;
-            height: 600px;
-            overflow: hidden;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .tag-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            flex-shrink: 0;
-        }
-
-        .tag-modal-header h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 700;
-            padding: 0.375rem 1rem;
-            border-radius: 20px;
-        }
-
-        .tag-modal-close {
-            font-size: 2rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-        }
-
-        .tag-modal-close:hover {
-            color: var(--text-primary);
-            background: var(--bg-tertiary);
-        }
-
-        .tag-modal-body {
-            padding: 1.5rem 2rem;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.25rem 1.5rem;
-            margin-bottom: 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            text-decoration: none;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            transform: translateX(8px);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-            font-size: 1rem;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-         
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .taxonomy-detail {
-            max-width: 900px;
-        }
-
-        .taxonomy-stats {
-            margin-bottom: 2rem;
-        }
-
-        .stat-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-        }
-
-        .taxonomy-articles {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .taxonomy-article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .taxonomy-article:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--accent-glow);
-        }
-
-        .article-link {
-            display: block;
-            padding: 1.5rem;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .taxonomy-article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .article-meta {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .article-summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="header-content">
-            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
-            <nav>
-                <a href="https://raphaell2e.github.io/">首页</a>
-                <a href="https://raphaell2e.github.io/posts/">文章</a>
-                <a href="https://raphaell2e.github.io/categories/">分类</a>
-                <a href="https://raphaell2e.github.io/tags/">标签</a>
-                <a href="https://raphaell2e.github.io/about/">关于</a>
-            </nav>
-        </div>
-    </header>
-    <main>
-        
-<article class="post">
-    <div class="post-header">
-        <div class="meta">2026-06-05 <span>/</span> 操作系统 </div>
-        <h1>操作系统面试八股文（二）——线程与进程同步</h1>
-    </div>
-    <div class="post-content">
-        <h1 id="操作系统面试八股文二线程与进程同步">操作系统面试八股文（二）——线程与进程同步</h1>
-<h2 id="线程">线程</h2>
-<h3 id="线程的引入线程的引入"><a href="#%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%BC%95%E5%85%A5"></a>线程的引入</h3>
-<p>为了减小进程切换的开销，提高并发性能，引入了<strong>线程</strong>。</p>
-<ul>
-<li><strong>进程</strong>：资源分配的基本单位</li>
-<li><strong>线程</strong>：CPU调度的基本单位，是进程中的一个执行流</li>
-</ul>
-<p>引入线程后，进程只作为资源的拥有者，不再作为调度的基本单位。</p>
-<h3 id="线程与进程的对比线程与进程的对比"><a href="#%E7%BA%BF%E7%A8%8B%E4%B8%8E%E8%BF%9B%E7%A8%8B%E7%9A%84%E5%AF%B9%E6%AF%94"></a>线程与进程的对比</h3>
-<table>
-<thead>
-<tr>
-<th>维度</th>
-<th>进程</th>
-<th>线程</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>调度</td>
-<td>传统OS中是调度的基本单位</td>
-<td>调度的基本单位</td>
-</tr>
-<tr>
-<td>资源</td>
-<td>拥有独立的地址空间和系统资源</td>
-<td>不拥有系统资源，共享所属进程的资源</td>
-</tr>
-<tr>
-<td>并发性</td>
-<td>进程间可并发</td>
-<td>线程间也可并发，开销更小</td>
-</tr>
-<tr>
-<td>系统开销</td>
-<td>创建/切换开销大</td>
-<td>创建/切换开销小</td>
-</tr>
-<tr>
-<td>通信</td>
-<td>需要IPC机制（管道、消息队列等）</td>
-<td>可直接读写进程数据段</td>
-</tr>
-<tr>
-<td>地址空间</td>
-<td>每个进程有独立地址空间</td>
-<td>同一进程的线程共享地址空间</td>
-</tr>
-</tbody>
-</table>
-<blockquote>
-<p><strong>线程共享的资源</strong>：代码段、数据段、打开的文件、信号处理等</p>
-<p><strong>线程私有的资源</strong>：线程ID、寄存器、栈、程序计数器PC、errno变量</p>
-</blockquote>
-<h3 id="线程的实现方式线程的实现方式"><a href="#%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F"></a>线程的实现方式</h3>
-<h4 id="用户级线程user-level-thread-ult">用户级线程（User-Level Thread, ULT）</h4>
-<ul>
-<li>由<strong>用户空间的线程库</strong>管理，操作系统内核不知道线程的存在</li>
-<li>优点：线程切换不需要内核参与，速度快；跨平台</li>
-<li>缺点：一个线程阻塞导致整个进程阻塞；不能利用多核CPU（内核只看到进程）</li>
-<li>示例：早期的Java绿色线程</li>
-</ul>
-<h4 id="内核级线程kernel-level-thread-klt">内核级线程（Kernel-Level Thread, KLT）</h4>
-<ul>
-<li>由<strong>操作系统内核</strong>直接管理</li>
-<li>优点：一个线程阻塞不影响其他线程；可以利用多核CPU；内核可调度线程</li>
-<li>缺点：线程切换需要从用户态转到内核态，开销较大</li>
-<li>示例：Linux的pthread、Windows线程</li>
-</ul>
-<h4 id="组合方式">组合方式</h4>
-<ul>
-<li>多对一模型：多个用户线程映射到一个内核线程</li>
-<li>一对一模型：每个用户线程对应一个内核线程</li>
-<li>多对多模型：n个用户线程映射到m个内核线程（n ≥ m）</li>
-</ul>
-<blockquote>
-<p><strong>面试高频问</strong>：Linux采用的是哪种线程模型？
-Linux采用的是<strong>一对一模型</strong>，每个用户线程对应一个内核线程，由内核统一调度。Linux中线程也称为<strong>轻量级进程（LWP）</strong>。</p>
-</blockquote>
-<h3 id="线程的状态线程的状态"><a href="#%E7%BA%BF%E7%A8%8B%E7%9A%84%E7%8A%B6%E6%80%81"></a>线程的状态</h3>
-<p>与进程类似，线程也有以下基本状态：</p>
-<ul>
-<li><strong>就绪态</strong>：等待被调度执行</li>
-<li><strong>运行态</strong>：正在CPU上执行</li>
-<li><strong>阻塞态</strong>：等待某一事件</li>
-</ul>
-<p>线程状态的转换与进程类似，区别在于线程的阻塞可能不会导致整个进程阻塞（取决于线程实现方式）。</p>
-<hr>
-<h2 id="进程同步">进程同步</h2>
-<h3 id="进程同步的基本概念进程同步的基本概念"><a href="#%E8%BF%9B%E7%A8%8B%E5%90%8C%E6%AD%A5%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5"></a>进程同步的基本概念</h3>
-<p><strong>进程同步</strong>的主要任务是对多个相关进程在执行次序上进行协调，使并发执行的进程之间能按照一定的规则共享系统资源，并能很好地相互合作。</p>
-<p><strong>两个基本关系</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>关系</th>
-<th>说明</th>
-<th>举例</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>互斥</td>
-<td>间接制约关系，对临界资源的竞争</td>
-<td>多个进程访问共享打印机</td>
-</tr>
-<tr>
-<td>同步</td>
-<td>直接制约关系，为完成某任务而协作</td>
-<td>生产者生产后消费者才能消费</td>
-</tr>
-</tbody>
-</table>
-<h3 id="临界资源与临界区临界资源与临界区"><a href="#%E4%B8%B4%E7%95%8C%E8%B5%84%E6%BA%90%E4%B8%8E%E4%B8%B4%E7%95%8C%E5%8C%BA"></a>临界资源与临界区</h3>
-<ul>
-<li><strong>临界资源</strong>：一次仅允许一个进程使用的资源（如打印机、共享变量）</li>
-<li><strong>临界区</strong>：访问临界资源的那段代码</li>
-</ul>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// 临界区访问的通用模式
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">enterCriticalSection</span>();   <span style="color:#75715e">// 进入区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 临界区 —— 访问临界资源的代码
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">exitCriticalSection</span>();    <span style="color:#75715e">// 退出区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 剩余区 —— 其余代码
-</span></span></span></code></pre></div><p><strong>临界区访问原则</strong>：</p>
-<ol>
-<li><strong>空闲让进</strong>：临界区空闲时，允许进程进入</li>
-<li><strong>忙则等待</strong>：已有进程进入临界区时，其他进程必须等待</li>
-<li><strong>有限等待</strong>：等待进入临界区的进程不能无限等待（避免饥饿）</li>
-<li><strong>让权等待</strong>：不能进入临界区的进程应释放CPU</li>
-</ol>
-<h3 id="进程互斥的软件实现进程互斥的软件实现"><a href="#%E8%BF%9B%E7%A8%8B%E4%BA%92%E6%96%A5%E7%9A%84%E8%BD%AF%E4%BB%B6%E5%AE%9E%E7%8E%B0"></a>进程互斥的软件实现</h3>
-<h4 id="单标志法">单标志法</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">int</span> turn <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;  <span style="color:#75715e">// 表示哪个进程可以进入临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 进程P0
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">while</span>(turn <span style="color:#f92672">!=</span> <span style="color:#ae81ff">0</span>);  <span style="color:#75715e">// 进入区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>turn <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;          <span style="color:#75715e">// 退出区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 进程P1
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">while</span>(turn <span style="color:#f92672">!=</span> <span style="color:#ae81ff">1</span>);  <span style="color:#75715e">// 进入区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>turn <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;          <span style="color:#75715e">// 退出区
-</span></span></span></code></pre></div><p><strong>缺点</strong>：必须交替进入，违反&quot;空闲让进&quot;原则。</p>
-<h4 id="双标志先检查法">双标志先检查法</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">bool</span> flag[<span style="color:#ae81ff">2</span>] <span style="color:#f92672">=</span> {false, false};
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 进程Pi
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">while</span>(flag[j]);    <span style="color:#75715e">// 先检查对方是否在临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>flag[i] <span style="color:#f92672">=</span> true;    <span style="color:#75715e">// 后标记自己想进入
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>flag[i] <span style="color:#f92672">=</span> false;   <span style="color:#75715e">// 退出区
-</span></span></span></code></pre></div><p><strong>缺点</strong>：可能同时进入临界区（检查和标记不是原子操作）。</p>
-<h4 id="双标志后检查法">双标志后检查法</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">bool</span> flag[<span style="color:#ae81ff">2</span>] <span style="color:#f92672">=</span> {false, false};
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 进程Pi
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>flag[i] <span style="color:#f92672">=</span> true;    <span style="color:#75715e">// 先标记自己想进入
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">while</span>(flag[j]);    <span style="color:#75715e">// 后检查对方是否在临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>flag[i] <span style="color:#f92672">=</span> false;   <span style="color:#75715e">// 退出区
-</span></span></span></code></pre></div><p><strong>缺点</strong>：可能产生死锁（双方同时标记后互相等待）。</p>
-<h4 id="peterson算法">Peterson算法</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">bool</span> flag[<span style="color:#ae81ff">2</span>] <span style="color:#f92672">=</span> {false, false};
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> turn;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 进程Pi
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>flag[i] <span style="color:#f92672">=</span> true;
-</span></span><span style="display:flex;"><span>turn <span style="color:#f92672">=</span> j;
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span>(flag[j] <span style="color:#f92672">&amp;&amp;</span> turn <span style="color:#f92672">==</span> j);  <span style="color:#75715e">// 对方想进且轮到对方→等待
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>flag[i] <span style="color:#f92672">=</span> false;
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>操作系统面试八股文（二）——线程与进程同步 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
+<a href=https://raphaell2e.github.io/posts/>文章</a>
+<a href=https://raphaell2e.github.io/categories/>分类</a>
+<a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-06-05 <span>/</span> 操作系统</div><h1>操作系统面试八股文（二）——线程与进程同步</h1></div><div class=post-content><h1 id=操作系统面试八股文二线程与进程同步>操作系统面试八股文（二）——线程与进程同步</h1><h2 id=线程>线程</h2><h3 id=线程的引入线程的引入><a href=#%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%BC%95%E5%85%A5></a>线程的引入</h3><p>为了减小进程切换的开销，提高并发性能，引入了<strong>线程</strong>。</p><ul><li><strong>进程</strong>：资源分配的基本单位</li><li><strong>线程</strong>：CPU调度的基本单位，是进程中的一个执行流</li></ul><p>引入线程后，进程只作为资源的拥有者，不再作为调度的基本单位。</p><h3 id=线程与进程的对比线程与进程的对比><a href=#%E7%BA%BF%E7%A8%8B%E4%B8%8E%E8%BF%9B%E7%A8%8B%E7%9A%84%E5%AF%B9%E6%AF%94></a>线程与进程的对比</h3><table><thead><tr><th>维度</th><th>进程</th><th>线程</th></tr></thead><tbody><tr><td>调度</td><td>传统OS中是调度的基本单位</td><td>调度的基本单位</td></tr><tr><td>资源</td><td>拥有独立的地址空间和系统资源</td><td>不拥有系统资源，共享所属进程的资源</td></tr><tr><td>并发性</td><td>进程间可并发</td><td>线程间也可并发，开销更小</td></tr><tr><td>系统开销</td><td>创建/切换开销大</td><td>创建/切换开销小</td></tr><tr><td>通信</td><td>需要IPC机制（管道、消息队列等）</td><td>可直接读写进程数据段</td></tr><tr><td>地址空间</td><td>每个进程有独立地址空间</td><td>同一进程的线程共享地址空间</td></tr></tbody></table><blockquote><p><strong>线程共享的资源</strong>：代码段、数据段、打开的文件、信号处理等</p><p><strong>线程私有的资源</strong>：线程ID、寄存器、栈、程序计数器PC、errno变量</p></blockquote><h3 id=线程的实现方式线程的实现方式><a href=#%E7%BA%BF%E7%A8%8B%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%96%B9%E5%BC%8F></a>线程的实现方式</h3><h4 id=用户级线程user-level-thread-ult>用户级线程（User-Level Thread, ULT）</h4><ul><li>由<strong>用户空间的线程库</strong>管理，操作系统内核不知道线程的存在</li><li>优点：线程切换不需要内核参与，速度快；跨平台</li><li>缺点：一个线程阻塞导致整个进程阻塞；不能利用多核CPU（内核只看到进程）</li><li>示例：早期的Java绿色线程</li></ul><h4 id=内核级线程kernel-level-thread-klt>内核级线程（Kernel-Level Thread, KLT）</h4><ul><li>由<strong>操作系统内核</strong>直接管理</li><li>优点：一个线程阻塞不影响其他线程；可以利用多核CPU；内核可调度线程</li><li>缺点：线程切换需要从用户态转到内核态，开销较大</li><li>示例：Linux的pthread、Windows线程</li></ul><h4 id=组合方式>组合方式</h4><ul><li>多对一模型：多个用户线程映射到一个内核线程</li><li>一对一模型：每个用户线程对应一个内核线程</li><li>多对多模型：n个用户线程映射到m个内核线程（n ≥ m）</li></ul><blockquote><p><strong>面试高频问</strong>：Linux采用的是哪种线程模型？
+Linux采用的是<strong>一对一模型</strong>，每个用户线程对应一个内核线程，由内核统一调度。Linux中线程也称为<strong>轻量级进程（LWP）</strong>。</p></blockquote><h3 id=线程的状态线程的状态><a href=#%E7%BA%BF%E7%A8%8B%E7%9A%84%E7%8A%B6%E6%80%81></a>线程的状态</h3><p>与进程类似，线程也有以下基本状态：</p><ul><li><strong>就绪态</strong>：等待被调度执行</li><li><strong>运行态</strong>：正在CPU上执行</li><li><strong>阻塞态</strong>：等待某一事件</li></ul><p>线程状态的转换与进程类似，区别在于线程的阻塞可能不会导致整个进程阻塞（取决于线程实现方式）。</p><hr><h2 id=进程同步>进程同步</h2><h3 id=进程同步的基本概念进程同步的基本概念><a href=#%E8%BF%9B%E7%A8%8B%E5%90%8C%E6%AD%A5%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5></a>进程同步的基本概念</h3><p><strong>进程同步</strong>的主要任务是对多个相关进程在执行次序上进行协调，使并发执行的进程之间能按照一定的规则共享系统资源，并能很好地相互合作。</p><p><strong>两个基本关系</strong>：</p><table><thead><tr><th>关系</th><th>说明</th><th>举例</th></tr></thead><tbody><tr><td>互斥</td><td>间接制约关系，对临界资源的竞争</td><td>多个进程访问共享打印机</td></tr><tr><td>同步</td><td>直接制约关系，为完成某任务而协作</td><td>生产者生产后消费者才能消费</td></tr></tbody></table><h3 id=临界资源与临界区临界资源与临界区><a href=#%E4%B8%B4%E7%95%8C%E8%B5%84%E6%BA%90%E4%B8%8E%E4%B8%B4%E7%95%8C%E5%8C%BA></a>临界资源与临界区</h3><ul><li><strong>临界资源</strong>：一次仅允许一个进程使用的资源（如打印机、共享变量）</li><li><strong>临界区</strong>：访问临界资源的那段代码</li></ul><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// 临界区访问的通用模式
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>enterCriticalSection</span>();   <span style=color:#75715e>// 进入区
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 临界区 —— 访问临界资源的代码
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>exitCriticalSection</span>();    <span style=color:#75715e>// 退出区
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 剩余区 —— 其余代码
+</span></span></span></code></pre></div><p><strong>临界区访问原则</strong>：</p><ol><li><strong>空闲让进</strong>：临界区空闲时，允许进程进入</li><li><strong>忙则等待</strong>：已有进程进入临界区时，其他进程必须等待</li><li><strong>有限等待</strong>：等待进入临界区的进程不能无限等待（避免饥饿）</li><li><strong>让权等待</strong>：不能进入临界区的进程应释放CPU</li></ol><h3 id=进程互斥的软件实现进程互斥的软件实现><a href=#%E8%BF%9B%E7%A8%8B%E4%BA%92%E6%96%A5%E7%9A%84%E8%BD%AF%E4%BB%B6%E5%AE%9E%E7%8E%B0></a>进程互斥的软件实现</h3><h4 id=单标志法>单标志法</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>int</span> turn <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;  <span style=color:#75715e>// 表示哪个进程可以进入临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 进程P0
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>while</span>(turn <span style=color:#f92672>!=</span> <span style=color:#ae81ff>0</span>);  <span style=color:#75715e>// 进入区
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>turn <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;          <span style=color:#75715e>// 退出区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 进程P1
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>while</span>(turn <span style=color:#f92672>!=</span> <span style=color:#ae81ff>1</span>);  <span style=color:#75715e>// 进入区
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>turn <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;          <span style=color:#75715e>// 退出区
+</span></span></span></code></pre></div><p><strong>缺点</strong>：必须交替进入，违反"空闲让进"原则。</p><h4 id=双标志先检查法>双标志先检查法</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>bool</span> flag[<span style=color:#ae81ff>2</span>] <span style=color:#f92672>=</span> {false, false};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 进程Pi
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>while</span>(flag[j]);    <span style=color:#75715e>// 先检查对方是否在临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>flag[i] <span style=color:#f92672>=</span> true;    <span style=color:#75715e>// 后标记自己想进入
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>flag[i] <span style=color:#f92672>=</span> false;   <span style=color:#75715e>// 退出区
+</span></span></span></code></pre></div><p><strong>缺点</strong>：可能同时进入临界区（检查和标记不是原子操作）。</p><h4 id=双标志后检查法>双标志后检查法</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>bool</span> flag[<span style=color:#ae81ff>2</span>] <span style=color:#f92672>=</span> {false, false};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 进程Pi
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>flag[i] <span style=color:#f92672>=</span> true;    <span style=color:#75715e>// 先标记自己想进入
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>while</span>(flag[j]);    <span style=color:#75715e>// 后检查对方是否在临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>flag[i] <span style=color:#f92672>=</span> false;   <span style=color:#75715e>// 退出区
+</span></span></span></code></pre></div><p><strong>缺点</strong>：可能产生死锁（双方同时标记后互相等待）。</p><h4 id=peterson算法>Peterson算法</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>bool</span> flag[<span style=color:#ae81ff>2</span>] <span style=color:#f92672>=</span> {false, false};
+</span></span><span style=display:flex><span><span style=color:#66d9ef>int</span> turn;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 进程Pi
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>flag[i] <span style=color:#f92672>=</span> true;
+</span></span><span style=display:flex><span>turn <span style=color:#f92672>=</span> j;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>while</span>(flag[j] <span style=color:#f92672>&amp;&amp;</span> turn <span style=color:#f92672>==</span> j);  <span style=color:#75715e>// 对方想进且轮到对方→等待
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>flag[i] <span style=color:#f92672>=</span> false;
 </span></span></code></pre></div><p><strong>优点</strong>：满足临界区访问的四条原则，是软件方法中的最优解。
-<strong>缺点</strong>：仍然可能因为编译器优化导致问题（需要内存屏障）。</p>
-<h3 id="进程互斥的硬件实现进程互斥的硬件实现"><a href="#%E8%BF%9B%E7%A8%8B%E4%BA%92%E6%96%A5%E7%9A%84%E7%A1%AC%E4%BB%B6%E5%AE%9E%E7%8E%B0"></a>进程互斥的硬件实现</h3>
-<h4 id="中断屏蔽">中断屏蔽</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// 进入临界区前关中断
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">disableInterrupt</span>();
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 退出临界区后开中断
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">enableInterrupt</span>();
-</span></span></code></pre></div><p><strong>缺点</strong>：只适用于单核CPU；关中断时间过长影响系统响应；不适合用户进程使用。</p>
-<h4 id="testandsettsl指令">TestAndSet（TSL指令）</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// 原子操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">bool</span> <span style="color:#a6e22e">TestAndSet</span>(<span style="color:#66d9ef">bool</span> <span style="color:#f92672">*</span>lock) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">bool</span> old <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>lock;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>lock <span style="color:#f92672">=</span> true;
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> old;
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 使用
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">while</span>(<span style="color:#a6e22e">TestAndSet</span>(<span style="color:#f92672">&amp;</span>lock));  <span style="color:#75715e">// 进入区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>lock <span style="color:#f92672">=</span> false;              <span style="color:#75715e">// 退出区
-</span></span></span></code></pre></div><h4 id="swap指令">Swap指令</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// 原子操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">Swap</span>(<span style="color:#66d9ef">bool</span> <span style="color:#f92672">*</span>a, <span style="color:#66d9ef">bool</span> <span style="color:#f92672">*</span>b) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">bool</span> temp <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>a;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>a <span style="color:#f92672">=</span> <span style="color:#f92672">*</span>b;
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">*</span>b <span style="color:#f92672">=</span> temp;
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 使用
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">bool</span> key <span style="color:#f92672">=</span> true;
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">while</span>(key <span style="color:#f92672">==</span> true) <span style="color:#a6e22e">Swap</span>(<span style="color:#f92672">&amp;</span>lock, <span style="color:#f92672">&amp;</span>key);
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>lock <span style="color:#f92672">=</span> false;
-</span></span></code></pre></div><blockquote>
-<p><strong>硬件方法的共同缺点</strong>：不满足&quot;让权等待&quot;原则，进入临界区失败的进程会忙等（Busy Waiting），浪费CPU时间。</p>
-</blockquote>
-<h3 id="信号量机制信号量机制"><a href="#%E4%BF%A1%E5%8F%B7%E9%87%8F%E6%9C%BA%E5%88%B6"></a>信号量机制（⭐⭐⭐⭐⭐）</h3>
-<p>信号量是Dijkstra提出的进程同步工具，是<strong>面试最重要的考点之一</strong>。</p>
-<h4 id="整型信号量">整型信号量</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">int</span> S <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;  <span style="color:#75715e">// 信号量
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">wait</span>(<span style="color:#66d9ef">int</span> S) {      <span style="color:#75715e">// P操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">while</span>(S <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">0</span>);      <span style="color:#75715e">// 忙等
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    S<span style="color:#f92672">--</span>;
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">signal</span>(<span style="color:#66d9ef">int</span> S) {    <span style="color:#75715e">// V操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    S<span style="color:#f92672">++</span>;
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><strong>缺点</strong>：不满足&quot;让权等待&quot;（忙等）。</p>
-<h4 id="记录型信号量">记录型信号量</h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">typedef</span> <span style="color:#66d9ef">struct</span> {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> value;              <span style="color:#75715e">// 资源数量
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">struct</span> process <span style="color:#f92672">*</span>L;      <span style="color:#75715e">// 等待队列
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>} semaphore;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">wait</span>(semaphore S) {       <span style="color:#75715e">// P操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    S.value<span style="color:#f92672">--</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (S.value <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">0</span>) {
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// |S.value| = 等待队列中的进程数
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">block</span>(S.L);           <span style="color:#75715e">// 自我阻塞，挂到等待队列
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">signal</span>(semaphore S) {     <span style="color:#75715e">// V操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    S.value<span style="color:#f92672">++</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (S.value <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">0</span>) {
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">wakeup</span>(S.L);          <span style="color:#75715e">// 唤醒等待队列中的第一个进程
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><p><strong>优点</strong>：满足&quot;让权等待&quot;原则，不会忙等。</p>
-<blockquote>
-<p><strong>P操作的含义</strong>：申请一个资源，如果S.value &lt; 0说明没有资源了，进程自我阻塞</p>
-<p><strong>V操作的含义</strong>：释放一个资源，如果S.value ≤ 0说明还有进程在等待，唤醒一个</p>
-</blockquote>
-<h4 id="信号量的应用">信号量的应用</h4>
-<p><strong>1. 实现进程互斥</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>semaphore mutex <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;  <span style="color:#75715e">// 互斥信号量，初值为1
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 进程Pi
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">P</span>(mutex);    <span style="color:#75715e">// 进入区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 临界区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">V</span>(mutex);    <span style="color:#75715e">// 退出区
-</span></span></span></code></pre></div><blockquote>
-<p>注意：P、V操作必须<strong>成对出现</strong>，且在同一进程中。</p>
-</blockquote>
-<p><strong>2. 实现进程同步</strong></p>
-<p>确保进程的执行顺序：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>semaphore sync <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;  <span style="color:#75715e">// 同步信号量，初值为0
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 进程P1（先执行）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 代码1
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">V</span>(sync);     <span style="color:#75715e">// 通知P2可以执行了
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 进程P2（后执行）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">P</span>(sync);     <span style="color:#75715e">// 等待P1的信号
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 代码2
-</span></span></span></code></pre></div><blockquote>
-<p>同步信号量初值为0！先V后P，保证P1先执行代码1，P2再执行代码2。</p>
-</blockquote>
-<p><strong>3. 实现前驱关系</strong></p>
-<p>对于前驱图中的每一对前驱关系，设置一个初值为0的同步信号量。</p>
-<h3 id="管程管程"><a href="#%E7%AE%A1%E7%A8%8B"></a>管程</h3>
-<p>管程（Monitor）是一种高级同步机制，将共享变量及对共享变量的操作封装起来。</p>
-<p><strong>管程的特点</strong>：</p>
-<ol>
-<li>管程中的共享变量只能被管程内的过程访问</li>
-<li>每次仅允许一个进程进入管程（由编译器保证互斥）</li>
-<li>条件变量用于解决阻塞/唤醒问题</li>
-</ol>
-<p><strong>条件变量</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>condition x, y;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// x.wait()：将自己阻塞在x条件队列上，释放管程互斥权
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// x.signal()：唤醒x条件队列上的一个进程
-</span></span></span></code></pre></div><blockquote>
-<p><strong>条件变量 vs 信号量</strong>：条件变量没有值，仅实现阻塞/唤醒功能；信号量有值，反映资源数量。</p>
-</blockquote>
-<h3 id="经典同步问题经典同步问题"><a href="#%E7%BB%8F%E5%85%B8%E5%90%8C%E6%AD%A5%E9%97%AE%E9%A2%98"></a>经典同步问题（⭐⭐⭐⭐⭐）</h3>
-<h4 id="生产者-消费者问题">生产者-消费者问题</h4>
-<p><strong>问题描述</strong>：生产者向缓冲区放产品，消费者从缓冲区取产品。缓冲区大小为n。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>semaphore mutex <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;     <span style="color:#75715e">// 互斥访问缓冲区
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>semaphore empty <span style="color:#f92672">=</span> n;     <span style="color:#75715e">// 空缓冲区数量
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>semaphore full <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;      <span style="color:#75715e">// 满缓冲区数量
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 生产者
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">Producer</span>() {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span>(true) {
-</span></span><span style="display:flex;"><span>        <span style="color:#960050;background-color:#1e0010">生产一个产品</span>;
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">P</span>(empty);        <span style="color:#75715e">// 申请空位（同步）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">P</span>(mutex);        <span style="color:#75715e">// 互斥访问
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#960050;background-color:#1e0010">将产品放入缓冲区</span>;
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">V</span>(mutex);        <span style="color:#75715e">// 释放互斥
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">V</span>(full);         <span style="color:#75715e">// 增加产品数量（同步）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 消费者
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">Consumer</span>() {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span>(true) {
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">P</span>(full);         <span style="color:#75715e">// 申请产品（同步）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">P</span>(mutex);        <span style="color:#75715e">// 互斥访问
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#960050;background-color:#1e0010">从缓冲区取出产品</span>;
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">V</span>(mutex);        <span style="color:#75715e">// 释放互斥
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">V</span>(empty);        <span style="color:#75715e">// 增加空位（同步）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#960050;background-color:#1e0010">消费产品</span>;
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><blockquote>
-<p>⚠️ <strong>关键</strong>：P操作的顺序不能颠倒！必须先P同步信号量，再P互斥信号量。否则可能死锁。</p>
-<p>例如：如果消费者先P(mutex)再P(full)，当缓冲区为空时，消费者拿到mutex后因full=0被阻塞，而生产者因mutex=0也无法进入，导致<strong>死锁</strong>。</p>
-<p>V操作的顺序不影响正确性，但建议先V(mutex)。</p>
-</blockquote>
-<h4 id="读者-写者问题">读者-写者问题</h4>
-<p><strong>问题描述</strong>：多个读者可以同时读，但写者必须独占。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>semaphore rw <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;        <span style="color:#75715e">// 读写/写写互斥
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>semaphore mutex <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;     <span style="color:#75715e">// 保护readcount
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> readcount <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;       <span style="color:#75715e">// 当前读者数量
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 读者
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">Reader</span>() {
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">P</span>(mutex);
-</span></span><span style="display:flex;"><span>    readcount<span style="color:#f92672">++</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (readcount <span style="color:#f92672">==</span> <span style="color:#ae81ff">1</span>) <span style="color:#a6e22e">P</span>(rw);  <span style="color:#75715e">// 第一个读者负责加锁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">V</span>(mutex);
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 读操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">P</span>(mutex);
-</span></span><span style="display:flex;"><span>    readcount<span style="color:#f92672">--</span>;
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (readcount <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>) <span style="color:#a6e22e">V</span>(rw);  <span style="color:#75715e">// 最后一个读者负责解锁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">V</span>(mutex);
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 写者
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">Writer</span>() {
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">P</span>(rw);
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 写操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">V</span>(rw);
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><blockquote>
-<p><strong>问题</strong>：读者优先可能导致写者饥饿（只要有读者在读，写者就一直等待）</p>
-<p><strong>写者优先方案</strong>：增加一个写优先信号量 <code>w = 1</code>，写者在P(rw)之前先P(w)，读者在P(mutex)之前先P(w)。</p>
-</blockquote>
-<h4 id="哲学家进餐问题">哲学家进餐问题</h4>
-<p><strong>问题描述</strong>：5个哲学家围坐，每两人之间一支筷子，需要同时拿两支才能进餐。</p>
-<p><strong>可能导致死锁的解法</strong>：每个哲学家先拿左边筷子，再拿右边。</p>
-<p><strong>避免死锁的方案</strong>：</p>
-<ol>
-<li><strong>最多允许4个哲学家同时进餐</strong>（限制并发数）</li>
-<li><strong>奇数号先拿左后拿右，偶数号先拿右后拿左</strong>（破坏循环等待）</li>
-<li><strong>仅当左右筷子都可用时才拿起</strong>（AND信号量 / 一次性申请所有资源）</li>
-</ol>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// 方案3：使用AND信号量
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>semaphore chopstick[<span style="color:#ae81ff">5</span>] <span style="color:#f92672">=</span> {<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">1</span>};
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">Philosopher</span>(i) {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span>(true) {
-</span></span><span style="display:flex;"><span>        think;
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">Swait</span>(chopstick[i], chopstick[(i<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>)<span style="color:#f92672">%</span><span style="color:#ae81ff">5</span>]);  <span style="color:#75715e">// AND型P操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        eat;
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">Ssignal</span>(chopstick[i], chopstick[(i<span style="color:#f92672">+</span><span style="color:#ae81ff">1</span>)<span style="color:#f92672">%</span><span style="color:#ae81ff">5</span>]); <span style="color:#75715e">// AND型V操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><hr>
-<h2 id="经典面试题经典面试题"><a href="#%E7%BB%8F%E5%85%B8%E9%9D%A2%E8%AF%95%E9%A2%98"></a>经典面试题</h2>
-<h3 id="-用信号量实现两个进程的交替打印">⭐⭐⭐⭐⭐ 用信号量实现两个进程的交替打印</h3>
-<p>要求：进程P1打印A，进程P2打印B，交替输出ABABAB&hellip;</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span>semaphore s1 <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;   <span style="color:#75715e">// P1先执行
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>semaphore s2 <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;   <span style="color:#75715e">// P2后执行
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">P1</span>() {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span>(true) {
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">P</span>(s1);
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">print</span>(<span style="color:#e6db74">&#34;A&#34;</span>);
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">V</span>(s2);
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">P2</span>() {
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span>(true) {
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">P</span>(s2);
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">print</span>(<span style="color:#e6db74">&#34;B&#34;</span>);
-</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">V</span>(s1);
-</span></span><span style="display:flex;"><span>    }
-</span></span><span style="display:flex;"><span>}
-</span></span></code></pre></div><h3 id="-生产者-消费者中p操作的顺序能颠倒吗">⭐⭐⭐⭐⭐ 生产者-消费者中P操作的顺序能颠倒吗？</h3>
-<p><strong>不能！</strong> 必须先P同步信号量（empty/full），再P互斥信号量（mutex）。</p>
-<p>如果先P(mutex)：</p>
-<ul>
-<li>生产者：P(mutex) → P(empty)，如果缓冲区满了，生产者持有mutex等empty，消费者需要mutex才能V(full)，<strong>死锁</strong></li>
-<li>消费者：P(mutex) → P(full)，如果缓冲区空了，消费者持有mutex等full，生产者需要mutex才能V(empty)，<strong>死锁</strong></li>
-</ul>
-<h3 id="-用户级线程和内核级线程的区别">⭐⭐⭐⭐ 用户级线程和内核级线程的区别</h3>
-<table>
-<thead>
-<tr>
-<th>维度</th>
-<th>用户级线程</th>
-<th>内核级线程</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>管理者</td>
-<td>线程库</td>
-<td>操作系统内核</td>
-</tr>
-<tr>
-<td>切换速度</td>
-<td>快（不需要陷入内核）</td>
-<td>慢（需要内核参与）</td>
-</tr>
-<tr>
-<td>阻塞影响</td>
-<td>一个线程阻塞→整个进程阻塞</td>
-<td>一个线程阻塞→其他线程不受影响</td>
-</tr>
-<tr>
-<td>多核利用</td>
-<td>不能（内核只看到进程）</td>
-<td>能（内核调度不同线程到不同核心）</td>
-</tr>
-</tbody>
-</table>
-<h3 id="-什么是管程和信号量有什么区别">⭐⭐⭐⭐ 什么是管程？和信号量有什么区别？</h3>
-<ul>
-<li><strong>管程</strong>：高级同步机制，封装了共享变量和操作，由编译器保证互斥</li>
-<li><strong>区别</strong>：信号量需要程序员自己保证P/V操作的正确性（容易出错），管程由语言/编译器保证互斥（更安全）</li>
-</ul>
-<hr>
-<h2 id="本篇小结本篇小结"><a href="#%E6%9C%AC%E7%AF%87%E5%B0%8F%E7%BB%93"></a>本篇小结</h2>
-<table>
-<thead>
-<tr>
-<th>知识点</th>
-<th>重要性</th>
-<th>掌握要求</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>线程 vs 进程</td>
-<td>⭐⭐⭐⭐⭐</td>
-<td>清楚资源分配和调度的基本单位</td>
-</tr>
-<tr>
-<td>用户级/内核级线程</td>
-<td>⭐⭐⭐⭐</td>
-<td>理解各自优缺点</td>
-</tr>
-<tr>
-<td>临界区四原则</td>
-<td>⭐⭐⭐⭐⭐</td>
-<td>能判断算法是否满足各原则</td>
-</tr>
-<tr>
-<td>信号量P/V操作</td>
-<td>⭐⭐⭐⭐⭐</td>
-<td>能用信号量解决同步互斥问题</td>
-</tr>
-<tr>
-<td>生产者-消费者</td>
-<td>⭐⭐⭐⭐⭐</td>
-<td>默写完整解法，理解P操作顺序</td>
-</tr>
-<tr>
-<td>读者-写者</td>
-<td>⭐⭐⭐⭐⭐</td>
-<td>理解读者优先/写者优先</td>
-</tr>
-<tr>
-<td>哲学家进餐</td>
-<td>⭐⭐⭐⭐</td>
-<td>至少掌握一种避免死锁的方案</td>
-</tr>
-<tr>
-<td>管程</td>
-<td>⭐⭐⭐⭐</td>
-<td>理解管程的概念和条件变量</td>
-</tr>
-</tbody>
-</table>
-<hr>
-<p>📌 <strong>下期预告</strong>：</p>
-<ul>
-<li><strong>操作系统面试八股文（三）——死锁</strong>：死锁的四个必要条件、死锁预防/避免/检测/解除、银行家算法详细推演</li>
-<li><strong>操作系统面试八股文（四）——内存管理</strong>：连续分配与分区、分页存储、分段存储、段页式、虚拟内存与页面置换算法</li>
-</ul>
-
-    </div>
-</article>
-
-    </main>
-    <footer>
-        <p>&copy; 2026 李亚飞</p>
-    </footer>
-</body>
-</html>
+<strong>缺点</strong>：仍然可能因为编译器优化导致问题（需要内存屏障）。</p><h3 id=进程互斥的硬件实现进程互斥的硬件实现><a href=#%E8%BF%9B%E7%A8%8B%E4%BA%92%E6%96%A5%E7%9A%84%E7%A1%AC%E4%BB%B6%E5%AE%9E%E7%8E%B0></a>进程互斥的硬件实现</h3><h4 id=中断屏蔽>中断屏蔽</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// 进入临界区前关中断
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>disableInterrupt</span>();
+</span></span><span style=display:flex><span><span style=color:#75715e>// 临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 退出临界区后开中断
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>enableInterrupt</span>();
+</span></span></code></pre></div><p><strong>缺点</strong>：只适用于单核CPU；关中断时间过长影响系统响应；不适合用户进程使用。</p><h4 id=testandsettsl指令>TestAndSet（TSL指令）</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// 原子操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>bool</span> <span style=color:#a6e22e>TestAndSet</span>(<span style=color:#66d9ef>bool</span> <span style=color:#f92672>*</span>lock) {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>bool</span> old <span style=color:#f92672>=</span> <span style=color:#f92672>*</span>lock;
+</span></span><span style=display:flex><span>    <span style=color:#f92672>*</span>lock <span style=color:#f92672>=</span> true;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> old;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 使用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>while</span>(<span style=color:#a6e22e>TestAndSet</span>(<span style=color:#f92672>&amp;</span>lock));  <span style=color:#75715e>// 进入区
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>lock <span style=color:#f92672>=</span> false;              <span style=color:#75715e>// 退出区
+</span></span></span></code></pre></div><h4 id=swap指令>Swap指令</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// 原子操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>Swap</span>(<span style=color:#66d9ef>bool</span> <span style=color:#f92672>*</span>a, <span style=color:#66d9ef>bool</span> <span style=color:#f92672>*</span>b) {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>bool</span> temp <span style=color:#f92672>=</span> <span style=color:#f92672>*</span>a;
+</span></span><span style=display:flex><span>    <span style=color:#f92672>*</span>a <span style=color:#f92672>=</span> <span style=color:#f92672>*</span>b;
+</span></span><span style=display:flex><span>    <span style=color:#f92672>*</span>b <span style=color:#f92672>=</span> temp;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 使用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>bool</span> key <span style=color:#f92672>=</span> true;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>while</span>(key <span style=color:#f92672>==</span> true) <span style=color:#a6e22e>Swap</span>(<span style=color:#f92672>&amp;</span>lock, <span style=color:#f92672>&amp;</span>key);
+</span></span><span style=display:flex><span><span style=color:#75715e>// 临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>lock <span style=color:#f92672>=</span> false;
+</span></span></code></pre></div><blockquote><p><strong>硬件方法的共同缺点</strong>：不满足"让权等待"原则，进入临界区失败的进程会忙等（Busy Waiting），浪费CPU时间。</p></blockquote><h3 id=信号量机制信号量机制><a href=#%E4%BF%A1%E5%8F%B7%E9%87%8F%E6%9C%BA%E5%88%B6></a>信号量机制（⭐⭐⭐⭐⭐）</h3><p>信号量是Dijkstra提出的进程同步工具，是<strong>面试最重要的考点之一</strong>。</p><h4 id=整型信号量>整型信号量</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>int</span> S <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;  <span style=color:#75715e>// 信号量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>wait</span>(<span style=color:#66d9ef>int</span> S) {      <span style=color:#75715e>// P操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>while</span>(S <span style=color:#f92672>&lt;=</span> <span style=color:#ae81ff>0</span>);      <span style=color:#75715e>// 忙等
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    S<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>signal</span>(<span style=color:#66d9ef>int</span> S) {    <span style=color:#75715e>// V操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    S<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><strong>缺点</strong>：不满足"让权等待"（忙等）。</p><h4 id=记录型信号量>记录型信号量</h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#66d9ef>typedef</span> <span style=color:#66d9ef>struct</span> {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> value;              <span style=color:#75715e>// 资源数量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>struct</span> process <span style=color:#f92672>*</span>L;      <span style=color:#75715e>// 等待队列
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>} semaphore;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>wait</span>(semaphore S) {       <span style=color:#75715e>// P操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    S.value<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (S.value <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>0</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// |S.value| = 等待队列中的进程数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>block</span>(S.L);           <span style=color:#75715e>// 自我阻塞，挂到等待队列
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>void</span> <span style=color:#a6e22e>signal</span>(semaphore S) {     <span style=color:#75715e>// V操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    S.value<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (S.value <span style=color:#f92672>&lt;=</span> <span style=color:#ae81ff>0</span>) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>wakeup</span>(S.L);          <span style=color:#75715e>// 唤醒等待队列中的第一个进程
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><p><strong>优点</strong>：满足"让权等待"原则，不会忙等。</p><blockquote><p><strong>P操作的含义</strong>：申请一个资源，如果S.value &lt; 0说明没有资源了，进程自我阻塞</p><p><strong>V操作的含义</strong>：释放一个资源，如果S.value ≤ 0说明还有进程在等待，唤醒一个</p></blockquote><h4 id=信号量的应用>信号量的应用</h4><p><strong>1. 实现进程互斥</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span>semaphore mutex <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;  <span style=color:#75715e>// 互斥信号量，初值为1
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 进程Pi
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>P</span>(mutex);    <span style=color:#75715e>// 进入区
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 临界区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>V</span>(mutex);    <span style=color:#75715e>// 退出区
+</span></span></span></code></pre></div><blockquote><p>注意：P、V操作必须<strong>成对出现</strong>，且在同一进程中。</p></blockquote><p><strong>2. 实现进程同步</strong></p><p>确保进程的执行顺序：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span>semaphore sync <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;  <span style=color:#75715e>// 同步信号量，初值为0
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 进程P1（先执行）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 代码1
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>V</span>(sync);     <span style=color:#75715e>// 通知P2可以执行了
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 进程P2（后执行）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>P</span>(sync);     <span style=color:#75715e>// 等待P1的信号
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 代码2
+</span></span></span></code></pre></div><blockquote><p>同步信号量初值为0！先V后P，保证P1先执行代码1，P2再执行代码2。</p></blockquote><p><strong>3. 实现前驱关系</strong></p><p>对于前驱图中的每一对前驱关系，设置一个初值为0的同步信号量。</p><h3 id=管程管程><a href=#%E7%AE%A1%E7%A8%8B></a>管程</h3><p>管程（Monitor）是一种高级同步机制，将共享变量及对共享变量的操作封装起来。</p><p><strong>管程的特点</strong>：</p><ol><li>管程中的共享变量只能被管程内的过程访问</li><li>每次仅允许一个进程进入管程（由编译器保证互斥）</li><li>条件变量用于解决阻塞/唤醒问题</li></ol><p><strong>条件变量</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span>condition x, y;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// x.wait()：将自己阻塞在x条件队列上，释放管程互斥权
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// x.signal()：唤醒x条件队列上的一个进程
+</span></span></span></code></pre></div><blockquote><p><strong>条件变量 vs 信号量</strong>：条件变量没有值，仅实现阻塞/唤醒功能；信号量有值，反映资源数量。</p></blockquote><h3 id=经典同步问题经典同步问题><a href=#%E7%BB%8F%E5%85%B8%E5%90%8C%E6%AD%A5%E9%97%AE%E9%A2%98></a>经典同步问题（⭐⭐⭐⭐⭐）</h3><h4 id=生产者-消费者问题>生产者-消费者问题</h4><p><strong>问题描述</strong>：生产者向缓冲区放产品，消费者从缓冲区取产品。缓冲区大小为n。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span>semaphore mutex <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;     <span style=color:#75715e>// 互斥访问缓冲区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>semaphore empty <span style=color:#f92672>=</span> n;     <span style=color:#75715e>// 空缓冲区数量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>semaphore full <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;      <span style=color:#75715e>// 满缓冲区数量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 生产者
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>Producer</span>() {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span>(true) {
+</span></span><span style=display:flex><span>        <span style=color:#960050;background-color:#1e0010>生产一个产品</span>;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>P</span>(empty);        <span style=color:#75715e>// 申请空位（同步）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>P</span>(mutex);        <span style=color:#75715e>// 互斥访问
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#960050;background-color:#1e0010>将产品放入缓冲区</span>;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>V</span>(mutex);        <span style=color:#75715e>// 释放互斥
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>V</span>(full);         <span style=color:#75715e>// 增加产品数量（同步）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 消费者
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>Consumer</span>() {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span>(true) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>P</span>(full);         <span style=color:#75715e>// 申请产品（同步）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>P</span>(mutex);        <span style=color:#75715e>// 互斥访问
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#960050;background-color:#1e0010>从缓冲区取出产品</span>;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>V</span>(mutex);        <span style=color:#75715e>// 释放互斥
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#a6e22e>V</span>(empty);        <span style=color:#75715e>// 增加空位（同步）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#960050;background-color:#1e0010>消费产品</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><blockquote><p>⚠️ <strong>关键</strong>：P操作的顺序不能颠倒！必须先P同步信号量，再P互斥信号量。否则可能死锁。</p><p>例如：如果消费者先P(mutex)再P(full)，当缓冲区为空时，消费者拿到mutex后因full=0被阻塞，而生产者因mutex=0也无法进入，导致<strong>死锁</strong>。</p><p>V操作的顺序不影响正确性，但建议先V(mutex)。</p></blockquote><h4 id=读者-写者问题>读者-写者问题</h4><p><strong>问题描述</strong>：多个读者可以同时读，但写者必须独占。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span>semaphore rw <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;        <span style=color:#75715e>// 读写/写写互斥
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>semaphore mutex <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;     <span style=color:#75715e>// 保护readcount
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>int</span> readcount <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;       <span style=color:#75715e>// 当前读者数量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 读者
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>Reader</span>() {
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>P</span>(mutex);
+</span></span><span style=display:flex><span>    readcount<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (readcount <span style=color:#f92672>==</span> <span style=color:#ae81ff>1</span>) <span style=color:#a6e22e>P</span>(rw);  <span style=color:#75715e>// 第一个读者负责加锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>V</span>(mutex);
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 读操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>P</span>(mutex);
+</span></span><span style=display:flex><span>    readcount<span style=color:#f92672>--</span>;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> (readcount <span style=color:#f92672>==</span> <span style=color:#ae81ff>0</span>) <span style=color:#a6e22e>V</span>(rw);  <span style=color:#75715e>// 最后一个读者负责解锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>V</span>(mutex);
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 写者
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>Writer</span>() {
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>P</span>(rw);
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 写操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>V</span>(rw);
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><blockquote><p><strong>问题</strong>：读者优先可能导致写者饥饿（只要有读者在读，写者就一直等待）</p><p><strong>写者优先方案</strong>：增加一个写优先信号量 <code>w = 1</code>，写者在P(rw)之前先P(w)，读者在P(mutex)之前先P(w)。</p></blockquote><h4 id=哲学家进餐问题>哲学家进餐问题</h4><p><strong>问题描述</strong>：5个哲学家围坐，每两人之间一支筷子，需要同时拿两支才能进餐。</p><p><strong>可能导致死锁的解法</strong>：每个哲学家先拿左边筷子，再拿右边。</p><p><strong>避免死锁的方案</strong>：</p><ol><li><strong>最多允许4个哲学家同时进餐</strong>（限制并发数）</li><li><strong>奇数号先拿左后拿右，偶数号先拿右后拿左</strong>（破坏循环等待）</li><li><strong>仅当左右筷子都可用时才拿起</strong>（AND信号量 / 一次性申请所有资源）</li></ol><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// 方案3：使用AND信号量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>semaphore chopstick[<span style=color:#ae81ff>5</span>] <span style=color:#f92672>=</span> {<span style=color:#ae81ff>1</span>, <span style=color:#ae81ff>1</span>, <span style=color:#ae81ff>1</span>, <span style=color:#ae81ff>1</span>, <span style=color:#ae81ff>1</span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>Philosopher</span>(i) {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span>(true) {
+</span></span><span style=display:flex><span>        think;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>Swait</span>(chopstick[i], chopstick[(i<span style=color:#f92672>+</span><span style=color:#ae81ff>1</span>)<span style=color:#f92672>%</span><span style=color:#ae81ff>5</span>]);  <span style=color:#75715e>// AND型P操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        eat;
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>Ssignal</span>(chopstick[i], chopstick[(i<span style=color:#f92672>+</span><span style=color:#ae81ff>1</span>)<span style=color:#f92672>%</span><span style=color:#ae81ff>5</span>]); <span style=color:#75715e>// AND型V操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><hr><h2 id=经典面试题经典面试题><a href=#%E7%BB%8F%E5%85%B8%E9%9D%A2%E8%AF%95%E9%A2%98></a>经典面试题</h2><h3 id=-用信号量实现两个进程的交替打印>⭐⭐⭐⭐⭐ 用信号量实现两个进程的交替打印</h3><p>要求：进程P1打印A，进程P2打印B，交替输出ABABAB&mldr;</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span>semaphore s1 <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;   <span style=color:#75715e>// P1先执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>semaphore s2 <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>;   <span style=color:#75715e>// P2后执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>P1</span>() {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span>(true) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>P</span>(s1);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>print</span>(<span style=color:#e6db74>&#34;A&#34;</span>);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>V</span>(s2);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>P2</span>() {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span>(true) {
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>P</span>(s2);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>print</span>(<span style=color:#e6db74>&#34;B&#34;</span>);
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>V</span>(s1);
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>}
+</span></span></code></pre></div><h3 id=-生产者-消费者中p操作的顺序能颠倒吗>⭐⭐⭐⭐⭐ 生产者-消费者中P操作的顺序能颠倒吗？</h3><p><strong>不能！</strong> 必须先P同步信号量（empty/full），再P互斥信号量（mutex）。</p><p>如果先P(mutex)：</p><ul><li>生产者：P(mutex) → P(empty)，如果缓冲区满了，生产者持有mutex等empty，消费者需要mutex才能V(full)，<strong>死锁</strong></li><li>消费者：P(mutex) → P(full)，如果缓冲区空了，消费者持有mutex等full，生产者需要mutex才能V(empty)，<strong>死锁</strong></li></ul><h3 id=-用户级线程和内核级线程的区别>⭐⭐⭐⭐ 用户级线程和内核级线程的区别</h3><table><thead><tr><th>维度</th><th>用户级线程</th><th>内核级线程</th></tr></thead><tbody><tr><td>管理者</td><td>线程库</td><td>操作系统内核</td></tr><tr><td>切换速度</td><td>快（不需要陷入内核）</td><td>慢（需要内核参与）</td></tr><tr><td>阻塞影响</td><td>一个线程阻塞→整个进程阻塞</td><td>一个线程阻塞→其他线程不受影响</td></tr><tr><td>多核利用</td><td>不能（内核只看到进程）</td><td>能（内核调度不同线程到不同核心）</td></tr></tbody></table><h3 id=-什么是管程和信号量有什么区别>⭐⭐⭐⭐ 什么是管程？和信号量有什么区别？</h3><ul><li><strong>管程</strong>：高级同步机制，封装了共享变量和操作，由编译器保证互斥</li><li><strong>区别</strong>：信号量需要程序员自己保证P/V操作的正确性（容易出错），管程由语言/编译器保证互斥（更安全）</li></ul><hr><h2 id=本篇小结本篇小结><a href=#%E6%9C%AC%E7%AF%87%E5%B0%8F%E7%BB%93></a>本篇小结</h2><table><thead><tr><th>知识点</th><th>重要性</th><th>掌握要求</th></tr></thead><tbody><tr><td>线程 vs 进程</td><td>⭐⭐⭐⭐⭐</td><td>清楚资源分配和调度的基本单位</td></tr><tr><td>用户级/内核级线程</td><td>⭐⭐⭐⭐</td><td>理解各自优缺点</td></tr><tr><td>临界区四原则</td><td>⭐⭐⭐⭐⭐</td><td>能判断算法是否满足各原则</td></tr><tr><td>信号量P/V操作</td><td>⭐⭐⭐⭐⭐</td><td>能用信号量解决同步互斥问题</td></tr><tr><td>生产者-消费者</td><td>⭐⭐⭐⭐⭐</td><td>默写完整解法，理解P操作顺序</td></tr><tr><td>读者-写者</td><td>⭐⭐⭐⭐⭐</td><td>理解读者优先/写者优先</td></tr><tr><td>哲学家进餐</td><td>⭐⭐⭐⭐</td><td>至少掌握一种避免死锁的方案</td></tr><tr><td>管程</td><td>⭐⭐⭐⭐</td><td>理解管程的概念和条件变量</td></tr></tbody></table><hr><p>📌 <strong>下期预告</strong>：</p><ul><li><strong>操作系统面试八股文（三）——死锁</strong>：死锁的四个必要条件、死锁预防/避免/检测/解除、银行家算法详细推演</li><li><strong>操作系统面试八股文（四）——内存管理</strong>：连续分配与分区、分页存储、分段存储、段页式、虚拟内存与页面置换算法</li></ul></div></article></main><footer><p>&copy; 2026 李亚飞</p></footer></body></html>

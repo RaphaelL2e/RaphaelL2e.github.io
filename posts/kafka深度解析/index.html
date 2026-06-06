@@ -1,907 +1,8 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kafka 深度解析 - Raphael Tech Blog</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a25;
-            --text-primary: #e4e4e7;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --accent-glow: rgba(59, 130, 246, 0.3);
-            --border: #27272a;
-            --code-bg: #0f0f15;
-        }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-        
-         
-        header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-        }
-        
-        .header-content {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 1rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-        
-        header h1 a {
-            color: var(--text-primary);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        header h1 a::before {
-            content: '◆';
-            color: var(--accent);
-            font-size: 0.875rem;
-        }
-        
-        nav {
-            display: flex;
-            gap: 1.5rem;
-        }
-        
-        nav a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: color 0.2s;
-            position: relative;
-        }
-        
-        nav a:hover {
-            color: var(--text-primary);
-        }
-        
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--accent);
-            transition: width 0.2s;
-        }
-        
-        nav a:hover::after {
-            width: 100%;
-        }
-        
-         
-        main {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
-        
-         
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            transition: all 0.2s;
-        }
-        
-        article:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 20px var(--accent-glow);
-        }
-        
-        article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        
-        article h2 a {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-        
-        article h2 a:hover {
-            color: var(--accent);
-        }
-        
-        .meta {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.75rem;
-        }
-        
-        .meta span {
-            color: var(--accent);
-        }
-        
-        .summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-        
-        .summary a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
-            margin-left: 0.5rem;
-        }
-        
-        .summary a:hover {
-            text-decoration: underline;
-        }
-        
-         
-        .post-header {
-            margin-bottom: 2rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            line-height: 1.3;
-            margin-bottom: 1rem;
-        }
-        
-        .post-content {
-            font-size: 1rem;
-            line-height: 1.8;
-        }
-        
-        .post-content h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 2.5rem 0 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-content h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 2rem 0 1rem;
-            color: var(--accent);
-        }
-        
-        .post-content h4 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin: 1.5rem 0 0.75rem;
-        }
-        
-        .post-content p {
-            margin-bottom: 1.25rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-        
-        .post-content a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        
-        .post-content a:hover {
-            text-decoration: underline;
-        }
-        
-        .post-content ul, .post-content ol {
-            margin: 1rem 0 1.5rem 1.5rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content li {
-            margin-bottom: 0.5rem;
-        }
-        
-        .post-content code {
-            font-family: 'JetBrains Mono', monospace;
-            background: var(--code-bg);
-            color: var(--accent);
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-size: 0.875em;
-        }
-        
-        .post-content pre {
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.25rem;
-            overflow-x: auto;
-            margin: 1.5rem 0;
-        }
-        
-        .post-content pre code {
-            background: none;
-            color: var(--text-primary);
-            padding: 0;
-        }
-        
-        .post-content blockquote {
-            border-left: 3px solid var(--accent);
-            background: var(--bg-tertiary);
-            padding: 1rem 1.25rem;
-            margin: 1.5rem 0;
-            border-radius: 0 8px 8px 0;
-        }
-        
-        .post-content blockquote p {
-            margin: 0;
-            color: var(--text-secondary);
-        }
-        
-        .post-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-            font-size: 0.9375rem;
-        }
-        
-        .post-content th {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-weight: 600;
-            text-align: left;
-            padding: 0.75rem 1rem;
-            border-bottom: 2px solid var(--border);
-        }
-        
-        .post-content td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-secondary);
-        }
-        
-        .post-content tr:hover td {
-            background: var(--bg-tertiary);
-        }
-        
-         
-        footer {
-            max-width: 900px;
-            margin: 4rem auto 0;
-            padding: 2rem 1.5rem;
-            border-top: 1px solid var(--border);
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-         
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: var(--bg-secondary);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
-        
-         
-        ::selection {
-            background: var(--accent-glow);
-            color: var(--text-primary);
-        }
-
-         
-         
-        .tags-container {
-            max-width: 900px;
-        }
-
-        .tags-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 2rem;
-        }
-
-        .tag-card {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.625rem 1rem;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .tag-card:hover {
-            border-color: var(--accent);
-            background: var(--bg-tertiary);
-            transform: translateY(-1px);
-        }
-
-        .tag-card .tag-name {
-            color: var(--text-primary);
-            font-size: 0.9375rem;
-            font-weight: 500;
-        }
-
-        .tag-card .tag-num {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.125rem 0.5rem;
-            border-radius: 4px;
-            line-height: 1;
-        }
-
-         
-        .categories-container {
-            max-width: 900px;
-        }
-
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 80vh;
-            overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-        }
-
-        .modal-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-        }
-
-        .modal-close {
-            font-size: 1.5rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: color 0.2s;
-            line-height: 1;
-        }
-
-        .modal-close:hover {
-            color: var(--text-primary);
-        }
-
-        .modal-body {
-            padding: 1rem;
-            overflow-y: auto;
-            max-height: calc(80vh - 80px);
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.25rem;
-            margin-bottom: 0.5rem;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .tag-card {
-            cursor: pointer;
-        }
-
-         
-        .tag-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .tag-modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 800px;
-            height: 600px;
-            overflow: hidden;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .tag-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            flex-shrink: 0;
-        }
-
-        .tag-modal-header h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 700;
-            padding: 0.375rem 1rem;
-            border-radius: 20px;
-        }
-
-        .tag-modal-close {
-            font-size: 2rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-        }
-
-        .tag-modal-close:hover {
-            color: var(--text-primary);
-            background: var(--bg-tertiary);
-        }
-
-        .tag-modal-body {
-            padding: 1.5rem 2rem;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.25rem 1.5rem;
-            margin-bottom: 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            text-decoration: none;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            transform: translateX(8px);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-            font-size: 1rem;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-         
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .taxonomy-detail {
-            max-width: 900px;
-        }
-
-        .taxonomy-stats {
-            margin-bottom: 2rem;
-        }
-
-        .stat-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-        }
-
-        .taxonomy-articles {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .taxonomy-article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .taxonomy-article:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--accent-glow);
-        }
-
-        .article-link {
-            display: block;
-            padding: 1.5rem;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .taxonomy-article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .article-meta {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .article-summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="header-content">
-            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
-            <nav>
-                <a href="https://raphaell2e.github.io/">首页</a>
-                <a href="https://raphaell2e.github.io/posts/">文章</a>
-                <a href="https://raphaell2e.github.io/categories/">分类</a>
-                <a href="https://raphaell2e.github.io/tags/">标签</a>
-                <a href="https://raphaell2e.github.io/about/">关于</a>
-            </nav>
-        </div>
-    </header>
-    <main>
-        
-<article class="post">
-    <div class="post-header">
-        <div class="meta">2026-05-14 <span>/</span> 分布式系统 </div>
-        <h1>Kafka 深度解析</h1>
-    </div>
-    <div class="post-content">
-        <h1 id="kafka-深度解析">Kafka 深度解析</h1>
-<h2 id="一引言">一、引言</h2>
-<p>Kafka 是 LinkedIn 开源的分布式流处理平台，已成为大数据和实时计算领域的事实标准。无论是日志采集、实时计算还是事件驱动架构，Kafka 都是核心基础设施。理解 Kafka 的内部原理，对架构设计和面试都至关重要。</p>
-<p><strong>本文要点</strong>：</p>
-<ol>
-<li>Kafka 架构与核心概念</li>
-<li>Topic 与 Partition</li>
-<li>Producer 写入机制</li>
-<li>Broker 存储机制</li>
-<li>ISR 机制与 High Watermark</li>
-<li>Consumer Group 与 Rebalance</li>
-<li>Kafka 高性能设计</li>
-<li>面试高频问题</li>
-</ol>
-<hr>
-<h2 id="二kafka-架构与核心概念">二、Kafka 架构与核心概念</h2>
-<h3 id="21-整体架构">2.1 整体架构</h3>
-<pre tabindex="0"><code>Producer ──→ Broker Cluster ──→ Consumer
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Kafka 深度解析 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
+<a href=https://raphaell2e.github.io/posts/>文章</a>
+<a href=https://raphaell2e.github.io/categories/>分类</a>
+<a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-14 <span>/</span> 分布式系统</div><h1>Kafka 深度解析</h1></div><div class=post-content><h1 id=kafka-深度解析>Kafka 深度解析</h1><h2 id=一引言>一、引言</h2><p>Kafka 是 LinkedIn 开源的分布式流处理平台，已成为大数据和实时计算领域的事实标准。无论是日志采集、实时计算还是事件驱动架构，Kafka 都是核心基础设施。理解 Kafka 的内部原理，对架构设计和面试都至关重要。</p><p><strong>本文要点</strong>：</p><ol><li>Kafka 架构与核心概念</li><li>Topic 与 Partition</li><li>Producer 写入机制</li><li>Broker 存储机制</li><li>ISR 机制与 High Watermark</li><li>Consumer Group 与 Rebalance</li><li>Kafka 高性能设计</li><li>面试高频问题</li></ol><hr><h2 id=二kafka-架构与核心概念>二、Kafka 架构与核心概念</h2><h3 id=21-整体架构>2.1 整体架构</h3><pre tabindex=0><code>Producer ──→ Broker Cluster ──→ Consumer
               │    │    │
              B1   B2   B3
               │    │    │
@@ -909,51 +10,7 @@
            │  ZooKeeper /   │
            │  KRaft (新)    │
            └────────────────┘
-</code></pre><h3 id="22-核心概念">2.2 核心概念</h3>
-<table>
-<thead>
-<tr>
-<th>概念</th>
-<th>描述</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Broker</strong></td>
-<td>Kafka 服务节点，负责消息存储和转发</td>
-</tr>
-<tr>
-<td><strong>Topic</strong></td>
-<td>消息分类，逻辑概念</td>
-</tr>
-<tr>
-<td><strong>Partition</strong></td>
-<td>Topic 的物理分片，有序、不可变日志</td>
-</tr>
-<tr>
-<td><strong>Offset</strong></td>
-<td>消息在 Partition 中的偏移量</td>
-</tr>
-<tr>
-<td><strong>Consumer Group</strong></td>
-<td>消费者组，组内竞争消费</td>
-</tr>
-<tr>
-<td><strong>Replica</strong></td>
-<td>Partition 的副本，分 Leader 和 Follower</td>
-</tr>
-<tr>
-<td><strong>ISR</strong></td>
-<td>In-Sync Replicas，与 Leader 同步的副本集合</td>
-</tr>
-<tr>
-<td><strong>Controller</strong></td>
-<td>集群管理者，负责 Partition Leader 选举</td>
-</tr>
-</tbody>
-</table>
-<h3 id="23-kafka-3x-新架构kraft">2.3 Kafka 3.x 新架构（KRaft）</h3>
-<pre tabindex="0"><code>旧架构（ZooKeeper）：
+</code></pre><h3 id=22-核心概念>2.2 核心概念</h3><table><thead><tr><th>概念</th><th>描述</th></tr></thead><tbody><tr><td><strong>Broker</strong></td><td>Kafka 服务节点，负责消息存储和转发</td></tr><tr><td><strong>Topic</strong></td><td>消息分类，逻辑概念</td></tr><tr><td><strong>Partition</strong></td><td>Topic 的物理分片，有序、不可变日志</td></tr><tr><td><strong>Offset</strong></td><td>消息在 Partition 中的偏移量</td></tr><tr><td><strong>Consumer Group</strong></td><td>消费者组，组内竞争消费</td></tr><tr><td><strong>Replica</strong></td><td>Partition 的副本，分 Leader 和 Follower</td></tr><tr><td><strong>ISR</strong></td><td>In-Sync Replicas，与 Leader 同步的副本集合</td></tr><tr><td><strong>Controller</strong></td><td>集群管理者，负责 Partition Leader 选举</td></tr></tbody></table><h3 id=23-kafka-3x-新架构kraft>2.3 Kafka 3.x 新架构（KRaft）</h3><pre tabindex=0><code>旧架构（ZooKeeper）：
   Broker → ZooKeeper（元数据存储、Controller 选举、Broker 注册）
 
 新架构（KRaft）：
@@ -964,15 +21,11 @@
   - Controller 扩展性更好
   - 元数据变更更快
   - 运维更简单
-</code></pre><hr>
-<h2 id="三topic-与-partition">三、Topic 与 Partition</h2>
-<h3 id="31-partition-的作用">3.1 Partition 的作用</h3>
-<pre tabindex="0"><code>1. 并行度：多个 Partition 可以被多个消费者并行消费
+</code></pre><hr><h2 id=三topic-与-partition>三、Topic 与 Partition</h2><h3 id=31-partition-的作用>3.1 Partition 的作用</h3><pre tabindex=0><code>1. 并行度：多个 Partition 可以被多个消费者并行消费
 2. 容错性：每个 Partition 有多个 Replica
 3. 顺序性：Partition 内消息有序
 4. 扩展性：增加 Partition 提高吞吐
-</code></pre><h3 id="32-partition-数量选择">3.2 Partition 数量选择</h3>
-<pre tabindex="0"><code>公式：Partition 数 = 期望吞吐量 / 单 Partition 吞吐量
+</code></pre><h3 id=32-partition-数量选择>3.2 Partition 数量选择</h3><pre tabindex=0><code>公式：Partition 数 = 期望吞吐量 / 单 Partition 吞吐量
 
 示例：
   期望吞吐量 = 100 MB/s
@@ -990,38 +43,33 @@
   - 大规模：30-100 个
   
 注意：Partition 数只能增加，不能减少
-</code></pre><h3 id="33-partition-路由策略">3.3 Partition 路由策略</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 策略一：指定 Partition
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>producer<span style="color:#f92672">.</span><span style="color:#a6e22e">send</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> ProducerRecord<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;topic&#34;</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">,</span> key<span style="color:#f92672">,</span> value<span style="color:#f92672">));</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 策略二：有 Key，按 Key 哈希
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// hash(key) % partitionCount
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>producer<span style="color:#f92672">.</span><span style="color:#a6e22e">send</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> ProducerRecord<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;topic&#34;</span><span style="color:#f92672">,</span> key<span style="color:#f92672">,</span> value<span style="color:#f92672">));</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 策略三：无 Key，粘性分区（Kafka 2.4+）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 尽量将消息发到同一个 Partition，批量发送后再换
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>producer<span style="color:#f92672">.</span><span style="color:#a6e22e">send</span><span style="color:#f92672">(</span><span style="color:#66d9ef">new</span> ProducerRecord<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;topic&#34;</span><span style="color:#f92672">,</span> value<span style="color:#f92672">));</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 策略四：自定义分区器
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">CustomPartitioner</span> <span style="color:#66d9ef">implements</span> Partitioner <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">partition</span><span style="color:#f92672">(</span>String topic<span style="color:#f92672">,</span> Object key<span style="color:#f92672">,</span> <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> keyBytes<span style="color:#f92672">,</span>
-</span></span><span style="display:flex;"><span>                         Object value<span style="color:#f92672">,</span> <span style="color:#66d9ef">byte</span><span style="color:#f92672">[]</span> valueBytes<span style="color:#f92672">,</span> Cluster cluster<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 自定义路由逻辑
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">return</span> customLogic<span style="color:#f92672">(</span>key<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><hr>
-<h2 id="四producer-写入机制">四、Producer 写入机制</h2>
-<h3 id="41-写入流程">4.1 写入流程</h3>
-<pre tabindex="0"><code>1. 序列化：Key 和 Value 序列化
+</code></pre><h3 id=33-partition-路由策略>3.3 Partition 路由策略</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 策略一：指定 Partition
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>producer<span style=color:#f92672>.</span><span style=color:#a6e22e>send</span><span style=color:#f92672>(</span><span style=color:#66d9ef>new</span> ProducerRecord<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;topic&#34;</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>,</span> key<span style=color:#f92672>,</span> value<span style=color:#f92672>));</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 策略二：有 Key，按 Key 哈希
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// hash(key) % partitionCount
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>producer<span style=color:#f92672>.</span><span style=color:#a6e22e>send</span><span style=color:#f92672>(</span><span style=color:#66d9ef>new</span> ProducerRecord<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;topic&#34;</span><span style=color:#f92672>,</span> key<span style=color:#f92672>,</span> value<span style=color:#f92672>));</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 策略三：无 Key，粘性分区（Kafka 2.4+）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 尽量将消息发到同一个 Partition，批量发送后再换
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>producer<span style=color:#f92672>.</span><span style=color:#a6e22e>send</span><span style=color:#f92672>(</span><span style=color:#66d9ef>new</span> ProducerRecord<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;topic&#34;</span><span style=color:#f92672>,</span> value<span style=color:#f92672>));</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 策略四：自定义分区器
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>CustomPartitioner</span> <span style=color:#66d9ef>implements</span> Partitioner <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>partition</span><span style=color:#f92672>(</span>String topic<span style=color:#f92672>,</span> Object key<span style=color:#f92672>,</span> <span style=color:#66d9ef>byte</span><span style=color:#f92672>[]</span> keyBytes<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>                         Object value<span style=color:#f92672>,</span> <span style=color:#66d9ef>byte</span><span style=color:#f92672>[]</span> valueBytes<span style=color:#f92672>,</span> Cluster cluster<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 自定义路由逻辑
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>return</span> customLogic<span style=color:#f92672>(</span>key<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=四producer-写入机制>四、Producer 写入机制</h2><h3 id=41-写入流程>4.1 写入流程</h3><pre tabindex=0><code>1. 序列化：Key 和 Value 序列化
 2. 分区器：确定发送到哪个 Partition
 3. RecordAccumulator：消息缓存（批量发送）
 4. Sender 线程：将批量消息发送到 Broker
 5. Broker 处理：写入日志 + 更正 ISR
 6. 返回 ACK
-</code></pre><h3 id="42-批量发送recordaccumulator">4.2 批量发送（RecordAccumulator）</h3>
-<pre tabindex="0"><code>Producer 内部有一个 RecordAccumulator：
+</code></pre><h3 id=42-批量发送recordaccumulator>4.2 批量发送（RecordAccumulator）</h3><pre tabindex=0><code>Producer 内部有一个 RecordAccumulator：
 
   消息 → 按 Partition 分组 → 放入对应 batch
   
@@ -1033,69 +81,33 @@
   - 增大 batch.size → 减少请求次数，提高吞吐
   - 增大 linger.ms → 等待更多消息凑满 batch
   - 两者配合：吞吐量大幅提升
-</code></pre><h3 id="43-ack-确认机制">4.3 ACK 确认机制</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-properties" data-lang="properties"><span style="display:flex;"><span><span style="color:#75715e"># acks=0：不等 ACK（最快，可能丢失）</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">acks</span><span style="color:#f92672">=</span><span style="color:#e6db74">0</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># acks=1：Leader 写入后返回 ACK（默认）</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">acks</span><span style="color:#f92672">=</span><span style="color:#e6db74">1</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># acks=all（-1）：所有 ISR 副本写入后返回 ACK（最可靠）</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">acks</span><span style="color:#f92672">=</span><span style="color:#e6db74">all</span>
-</span></span></code></pre></div><table>
-<thead>
-<tr>
-<th>acks</th>
-<th>可靠性</th>
-<th>性能</th>
-<th>数据丢失风险</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>0</td>
-<td>最低</td>
-<td>最高</td>
-<td>高（Broker 故障即丢失）</td>
-</tr>
-<tr>
-<td>1</td>
-<td>中</td>
-<td>中</td>
-<td>中（Leader 故障可能丢失）</td>
-</tr>
-<tr>
-<td>all</td>
-<td>最高</td>
-<td>最低</td>
-<td>最低（ISR 全部写入）</td>
-</tr>
-</tbody>
-</table>
-<h3 id="44-重试机制">4.4 重试机制</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-properties" data-lang="properties"><span style="display:flex;"><span><span style="color:#75715e"># 重试次数（默认 Int.MAX_VALUE）</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">retries</span><span style="color:#f92672">=</span><span style="color:#e6db74">3</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 重试间隔</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">retry.backoff.ms</span><span style="color:#f92672">=</span><span style="color:#e6db74">100</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 幂等生产者（防止重试导致重复）</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">enable.idempotence</span><span style="color:#f92672">=</span><span style="color:#e6db74">true</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 事务生产者（跨 Partition 原子写入）</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">transactional.id</span><span style="color:#f92672">=</span><span style="color:#e6db74">tx-producer-1</span>
-</span></span></code></pre></div><p><strong>幂等生产者原理</strong>：</p>
-<pre tabindex="0"><code>Producer 为每条消息分配 Sequence Number
+</code></pre><h3 id=43-ack-确认机制>4.3 ACK 确认机制</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-properties data-lang=properties><span style=display:flex><span><span style=color:#75715e># acks=0：不等 ACK（最快，可能丢失）</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>acks</span><span style=color:#f92672>=</span><span style=color:#e6db74>0</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># acks=1：Leader 写入后返回 ACK（默认）</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>acks</span><span style=color:#f92672>=</span><span style=color:#e6db74>1</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># acks=all（-1）：所有 ISR 副本写入后返回 ACK（最可靠）</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>acks</span><span style=color:#f92672>=</span><span style=color:#e6db74>all</span>
+</span></span></code></pre></div><table><thead><tr><th>acks</th><th>可靠性</th><th>性能</th><th>数据丢失风险</th></tr></thead><tbody><tr><td>0</td><td>最低</td><td>最高</td><td>高（Broker 故障即丢失）</td></tr><tr><td>1</td><td>中</td><td>中</td><td>中（Leader 故障可能丢失）</td></tr><tr><td>all</td><td>最高</td><td>最低</td><td>最低（ISR 全部写入）</td></tr></tbody></table><h3 id=44-重试机制>4.4 重试机制</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-properties data-lang=properties><span style=display:flex><span><span style=color:#75715e># 重试次数（默认 Int.MAX_VALUE）</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>retries</span><span style=color:#f92672>=</span><span style=color:#e6db74>3</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 重试间隔</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>retry.backoff.ms</span><span style=color:#f92672>=</span><span style=color:#e6db74>100</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 幂等生产者（防止重试导致重复）</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>enable.idempotence</span><span style=color:#f92672>=</span><span style=color:#e6db74>true</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 事务生产者（跨 Partition 原子写入）</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>transactional.id</span><span style=color:#f92672>=</span><span style=color:#e6db74>tx-producer-1</span>
+</span></span></code></pre></div><p><strong>幂等生产者原理</strong>：</p><pre tabindex=0><code>Producer 为每条消息分配 Sequence Number
 Broker 检查 Sequence Number：
   - 如果已存在 → 丢弃重复消息
   - 如果不存在 → 写入
 
 仅保证单 Partition 单 Session 内幂等
 跨 Partition 或跨 Session 仍需事务
-</code></pre><hr>
-<h2 id="五broker-存储机制">五、Broker 存储机制</h2>
-<h3 id="51-日志存储结构">5.1 日志存储结构</h3>
-<pre tabindex="0"><code>Topic: order-events
+</code></pre><hr><h2 id=五broker-存储机制>五、Broker 存储机制</h2><h3 id=51-日志存储结构>5.1 日志存储结构</h3><pre tabindex=0><code>Topic: order-events
 Partition: 0
 
 /kafka-logs/order-events-0/
@@ -1106,8 +118,7 @@ Partition: 0
   ├── 00000000000005367851.index
   ├── 00000000000005367851.timeindex
   └── leader-epoch-checkpoint     ← Leader 纪元
-</code></pre><h3 id="52-日志分段logsegment">5.2 日志分段（LogSegment）</h3>
-<pre tabindex="0"><code>每个 Segment 默认 1GB（log.segment.bytes=1073741824）
+</code></pre><h3 id=52-日志分段logsegment>5.2 日志分段（LogSegment）</h3><pre tabindex=0><code>每个 Segment 默认 1GB（log.segment.bytes=1073741824）
 
 滚动条件（满足任一）：
   1. Segment 大小达到 1GB
@@ -1116,8 +127,7 @@ Partition: 0
 Segment 文件命名：起始 Offset 补零到 20 位
   第一个 Segment: 00000000000000000000
   第二个 Segment: 00000000000005367851（假设第一个 Segment 最大 Offset）
-</code></pre><h3 id="53-稀疏索引">5.3 稀疏索引</h3>
-<pre tabindex="0"><code>.index 文件：Offset → 物理位置
+</code></pre><h3 id=53-稀疏索引>5.3 稀疏索引</h3><pre tabindex=0><code>.index 文件：Offset → 物理位置
   每 4KB 建立一个索引项（log.index.interval.bytes=4096）
 
 查找流程：
@@ -1129,9 +139,7 @@ Segment 文件命名：起始 Offset 补零到 20 位
 
 .timeindex 文件：时间戳 → Offset
   用于按时间查找消息
-</code></pre><h3 id="54-页缓存与零拷贝">5.4 页缓存与零拷贝</h3>
-<p><strong>Kafka 高性能的关键</strong>：</p>
-<pre tabindex="0"><code>1. 页缓存（Page Cache）：
+</code></pre><h3 id=54-页缓存与零拷贝>5.4 页缓存与零拷贝</h3><p><strong>Kafka 高性能的关键</strong>：</p><pre tabindex=0><code>1. 页缓存（Page Cache）：
    → 写入：先写页缓存，由 OS 异步刷盘
    → 读取：先查页缓存，命中则零拷贝
    → 避免了 JVM GC 问题
@@ -1145,10 +153,7 @@ Segment 文件命名：起始 Offset 补零到 20 位
    → Producer 批量压缩（gzip/lz4/snappy/zstd）
    → 整个 batch 一起压缩/解压
    → 减少网络传输和磁盘存储
-</code></pre><hr>
-<h2 id="六isr-机制与-high-watermark">六、ISR 机制与 High Watermark</h2>
-<h3 id="61-isrin-sync-replicas">6.1 ISR（In-Sync Replicas）</h3>
-<pre tabindex="0"><code>每个 Partition 有多个 Replica：
+</code></pre><hr><h2 id=六isr-机制与-high-watermark>六、ISR 机制与 High Watermark</h2><h3 id=61-isrin-sync-replicas>6.1 ISR（In-Sync Replicas）</h3><pre tabindex=0><code>每个 Partition 有多个 Replica：
   Leader Replica：处理读写请求
   Follower Replica：从 Leader 拉取数据
 
@@ -1160,8 +165,7 @@ OSR = Out-of-Sync Replicas
   → 不同步的副本
 
 AR = ISR + OSR（所有副本）
-</code></pre><h3 id="62-high-watermarkhw">6.2 High Watermark（HW）</h3>
-<pre tabindex="0"><code>HW = ISR 中所有 Replica 的最小 LEO（Log End Offset）
+</code></pre><h3 id=62-high-watermarkhw>6.2 High Watermark（HW）</h3><pre tabindex=0><code>HW = ISR 中所有 Replica 的最小 LEO（Log End Offset）
 
 LEO = 每个 Replica 的日志末端偏移量
 
@@ -1170,15 +174,12 @@ Follower HW = min(LEO of itself, Leader HW)
 
 消费者只能消费到 HW 之前的消息
 → 保证消费者读到的消息一定在所有 ISR 副本中
-</code></pre><p><strong>HW 更新流程</strong>：</p>
-<pre tabindex="0"><code>1. Follower 从 Leader 拉取数据
+</code></pre><p><strong>HW 更新流程</strong>：</p><pre tabindex=0><code>1. Follower 从 Leader 拉取数据
 2. Leader 返回数据 + 当前 HW
 3. Follower 写入数据，更新自己的 LEO
 4. Follower 更新 HW = min(自己的 LEO, Leader 返回的 HW)
 5. Leader 更新 HW = min(所有 ISR 的 LEO)
-</code></pre><h3 id="63-leader-epoch解决-hw-截断问题">6.3 Leader Epoch（解决 HW 截断问题）</h3>
-<p><strong>HW 截断问题</strong>：</p>
-<pre tabindex="0"><code>场景：
+</code></pre><h3 id=63-leader-epoch解决-hw-截断问题>6.3 Leader Epoch（解决 HW 截断问题）</h3><p><strong>HW 截断问题</strong>：</p><pre tabindex=0><code>场景：
   Leader(A) 和 Follower(B) 的 HW = 2
   1. B 重启，向 A 请求 HW 之后的数据
   2. A 宕机
@@ -1192,10 +193,7 @@ Follower HW = min(LEO of itself, Leader HW)
   → 获取该 Epoch 对应的 Start Offset
   → 从 Start Offset 开始截断（而非 HW）
   → 避免数据丢失
-</code></pre><hr>
-<h2 id="七consumer-group-与-rebalance">七、Consumer Group 与 Rebalance</h2>
-<h3 id="71-consumer-group">7.1 Consumer Group</h3>
-<pre tabindex="0"><code>规则：
+</code></pre><hr><h2 id=七consumer-group-与-rebalance>七、Consumer Group 与 Rebalance</h2><h3 id=71-consumer-group>7.1 Consumer Group</h3><pre tabindex=0><code>规则：
   1. 同一 Consumer Group 内，一个 Partition 只能被一个消费者消费
   2. 一个消费者可以消费多个 Partition
   3. 消费者数 &gt; Partition 数 → 多出的消费者空闲
@@ -1213,13 +211,11 @@ Follower HW = min(LEO of itself, Leader HW)
   消费者 2 → P1
   消费者 3 → P2
   消费者 4 → P3
-</code></pre><h3 id="72-rebalance-触发条件">7.2 Rebalance 触发条件</h3>
-<pre tabindex="0"><code>1. 消费者加入 Consumer Group
+</code></pre><h3 id=72-rebalance-触发条件>7.2 Rebalance 触发条件</h3><pre tabindex=0><code>1. 消费者加入 Consumer Group
 2. 消费者离开 Consumer Group（正常退出或宕机）
 3. Topic 的 Partition 数变化
 4. 消费者订阅的 Topic 变化
-</code></pre><h3 id="73-rebalance-的问题">7.3 Rebalance 的问题</h3>
-<pre tabindex="0"><code>问题一：Stop The World
+</code></pre><h3 id=73-rebalance-的问题>7.3 Rebalance 的问题</h3><pre tabindex=0><code>问题一：Stop The World
   → Rebalance 期间，所有消费者停止消费
   → 导致消息积压
 
@@ -1232,40 +228,7 @@ Follower HW = min(LEO of itself, Leader HW)
   2. 增大 heartbeat.interval.ms（默认 3s）
   3. 增大 max.poll.interval.ms（默认 5min → 10min）
   4. 减少每次 poll 的消息数（max.poll.records）
-</code></pre><h3 id="74-rebalance-分配策略">7.4 Rebalance 分配策略</h3>
-<table>
-<thead>
-<tr>
-<th>策略</th>
-<th>描述</th>
-<th>特点</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>RangeAssignor</strong></td>
-<td>按 Partition 范围连续分配</td>
-<td>前面的消费者分配更多</td>
-</tr>
-<tr>
-<td><strong>RoundRobinAssignor</strong></td>
-<td>轮询分配</td>
-<td>均匀</td>
-</tr>
-<tr>
-<td><strong>StickyAssignor</strong></td>
-<td>粘性分配（尽量保持原有分配）</td>
-<td>Rebalance 迁移量最少</td>
-</tr>
-<tr>
-<td><strong>CooperativeStickyAssignor</strong></td>
-<td>增量协作式（Kafka 2.4+）</td>
-<td>不停消费，渐进迁移</td>
-</tr>
-</tbody>
-</table>
-<p><strong>CooperativeStickyAssignor 优势</strong>：</p>
-<pre tabindex="0"><code>传统 Rebalance（Eager）：
+</code></pre><h3 id=74-rebalance-分配策略>7.4 Rebalance 分配策略</h3><table><thead><tr><th>策略</th><th>描述</th><th>特点</th></tr></thead><tbody><tr><td><strong>RangeAssignor</strong></td><td>按 Partition 范围连续分配</td><td>前面的消费者分配更多</td></tr><tr><td><strong>RoundRobinAssignor</strong></td><td>轮询分配</td><td>均匀</td></tr><tr><td><strong>StickyAssignor</strong></td><td>粘性分配（尽量保持原有分配）</td><td>Rebalance 迁移量最少</td></tr><tr><td><strong>CooperativeStickyAssignor</strong></td><td>增量协作式（Kafka 2.4+）</td><td>不停消费，渐进迁移</td></tr></tbody></table><p><strong>CooperativeStickyAssignor 优势</strong>：</p><pre tabindex=0><code>传统 Rebalance（Eager）：
   1. 所有消费者撤销分配 → 停止消费
   2. 重新分配
   3. 消费者开始消费
@@ -1274,10 +237,7 @@ Follower HW = min(LEO of itself, Leader HW)
   1. 只有受影响的 Partition 需要迁移
   2. 其他消费者继续消费
   3. 逐步完成迁移
-</code></pre><hr>
-<h2 id="八kafka-事务">八、Kafka 事务</h2>
-<h3 id="81-exactly-once-语义">8.1 Exactly Once 语义</h3>
-<pre tabindex="0"><code>Kafka 的事务保证：
+</code></pre><hr><h2 id=八kafka-事务>八、Kafka 事务</h2><h3 id=81-exactly-once-语义>8.1 Exactly Once 语义</h3><pre tabindex=0><code>Kafka 的事务保证：
   1. 原子写入：跨 Partition 的写入要么全部成功，要么全部失败
   2. 消费-处理-生产的 Exactly Once
 
@@ -1288,8 +248,7 @@ Follower HW = min(LEO of itself, Leader HW)
     
   Consumer 端：
     - isolation.level=read_committed（只读已提交的消息）
-</code></pre><h3 id="82-事务流程">8.2 事务流程</h3>
-<pre tabindex="0"><code>1. 初始化事务
+</code></pre><h3 id=82-事务流程>8.2 事务流程</h3><pre tabindex=0><code>1. 初始化事务
    producer.initTransactions();
 
 2. 开始事务
@@ -1307,78 +266,4 @@ Follower HW = min(LEO of itself, Leader HW)
 
 6. 或回滚事务
    producer.abortTransaction();
-</code></pre><hr>
-<h2 id="九面试高频问题">九、面试高频问题</h2>
-<h3 id="q1-kafka-为什么这么快">Q1: Kafka 为什么这么快？</h3>
-<p><strong>答案要点</strong>：</p>
-<ol>
-<li>顺序写磁盘（比随机写内存还快）</li>
-<li>页缓存（Page Cache，避免 JVM GC）</li>
-<li>零拷贝（sendfile 系统调用）</li>
-<li>批量发送（RecordAccumulator）</li>
-<li>压缩（整个 batch 一起压缩）</li>
-<li>分区并行</li>
-</ol>
-<h3 id="q2-isr-是什么为什么需要">Q2: ISR 是什么？为什么需要？</h3>
-<p><strong>答案要点</strong>：</p>
-<ul>
-<li>ISR = 与 Leader 同步的副本集合</li>
-<li>写入时需等待所有 ISR 副本确认（acks=all）</li>
-<li>读取时只能读 HW 之前的消息</li>
-<li>保证数据不丢失（只要 ISR 不为空）</li>
-</ul>
-<h3 id="q3-kafka-如何保证消息不丢失">Q3: Kafka 如何保证消息不丢失？</h3>
-<p><strong>答案要点</strong>：</p>
-<ul>
-<li>Producer：acks=all + 重试 + 幂等</li>
-<li>Broker：ISR 机制 + 刷盘</li>
-<li>Consumer：手动提交 Offset</li>
-<li>关键配置：min.insync.replicas=2</li>
-</ul>
-<h3 id="q4-rebalance-怎么避免">Q4: Rebalance 怎么避免？</h3>
-<p><strong>答案要点</strong>：</p>
-<ul>
-<li>增大 session.timeout.ms 和 max.poll.interval.ms</li>
-<li>减少 max.poll.records</li>
-<li>使用 StickyAssignor 或 CooperativeStickyAssignor</li>
-<li>避免消费者处理时间过长</li>
-</ul>
-<h3 id="q5-kafka-的-hw-和-leo-是什么">Q5: Kafka 的 HW 和 LEO 是什么？</h3>
-<p><strong>答案要点</strong>：</p>
-<ul>
-<li>LEO = Log End Offset（日志末端偏移量）</li>
-<li>HW = High Watermark = min(所有 ISR 的 LEO)</li>
-<li>消费者只能读到 HW 之前的消息</li>
-<li>Leader Epoch 解决 HW 截断问题</li>
-</ul>
-<hr>
-<h2 id="十总结">十、总结</h2>
-<p>本文深入分析了 Kafka 的核心原理：</p>
-<ol>
-<li><strong>架构</strong>：Broker + Topic + Partition + Replica</li>
-<li><strong>Producer</strong>：批量发送 + acks 确认 + 幂等 + 事务</li>
-<li><strong>Broker</strong>：页缓存 + 零拷贝 + 稀疏索引 + 顺序写</li>
-<li><strong>ISR</strong>：同步副本集合 + HW + Leader Epoch</li>
-<li><strong>Consumer</strong>：Consumer Group + Rebalance + Offset 管理</li>
-</ol>
-<p><strong>核心记忆</strong>：</p>
-<ul>
-<li>Kafka 快的原因：顺序写 + 页缓存 + 零拷贝 + 批量 + 压缩</li>
-<li>ISR + HW 保证数据不丢</li>
-<li>acks=all + min.insync.replicas=2 是最可靠配置</li>
-<li>Rebalance 问题：增大超时 + StickyAssignor</li>
-<li>Leader Epoch 解决 HW 截断数据丢失</li>
-</ul>
-<p>下一篇将深入 <strong>Elasticsearch 深度解析</strong>，包括倒排索引、分片路由、写入流程、搜索原理等，敬请期待。</p>
-<hr>
-<p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p>
-
-    </div>
-</article>
-
-    </main>
-    <footer>
-        <p>&copy; 2026 李亚飞</p>
-    </footer>
-</body>
-</html>
+</code></pre><hr><h2 id=九面试高频问题>九、面试高频问题</h2><h3 id=q1-kafka-为什么这么快>Q1: Kafka 为什么这么快？</h3><p><strong>答案要点</strong>：</p><ol><li>顺序写磁盘（比随机写内存还快）</li><li>页缓存（Page Cache，避免 JVM GC）</li><li>零拷贝（sendfile 系统调用）</li><li>批量发送（RecordAccumulator）</li><li>压缩（整个 batch 一起压缩）</li><li>分区并行</li></ol><h3 id=q2-isr-是什么为什么需要>Q2: ISR 是什么？为什么需要？</h3><p><strong>答案要点</strong>：</p><ul><li>ISR = 与 Leader 同步的副本集合</li><li>写入时需等待所有 ISR 副本确认（acks=all）</li><li>读取时只能读 HW 之前的消息</li><li>保证数据不丢失（只要 ISR 不为空）</li></ul><h3 id=q3-kafka-如何保证消息不丢失>Q3: Kafka 如何保证消息不丢失？</h3><p><strong>答案要点</strong>：</p><ul><li>Producer：acks=all + 重试 + 幂等</li><li>Broker：ISR 机制 + 刷盘</li><li>Consumer：手动提交 Offset</li><li>关键配置：min.insync.replicas=2</li></ul><h3 id=q4-rebalance-怎么避免>Q4: Rebalance 怎么避免？</h3><p><strong>答案要点</strong>：</p><ul><li>增大 session.timeout.ms 和 max.poll.interval.ms</li><li>减少 max.poll.records</li><li>使用 StickyAssignor 或 CooperativeStickyAssignor</li><li>避免消费者处理时间过长</li></ul><h3 id=q5-kafka-的-hw-和-leo-是什么>Q5: Kafka 的 HW 和 LEO 是什么？</h3><p><strong>答案要点</strong>：</p><ul><li>LEO = Log End Offset（日志末端偏移量）</li><li>HW = High Watermark = min(所有 ISR 的 LEO)</li><li>消费者只能读到 HW 之前的消息</li><li>Leader Epoch 解决 HW 截断问题</li></ul><hr><h2 id=十总结>十、总结</h2><p>本文深入分析了 Kafka 的核心原理：</p><ol><li><strong>架构</strong>：Broker + Topic + Partition + Replica</li><li><strong>Producer</strong>：批量发送 + acks 确认 + 幂等 + 事务</li><li><strong>Broker</strong>：页缓存 + 零拷贝 + 稀疏索引 + 顺序写</li><li><strong>ISR</strong>：同步副本集合 + HW + Leader Epoch</li><li><strong>Consumer</strong>：Consumer Group + Rebalance + Offset 管理</li></ol><p><strong>核心记忆</strong>：</p><ul><li>Kafka 快的原因：顺序写 + 页缓存 + 零拷贝 + 批量 + 压缩</li><li>ISR + HW 保证数据不丢</li><li>acks=all + min.insync.replicas=2 是最可靠配置</li><li>Rebalance 问题：增大超时 + StickyAssignor</li><li>Leader Epoch 解决 HW 截断数据丢失</li></ul><p>下一篇将深入 <strong>Elasticsearch 深度解析</strong>，包括倒排索引、分片路由、写入流程、搜索原理等，敬请期待。</p><hr><p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p></div></article></main><footer><p>&copy; 2026 李亚飞</p></footer></body></html>

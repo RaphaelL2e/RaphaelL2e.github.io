@@ -1,898 +1,8 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JVM 内存模型（JMM）深度解析 - Raphael Tech Blog</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a25;
-            --text-primary: #e4e4e7;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --accent-glow: rgba(59, 130, 246, 0.3);
-            --border: #27272a;
-            --code-bg: #0f0f15;
-        }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-        
-         
-        header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-        }
-        
-        .header-content {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 1rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-        
-        header h1 a {
-            color: var(--text-primary);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        header h1 a::before {
-            content: '◆';
-            color: var(--accent);
-            font-size: 0.875rem;
-        }
-        
-        nav {
-            display: flex;
-            gap: 1.5rem;
-        }
-        
-        nav a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: color 0.2s;
-            position: relative;
-        }
-        
-        nav a:hover {
-            color: var(--text-primary);
-        }
-        
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--accent);
-            transition: width 0.2s;
-        }
-        
-        nav a:hover::after {
-            width: 100%;
-        }
-        
-         
-        main {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
-        
-         
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            transition: all 0.2s;
-        }
-        
-        article:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 20px var(--accent-glow);
-        }
-        
-        article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        
-        article h2 a {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-        
-        article h2 a:hover {
-            color: var(--accent);
-        }
-        
-        .meta {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.75rem;
-        }
-        
-        .meta span {
-            color: var(--accent);
-        }
-        
-        .summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-        
-        .summary a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
-            margin-left: 0.5rem;
-        }
-        
-        .summary a:hover {
-            text-decoration: underline;
-        }
-        
-         
-        .post-header {
-            margin-bottom: 2rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            line-height: 1.3;
-            margin-bottom: 1rem;
-        }
-        
-        .post-content {
-            font-size: 1rem;
-            line-height: 1.8;
-        }
-        
-        .post-content h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 2.5rem 0 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-content h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 2rem 0 1rem;
-            color: var(--accent);
-        }
-        
-        .post-content h4 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin: 1.5rem 0 0.75rem;
-        }
-        
-        .post-content p {
-            margin-bottom: 1.25rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-        
-        .post-content a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        
-        .post-content a:hover {
-            text-decoration: underline;
-        }
-        
-        .post-content ul, .post-content ol {
-            margin: 1rem 0 1.5rem 1.5rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content li {
-            margin-bottom: 0.5rem;
-        }
-        
-        .post-content code {
-            font-family: 'JetBrains Mono', monospace;
-            background: var(--code-bg);
-            color: var(--accent);
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-size: 0.875em;
-        }
-        
-        .post-content pre {
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.25rem;
-            overflow-x: auto;
-            margin: 1.5rem 0;
-        }
-        
-        .post-content pre code {
-            background: none;
-            color: var(--text-primary);
-            padding: 0;
-        }
-        
-        .post-content blockquote {
-            border-left: 3px solid var(--accent);
-            background: var(--bg-tertiary);
-            padding: 1rem 1.25rem;
-            margin: 1.5rem 0;
-            border-radius: 0 8px 8px 0;
-        }
-        
-        .post-content blockquote p {
-            margin: 0;
-            color: var(--text-secondary);
-        }
-        
-        .post-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-            font-size: 0.9375rem;
-        }
-        
-        .post-content th {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-weight: 600;
-            text-align: left;
-            padding: 0.75rem 1rem;
-            border-bottom: 2px solid var(--border);
-        }
-        
-        .post-content td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-secondary);
-        }
-        
-        .post-content tr:hover td {
-            background: var(--bg-tertiary);
-        }
-        
-         
-        footer {
-            max-width: 900px;
-            margin: 4rem auto 0;
-            padding: 2rem 1.5rem;
-            border-top: 1px solid var(--border);
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-         
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: var(--bg-secondary);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
-        
-         
-        ::selection {
-            background: var(--accent-glow);
-            color: var(--text-primary);
-        }
-
-         
-         
-        .tags-container {
-            max-width: 900px;
-        }
-
-        .tags-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 2rem;
-        }
-
-        .tag-card {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.625rem 1rem;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .tag-card:hover {
-            border-color: var(--accent);
-            background: var(--bg-tertiary);
-            transform: translateY(-1px);
-        }
-
-        .tag-card .tag-name {
-            color: var(--text-primary);
-            font-size: 0.9375rem;
-            font-weight: 500;
-        }
-
-        .tag-card .tag-num {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.125rem 0.5rem;
-            border-radius: 4px;
-            line-height: 1;
-        }
-
-         
-        .categories-container {
-            max-width: 900px;
-        }
-
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 80vh;
-            overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-        }
-
-        .modal-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-        }
-
-        .modal-close {
-            font-size: 1.5rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: color 0.2s;
-            line-height: 1;
-        }
-
-        .modal-close:hover {
-            color: var(--text-primary);
-        }
-
-        .modal-body {
-            padding: 1rem;
-            overflow-y: auto;
-            max-height: calc(80vh - 80px);
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.25rem;
-            margin-bottom: 0.5rem;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .tag-card {
-            cursor: pointer;
-        }
-
-         
-        .tag-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .tag-modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 800px;
-            height: 600px;
-            overflow: hidden;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .tag-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            flex-shrink: 0;
-        }
-
-        .tag-modal-header h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 700;
-            padding: 0.375rem 1rem;
-            border-radius: 20px;
-        }
-
-        .tag-modal-close {
-            font-size: 2rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-        }
-
-        .tag-modal-close:hover {
-            color: var(--text-primary);
-            background: var(--bg-tertiary);
-        }
-
-        .tag-modal-body {
-            padding: 1.5rem 2rem;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.25rem 1.5rem;
-            margin-bottom: 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            text-decoration: none;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            transform: translateX(8px);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-            font-size: 1rem;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-         
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .taxonomy-detail {
-            max-width: 900px;
-        }
-
-        .taxonomy-stats {
-            margin-bottom: 2rem;
-        }
-
-        .stat-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-        }
-
-        .taxonomy-articles {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .taxonomy-article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .taxonomy-article:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--accent-glow);
-        }
-
-        .article-link {
-            display: block;
-            padding: 1.5rem;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .taxonomy-article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .article-meta {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .article-summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="header-content">
-            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
-            <nav>
-                <a href="https://raphaell2e.github.io/">首页</a>
-                <a href="https://raphaell2e.github.io/posts/">文章</a>
-                <a href="https://raphaell2e.github.io/categories/">分类</a>
-                <a href="https://raphaell2e.github.io/tags/">标签</a>
-                <a href="https://raphaell2e.github.io/about/">关于</a>
-            </nav>
-        </div>
-    </header>
-    <main>
-        
-<article class="post">
-    <div class="post-header">
-        <div class="meta">2026-05-12 <span>/</span> jvm </div>
-        <h1>JVM 内存模型（JMM）深度解析</h1>
-    </div>
-    <div class="post-content">
-        <h1 id="jvm-内存模型jmm深度解析">JVM 内存模型（JMM）深度解析</h1>
-<blockquote>
-<p>面试高频问题：什么是 JMM？可见性、原子性、有序性？happens-before 规则？</p>
-</blockquote>
-<h2 id="引言">引言</h2>
-<p>Java 内存模型（Java Memory Model，JMM）是 Java 虚拟机规范中定义的一种抽象模型，用于屏蔽各种硬件和操作系统的内存访问差异，实现跨平台的一致性内存访问。理解 JMM 是编写正确并发程序的基础。</p>
-<h2 id="一jmm-基础">一、JMM 基础</h2>
-<h3 id="11-为什么需要-jmm">1.1 为什么需要 JMM？</h3>
-<pre tabindex="0"><code>不同硬件的内存模型差异：
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>JVM 内存模型（JMM）深度解析 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
+<a href=https://raphaell2e.github.io/posts/>文章</a>
+<a href=https://raphaell2e.github.io/categories/>分类</a>
+<a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-12 <span>/</span> jvm</div><h1>JVM 内存模型（JMM）深度解析</h1></div><div class=post-content><h1 id=jvm-内存模型jmm深度解析>JVM 内存模型（JMM）深度解析</h1><blockquote><p>面试高频问题：什么是 JMM？可见性、原子性、有序性？happens-before 规则？</p></blockquote><h2 id=引言>引言</h2><p>Java 内存模型（Java Memory Model，JMM）是 Java 虚拟机规范中定义的一种抽象模型，用于屏蔽各种硬件和操作系统的内存访问差异，实现跨平台的一致性内存访问。理解 JMM 是编写正确并发程序的基础。</p><h2 id=一jmm-基础>一、JMM 基础</h2><h3 id=11-为什么需要-jmm>1.1 为什么需要 JMM？</h3><pre tabindex=0><code>不同硬件的内存模型差异：
 ┌──────────────────────────────────────────────────┐
 │ x86 处理器: 强内存模型                            │
 │   → 可见性好，重排序少                            │
@@ -903,8 +13,7 @@
 │ JMM: 统一抽象模型                                 │
 │   → 跨平台一致的并发行为                          │
 └──────────────────────────────────────────────────┘
-</code></pre><h3 id="12-jmm-抽象模型">1.2 JMM 抽象模型</h3>
-<pre tabindex="0"><code>┌────────────────────────────────────────────────────┐
+</code></pre><h3 id=12-jmm-抽象模型>1.2 JMM 抽象模型</h3><pre tabindex=0><code>┌────────────────────────────────────────────────────┐
 │                  线程 A                              │
 │  ┌──────────────┐     ┌──────────────────┐        │
 │  │ 工作内存      │     │ 工作内存           │        │
@@ -924,503 +33,171 @@
 │                                                     │
 │                  线程 B                              │
 └────────────────────────────────────────────────────┘
-</code></pre><p><strong>JMM 定义了 8 种原子操作</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>操作</th>
-<th>作用</th>
-<th>作用于</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>lock</code></td>
-<td>将变量标识为线程独占</td>
-<td>主内存</td>
-</tr>
-<tr>
-<td><code>unlock</code></td>
-<td>解除独占</td>
-<td>主内存</td>
-</tr>
-<tr>
-<td><code>read</code></td>
-<td>读取变量到工作内存</td>
-<td>主内存 → 工作内存</td>
-</tr>
-<tr>
-<td><code>load</code></td>
-<td>将 read 读到的值放入工作内存副本</td>
-<td>工作内存</td>
-</tr>
-<tr>
-<td><code>use</code></td>
-<td>将工作内存值传给执行引擎</td>
-<td>工作内存</td>
-</tr>
-<tr>
-<td><code>assign</code></td>
-<td>将执行引擎值赋给工作内存副本</td>
-<td>工作内存</td>
-</tr>
-<tr>
-<td><code>store</code></td>
-<td>将工作内存值传到主内存</td>
-<td>工作内存 → 主内存</td>
-</tr>
-<tr>
-<td><code>write</code></td>
-<td>将 store 传来的值放入主内存变量</td>
-<td>主内存</td>
-</tr>
-</tbody>
-</table>
-<h2 id="二三大特性">二、三大特性</h2>
-<h3 id="21-可见性">2.1 可见性</h3>
-<p><strong>问题</strong>：一个线程修改了共享变量，其他线程不能立即看到。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 可见性问题
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">VisibilityProblem</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">boolean</span> running <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> InterruptedException <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">new</span> Thread<span style="color:#f92672">(()</span> <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">int</span> count <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>running<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>  <span style="color:#75715e">// 可能永远看不到 running = false
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                count<span style="color:#f92672">++;</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>            System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;停止，count=&#34;</span> <span style="color:#f92672">+</span> count<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}).</span><span style="color:#a6e22e">start</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        Thread<span style="color:#f92672">.</span><span style="color:#a6e22e">sleep</span><span style="color:#f92672">(</span><span style="color:#ae81ff">1000</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        running <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">;</span>  <span style="color:#75715e">// 主线程修改，但工作线程可能看不到
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><p><strong>解决</strong>：<code>volatile</code>、<code>synchronized</code>、<code>Lock</code></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 方式 1：volatile（推荐）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">volatile</span> <span style="color:#66d9ef">boolean</span> running <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 方式 2：synchronized
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">boolean</span> running <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 读取时加锁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span>lock<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span>running<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#f92672">...</span> <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h3 id="22-原子性">2.2 原子性</h3>
-<p><strong>问题</strong>：一个操作或多个操作，要么全部执行且不被中断，要么都不执行。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 原子性问题
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AtomicityProblem</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">int</span> count <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> InterruptedException <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        Runnable task <span style="color:#f92672">=</span> <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">10000</span><span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>                count<span style="color:#f92672">++;</span>  <span style="color:#75715e">// 非原子操作！
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">};</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        Thread t1 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Thread<span style="color:#f92672">(</span>task<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        Thread t2 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Thread<span style="color:#f92672">(</span>task<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        t1<span style="color:#f92672">.</span><span style="color:#a6e22e">start</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        t2<span style="color:#f92672">.</span><span style="color:#a6e22e">start</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        t1<span style="color:#f92672">.</span><span style="color:#a6e22e">join</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        t2<span style="color:#f92672">.</span><span style="color:#a6e22e">join</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        
-</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>count<span style="color:#f92672">);</span>  <span style="color:#75715e">// 预期 20000，实际可能 &lt; 20000
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><p><strong>count++ 的字节码</strong>：</p>
-<pre tabindex="0"><code>1. getstatic     # 读取 count
+</code></pre><p><strong>JMM 定义了 8 种原子操作</strong>：</p><table><thead><tr><th>操作</th><th>作用</th><th>作用于</th></tr></thead><tbody><tr><td><code>lock</code></td><td>将变量标识为线程独占</td><td>主内存</td></tr><tr><td><code>unlock</code></td><td>解除独占</td><td>主内存</td></tr><tr><td><code>read</code></td><td>读取变量到工作内存</td><td>主内存 → 工作内存</td></tr><tr><td><code>load</code></td><td>将 read 读到的值放入工作内存副本</td><td>工作内存</td></tr><tr><td><code>use</code></td><td>将工作内存值传给执行引擎</td><td>工作内存</td></tr><tr><td><code>assign</code></td><td>将执行引擎值赋给工作内存副本</td><td>工作内存</td></tr><tr><td><code>store</code></td><td>将工作内存值传到主内存</td><td>工作内存 → 主内存</td></tr><tr><td><code>write</code></td><td>将 store 传来的值放入主内存变量</td><td>主内存</td></tr></tbody></table><h2 id=二三大特性>二、三大特性</h2><h3 id=21-可见性>2.1 可见性</h3><p><strong>问题</strong>：一个线程修改了共享变量，其他线程不能立即看到。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 可见性问题
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>VisibilityProblem</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>boolean</span> running <span style=color:#f92672>=</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>main</span><span style=color:#f92672>(</span>String<span style=color:#f92672>[]</span> args<span style=color:#f92672>)</span> <span style=color:#66d9ef>throws</span> InterruptedException <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>new</span> Thread<span style=color:#f92672>(()</span> <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>int</span> count <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>while</span> <span style=color:#f92672>(</span>running<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>  <span style=color:#75715e>// 可能永远看不到 running = false
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                count<span style=color:#f92672>++;</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>            System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;停止，count=&#34;</span> <span style=color:#f92672>+</span> count<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}).</span><span style=color:#a6e22e>start</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        Thread<span style=color:#f92672>.</span><span style=color:#a6e22e>sleep</span><span style=color:#f92672>(</span><span style=color:#ae81ff>1000</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        running <span style=color:#f92672>=</span> <span style=color:#66d9ef>false</span><span style=color:#f92672>;</span>  <span style=color:#75715e>// 主线程修改，但工作线程可能看不到
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>解决</strong>：<code>volatile</code>、<code>synchronized</code>、<code>Lock</code></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 方式 1：volatile（推荐）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>volatile</span> <span style=color:#66d9ef>boolean</span> running <span style=color:#f92672>=</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 方式 2：synchronized
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>boolean</span> running <span style=color:#f92672>=</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 读取时加锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>synchronized</span> <span style=color:#f92672>(</span>lock<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>while</span> <span style=color:#f92672>(</span>running<span style=color:#f92672>)</span> <span style=color:#f92672>{</span> <span style=color:#f92672>...</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=22-原子性>2.2 原子性</h3><p><strong>问题</strong>：一个操作或多个操作，要么全部执行且不被中断，要么都不执行。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 原子性问题
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>AtomicityProblem</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> count <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>main</span><span style=color:#f92672>(</span>String<span style=color:#f92672>[]</span> args<span style=color:#f92672>)</span> <span style=color:#66d9ef>throws</span> InterruptedException <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        Runnable task <span style=color:#f92672>=</span> <span style=color:#f92672>()</span> <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> i <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>10000</span><span style=color:#f92672>;</span> i<span style=color:#f92672>++)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                count<span style=color:#f92672>++;</span>  <span style=color:#75715e>// 非原子操作！
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>};</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        Thread t1 <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Thread<span style=color:#f92672>(</span>task<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        Thread t2 <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Thread<span style=color:#f92672>(</span>task<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        t1<span style=color:#f92672>.</span><span style=color:#a6e22e>start</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        t2<span style=color:#f92672>.</span><span style=color:#a6e22e>start</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        t1<span style=color:#f92672>.</span><span style=color:#a6e22e>join</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        t2<span style=color:#f92672>.</span><span style=color:#a6e22e>join</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span>count<span style=color:#f92672>);</span>  <span style=color:#75715e>// 预期 20000，实际可能 &lt; 20000
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>count++ 的字节码</strong>：</p><pre tabindex=0><code>1. getstatic     # 读取 count
 2. iconst_1      # 常量 1
 3. iadd          # 加 1
 4. putstatic     # 写回 count
-</code></pre><p><strong>4 步操作不是原子的！</strong> 可能在第 1 步后被其他线程抢占。</p>
-<p><strong>解决</strong>：<code>synchronized</code>、<code>Lock</code>、<code>AtomicInteger</code></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 方式 1：synchronized
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span>lock<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    count<span style="color:#f92672">++;</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 方式 2：AtomicInteger（推荐）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> AtomicInteger count <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AtomicInteger<span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>count<span style="color:#f92672">.</span><span style="color:#a6e22e">incrementAndGet</span><span style="color:#f92672">();</span>  <span style="color:#75715e">// 原子操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 方式 3：ReentrantLock
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>lock<span style="color:#f92672">.</span><span style="color:#a6e22e">lock</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    count<span style="color:#f92672">++;</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    lock<span style="color:#f92672">.</span><span style="color:#a6e22e">unlock</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h3 id="23-有序性">2.3 有序性</h3>
-<p><strong>问题</strong>：编译器和处理器可能对指令重排序。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 有序性问题
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderingProblem</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">int</span> x <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">int</span> y <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">int</span> a <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">int</span> b <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#66d9ef">throws</span> InterruptedException <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">100000</span><span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            x <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> y <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> a <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> b <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>            
-</span></span><span style="display:flex;"><span>            Thread t1 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Thread<span style="color:#f92672">(()</span> <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>                a <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">;</span>   <span style="color:#75715e">// 可能被重排序到 x = b 之后
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                x <span style="color:#f92672">=</span> b<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">});</span>
-</span></span><span style="display:flex;"><span>            
-</span></span><span style="display:flex;"><span>            Thread t2 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Thread<span style="color:#f92672">(()</span> <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>                b <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">;</span>   <span style="color:#75715e">// 可能被重排序到 y = a 之后
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                y <span style="color:#f92672">=</span> a<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">});</span>
-</span></span><span style="display:flex;"><span>            
-</span></span><span style="display:flex;"><span>            t1<span style="color:#f92672">.</span><span style="color:#a6e22e">start</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>            t2<span style="color:#f92672">.</span><span style="color:#a6e22e">start</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>            t1<span style="color:#f92672">.</span><span style="color:#a6e22e">join</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>            t2<span style="color:#f92672">.</span><span style="color:#a6e22e">join</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>            
-</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 正常情况不可能 x=0, y=0
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#75715e">// 但重排序可能导致 x=0, y=0
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>x <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">&amp;&amp;</span> y <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>                System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;重排序发生！&#34;</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><p><strong>解决</strong>：<code>volatile</code>（禁止重排序）、<code>synchronized</code></p>
-<h3 id="24-三大特性总结">2.4 三大特性总结</h3>
-<table>
-<thead>
-<tr>
-<th>特性</th>
-<th>volatile</th>
-<th>synchronized</th>
-<th>Lock</th>
-<th>Atomic</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>可见性</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>原子性</td>
-<td>❌</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>有序性</td>
-<td>✅（部分）</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-</tbody>
-</table>
-<h2 id="三happens-before-规则">三、happens-before 规则</h2>
-<h3 id="31-什么是-happens-before">3.1 什么是 happens-before？</h3>
-<p><strong>happens-before</strong>：如果操作 A happens-before 操作 B，则 A 的结果对 B 可见。</p>
-<p><strong>注意</strong>：happens-before 不是&quot;时间上先发生&quot;，而是&quot;前一个操作的结果对后一个操作可见&quot;。</p>
-<h3 id="32-八大规则">3.2 八大规则</h3>
-<table>
-<thead>
-<tr>
-<th>规则</th>
-<th>说明</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>1. 程序顺序规则</strong></td>
-<td>同一线程中，按代码顺序，前面的操作 happens-before 后面的</td>
-</tr>
-<tr>
-<td><strong>2. 监视器锁规则</strong></td>
-<td>unlock 操作 happens-before 后续对同一锁的 lock</td>
-</tr>
-<tr>
-<td><strong>3. volatile 规则</strong></td>
-<td>volatile 写 happens-before 后续对同一变量的读</td>
-</tr>
-<tr>
-<td><strong>4. 线程启动规则</strong></td>
-<td>Thread.start() happens-before 该线程的所有操作</td>
-</tr>
-<tr>
-<td><strong>5. 线程终止规则</strong></td>
-<td>线程的所有操作 happens-before Thread.join() 返回</td>
-</tr>
-<tr>
-<td><strong>6. 线程中断规则</strong></td>
-<td>interrupt() happens-before 被中断线程检测到中断</td>
-</tr>
-<tr>
-<td><strong>7. 对象终结规则</strong></td>
-<td>构造函数执行 happens-before finalize()</td>
-</tr>
-<tr>
-<td><strong>8. 传递性</strong></td>
-<td>A happens-before B，B happens-before C → A happens-before C</td>
-</tr>
-</tbody>
-</table>
-<h3 id="33-规则示例">3.3 规则示例</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 规则 1：程序顺序
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> a <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">;</span>    <span style="color:#75715e">// A
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> b <span style="color:#f92672">=</span> a<span style="color:#f92672">;</span>    <span style="color:#75715e">// B
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// A happens-before B（同一线程）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 规则 2：监视器锁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span>lock<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 修改共享变量
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>  <span style="color:#75715e">// unlock happens-before 后续 lock
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 规则 3：volatile
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">volatile</span> <span style="color:#66d9ef">boolean</span> flag <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 线程 A
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>flag <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>           <span style="color:#75715e">// volatile 写
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 线程 B
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>flag<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#f92672">...</span> <span style="color:#f92672">}</span>     <span style="color:#75715e">// volatile 读，能看到 flag = true
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 规则 4 + 规则 3 + 规则 8（经典 DCL）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Singleton</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">volatile</span> Singleton instance<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> Singleton <span style="color:#a6e22e">getInstance</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>instance <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>                  <span style="color:#75715e">// 读
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">synchronized</span> <span style="color:#f92672">(</span>Singleton<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>instance <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>                    instance <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Singleton<span style="color:#f92672">();</span>  <span style="color:#75715e">// volatile 写
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> instance<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h2 id="四as-if-serial-语义">四、as-if-serial 语义</h2>
-<h3 id="41-什么是-as-if-serial">4.1 什么是 as-if-serial？</h3>
-<p><strong>as-if-serial</strong>：不管怎么重排序，单线程的执行结果不能改变。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 以下代码在单线程下可以重排序（不影响结果）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> a <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">;</span>    <span style="color:#75715e">// A
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> b <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span><span style="color:#f92672">;</span>    <span style="color:#75715e">// B
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> c <span style="color:#f92672">=</span> a <span style="color:#f92672">+</span> b<span style="color:#f92672">;</span> <span style="color:#75715e">// C
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// A 和 B 可以重排序（没有数据依赖）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 但 C 不能在 A、B 之前（数据依赖）
-</span></span></span></code></pre></div><p><strong>数据依赖</strong>：如果两个操作访问同一个变量，且其中一个是写，则存在数据依赖。</p>
-<h3 id="42-重排序类型">4.2 重排序类型</h3>
-<table>
-<thead>
-<tr>
-<th>重排序</th>
-<th>说明</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>编译器重排序</td>
-<td>编译器优化</td>
-</tr>
-<tr>
-<td>指令级并行重排序</td>
-<td>处理器优化</td>
-</tr>
-<tr>
-<td>内存系统重排序</td>
-<td>缓存一致性</td>
-</tr>
-</tbody>
-</table>
-<h2 id="五volatile-深度解析">五、volatile 深度解析</h2>
-<h3 id="51-volatile-的内存语义">5.1 volatile 的内存语义</h3>
-<p><strong>写</strong>：</p>
-<ul>
-<li>刷新工作内存到主内存</li>
-<li>禁止之前的写操作重排序到 volatile 写之后</li>
-</ul>
-<p><strong>读</strong>：</p>
-<ul>
-<li>从主内存读取最新值</li>
-<li>禁止之后的读操作重排序到 volatile 读之前</li>
-</ul>
-<h3 id="52-volatile-底层实现">5.2 volatile 底层实现</h3>
-<p><strong>volatile 写</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 字节码：ACC_VOLATILE 标志
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 汇编层面：Lock 前缀指令
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// Lock 前缀指令会：
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 1. 将当前 CPU 缓存行数据写回主内存
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 2. 使其他 CPU 缓存行失效（缓存一致性协议 MESI）
-</span></span></span></code></pre></div><p><strong>内存屏障</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>屏障类型</th>
-<th>说明</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>LoadLoad</td>
-<td>Load1; LoadLoad; Load2 → Load1 先于 Load2</td>
-</tr>
-<tr>
-<td>StoreStore</td>
-<td>Store1; StoreStore; Store2 → Store1 先于 Store2</td>
-</tr>
-<tr>
-<td>LoadStore</td>
-<td>Load; LoadStore; Store → Load 先于 Store</td>
-</tr>
-<tr>
-<td>StoreLoad</td>
-<td>Store; StoreLoad; Load → Store 先于 Load（开销最大）</td>
-</tr>
-</tbody>
-</table>
-<p><strong>JMM 的 volatile 插入策略</strong>：</p>
-<pre tabindex="0"><code>volatile 写前：插入 StoreStore 屏障
+</code></pre><p><strong>4 步操作不是原子的！</strong> 可能在第 1 步后被其他线程抢占。</p><p><strong>解决</strong>：<code>synchronized</code>、<code>Lock</code>、<code>AtomicInteger</code></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 方式 1：synchronized
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>synchronized</span> <span style=color:#f92672>(</span>lock<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    count<span style=color:#f92672>++;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 方式 2：AtomicInteger（推荐）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> AtomicInteger count <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> AtomicInteger<span style=color:#f92672>(</span><span style=color:#ae81ff>0</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>count<span style=color:#f92672>.</span><span style=color:#a6e22e>incrementAndGet</span><span style=color:#f92672>();</span>  <span style=color:#75715e>// 原子操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 方式 3：ReentrantLock
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>lock<span style=color:#f92672>.</span><span style=color:#a6e22e>lock</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>try</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    count<span style=color:#f92672>++;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span> <span style=color:#66d9ef>finally</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    lock<span style=color:#f92672>.</span><span style=color:#a6e22e>unlock</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=23-有序性>2.3 有序性</h3><p><strong>问题</strong>：编译器和处理器可能对指令重排序。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 有序性问题
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderingProblem</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> x <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> y <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> a <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>int</span> b <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>main</span><span style=color:#f92672>(</span>String<span style=color:#f92672>[]</span> args<span style=color:#f92672>)</span> <span style=color:#66d9ef>throws</span> InterruptedException <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> i <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>100000</span><span style=color:#f92672>;</span> i<span style=color:#f92672>++)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            x <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> y <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> a <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> b <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            Thread t1 <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Thread<span style=color:#f92672>(()</span> <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                a <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span><span style=color:#f92672>;</span>   <span style=color:#75715e>// 可能被重排序到 x = b 之后
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                x <span style=color:#f92672>=</span> b<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>});</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            Thread t2 <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Thread<span style=color:#f92672>(()</span> <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                b <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span><span style=color:#f92672>;</span>   <span style=color:#75715e>// 可能被重排序到 y = a 之后
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                y <span style=color:#f92672>=</span> a<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>});</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            t1<span style=color:#f92672>.</span><span style=color:#a6e22e>start</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            t2<span style=color:#f92672>.</span><span style=color:#a6e22e>start</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            t1<span style=color:#f92672>.</span><span style=color:#a6e22e>join</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            t2<span style=color:#f92672>.</span><span style=color:#a6e22e>join</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// 正常情况不可能 x=0, y=0
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#75715e>// 但重排序可能导致 x=0, y=0
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>x <span style=color:#f92672>==</span> <span style=color:#ae81ff>0</span> <span style=color:#f92672>&amp;&amp;</span> y <span style=color:#f92672>==</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;重排序发生！&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>解决</strong>：<code>volatile</code>（禁止重排序）、<code>synchronized</code></p><h3 id=24-三大特性总结>2.4 三大特性总结</h3><table><thead><tr><th>特性</th><th>volatile</th><th>synchronized</th><th>Lock</th><th>Atomic</th></tr></thead><tbody><tr><td>可见性</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr><tr><td>原子性</td><td>❌</td><td>✅</td><td>✅</td><td>✅</td></tr><tr><td>有序性</td><td>✅（部分）</td><td>✅</td><td>✅</td><td>✅</td></tr></tbody></table><h2 id=三happens-before-规则>三、happens-before 规则</h2><h3 id=31-什么是-happens-before>3.1 什么是 happens-before？</h3><p><strong>happens-before</strong>：如果操作 A happens-before 操作 B，则 A 的结果对 B 可见。</p><p><strong>注意</strong>：happens-before 不是"时间上先发生"，而是"前一个操作的结果对后一个操作可见"。</p><h3 id=32-八大规则>3.2 八大规则</h3><table><thead><tr><th>规则</th><th>说明</th></tr></thead><tbody><tr><td><strong>1. 程序顺序规则</strong></td><td>同一线程中，按代码顺序，前面的操作 happens-before 后面的</td></tr><tr><td><strong>2. 监视器锁规则</strong></td><td>unlock 操作 happens-before 后续对同一锁的 lock</td></tr><tr><td><strong>3. volatile 规则</strong></td><td>volatile 写 happens-before 后续对同一变量的读</td></tr><tr><td><strong>4. 线程启动规则</strong></td><td>Thread.start() happens-before 该线程的所有操作</td></tr><tr><td><strong>5. 线程终止规则</strong></td><td>线程的所有操作 happens-before Thread.join() 返回</td></tr><tr><td><strong>6. 线程中断规则</strong></td><td>interrupt() happens-before 被中断线程检测到中断</td></tr><tr><td><strong>7. 对象终结规则</strong></td><td>构造函数执行 happens-before finalize()</td></tr><tr><td><strong>8. 传递性</strong></td><td>A happens-before B，B happens-before C → A happens-before C</td></tr></tbody></table><h3 id=33-规则示例>3.3 规则示例</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 规则 1：程序顺序
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>int</span> a <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span><span style=color:#f92672>;</span>    <span style=color:#75715e>// A
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>int</span> b <span style=color:#f92672>=</span> a<span style=color:#f92672>;</span>    <span style=color:#75715e>// B
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// A happens-before B（同一线程）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 规则 2：监视器锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>synchronized</span> <span style=color:#f92672>(</span>lock<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 修改共享变量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>}</span>  <span style=color:#75715e>// unlock happens-before 后续 lock
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 规则 3：volatile
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>volatile</span> <span style=color:#66d9ef>boolean</span> flag <span style=color:#f92672>=</span> <span style=color:#66d9ef>false</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 线程 A
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>flag <span style=color:#f92672>=</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>;</span>           <span style=color:#75715e>// volatile 写
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 线程 B
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>flag<span style=color:#f92672>)</span> <span style=color:#f92672>{</span> <span style=color:#f92672>...</span> <span style=color:#f92672>}</span>     <span style=color:#75715e>// volatile 读，能看到 flag = true
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 规则 4 + 规则 3 + 规则 8（经典 DCL）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>Singleton</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>volatile</span> Singleton instance<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>static</span> Singleton <span style=color:#a6e22e>getInstance</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>instance <span style=color:#f92672>==</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>                  <span style=color:#75715e>// 读
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#66d9ef>synchronized</span> <span style=color:#f92672>(</span>Singleton<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>instance <span style=color:#f92672>==</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                    instance <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Singleton<span style=color:#f92672>();</span>  <span style=color:#75715e>// volatile 写
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> instance<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h2 id=四as-if-serial-语义>四、as-if-serial 语义</h2><h3 id=41-什么是-as-if-serial>4.1 什么是 as-if-serial？</h3><p><strong>as-if-serial</strong>：不管怎么重排序，单线程的执行结果不能改变。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 以下代码在单线程下可以重排序（不影响结果）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>int</span> a <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span><span style=color:#f92672>;</span>    <span style=color:#75715e>// A
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>int</span> b <span style=color:#f92672>=</span> <span style=color:#ae81ff>2</span><span style=color:#f92672>;</span>    <span style=color:#75715e>// B
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>int</span> c <span style=color:#f92672>=</span> a <span style=color:#f92672>+</span> b<span style=color:#f92672>;</span> <span style=color:#75715e>// C
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// A 和 B 可以重排序（没有数据依赖）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 但 C 不能在 A、B 之前（数据依赖）
+</span></span></span></code></pre></div><p><strong>数据依赖</strong>：如果两个操作访问同一个变量，且其中一个是写，则存在数据依赖。</p><h3 id=42-重排序类型>4.2 重排序类型</h3><table><thead><tr><th>重排序</th><th>说明</th></tr></thead><tbody><tr><td>编译器重排序</td><td>编译器优化</td></tr><tr><td>指令级并行重排序</td><td>处理器优化</td></tr><tr><td>内存系统重排序</td><td>缓存一致性</td></tr></tbody></table><h2 id=五volatile-深度解析>五、volatile 深度解析</h2><h3 id=51-volatile-的内存语义>5.1 volatile 的内存语义</h3><p><strong>写</strong>：</p><ul><li>刷新工作内存到主内存</li><li>禁止之前的写操作重排序到 volatile 写之后</li></ul><p><strong>读</strong>：</p><ul><li>从主内存读取最新值</li><li>禁止之后的读操作重排序到 volatile 读之前</li></ul><h3 id=52-volatile-底层实现>5.2 volatile 底层实现</h3><p><strong>volatile 写</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 字节码：ACC_VOLATILE 标志
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 汇编层面：Lock 前缀指令
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// Lock 前缀指令会：
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 1. 将当前 CPU 缓存行数据写回主内存
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 2. 使其他 CPU 缓存行失效（缓存一致性协议 MESI）
+</span></span></span></code></pre></div><p><strong>内存屏障</strong>：</p><table><thead><tr><th>屏障类型</th><th>说明</th></tr></thead><tbody><tr><td>LoadLoad</td><td>Load1; LoadLoad; Load2 → Load1 先于 Load2</td></tr><tr><td>StoreStore</td><td>Store1; StoreStore; Store2 → Store1 先于 Store2</td></tr><tr><td>LoadStore</td><td>Load; LoadStore; Store → Load 先于 Store</td></tr><tr><td>StoreLoad</td><td>Store; StoreLoad; Load → Store 先于 Load（开销最大）</td></tr></tbody></table><p><strong>JMM 的 volatile 插入策略</strong>：</p><pre tabindex=0><code>volatile 写前：插入 StoreStore 屏障
 volatile 写后：插入 StoreLoad 屏障
 volatile 读后：插入 LoadLoad 屏障 + LoadStore 屏障
-</code></pre><h3 id="53-volatile-的局限">5.3 volatile 的局限</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// ❌ volatile 不能保证复合操作的原子性
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">volatile</span> <span style="color:#66d9ef">int</span> count <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">increment</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    count<span style="color:#f92672">++;</span>  <span style="color:#75715e">// 读 → 改 → 写，非原子
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// ✅ 使用 AtomicInteger
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> AtomicInteger count <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AtomicInteger<span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">increment</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    count<span style="color:#f92672">.</span><span style="color:#a6e22e">incrementAndGet</span><span style="color:#f92672">();</span>  <span style="color:#75715e">// 原子操作
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h2 id="六long-和-double-的特殊规则">六、long 和 double 的特殊规则</h2>
-<h3 id="61-非原子性协定">6.1 非原子性协定</h3>
-<p>JMM 允许虚拟机对 64 位数据类型（long、double）的读写分为两次 32 位操作。</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 可能的问题（32 位 JVM）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">long</span> value <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>L<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 线程 A：写入 0xFFFFFFFFFFFFFFFF
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 线程 B 可能读到：0x00000000FFFFFFFF（高 32 位旧值 + 低 32 位新值）
-</span></span></span></code></pre></div><p><strong>解决</strong>：<code>volatile</code></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">volatile</span> <span style="color:#66d9ef">long</span> value <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>L<span style="color:#f92672">;</span>  <span style="color:#75715e">// 保证 64 位读写的原子性
-</span></span></span></code></pre></div><p><strong>注意</strong>：现代 64 位 JVM 通常已经保证 long/double 读写原子性。</p>
-<h2 id="七面试高频问题">七、面试高频问题</h2>
-<h3 id="q1什么是-jmm">Q1：什么是 JMM？</h3>
-<p><strong>答</strong>：</p>
-<ul>
-<li>Java 内存模型，屏蔽硬件差异，定义并发行为的规范</li>
-<li>核心是三大特性：可见性、原子性、有序性</li>
-<li>通过 happens-before 规则保证跨线程的可见性</li>
-</ul>
-<h3 id="q2happens-before-规则有哪些">Q2：happens-before 规则有哪些？</h3>
-<p><strong>答</strong>：</p>
-<ol>
-<li>程序顺序规则</li>
-<li>监视器锁规则</li>
-<li>volatile 规则</li>
-<li>线程启动规则</li>
-<li>线程终止规则</li>
-<li>线程中断规则</li>
-<li>对象终结规则</li>
-<li>传递性</li>
-</ol>
-<h3 id="q3volatile-的作用">Q3：volatile 的作用？</h3>
-<p><strong>答</strong>：</p>
-<ul>
-<li>保证可见性（刷新工作内存到主内存）</li>
-<li>禁止指令重排序（内存屏障）</li>
-<li>不保证原子性（count++ 仍然不安全）</li>
-</ul>
-<h3 id="q4为什么-dcl-单例需要-volatile">Q4：为什么 DCL 单例需要 volatile？</h3>
-<p><strong>答</strong>：</p>
-<ul>
-<li><code>new Singleton()</code> 不是原子操作（分配内存 → 初始化 → 赋值引用）</li>
-<li>可能重排序为（分配内存 → 赋值引用 → 初始化）</li>
-<li>其他线程可能拿到未初始化的对象</li>
-<li>volatile 禁止重排序，保证安全</li>
-</ul>
-<h3 id="q5jmm-的三大特性">Q5：JMM 的三大特性？</h3>
-<p><strong>答</strong>：</p>
-<ul>
-<li><strong>可见性</strong>：一个线程的修改对其他线程可见</li>
-<li><strong>原子性</strong>：操作不可被中断</li>
-<li><strong>有序性</strong>：程序执行顺序符合预期</li>
-</ul>
-<h2 id="八总结">八、总结</h2>
-<p><strong>JMM 核心要点</strong>：</p>
-<ul>
-<li><strong>JMM</strong>：Java 内存模型，定义并发行为规范</li>
-<li><strong>三大特性</strong>：可见性、原子性、有序性</li>
-<li><strong>happens-before</strong>：8 大规则保证跨线程可见性</li>
-</ul>
-<p><strong>可见性解决方案</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>方案</th>
-<th>可见性</th>
-<th>原子性</th>
-<th>有序性</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>volatile</td>
-<td>✅</td>
-<td>❌</td>
-<td>✅（部分）</td>
-</tr>
-<tr>
-<td>synchronized</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Lock</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-<tr>
-<td>Atomic</td>
-<td>✅</td>
-<td>✅</td>
-<td>✅</td>
-</tr>
-</tbody>
-</table>
-<p><strong>最佳实践</strong>：</p>
-<ol>
-<li>共享变量使用 <code>volatile</code> 或更高级同步机制</li>
-<li>复合操作用 <code>synchronized</code> 或 <code>Atomic</code> 类</li>
-<li>理解 happens-before，避免错误推理</li>
-<li>long/double 在 32 位 JVM 上用 <code>volatile</code></li>
-</ol>
-<hr>
-<p><strong>下一篇预告</strong>：JVM 类文件结构与字节码深度解析</p>
-<p><strong>参考资料</strong>：</p>
-<ul>
-<li>《Java 虚拟机规范》- James Gosling</li>
-<li>《深入理解 Java 虚拟机》- 周志明</li>
-<li>JSR-133: Java Memory Model</li>
-</ul>
-
-    </div>
-</article>
-
-    </main>
-    <footer>
-        <p>&copy; 2026 李亚飞</p>
-    </footer>
-</body>
-</html>
+</code></pre><h3 id=53-volatile-的局限>5.3 volatile 的局限</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// ❌ volatile 不能保证复合操作的原子性
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>private</span> <span style=color:#66d9ef>volatile</span> <span style=color:#66d9ef>int</span> count <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>increment</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    count<span style=color:#f92672>++;</span>  <span style=color:#75715e>// 读 → 改 → 写，非原子
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ✅ 使用 AtomicInteger
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>private</span> AtomicInteger count <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> AtomicInteger<span style=color:#f92672>(</span><span style=color:#ae81ff>0</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>increment</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    count<span style=color:#f92672>.</span><span style=color:#a6e22e>incrementAndGet</span><span style=color:#f92672>();</span>  <span style=color:#75715e>// 原子操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h2 id=六long-和-double-的特殊规则>六、long 和 double 的特殊规则</h2><h3 id=61-非原子性协定>6.1 非原子性协定</h3><p>JMM 允许虚拟机对 64 位数据类型（long、double）的读写分为两次 32 位操作。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 可能的问题（32 位 JVM）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>long</span> value <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>L<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 线程 A：写入 0xFFFFFFFFFFFFFFFF
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 线程 B 可能读到：0x00000000FFFFFFFF（高 32 位旧值 + 低 32 位新值）
+</span></span></span></code></pre></div><p><strong>解决</strong>：<code>volatile</code></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>volatile</span> <span style=color:#66d9ef>long</span> value <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span>L<span style=color:#f92672>;</span>  <span style=color:#75715e>// 保证 64 位读写的原子性
+</span></span></span></code></pre></div><p><strong>注意</strong>：现代 64 位 JVM 通常已经保证 long/double 读写原子性。</p><h2 id=七面试高频问题>七、面试高频问题</h2><h3 id=q1什么是-jmm>Q1：什么是 JMM？</h3><p><strong>答</strong>：</p><ul><li>Java 内存模型，屏蔽硬件差异，定义并发行为的规范</li><li>核心是三大特性：可见性、原子性、有序性</li><li>通过 happens-before 规则保证跨线程的可见性</li></ul><h3 id=q2happens-before-规则有哪些>Q2：happens-before 规则有哪些？</h3><p><strong>答</strong>：</p><ol><li>程序顺序规则</li><li>监视器锁规则</li><li>volatile 规则</li><li>线程启动规则</li><li>线程终止规则</li><li>线程中断规则</li><li>对象终结规则</li><li>传递性</li></ol><h3 id=q3volatile-的作用>Q3：volatile 的作用？</h3><p><strong>答</strong>：</p><ul><li>保证可见性（刷新工作内存到主内存）</li><li>禁止指令重排序（内存屏障）</li><li>不保证原子性（count++ 仍然不安全）</li></ul><h3 id=q4为什么-dcl-单例需要-volatile>Q4：为什么 DCL 单例需要 volatile？</h3><p><strong>答</strong>：</p><ul><li><code>new Singleton()</code> 不是原子操作（分配内存 → 初始化 → 赋值引用）</li><li>可能重排序为（分配内存 → 赋值引用 → 初始化）</li><li>其他线程可能拿到未初始化的对象</li><li>volatile 禁止重排序，保证安全</li></ul><h3 id=q5jmm-的三大特性>Q5：JMM 的三大特性？</h3><p><strong>答</strong>：</p><ul><li><strong>可见性</strong>：一个线程的修改对其他线程可见</li><li><strong>原子性</strong>：操作不可被中断</li><li><strong>有序性</strong>：程序执行顺序符合预期</li></ul><h2 id=八总结>八、总结</h2><p><strong>JMM 核心要点</strong>：</p><ul><li><strong>JMM</strong>：Java 内存模型，定义并发行为规范</li><li><strong>三大特性</strong>：可见性、原子性、有序性</li><li><strong>happens-before</strong>：8 大规则保证跨线程可见性</li></ul><p><strong>可见性解决方案</strong>：</p><table><thead><tr><th>方案</th><th>可见性</th><th>原子性</th><th>有序性</th></tr></thead><tbody><tr><td>volatile</td><td>✅</td><td>❌</td><td>✅（部分）</td></tr><tr><td>synchronized</td><td>✅</td><td>✅</td><td>✅</td></tr><tr><td>Lock</td><td>✅</td><td>✅</td><td>✅</td></tr><tr><td>Atomic</td><td>✅</td><td>✅</td><td>✅</td></tr></tbody></table><p><strong>最佳实践</strong>：</p><ol><li>共享变量使用 <code>volatile</code> 或更高级同步机制</li><li>复合操作用 <code>synchronized</code> 或 <code>Atomic</code> 类</li><li>理解 happens-before，避免错误推理</li><li>long/double 在 32 位 JVM 上用 <code>volatile</code></li></ol><hr><p><strong>下一篇预告</strong>：JVM 类文件结构与字节码深度解析</p><p><strong>参考资料</strong>：</p><ul><li>《Java 虚拟机规范》- James Gosling</li><li>《深入理解 Java 虚拟机》- 周志明</li><li>JSR-133: Java Memory Model</li></ul></div></article></main><footer><p>&copy; 2026 李亚飞</p></footer></body></html>

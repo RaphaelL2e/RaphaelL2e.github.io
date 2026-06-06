@@ -1,919 +1,26 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spring Boot 自动配置原理深度解析 - Raphael Tech Blog</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a25;
-            --text-primary: #e4e4e7;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --accent-glow: rgba(59, 130, 246, 0.3);
-            --border: #27272a;
-            --code-bg: #0f0f15;
-        }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-        
-         
-        header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-        }
-        
-        .header-content {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 1rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-        
-        header h1 a {
-            color: var(--text-primary);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        header h1 a::before {
-            content: '◆';
-            color: var(--accent);
-            font-size: 0.875rem;
-        }
-        
-        nav {
-            display: flex;
-            gap: 1.5rem;
-        }
-        
-        nav a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: color 0.2s;
-            position: relative;
-        }
-        
-        nav a:hover {
-            color: var(--text-primary);
-        }
-        
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--accent);
-            transition: width 0.2s;
-        }
-        
-        nav a:hover::after {
-            width: 100%;
-        }
-        
-         
-        main {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
-        
-         
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            transition: all 0.2s;
-        }
-        
-        article:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 20px var(--accent-glow);
-        }
-        
-        article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        
-        article h2 a {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-        
-        article h2 a:hover {
-            color: var(--accent);
-        }
-        
-        .meta {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.75rem;
-        }
-        
-        .meta span {
-            color: var(--accent);
-        }
-        
-        .summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-        
-        .summary a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
-            margin-left: 0.5rem;
-        }
-        
-        .summary a:hover {
-            text-decoration: underline;
-        }
-        
-         
-        .post-header {
-            margin-bottom: 2rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            line-height: 1.3;
-            margin-bottom: 1rem;
-        }
-        
-        .post-content {
-            font-size: 1rem;
-            line-height: 1.8;
-        }
-        
-        .post-content h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 2.5rem 0 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-content h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 2rem 0 1rem;
-            color: var(--accent);
-        }
-        
-        .post-content h4 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin: 1.5rem 0 0.75rem;
-        }
-        
-        .post-content p {
-            margin-bottom: 1.25rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-        
-        .post-content a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        
-        .post-content a:hover {
-            text-decoration: underline;
-        }
-        
-        .post-content ul, .post-content ol {
-            margin: 1rem 0 1.5rem 1.5rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content li {
-            margin-bottom: 0.5rem;
-        }
-        
-        .post-content code {
-            font-family: 'JetBrains Mono', monospace;
-            background: var(--code-bg);
-            color: var(--accent);
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-size: 0.875em;
-        }
-        
-        .post-content pre {
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.25rem;
-            overflow-x: auto;
-            margin: 1.5rem 0;
-        }
-        
-        .post-content pre code {
-            background: none;
-            color: var(--text-primary);
-            padding: 0;
-        }
-        
-        .post-content blockquote {
-            border-left: 3px solid var(--accent);
-            background: var(--bg-tertiary);
-            padding: 1rem 1.25rem;
-            margin: 1.5rem 0;
-            border-radius: 0 8px 8px 0;
-        }
-        
-        .post-content blockquote p {
-            margin: 0;
-            color: var(--text-secondary);
-        }
-        
-        .post-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-            font-size: 0.9375rem;
-        }
-        
-        .post-content th {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-weight: 600;
-            text-align: left;
-            padding: 0.75rem 1rem;
-            border-bottom: 2px solid var(--border);
-        }
-        
-        .post-content td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-secondary);
-        }
-        
-        .post-content tr:hover td {
-            background: var(--bg-tertiary);
-        }
-        
-         
-        footer {
-            max-width: 900px;
-            margin: 4rem auto 0;
-            padding: 2rem 1.5rem;
-            border-top: 1px solid var(--border);
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-         
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: var(--bg-secondary);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
-        
-         
-        ::selection {
-            background: var(--accent-glow);
-            color: var(--text-primary);
-        }
-
-         
-         
-        .tags-container {
-            max-width: 900px;
-        }
-
-        .tags-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 2rem;
-        }
-
-        .tag-card {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.625rem 1rem;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .tag-card:hover {
-            border-color: var(--accent);
-            background: var(--bg-tertiary);
-            transform: translateY(-1px);
-        }
-
-        .tag-card .tag-name {
-            color: var(--text-primary);
-            font-size: 0.9375rem;
-            font-weight: 500;
-        }
-
-        .tag-card .tag-num {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.125rem 0.5rem;
-            border-radius: 4px;
-            line-height: 1;
-        }
-
-         
-        .categories-container {
-            max-width: 900px;
-        }
-
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 80vh;
-            overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-        }
-
-        .modal-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-        }
-
-        .modal-close {
-            font-size: 1.5rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: color 0.2s;
-            line-height: 1;
-        }
-
-        .modal-close:hover {
-            color: var(--text-primary);
-        }
-
-        .modal-body {
-            padding: 1rem;
-            overflow-y: auto;
-            max-height: calc(80vh - 80px);
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.25rem;
-            margin-bottom: 0.5rem;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .tag-card {
-            cursor: pointer;
-        }
-
-         
-        .tag-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .tag-modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 800px;
-            height: 600px;
-            overflow: hidden;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .tag-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            flex-shrink: 0;
-        }
-
-        .tag-modal-header h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 700;
-            padding: 0.375rem 1rem;
-            border-radius: 20px;
-        }
-
-        .tag-modal-close {
-            font-size: 2rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-        }
-
-        .tag-modal-close:hover {
-            color: var(--text-primary);
-            background: var(--bg-tertiary);
-        }
-
-        .tag-modal-body {
-            padding: 1.5rem 2rem;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.25rem 1.5rem;
-            margin-bottom: 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            text-decoration: none;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            transform: translateX(8px);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-            font-size: 1rem;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-         
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .taxonomy-detail {
-            max-width: 900px;
-        }
-
-        .taxonomy-stats {
-            margin-bottom: 2rem;
-        }
-
-        .stat-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-        }
-
-        .taxonomy-articles {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .taxonomy-article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .taxonomy-article:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--accent-glow);
-        }
-
-        .article-link {
-            display: block;
-            padding: 1.5rem;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .taxonomy-article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .article-meta {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .article-summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="header-content">
-            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
-            <nav>
-                <a href="https://raphaell2e.github.io/">首页</a>
-                <a href="https://raphaell2e.github.io/posts/">文章</a>
-                <a href="https://raphaell2e.github.io/categories/">分类</a>
-                <a href="https://raphaell2e.github.io/tags/">标签</a>
-                <a href="https://raphaell2e.github.io/about/">关于</a>
-            </nav>
-        </div>
-    </header>
-    <main>
-        
-<article class="post">
-    <div class="post-header">
-        <div class="meta">2026-05-12 <span>/</span> spring </div>
-        <h1>Spring Boot 自动配置原理深度解析</h1>
-    </div>
-    <div class="post-content">
-        <h1 id="spring-boot-自动配置原理深度解析">Spring Boot 自动配置原理深度解析</h1>
-<blockquote>
-<p>面试高频问题：Spring Boot 自动配置的原理？@Conditional 注解如何工作？如何自定义 Starter？</p>
-</blockquote>
-<h2 id="引言">引言</h2>
-<p>Spring Boot 的核心特性就是&quot;约定优于配置&quot;，通过自动配置大幅减少了样板代码和配置。理解自动配置的原理，是掌握 Spring Boot 的关键。</p>
-<h2 id="一springbootapplication-注解">一、@SpringBootApplication 注解</h2>
-<h3 id="11-注解拆解">1.1 注解拆解</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@SpringBootApplication</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 等价于：
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@SpringBootConfiguration</span>      <span style="color:#75715e">// 配置类
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@EnableAutoConfiguration</span>      <span style="color:#75715e">// 自动配置（核心）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@ComponentScan</span>                 <span style="color:#75715e">// 组件扫描
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Application</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        SpringApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">(</span>Application<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> args<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h3 id="12-enableautoconfiguration">1.2 @EnableAutoConfiguration</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@AutoConfigurationPackage</span>      <span style="color:#75715e">// 自动配置包
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@Import</span><span style="color:#f92672">(</span>AutoConfigurationImportSelector<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 导入自动配置类
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#a6e22e">@interface</span> EnableAutoConfiguration <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    String ENABLED_OVERRIDE_PROPERTY <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;spring.boot.enableautoconfiguration&#34;</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    Class<span style="color:#f92672">&lt;?&gt;[]</span> exclude<span style="color:#f92672">()</span> <span style="color:#66d9ef">default</span> <span style="color:#f92672">{};</span>       <span style="color:#75715e">// 排除特定配置类
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    String<span style="color:#f92672">[]</span> <span style="color:#a6e22e">excludeName</span><span style="color:#f92672">()</span> <span style="color:#66d9ef">default</span> <span style="color:#f92672">{};</span>     <span style="color:#75715e">// 按类名排除
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h2 id="二自动配置流程">二、自动配置流程</h2>
-<h3 id="21-完整流程">2.1 完整流程</h3>
-<pre tabindex="0"><code>SpringApplication.run()
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Spring Boot 自动配置原理深度解析 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
+<a href=https://raphaell2e.github.io/posts/>文章</a>
+<a href=https://raphaell2e.github.io/categories/>分类</a>
+<a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-12 <span>/</span> spring</div><h1>Spring Boot 自动配置原理深度解析</h1></div><div class=post-content><h1 id=spring-boot-自动配置原理深度解析>Spring Boot 自动配置原理深度解析</h1><blockquote><p>面试高频问题：Spring Boot 自动配置的原理？@Conditional 注解如何工作？如何自定义 Starter？</p></blockquote><h2 id=引言>引言</h2><p>Spring Boot 的核心特性就是"约定优于配置"，通过自动配置大幅减少了样板代码和配置。理解自动配置的原理，是掌握 Spring Boot 的关键。</p><h2 id=一springbootapplication-注解>一、@SpringBootApplication 注解</h2><h3 id=11-注解拆解>1.1 注解拆解</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@SpringBootApplication</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 等价于：
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@SpringBootConfiguration</span>      <span style=color:#75715e>// 配置类
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@EnableAutoConfiguration</span>      <span style=color:#75715e>// 自动配置（核心）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@ComponentScan</span>                 <span style=color:#75715e>// 组件扫描
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>Application</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>main</span><span style=color:#f92672>(</span>String<span style=color:#f92672>[]</span> args<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        SpringApplication<span style=color:#f92672>.</span><span style=color:#a6e22e>run</span><span style=color:#f92672>(</span>Application<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>,</span> args<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=12-enableautoconfiguration>1.2 @EnableAutoConfiguration</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@AutoConfigurationPackage</span>      <span style=color:#75715e>// 自动配置包
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Import</span><span style=color:#f92672>(</span>AutoConfigurationImportSelector<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 导入自动配置类
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#a6e22e>@interface</span> EnableAutoConfiguration <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    String ENABLED_OVERRIDE_PROPERTY <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;spring.boot.enableautoconfiguration&#34;</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    Class<span style=color:#f92672>&lt;?&gt;[]</span> exclude<span style=color:#f92672>()</span> <span style=color:#66d9ef>default</span> <span style=color:#f92672>{};</span>       <span style=color:#75715e>// 排除特定配置类
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    String<span style=color:#f92672>[]</span> <span style=color:#a6e22e>excludeName</span><span style=color:#f92672>()</span> <span style=color:#66d9ef>default</span> <span style=color:#f92672>{};</span>     <span style=color:#75715e>// 按类名排除
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h2 id=二自动配置流程>二、自动配置流程</h2><h3 id=21-完整流程>2.1 完整流程</h3><pre tabindex=0><code>SpringApplication.run()
     │
     ├─ 1. 创建 SpringApplication
     │   └─ 推断应用类型（Servlet/Reactive/None）
@@ -944,290 +51,197 @@
     │   └─ 完成刷新
     │
     └─ 3. 返回 ApplicationContext
-</code></pre><h3 id="22-springfactories-机制">2.2 spring.factories 机制</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-properties" data-lang="properties"><span style="display:flex;"><span><span style="color:#75715e"># META-INF/spring.factories</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">org.springframework.boot.autoconfigure.EnableAutoConfiguration</span><span style="color:#f92672">=</span><span style="color:#e6db74">\
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration,\
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,\
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,\
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  ...</span>
-</span></span></code></pre></div><p><strong>Spring Boot 2.7+ 新增</strong>：<code>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</code></p>
-<pre tabindex="0"><code># 每行一个自动配置类
+</code></pre><h3 id=22-springfactories-机制>2.2 spring.factories 机制</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-properties data-lang=properties><span style=display:flex><span><span style=color:#75715e># META-INF/spring.factories</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>org.springframework.boot.autoconfigure.EnableAutoConfiguration</span><span style=color:#f92672>=</span><span style=color:#e6db74>\
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>  org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration,\
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>  org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,\
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>  org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration,\
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>  ...</span>
+</span></span></code></pre></div><p><strong>Spring Boot 2.7+ 新增</strong>：<code>META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports</code></p><pre tabindex=0><code># 每行一个自动配置类
 org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration
 org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-</code></pre><h3 id="23-源码追踪">2.3 源码追踪</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// AutoConfigurationImportSelector.selectImports()
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> String<span style="color:#f92672">[]</span> <span style="color:#a6e22e">selectImports</span><span style="color:#f92672">(</span>AnnotationMetadata annotationMetadata<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>isEnabled<span style="color:#f92672">(</span>annotationMetadata<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> NO_IMPORTS<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 1. 获取自动配置条目
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    AutoConfigurationEntry autoConfigurationEntry <span style="color:#f92672">=</span> 
-</span></span><span style="display:flex;"><span>        getAutoConfigurationEntry<span style="color:#f92672">(</span>annotationMetadata<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> StringUtils<span style="color:#f92672">.</span><span style="color:#a6e22e">toStringArray</span><span style="color:#f92672">(</span>autoConfigurationEntry<span style="color:#f92672">.</span><span style="color:#a6e22e">getConfigurations</span><span style="color:#f92672">());</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 获取自动配置条目
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">protected</span> AutoConfigurationEntry <span style="color:#a6e22e">getAutoConfigurationEntry</span><span style="color:#f92672">(</span>AnnotationMetadata metadata<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 1. 获取候选配置类
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    List<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> configurations <span style="color:#f92672">=</span> getCandidateConfigurations<span style="color:#f92672">(</span>metadata<span style="color:#f92672">,</span> attributes<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 2. 去重
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    configurations <span style="color:#f92672">=</span> removeDuplicates<span style="color:#f92672">(</span>configurations<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 3. 排除
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    Set<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> exclusions <span style="color:#f92672">=</span> getExclusions<span style="color:#f92672">(</span>annotationMetadata<span style="color:#f92672">,</span> attributes<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    checkExcludedClasses<span style="color:#f92672">(</span>configurations<span style="color:#f92672">,</span> exclusions<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    configurations<span style="color:#f92672">.</span><span style="color:#a6e22e">removeAll</span><span style="color:#f92672">(</span>exclusions<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 4. 过滤（@Conditional）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    configurations <span style="color:#f92672">=</span> getConfigurationClassFilter<span style="color:#f92672">().</span><span style="color:#a6e22e">filter</span><span style="color:#f92672">(</span>configurations<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 5. 触发事件
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    fireAutoConfigurationImportEvents<span style="color:#f92672">(</span>configurations<span style="color:#f92672">,</span> exclusions<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> AutoConfigurationEntry<span style="color:#f92672">(</span>configurations<span style="color:#f92672">,</span> exclusions<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 获取候选配置类
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">protected</span> List<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">getCandidateConfigurations</span><span style="color:#f92672">(</span>AnnotationMetadata metadata<span style="color:#f92672">,</span> 
-</span></span><span style="display:flex;"><span>                                                   AnnotationAttributes attributes<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 从 spring.factories 加载
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    List<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> configurations <span style="color:#f92672">=</span> SpringFactoriesLoader<span style="color:#f92672">.</span><span style="color:#a6e22e">loadFactoryNames</span><span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>        getSpringFactoriesLoaderFactoryClass<span style="color:#f92672">(),</span> getBeanClassLoader<span style="color:#f92672">());</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 从 AutoConfiguration.imports 加载（2.7+）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    ImportCandidates<span style="color:#f92672">.</span><span style="color:#a6e22e">load</span><span style="color:#f92672">(</span>AutoConfiguration<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> getBeanClassLoader<span style="color:#f92672">())</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">.</span><span style="color:#a6e22e">forEach</span><span style="color:#f92672">(</span>configurations<span style="color:#f92672">::</span>add<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> configurations<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h2 id="三条件注解">三、条件注解</h2>
-<h3 id="31-conditionalonclass">3.1 @ConditionalOnClass</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 只有类路径存在 HikariDataSource 时才配置
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@AutoConfiguration</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@ConditionalOnClass</span><span style="color:#f92672">(</span>HikariDataSource<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DataSourceAutoConfiguration</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@ConditionalOnMissingBean</span><span style="color:#f92672">(</span>DataSource<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 容器中没有 DataSource 才创建
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> DataSource <span style="color:#a6e22e">dataSource</span><span style="color:#f92672">(</span>DataSourceProperties properties<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> DataSourceBuilder<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">().</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h3 id="32-常用条件注解">3.2 常用条件注解</h3>
-<table>
-<thead>
-<tr>
-<th>注解</th>
-<th>说明</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>@ConditionalOnClass</code></td>
-<td>类路径存在指定类</td>
-</tr>
-<tr>
-<td><code>@ConditionalOnMissingClass</code></td>
-<td>类路径不存在指定类</td>
-</tr>
-<tr>
-<td><code>@ConditionalOnBean</code></td>
-<td>容器中存在指定 Bean</td>
-</tr>
-<tr>
-<td><code>@ConditionalOnMissingBean</code></td>
-<td>容器中不存在指定 Bean</td>
-</tr>
-<tr>
-<td><code>@ConditionalOnProperty</code></td>
-<td>配置属性满足条件</td>
-</tr>
-<tr>
-<td><code>@ConditionalOnWebApplication</code></td>
-<td>Web 应用</td>
-</tr>
-<tr>
-<td><code>@ConditionalOnNotWebApplication</code></td>
-<td>非 Web 应用</td>
-</tr>
-<tr>
-<td><code>@ConditionalOnExpression</code></td>
-<td>SpEL 表达式为 true</td>
-</tr>
-</tbody>
-</table>
-<h3 id="33-conditionalonproperty-详解">3.3 @ConditionalOnProperty 详解</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Bean</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@ConditionalOnProperty</span><span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>    prefix <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;spring.datasource&#34;</span><span style="color:#f92672">,</span>     <span style="color:#75715e">// 前缀
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;url&#34;</span><span style="color:#f92672">,</span>                      <span style="color:#75715e">// 属性名
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    havingValue <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;&#34;</span><span style="color:#f92672">,</span>                  <span style="color:#75715e">// 期望值
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    matchIfMissing <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>             <span style="color:#75715e">// 属性不存在时是否匹配
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> DataSource <span style="color:#a6e22e">dataSource</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> HikariDataSource<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// application.yml
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>spring:
-</span></span><span style="display:flex;"><span>  datasource<span style="color:#f92672">:</span>
-</span></span><span style="display:flex;"><span>    url<span style="color:#f92672">:</span> jdbc<span style="color:#f92672">:</span>mysql<span style="color:#f92672">:</span><span style="color:#75715e">//localhost:3306/mydb  # 有 url 才创建
-</span></span></span></code></pre></div><h3 id="34-条件注解的执行顺序">3.4 条件注解的执行顺序</h3>
-<pre tabindex="0"><code>1. @ConditionalOnClass / @ConditionalOnMissingClass（类路径检查，最早）
+</code></pre><h3 id=23-源码追踪>2.3 源码追踪</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// AutoConfigurationImportSelector.selectImports()
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> String<span style=color:#f92672>[]</span> <span style=color:#a6e22e>selectImports</span><span style=color:#f92672>(</span>AnnotationMetadata annotationMetadata<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> <span style=color:#f92672>(!</span>isEnabled<span style=color:#f92672>(</span>annotationMetadata<span style=color:#f92672>))</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> NO_IMPORTS<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 1. 获取自动配置条目
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    AutoConfigurationEntry autoConfigurationEntry <span style=color:#f92672>=</span> 
+</span></span><span style=display:flex><span>        getAutoConfigurationEntry<span style=color:#f92672>(</span>annotationMetadata<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> StringUtils<span style=color:#f92672>.</span><span style=color:#a6e22e>toStringArray</span><span style=color:#f92672>(</span>autoConfigurationEntry<span style=color:#f92672>.</span><span style=color:#a6e22e>getConfigurations</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 获取自动配置条目
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>protected</span> AutoConfigurationEntry <span style=color:#a6e22e>getAutoConfigurationEntry</span><span style=color:#f92672>(</span>AnnotationMetadata metadata<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 1. 获取候选配置类
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    List<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> configurations <span style=color:#f92672>=</span> getCandidateConfigurations<span style=color:#f92672>(</span>metadata<span style=color:#f92672>,</span> attributes<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 2. 去重
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    configurations <span style=color:#f92672>=</span> removeDuplicates<span style=color:#f92672>(</span>configurations<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 3. 排除
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    Set<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> exclusions <span style=color:#f92672>=</span> getExclusions<span style=color:#f92672>(</span>annotationMetadata<span style=color:#f92672>,</span> attributes<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    checkExcludedClasses<span style=color:#f92672>(</span>configurations<span style=color:#f92672>,</span> exclusions<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    configurations<span style=color:#f92672>.</span><span style=color:#a6e22e>removeAll</span><span style=color:#f92672>(</span>exclusions<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 4. 过滤（@Conditional）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    configurations <span style=color:#f92672>=</span> getConfigurationClassFilter<span style=color:#f92672>().</span><span style=color:#a6e22e>filter</span><span style=color:#f92672>(</span>configurations<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 5. 触发事件
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    fireAutoConfigurationImportEvents<span style=color:#f92672>(</span>configurations<span style=color:#f92672>,</span> exclusions<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> AutoConfigurationEntry<span style=color:#f92672>(</span>configurations<span style=color:#f92672>,</span> exclusions<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 获取候选配置类
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>protected</span> List<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>getCandidateConfigurations</span><span style=color:#f92672>(</span>AnnotationMetadata metadata<span style=color:#f92672>,</span> 
+</span></span><span style=display:flex><span>                                                   AnnotationAttributes attributes<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 从 spring.factories 加载
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    List<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> configurations <span style=color:#f92672>=</span> SpringFactoriesLoader<span style=color:#f92672>.</span><span style=color:#a6e22e>loadFactoryNames</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>        getSpringFactoriesLoaderFactoryClass<span style=color:#f92672>(),</span> getBeanClassLoader<span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 从 AutoConfiguration.imports 加载（2.7+）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    ImportCandidates<span style=color:#f92672>.</span><span style=color:#a6e22e>load</span><span style=color:#f92672>(</span>AutoConfiguration<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>,</span> getBeanClassLoader<span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>.</span><span style=color:#a6e22e>forEach</span><span style=color:#f92672>(</span>configurations<span style=color:#f92672>::</span>add<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> configurations<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h2 id=三条件注解>三、条件注解</h2><h3 id=31-conditionalonclass>3.1 @ConditionalOnClass</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 只有类路径存在 HikariDataSource 时才配置
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@AutoConfiguration</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@ConditionalOnClass</span><span style=color:#f92672>(</span>HikariDataSource<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>DataSourceAutoConfiguration</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@ConditionalOnMissingBean</span><span style=color:#f92672>(</span>DataSource<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 容器中没有 DataSource 才创建
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> DataSource <span style=color:#a6e22e>dataSource</span><span style=color:#f92672>(</span>DataSourceProperties properties<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> DataSourceBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>create</span><span style=color:#f92672>().</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=32-常用条件注解>3.2 常用条件注解</h3><table><thead><tr><th>注解</th><th>说明</th></tr></thead><tbody><tr><td><code>@ConditionalOnClass</code></td><td>类路径存在指定类</td></tr><tr><td><code>@ConditionalOnMissingClass</code></td><td>类路径不存在指定类</td></tr><tr><td><code>@ConditionalOnBean</code></td><td>容器中存在指定 Bean</td></tr><tr><td><code>@ConditionalOnMissingBean</code></td><td>容器中不存在指定 Bean</td></tr><tr><td><code>@ConditionalOnProperty</code></td><td>配置属性满足条件</td></tr><tr><td><code>@ConditionalOnWebApplication</code></td><td>Web 应用</td></tr><tr><td><code>@ConditionalOnNotWebApplication</code></td><td>非 Web 应用</td></tr><tr><td><code>@ConditionalOnExpression</code></td><td>SpEL 表达式为 true</td></tr></tbody></table><h3 id=33-conditionalonproperty-详解>3.3 @ConditionalOnProperty 详解</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@ConditionalOnProperty</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>    prefix <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;spring.datasource&#34;</span><span style=color:#f92672>,</span>     <span style=color:#75715e>// 前缀
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;url&#34;</span><span style=color:#f92672>,</span>                      <span style=color:#75715e>// 属性名
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    havingValue <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;&#34;</span><span style=color:#f92672>,</span>                  <span style=color:#75715e>// 期望值
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    matchIfMissing <span style=color:#f92672>=</span> <span style=color:#66d9ef>false</span>             <span style=color:#75715e>// 属性不存在时是否匹配
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> DataSource <span style=color:#a6e22e>dataSource</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> HikariDataSource<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// application.yml
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>spring:
+</span></span><span style=display:flex><span>  datasource<span style=color:#f92672>:</span>
+</span></span><span style=display:flex><span>    url<span style=color:#f92672>:</span> jdbc<span style=color:#f92672>:</span>mysql<span style=color:#f92672>:</span><span style=color:#75715e>//localhost:3306/mydb  # 有 url 才创建
+</span></span></span></code></pre></div><h3 id=34-条件注解的执行顺序>3.4 条件注解的执行顺序</h3><pre tabindex=0><code>1. @ConditionalOnClass / @ConditionalOnMissingClass（类路径检查，最早）
 2. @ConditionalOnWebApplication / @ConditionalOnNotWebApplication
 3. @ConditionalOnBean / @ConditionalOnMissingBean（容器检查）
 4. @ConditionalOnProperty（配置检查）
 5. @ConditionalOnExpression（最灵活，最后）
-</code></pre><h2 id="四自动配置示例分析">四、自动配置示例分析</h2>
-<h3 id="41-redis-自动配置">4.1 Redis 自动配置</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@AutoConfiguration</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@ConditionalOnClass</span><span style="color:#f92672">(</span>RedisOperations<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>        <span style="color:#75715e">// 有 Redis 依赖
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@EnableConfigurationProperties</span><span style="color:#f92672">(</span>RedisProperties<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 绑定配置
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RedisAutoConfiguration</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@ConditionalOnMissingBean</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;redisTemplate&#34;</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 没有 redisTemplate 才创建
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">@ConditionalOnSingleCandidate</span><span style="color:#f92672">(</span>RedisConnectionFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> RedisTemplate<span style="color:#f92672">&lt;</span>Object<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">redisTemplate</span><span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>            RedisConnectionFactory redisConnectionFactory<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        RedisTemplate<span style="color:#f92672">&lt;</span>Object<span style="color:#f92672">,</span> Object<span style="color:#f92672">&gt;</span> template <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> RedisTemplate<span style="color:#f92672">&lt;&gt;();</span>
-</span></span><span style="display:flex;"><span>        template<span style="color:#f92672">.</span><span style="color:#a6e22e">setConnectionFactory</span><span style="color:#f92672">(</span>redisConnectionFactory<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> template<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@ConditionalOnMissingBean</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@ConditionalOnSingleCandidate</span><span style="color:#f92672">(</span>RedisConnectionFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> StringRedisTemplate <span style="color:#a6e22e">stringRedisTemplate</span><span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>            RedisConnectionFactory redisConnectionFactory<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> StringRedisTemplate<span style="color:#f92672">(</span>redisConnectionFactory<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// RedisProperties
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@ConfigurationProperties</span><span style="color:#f92672">(</span>prefix <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;spring.redis&#34;</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RedisProperties</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> String host <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;localhost&#34;</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> port <span style="color:#f92672">=</span> <span style="color:#ae81ff">6379</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> String password<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> database <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ...
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h3 id="42-内嵌-tomcat-自动配置">4.2 内嵌 Tomcat 自动配置</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@AutoConfiguration</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@ConditionalOnClass</span><span style="color:#f92672">(</span>ServletRequest<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// Servlet API 存在
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@ConditionalOnWebApplication</span><span style="color:#f92672">(</span>type <span style="color:#f92672">=</span> Type<span style="color:#f92672">.</span><span style="color:#a6e22e">SERVLET</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// Servlet Web 应用
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ServletWebServerFactoryAutoConfiguration</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@ConditionalOnClass</span><span style="color:#f92672">(</span>Tomcat<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 有 Tomcat 依赖
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> ServletWebServerFactory <span style="color:#a6e22e">tomcatServletWebServerFactory</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> TomcatServletWebServerFactory<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@ConditionalOnClass</span><span style="color:#f92672">(</span>Jetty<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 有 Jetty 依赖
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> ServletWebServerFactory <span style="color:#a6e22e">jettyServletWebServerFactory</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> JettyServletWebServerFactory<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h2 id="五自定义-starter">五、自定义 Starter</h2>
-<h3 id="51-starter-命名规范">5.1 Starter 命名规范</h3>
-<table>
-<thead>
-<tr>
-<th>类型</th>
-<th>命名规范</th>
-<th>示例</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>官方</td>
-<td><code>spring-boot-starter-*</code></td>
-<td><code>spring-boot-starter-web</code></td>
-</tr>
-<tr>
-<td>第三方</td>
-<td><code>*-spring-boot-starter</code></td>
-<td><code>mybatis-spring-boot-starter</code></td>
-</tr>
-</tbody>
-</table>
-<h3 id="52-创建自定义-starter">5.2 创建自定义 Starter</h3>
-<p><strong>步骤 1：创建自动配置模块</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 配置属性类
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@ConfigurationProperties</span><span style="color:#f92672">(</span>prefix <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;my.feature&#34;</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MyFeatureProperties</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">boolean</span> enabled <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> String name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;default&#34;</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> timeout <span style="color:#f92672">=</span> <span style="color:#ae81ff">3000</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// getter/setter
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 自动配置类
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@AutoConfiguration</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@ConditionalOnClass</span><span style="color:#f92672">(</span>MyFeatureService<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@EnableConfigurationProperties</span><span style="color:#f92672">(</span>MyFeatureProperties<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MyFeatureAutoConfiguration</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@ConditionalOnMissingBean</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@ConditionalOnProperty</span><span style="color:#f92672">(</span>prefix <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;my.feature&#34;</span><span style="color:#f92672">,</span> name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;enabled&#34;</span><span style="color:#f92672">,</span> 
-</span></span><span style="display:flex;"><span>                           havingValue <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;true&#34;</span><span style="color:#f92672">,</span> matchIfMissing <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> MyFeatureService <span style="color:#a6e22e">myFeatureService</span><span style="color:#f92672">(</span>MyFeatureProperties properties<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> MyFeatureService<span style="color:#f92672">(</span>properties<span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">(),</span> properties<span style="color:#f92672">.</span><span style="color:#a6e22e">getTimeout</span><span style="color:#f92672">());</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><p><strong>步骤 2：注册自动配置</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-properties" data-lang="properties"><span style="display:flex;"><span><span style="color:#75715e"># META-INF/spring.factories</span>
-</span></span><span style="display:flex;"><span><span style="color:#a6e22e">org.springframework.boot.autoconfigure.EnableAutoConfiguration</span><span style="color:#f92672">=</span><span style="color:#e6db74">\
-</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  com.example.MyFeatureAutoConfiguration</span>
-</span></span></code></pre></div><p>或（Spring Boot 2.7+）：</p>
-<pre tabindex="0"><code># META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
+</code></pre><h2 id=四自动配置示例分析>四、自动配置示例分析</h2><h3 id=41-redis-自动配置>4.1 Redis 自动配置</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@AutoConfiguration</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@ConditionalOnClass</span><span style=color:#f92672>(</span>RedisOperations<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>        <span style=color:#75715e>// 有 Redis 依赖
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@EnableConfigurationProperties</span><span style=color:#f92672>(</span>RedisProperties<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 绑定配置
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>RedisAutoConfiguration</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@ConditionalOnMissingBean</span><span style=color:#f92672>(</span>name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;redisTemplate&#34;</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 没有 redisTemplate 才创建
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@ConditionalOnSingleCandidate</span><span style=color:#f92672>(</span>RedisConnectionFactory<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> RedisTemplate<span style=color:#f92672>&lt;</span>Object<span style=color:#f92672>,</span> Object<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>redisTemplate</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            RedisConnectionFactory redisConnectionFactory<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        RedisTemplate<span style=color:#f92672>&lt;</span>Object<span style=color:#f92672>,</span> Object<span style=color:#f92672>&gt;</span> template <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> RedisTemplate<span style=color:#f92672>&lt;&gt;();</span>
+</span></span><span style=display:flex><span>        template<span style=color:#f92672>.</span><span style=color:#a6e22e>setConnectionFactory</span><span style=color:#f92672>(</span>redisConnectionFactory<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> template<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@ConditionalOnMissingBean</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@ConditionalOnSingleCandidate</span><span style=color:#f92672>(</span>RedisConnectionFactory<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> StringRedisTemplate <span style=color:#a6e22e>stringRedisTemplate</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            RedisConnectionFactory redisConnectionFactory<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> StringRedisTemplate<span style=color:#f92672>(</span>redisConnectionFactory<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// RedisProperties
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@ConfigurationProperties</span><span style=color:#f92672>(</span>prefix <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;spring.redis&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>RedisProperties</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> String host <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;localhost&#34;</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>int</span> port <span style=color:#f92672>=</span> <span style=color:#ae81ff>6379</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> String password<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>int</span> database <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// ...
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=42-内嵌-tomcat-自动配置>4.2 内嵌 Tomcat 自动配置</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@AutoConfiguration</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@ConditionalOnClass</span><span style=color:#f92672>(</span>ServletRequest<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// Servlet API 存在
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@ConditionalOnWebApplication</span><span style=color:#f92672>(</span>type <span style=color:#f92672>=</span> Type<span style=color:#f92672>.</span><span style=color:#a6e22e>SERVLET</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// Servlet Web 应用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>ServletWebServerFactoryAutoConfiguration</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@ConditionalOnClass</span><span style=color:#f92672>(</span>Tomcat<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 有 Tomcat 依赖
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> ServletWebServerFactory <span style=color:#a6e22e>tomcatServletWebServerFactory</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> TomcatServletWebServerFactory<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@ConditionalOnClass</span><span style=color:#f92672>(</span>Jetty<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 有 Jetty 依赖
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> ServletWebServerFactory <span style=color:#a6e22e>jettyServletWebServerFactory</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> JettyServletWebServerFactory<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h2 id=五自定义-starter>五、自定义 Starter</h2><h3 id=51-starter-命名规范>5.1 Starter 命名规范</h3><table><thead><tr><th>类型</th><th>命名规范</th><th>示例</th></tr></thead><tbody><tr><td>官方</td><td><code>spring-boot-starter-*</code></td><td><code>spring-boot-starter-web</code></td></tr><tr><td>第三方</td><td><code>*-spring-boot-starter</code></td><td><code>mybatis-spring-boot-starter</code></td></tr></tbody></table><h3 id=52-创建自定义-starter>5.2 创建自定义 Starter</h3><p><strong>步骤 1：创建自动配置模块</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 配置属性类
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@ConfigurationProperties</span><span style=color:#f92672>(</span>prefix <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;my.feature&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>MyFeatureProperties</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>boolean</span> enabled <span style=color:#f92672>=</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> String name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;default&#34;</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>int</span> timeout <span style=color:#f92672>=</span> <span style=color:#ae81ff>3000</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// getter/setter
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 自动配置类
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@AutoConfiguration</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@ConditionalOnClass</span><span style=color:#f92672>(</span>MyFeatureService<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@EnableConfigurationProperties</span><span style=color:#f92672>(</span>MyFeatureProperties<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>MyFeatureAutoConfiguration</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@ConditionalOnMissingBean</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@ConditionalOnProperty</span><span style=color:#f92672>(</span>prefix <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;my.feature&#34;</span><span style=color:#f92672>,</span> name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;enabled&#34;</span><span style=color:#f92672>,</span> 
+</span></span><span style=display:flex><span>                           havingValue <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;true&#34;</span><span style=color:#f92672>,</span> matchIfMissing <span style=color:#f92672>=</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> MyFeatureService <span style=color:#a6e22e>myFeatureService</span><span style=color:#f92672>(</span>MyFeatureProperties properties<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> MyFeatureService<span style=color:#f92672>(</span>properties<span style=color:#f92672>.</span><span style=color:#a6e22e>getName</span><span style=color:#f92672>(),</span> properties<span style=color:#f92672>.</span><span style=color:#a6e22e>getTimeout</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>步骤 2：注册自动配置</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-properties data-lang=properties><span style=display:flex><span><span style=color:#75715e># META-INF/spring.factories</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>org.springframework.boot.autoconfigure.EnableAutoConfiguration</span><span style=color:#f92672>=</span><span style=color:#e6db74>\
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>  com.example.MyFeatureAutoConfiguration</span>
+</span></span></code></pre></div><p>或（Spring Boot 2.7+）：</p><pre tabindex=0><code># META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
 com.example.MyFeatureAutoConfiguration
-</code></pre><p><strong>步骤 3：创建 Starter 模块</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#75715e">&lt;!-- pom.xml --&gt;</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;dependency&gt;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;groupId&gt;</span>com.example<span style="color:#f92672">&lt;/groupId&gt;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;artifactId&gt;</span>my-feature-spring-boot-autoconfigure<span style="color:#f92672">&lt;/artifactId&gt;</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/dependency&gt;</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;dependency&gt;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;groupId&gt;</span>com.example<span style="color:#f92672">&lt;/groupId&gt;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;artifactId&gt;</span>my-feature-core<span style="color:#f92672">&lt;/artifactId&gt;</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/dependency&gt;</span>
-</span></span></code></pre></div><p><strong>步骤 4：使用 Starter</strong></p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#f92672">&lt;dependency&gt;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;groupId&gt;</span>com.example<span style="color:#f92672">&lt;/groupId&gt;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;artifactId&gt;</span>my-feature-spring-boot-starter<span style="color:#f92672">&lt;/artifactId&gt;</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/dependency&gt;</span>
-</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># application.yml</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">my</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">feature</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">enabled</span>: <span style="color:#66d9ef">true</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">name</span>: <span style="color:#ae81ff">my-app</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">timeout</span>: <span style="color:#ae81ff">5000</span>
-</span></span></code></pre></div><h3 id="53-自定义-starter-最佳实践">5.3 自定义 Starter 最佳实践</h3>
-<ol>
-<li><strong>提供默认值</strong>：<code>matchIfMissing = true</code></li>
-<li><strong>使用 @ConditionalOnMissingBean</strong>：允许用户覆盖</li>
-<li><strong>提供配置属性</strong>：<code>@ConfigurationProperties</code></li>
-<li><strong>提供默认配置</strong>：合理默认值</li>
-<li><strong>文档</strong>：META-INF/spring-configuration-metadata.json</li>
-</ol>
-<h2 id="六自动配置的调试">六、自动配置的调试</h2>
-<h3 id="61-查看自动配置报告">6.1 查看自动配置报告</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 启动时打印自动配置报告</span>
-</span></span><span style="display:flex;"><span>java -jar app.jar --debug
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># 或在 application.yml 中</span>
-</span></span><span style="display:flex;"><span>debug: true
-</span></span></code></pre></div><p><strong>输出</strong>：</p>
-<pre tabindex="0"><code>============================
+</code></pre><p><strong>步骤 3：创建 Starter 模块</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-xml data-lang=xml><span style=display:flex><span><span style=color:#75715e>&lt;!-- pom.xml --&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>&lt;dependency&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;groupId&gt;</span>com.example<span style=color:#f92672>&lt;/groupId&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;artifactId&gt;</span>my-feature-spring-boot-autoconfigure<span style=color:#f92672>&lt;/artifactId&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>&lt;/dependency&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>&lt;dependency&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;groupId&gt;</span>com.example<span style=color:#f92672>&lt;/groupId&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;artifactId&gt;</span>my-feature-core<span style=color:#f92672>&lt;/artifactId&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>&lt;/dependency&gt;</span>
+</span></span></code></pre></div><p><strong>步骤 4：使用 Starter</strong></p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-xml data-lang=xml><span style=display:flex><span><span style=color:#f92672>&lt;dependency&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;groupId&gt;</span>com.example<span style=color:#f92672>&lt;/groupId&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;artifactId&gt;</span>my-feature-spring-boot-starter<span style=color:#f92672>&lt;/artifactId&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>&lt;/dependency&gt;</span>
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#75715e># application.yml</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>my</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>feature</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>enabled</span>: <span style=color:#66d9ef>true</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>name</span>: <span style=color:#ae81ff>my-app</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>timeout</span>: <span style=color:#ae81ff>5000</span>
+</span></span></code></pre></div><h3 id=53-自定义-starter-最佳实践>5.3 自定义 Starter 最佳实践</h3><ol><li><strong>提供默认值</strong>：<code>matchIfMissing = true</code></li><li><strong>使用 @ConditionalOnMissingBean</strong>：允许用户覆盖</li><li><strong>提供配置属性</strong>：<code>@ConfigurationProperties</code></li><li><strong>提供默认配置</strong>：合理默认值</li><li><strong>文档</strong>：META-INF/spring-configuration-metadata.json</li></ol><h2 id=六自动配置的调试>六、自动配置的调试</h2><h3 id=61-查看自动配置报告>6.1 查看自动配置报告</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># 启动时打印自动配置报告</span>
+</span></span><span style=display:flex><span>java -jar app.jar --debug
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e># 或在 application.yml 中</span>
+</span></span><span style=display:flex><span>debug: true
+</span></span></code></pre></div><p><strong>输出</strong>：</p><pre tabindex=0><code>============================
 CONDITIONS EVALUATION REPORT
 ============================
 
@@ -1241,126 +255,24 @@ Negative matches:（未生效的自动配置）
    ActiveMQAutoConfiguration:
       Did not match:
          - @ConditionalOnClass did not find required class &#39;javax.jms.ConnectionFactory&#39; (OnClassCondition)
-</code></pre><h3 id="62-查看已注册的-bean">6.2 查看已注册的 Bean</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Autowired</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span> ApplicationContext context<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">printBeans</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    String<span style="color:#f92672">[]</span> beans <span style="color:#f92672">=</span> context<span style="color:#f92672">.</span><span style="color:#a6e22e">getBeanDefinitionNames</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>    Arrays<span style="color:#f92672">.</span><span style="color:#a6e22e">sort</span><span style="color:#f92672">(</span>beans<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>String bean <span style="color:#f92672">:</span> beans<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span>bean<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h3 id="63-排除自动配置">6.3 排除自动配置</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 方式 1：@SpringBootApplication 排除
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@SpringBootApplication</span><span style="color:#f92672">(</span>exclude <span style="color:#f92672">=</span> <span style="color:#f92672">{</span>DataSourceAutoConfiguration<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">})</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 方式 2：@EnableAutoConfiguration 排除
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@EnableAutoConfiguration</span><span style="color:#f92672">(</span>exclude <span style="color:#f92672">=</span> <span style="color:#f92672">{</span>DataSourceAutoConfiguration<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">})</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 方式 3：配置文件排除
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>spring:
-</span></span><span style="display:flex;"><span>  autoconfigure<span style="color:#f92672">:</span>
-</span></span><span style="display:flex;"><span>    exclude<span style="color:#f92672">:</span> org<span style="color:#f92672">.</span><span style="color:#a6e22e">springframework</span><span style="color:#f92672">.</span><span style="color:#a6e22e">boot</span><span style="color:#f92672">.</span><span style="color:#a6e22e">autoconfigure</span><span style="color:#f92672">.</span><span style="color:#a6e22e">jdbc</span><span style="color:#f92672">.</span><span style="color:#a6e22e">DataSourceAutoConfiguration</span>
-</span></span></code></pre></div><h2 id="七面试高频问题">七、面试高频问题</h2>
-<h3 id="q1spring-boot-自动配置的原理">Q1：Spring Boot 自动配置的原理？</h3>
-<p><strong>答</strong>：</p>
-<ol>
-<li><code>@EnableAutoConfiguration</code> 通过 <code>@Import</code> 导入 <code>AutoConfigurationImportSelector</code></li>
-<li><code>AutoConfigurationImportSelector</code> 从 <code>spring.factories</code> 加载所有自动配置类</li>
-<li>通过 <code>@ConditionalOnXXX</code> 条件注解过滤</li>
-<li>满足条件的配置类生效，注册 Bean</li>
-</ol>
-<h3 id="q2conditionalonmissingbean-的作用">Q2：@ConditionalOnMissingBean 的作用？</h3>
-<p><strong>答</strong>：当容器中不存在指定 Bean 时才创建。允许用户自定义 Bean 覆盖默认配置。</p>
-<h3 id="q3如何自定义-starter">Q3：如何自定义 Starter？</h3>
-<p><strong>答</strong>：</p>
-<ol>
-<li>创建自动配置类 + <code>@ConfigurationProperties</code></li>
-<li>在 <code>spring.factories</code> 注册</li>
-<li>创建 Starter 模块依赖自动配置模块</li>
-<li>使用时引入 Starter 即可</li>
-</ol>
-<h3 id="q4springfactories-和-autoconfigurationimports-的区别">Q4：spring.factories 和 AutoConfiguration.imports 的区别？</h3>
-<p><strong>答</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>特性</th>
-<th>spring.factories</th>
-<th>AutoConfiguration.imports</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>版本</td>
-<td>所有版本</td>
-<td>2.7+</td>
-</tr>
-<tr>
-<td>格式</td>
-<td>key=value（多行）</td>
-<td>每行一个类</td>
-</tr>
-<tr>
-<td>用途</td>
-<td>SPI 扩展</td>
-<td>专用自动配置</td>
-</tr>
-</tbody>
-</table>
-<h3 id="q5如何排除特定的自动配置">Q5：如何排除特定的自动配置？</h3>
-<p><strong>答</strong>：</p>
-<ol>
-<li><code>@SpringBootApplication(exclude = {...})</code></li>
-<li><code>spring.autoconfigure.exclude</code> 配置</li>
-<li><code>@EnableAutoConfiguration(exclude = {...})</code></li>
-</ol>
-<h2 id="八总结">八、总结</h2>
-<p><strong>自动配置核心要点</strong>：</p>
-<ul>
-<li><strong>入口</strong>：<code>@EnableAutoConfiguration</code></li>
-<li><strong>加载</strong>：<code>spring.factories</code> / <code>AutoConfiguration.imports</code></li>
-<li><strong>过滤</strong>：<code>@ConditionalOnXXX</code> 条件注解</li>
-<li><strong>覆盖</strong>：<code>@ConditionalOnMissingBean</code> 允许用户覆盖</li>
-</ul>
-<p><strong>自动配置流程</strong>：</p>
-<ol>
-<li><code>@SpringBootApplication</code> → <code>@EnableAutoConfiguration</code></li>
-<li><code>AutoConfigurationImportSelector</code> 加载配置类</li>
-<li><code>@Conditional</code> 条件过滤</li>
-<li>满足条件的配置类注册 Bean</li>
-</ol>
-<p><strong>自定义 Starter 步骤</strong>：</p>
-<ol>
-<li>创建 <code>@AutoConfiguration</code> 类</li>
-<li>使用 <code>@ConfigurationProperties</code> 绑定配置</li>
-<li>在 <code>spring.factories</code> 注册</li>
-<li>创建 Starter 依赖模块</li>
-</ol>
-<p><strong>最佳实践</strong>：</p>
-<ol>
-<li>使用 <code>--debug</code> 查看自动配置报告</li>
-<li>用 <code>@ConditionalOnMissingBean</code> 允许覆盖</li>
-<li>提供合理的默认值</li>
-<li>遵循 Starter 命名规范</li>
-</ol>
-<hr>
-<p><strong>下一篇预告</strong>：Spring 循环依赖与三级缓存深度解析</p>
-<p><strong>参考资料</strong>：</p>
-<ul>
-<li>Spring Boot 官方文档：https://docs.spring.io/spring-boot/docs/current/reference/html/features.html</li>
-<li>《Spring Boot 实战》- Craig Walls</li>
-<li>Spring Boot 源码：org.springframework.boot.autoconfigure</li>
-</ul>
-
-    </div>
-</article>
-
-    </main>
-    <footer>
-        <p>&copy; 2026 李亚飞</p>
-    </footer>
-</body>
-</html>
+</code></pre><h3 id=62-查看已注册的-bean>6.2 查看已注册的 Bean</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>private</span> ApplicationContext context<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>printBeans</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    String<span style=color:#f92672>[]</span> beans <span style=color:#f92672>=</span> context<span style=color:#f92672>.</span><span style=color:#a6e22e>getBeanDefinitionNames</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    Arrays<span style=color:#f92672>.</span><span style=color:#a6e22e>sort</span><span style=color:#f92672>(</span>beans<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span>String bean <span style=color:#f92672>:</span> beans<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        System<span style=color:#f92672>.</span><span style=color:#a6e22e>out</span><span style=color:#f92672>.</span><span style=color:#a6e22e>println</span><span style=color:#f92672>(</span>bean<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=63-排除自动配置>6.3 排除自动配置</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 方式 1：@SpringBootApplication 排除
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@SpringBootApplication</span><span style=color:#f92672>(</span>exclude <span style=color:#f92672>=</span> <span style=color:#f92672>{</span>DataSourceAutoConfiguration<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>})</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 方式 2：@EnableAutoConfiguration 排除
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@EnableAutoConfiguration</span><span style=color:#f92672>(</span>exclude <span style=color:#f92672>=</span> <span style=color:#f92672>{</span>DataSourceAutoConfiguration<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>})</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 方式 3：配置文件排除
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>spring:
+</span></span><span style=display:flex><span>  autoconfigure<span style=color:#f92672>:</span>
+</span></span><span style=display:flex><span>    exclude<span style=color:#f92672>:</span> org<span style=color:#f92672>.</span><span style=color:#a6e22e>springframework</span><span style=color:#f92672>.</span><span style=color:#a6e22e>boot</span><span style=color:#f92672>.</span><span style=color:#a6e22e>autoconfigure</span><span style=color:#f92672>.</span><span style=color:#a6e22e>jdbc</span><span style=color:#f92672>.</span><span style=color:#a6e22e>DataSourceAutoConfiguration</span>
+</span></span></code></pre></div><h2 id=七面试高频问题>七、面试高频问题</h2><h3 id=q1spring-boot-自动配置的原理>Q1：Spring Boot 自动配置的原理？</h3><p><strong>答</strong>：</p><ol><li><code>@EnableAutoConfiguration</code> 通过 <code>@Import</code> 导入 <code>AutoConfigurationImportSelector</code></li><li><code>AutoConfigurationImportSelector</code> 从 <code>spring.factories</code> 加载所有自动配置类</li><li>通过 <code>@ConditionalOnXXX</code> 条件注解过滤</li><li>满足条件的配置类生效，注册 Bean</li></ol><h3 id=q2conditionalonmissingbean-的作用>Q2：@ConditionalOnMissingBean 的作用？</h3><p><strong>答</strong>：当容器中不存在指定 Bean 时才创建。允许用户自定义 Bean 覆盖默认配置。</p><h3 id=q3如何自定义-starter>Q3：如何自定义 Starter？</h3><p><strong>答</strong>：</p><ol><li>创建自动配置类 + <code>@ConfigurationProperties</code></li><li>在 <code>spring.factories</code> 注册</li><li>创建 Starter 模块依赖自动配置模块</li><li>使用时引入 Starter 即可</li></ol><h3 id=q4springfactories-和-autoconfigurationimports-的区别>Q4：spring.factories 和 AutoConfiguration.imports 的区别？</h3><p><strong>答</strong>：</p><table><thead><tr><th>特性</th><th>spring.factories</th><th>AutoConfiguration.imports</th></tr></thead><tbody><tr><td>版本</td><td>所有版本</td><td>2.7+</td></tr><tr><td>格式</td><td>key=value（多行）</td><td>每行一个类</td></tr><tr><td>用途</td><td>SPI 扩展</td><td>专用自动配置</td></tr></tbody></table><h3 id=q5如何排除特定的自动配置>Q5：如何排除特定的自动配置？</h3><p><strong>答</strong>：</p><ol><li><code>@SpringBootApplication(exclude = {...})</code></li><li><code>spring.autoconfigure.exclude</code> 配置</li><li><code>@EnableAutoConfiguration(exclude = {...})</code></li></ol><h2 id=八总结>八、总结</h2><p><strong>自动配置核心要点</strong>：</p><ul><li><strong>入口</strong>：<code>@EnableAutoConfiguration</code></li><li><strong>加载</strong>：<code>spring.factories</code> / <code>AutoConfiguration.imports</code></li><li><strong>过滤</strong>：<code>@ConditionalOnXXX</code> 条件注解</li><li><strong>覆盖</strong>：<code>@ConditionalOnMissingBean</code> 允许用户覆盖</li></ul><p><strong>自动配置流程</strong>：</p><ol><li><code>@SpringBootApplication</code> → <code>@EnableAutoConfiguration</code></li><li><code>AutoConfigurationImportSelector</code> 加载配置类</li><li><code>@Conditional</code> 条件过滤</li><li>满足条件的配置类注册 Bean</li></ol><p><strong>自定义 Starter 步骤</strong>：</p><ol><li>创建 <code>@AutoConfiguration</code> 类</li><li>使用 <code>@ConfigurationProperties</code> 绑定配置</li><li>在 <code>spring.factories</code> 注册</li><li>创建 Starter 依赖模块</li></ol><p><strong>最佳实践</strong>：</p><ol><li>使用 <code>--debug</code> 查看自动配置报告</li><li>用 <code>@ConditionalOnMissingBean</code> 允许覆盖</li><li>提供合理的默认值</li><li>遵循 Starter 命名规范</li></ol><hr><p><strong>下一篇预告</strong>：Spring 循环依赖与三级缓存深度解析</p><p><strong>参考资料</strong>：</p><ul><li>Spring Boot 官方文档：https://docs.spring.io/spring-boot/docs/current/reference/html/features.html</li><li>《Spring Boot 实战》- Craig Walls</li><li>Spring Boot 源码：org.springframework.boot.autoconfigure</li></ul></div></article></main><footer><p>&copy; 2026 李亚飞</p></footer></body></html>

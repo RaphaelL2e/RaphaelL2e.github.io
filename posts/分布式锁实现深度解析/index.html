@@ -1,961 +1,8 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>分布式锁实现深度解析 - Raphael Tech Blog</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a25;
-            --text-primary: #e4e4e7;
-            --text-secondary: #a1a1aa;
-            --text-muted: #71717a;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --accent-glow: rgba(59, 130, 246, 0.3);
-            --border: #27272a;
-            --code-bg: #0f0f15;
-        }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            min-height: 100vh;
-        }
-        
-         
-        header {
-            background: var(--bg-secondary);
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-        }
-        
-        .header-content {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 1rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-        
-        header h1 a {
-            color: var(--text-primary);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        header h1 a::before {
-            content: '◆';
-            color: var(--accent);
-            font-size: 0.875rem;
-        }
-        
-        nav {
-            display: flex;
-            gap: 1.5rem;
-        }
-        
-        nav a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.875rem;
-            font-weight: 500;
-            transition: color 0.2s;
-            position: relative;
-        }
-        
-        nav a:hover {
-            color: var(--text-primary);
-        }
-        
-        nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--accent);
-            transition: width 0.2s;
-        }
-        
-        nav a:hover::after {
-            width: 100%;
-        }
-        
-         
-        main {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 2rem 1.5rem;
-        }
-        
-         
-        .page-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            transition: all 0.2s;
-        }
-        
-        article:hover {
-            border-color: var(--accent);
-            box-shadow: 0 0 20px var(--accent-glow);
-        }
-        
-        article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        
-        article h2 a {
-            color: var(--text-primary);
-            text-decoration: none;
-        }
-        
-        article h2 a:hover {
-            color: var(--accent);
-        }
-        
-        .meta {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 0.75rem;
-        }
-        
-        .meta span {
-            color: var(--accent);
-        }
-        
-        .summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-        
-        .summary a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
-            margin-left: 0.5rem;
-        }
-        
-        .summary a:hover {
-            text-decoration: underline;
-        }
-        
-         
-        .post-header {
-            margin-bottom: 2rem;
-            padding-bottom: 2rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            line-height: 1.3;
-            margin-bottom: 1rem;
-        }
-        
-        .post-content {
-            font-size: 1rem;
-            line-height: 1.8;
-        }
-        
-        .post-content h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 2.5rem 0 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid var(--border);
-        }
-        
-        .post-content h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin: 2rem 0 1rem;
-            color: var(--accent);
-        }
-        
-        .post-content h4 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin: 1.5rem 0 0.75rem;
-        }
-        
-        .post-content p {
-            margin-bottom: 1.25rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content strong {
-            color: var(--text-primary);
-            font-weight: 600;
-        }
-        
-        .post-content a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-        
-        .post-content a:hover {
-            text-decoration: underline;
-        }
-        
-        .post-content ul, .post-content ol {
-            margin: 1rem 0 1.5rem 1.5rem;
-            color: var(--text-secondary);
-        }
-        
-        .post-content li {
-            margin-bottom: 0.5rem;
-        }
-        
-        .post-content code {
-            font-family: 'JetBrains Mono', monospace;
-            background: var(--code-bg);
-            color: var(--accent);
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-size: 0.875em;
-        }
-        
-        .post-content pre {
-            background: var(--code-bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 1.25rem;
-            overflow-x: auto;
-            margin: 1.5rem 0;
-        }
-        
-        .post-content pre code {
-            background: none;
-            color: var(--text-primary);
-            padding: 0;
-        }
-        
-        .post-content blockquote {
-            border-left: 3px solid var(--accent);
-            background: var(--bg-tertiary);
-            padding: 1rem 1.25rem;
-            margin: 1.5rem 0;
-            border-radius: 0 8px 8px 0;
-        }
-        
-        .post-content blockquote p {
-            margin: 0;
-            color: var(--text-secondary);
-        }
-        
-        .post-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1.5rem 0;
-            font-size: 0.9375rem;
-        }
-        
-        .post-content th {
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            font-weight: 600;
-            text-align: left;
-            padding: 0.75rem 1rem;
-            border-bottom: 2px solid var(--border);
-        }
-        
-        .post-content td {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-secondary);
-        }
-        
-        .post-content tr:hover td {
-            background: var(--bg-tertiary);
-        }
-        
-         
-        footer {
-            max-width: 900px;
-            margin: 4rem auto 0;
-            padding: 2rem 1.5rem;
-            border-top: 1px solid var(--border);
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-        
-         
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: var(--bg-secondary);
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 4px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--text-muted);
-        }
-        
-         
-        ::selection {
-            background: var(--accent-glow);
-            color: var(--text-primary);
-        }
-
-         
-         
-        .tags-container {
-            max-width: 900px;
-        }
-
-        .tags-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            margin-top: 2rem;
-        }
-
-        .tag-card {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 0.625rem 1rem;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .tag-card:hover {
-            border-color: var(--accent);
-            background: var(--bg-tertiary);
-            transform: translateY(-1px);
-        }
-
-        .tag-card .tag-name {
-            color: var(--text-primary);
-            font-size: 0.9375rem;
-            font-weight: 500;
-        }
-
-        .tag-card .tag-num {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.125rem 0.5rem;
-            border-radius: 4px;
-            line-height: 1;
-        }
-
-         
-        .categories-container {
-            max-width: 900px;
-        }
-
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(5px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            max-width: 600px;
-            width: 100%;
-            max-height: 80vh;
-            overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-        }
-
-        .modal-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-        }
-
-        .modal-close {
-            font-size: 1.5rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: color 0.2s;
-            line-height: 1;
-        }
-
-        .modal-close:hover {
-            color: var(--text-primary);
-        }
-
-        .modal-body {
-            padding: 1rem;
-            overflow-y: auto;
-            max-height: calc(80vh - 80px);
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 1.25rem;
-            margin-bottom: 0.5rem;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            text-decoration: none;
-            transition: all 0.2s;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .tag-card {
-            cursor: pointer;
-        }
-
-         
-        .tag-modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            justify-content: center;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .tag-modal-content {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            width: 100%;
-            max-width: 800px;
-            height: 600px;
-            overflow: hidden;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .tag-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border);
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            flex-shrink: 0;
-        }
-
-        .tag-modal-header h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .modal-count {
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 700;
-            padding: 0.375rem 1rem;
-            border-radius: 20px;
-        }
-
-        .tag-modal-close {
-            font-size: 2rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-        }
-
-        .tag-modal-close:hover {
-            color: var(--text-primary);
-            background: var(--bg-tertiary);
-        }
-
-        .tag-modal-body {
-            padding: 1.5rem 2rem;
-            overflow-y: auto;
-            flex: 1;
-        }
-
-        .modal-article {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.25rem 1.5rem;
-            margin-bottom: 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
-            text-decoration: none;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .modal-article:hover {
-            background: var(--accent);
-            border-color: var(--accent);
-            transform: translateX(8px);
-        }
-
-        .modal-article-title {
-            color: var(--text-primary);
-            font-weight: 500;
-            font-size: 1rem;
-        }
-
-        .modal-article:hover .modal-article-title {
-            color: white;
-        }
-
-        .modal-article-date {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-        }
-
-        .modal-article:hover .modal-article-date {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-         
-        .category-tree {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .tree-branch {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .tree-branch:hover {
-            border-color: var(--accent);
-        }
-
-        .branch-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .branch-icon {
-            font-size: 1.25rem;
-        }
-
-        .branch-name {
-            color: var(--text-primary);
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            flex: 1;
-        }
-
-        .branch-name:hover {
-            color: var(--accent);
-        }
-
-        .branch-count {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .branch-leaves {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding: 1rem 1.25rem;
-        }
-
-        .leaf-item {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            text-decoration: none;
-            padding: 0.375rem 0.75rem;
-            background: var(--bg-tertiary);
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .leaf-item:hover {
-            background: var(--accent);
-            color: white;
-        }
-
-        .leaf-more {
-            color: var(--accent);
-            font-size: 0.875rem;
-            padding: 0.375rem 0.75rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .leaf-more:hover {
-            text-decoration: underline;
-        }
-
-         
-        .taxonomy-detail {
-            max-width: 900px;
-        }
-
-        .taxonomy-stats {
-            margin-bottom: 2rem;
-        }
-
-        .stat-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: var(--accent);
-            color: white;
-            font-size: 0.875rem;
-            font-weight: 600;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-        }
-
-        .taxonomy-articles {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .taxonomy-article {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-            transition: all 0.2s;
-        }
-
-        .taxonomy-article:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px var(--accent-glow);
-        }
-
-        .article-link {
-            display: block;
-            padding: 1.5rem;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .taxonomy-article h2 {
-            font-size: 1.125rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .article-meta {
-            color: var(--text-muted);
-            font-size: 0.875rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .article-summary {
-            color: var(--text-secondary);
-            font-size: 0.9375rem;
-            line-height: 1.7;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <div class="header-content">
-            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
-            <nav>
-                <a href="https://raphaell2e.github.io/">首页</a>
-                <a href="https://raphaell2e.github.io/posts/">文章</a>
-                <a href="https://raphaell2e.github.io/categories/">分类</a>
-                <a href="https://raphaell2e.github.io/tags/">标签</a>
-                <a href="https://raphaell2e.github.io/about/">关于</a>
-            </nav>
-        </div>
-    </header>
-    <main>
-        
-<article class="post">
-    <div class="post-header">
-        <div class="meta">2026-05-14 <span>/</span> 分布式系统 </div>
-        <h1>分布式锁实现深度解析</h1>
-    </div>
-    <div class="post-content">
-        <h1 id="分布式锁实现深度解析">分布式锁实现深度解析</h1>
-<h2 id="一引言">一、引言</h2>
-<p>在分布式系统中，多个节点可能同时访问共享资源（如数据库、文件、缓存），需要通过分布式锁来保证互斥访问。分布式锁是面试中的必考题，也是实际开发中最常用的分布式组件之一。</p>
-<p><strong>本文要点</strong>：</p>
-<ol>
-<li>分布式锁的核心要求</li>
-<li>Redis 分布式锁（SET NX + Lua）</li>
-<li>Redisson 分布式锁（看门狗机制）</li>
-<li>ZooKeeper 分布式锁（临时顺序节点）</li>
-<li>etcd 分布式锁（Lease + Revision）</li>
-<li>Redlock 算法与争议</li>
-<li>三种方案对比与选型</li>
-<li>面试高频问题</li>
-</ol>
-<hr>
-<h2 id="二分布式锁的核心要求">二、分布式锁的核心要求</h2>
-<h3 id="21-四个基本要求">2.1 四个基本要求</h3>
-<table>
-<thead>
-<tr>
-<th>要求</th>
-<th>描述</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>互斥性</strong></td>
-<td>同一时刻只有一个客户端持有锁</td>
-</tr>
-<tr>
-<td><strong>防死锁</strong></td>
-<td>持有锁的客户端宕机，锁必须自动释放</td>
-</tr>
-<tr>
-<td><strong>解铃还须系铃人</strong></td>
-<td>加锁和解锁必须是同一个客户端</td>
-</tr>
-<tr>
-<td><strong>高可用</strong></td>
-<td>锁服务本身不能成为单点故障</td>
-</tr>
-</tbody>
-</table>
-<h3 id="22-额外要求生产环境">2.2 额外要求（生产环境）</h3>
-<table>
-<thead>
-<tr>
-<th>要求</th>
-<th>描述</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>可重入</strong></td>
-<td>同一个客户端可以多次获取同一把锁</td>
-</tr>
-<tr>
-<td><strong>阻塞/非阻塞</strong></td>
-<td>获取锁失败时，可以阻塞等待或立即返回</td>
-</tr>
-<tr>
-<td><strong>公平性</strong></td>
-<td>按请求顺序获取锁（FIFO）</td>
-</tr>
-<tr>
-<td><strong>性能</strong></td>
-<td>加锁/解锁延迟低，吞吐高</td>
-</tr>
-</tbody>
-</table>
-<h3 id="23-分布式锁的常见陷阱">2.3 分布式锁的常见陷阱</h3>
-<pre tabindex="0"><code>陷阱一：锁过期但业务未完成
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>分布式锁实现深度解析 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
+<a href=https://raphaell2e.github.io/posts/>文章</a>
+<a href=https://raphaell2e.github.io/categories/>分类</a>
+<a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-14 <span>/</span> 分布式系统</div><h1>分布式锁实现深度解析</h1></div><div class=post-content><h1 id=分布式锁实现深度解析>分布式锁实现深度解析</h1><h2 id=一引言>一、引言</h2><p>在分布式系统中，多个节点可能同时访问共享资源（如数据库、文件、缓存），需要通过分布式锁来保证互斥访问。分布式锁是面试中的必考题，也是实际开发中最常用的分布式组件之一。</p><p><strong>本文要点</strong>：</p><ol><li>分布式锁的核心要求</li><li>Redis 分布式锁（SET NX + Lua）</li><li>Redisson 分布式锁（看门狗机制）</li><li>ZooKeeper 分布式锁（临时顺序节点）</li><li>etcd 分布式锁（Lease + Revision）</li><li>Redlock 算法与争议</li><li>三种方案对比与选型</li><li>面试高频问题</li></ol><hr><h2 id=二分布式锁的核心要求>二、分布式锁的核心要求</h2><h3 id=21-四个基本要求>2.1 四个基本要求</h3><table><thead><tr><th>要求</th><th>描述</th></tr></thead><tbody><tr><td><strong>互斥性</strong></td><td>同一时刻只有一个客户端持有锁</td></tr><tr><td><strong>防死锁</strong></td><td>持有锁的客户端宕机，锁必须自动释放</td></tr><tr><td><strong>解铃还须系铃人</strong></td><td>加锁和解锁必须是同一个客户端</td></tr><tr><td><strong>高可用</strong></td><td>锁服务本身不能成为单点故障</td></tr></tbody></table><h3 id=22-额外要求生产环境>2.2 额外要求（生产环境）</h3><table><thead><tr><th>要求</th><th>描述</th></tr></thead><tbody><tr><td><strong>可重入</strong></td><td>同一个客户端可以多次获取同一把锁</td></tr><tr><td><strong>阻塞/非阻塞</strong></td><td>获取锁失败时，可以阻塞等待或立即返回</td></tr><tr><td><strong>公平性</strong></td><td>按请求顺序获取锁（FIFO）</td></tr><tr><td><strong>性能</strong></td><td>加锁/解锁延迟低，吞吐高</td></tr></tbody></table><h3 id=23-分布式锁的常见陷阱>2.3 分布式锁的常见陷阱</h3><pre tabindex=0><code>陷阱一：锁过期但业务未完成
   → 客户端 A 获取锁（TTL=10s）
   → 业务执行了 15s
   → 锁在 10s 时过期，客户端 B 获取了锁
@@ -972,88 +19,78 @@
   → GC 停顿 12s（STW）
   → 锁过期，客户端 B 获取锁
   → GC 恢复后，两个客户端同时持有锁！
-</code></pre><hr>
-<h2 id="三redis-分布式锁">三、Redis 分布式锁</h2>
-<h3 id="31-基础实现set-nx-px">3.1 基础实现（SET NX PX）</h3>
-<p><strong>加锁</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># SET key value NX PX timeout</span>
-</span></span><span style="display:flex;"><span>SET lock:order:123 <span style="color:#e6db74">&#34;uuid-client-A&#34;</span> NX PX <span style="color:#ae81ff">10000</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># NX：只在 key 不存在时设置（互斥性）</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># PX：设置过期时间（毫秒），防死锁</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e"># value：唯一标识（解铃还须系铃人）</span>
-</span></span></code></pre></div><p><strong>解锁（Lua 脚本）</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-lua" data-lang="lua"><span style="display:flex;"><span><span style="color:#75715e">-- 先比较 value，再删除</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> redis.call(<span style="color:#e6db74">&#39;GET&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>]) <span style="color:#f92672">==</span> ARGV[<span style="color:#ae81ff">1</span>] <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> redis.call(<span style="color:#e6db74">&#39;DEL&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>])
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span>
-</span></span></code></pre></div><p><strong>为什么解锁要用 Lua 脚本</strong>：</p>
-<pre tabindex="0"><code>如果不使用 Lua 脚本：
+</code></pre><hr><h2 id=三redis-分布式锁>三、Redis 分布式锁</h2><h3 id=31-基础实现set-nx-px>3.1 基础实现（SET NX PX）</h3><p><strong>加锁</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash><span style=display:flex><span><span style=color:#75715e># SET key value NX PX timeout</span>
+</span></span><span style=display:flex><span>SET lock:order:123 <span style=color:#e6db74>&#34;uuid-client-A&#34;</span> NX PX <span style=color:#ae81ff>10000</span>
+</span></span><span style=display:flex><span><span style=color:#75715e># NX：只在 key 不存在时设置（互斥性）</span>
+</span></span><span style=display:flex><span><span style=color:#75715e># PX：设置过期时间（毫秒），防死锁</span>
+</span></span><span style=display:flex><span><span style=color:#75715e># value：唯一标识（解铃还须系铃人）</span>
+</span></span></code></pre></div><p><strong>解锁（Lua 脚本）</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-lua data-lang=lua><span style=display:flex><span><span style=color:#75715e>-- 先比较 value，再删除</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> redis.call(<span style=color:#e6db74>&#39;GET&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>]) <span style=color:#f92672>==</span> ARGV[<span style=color:#ae81ff>1</span>] <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> redis.call(<span style=color:#e6db74>&#39;DEL&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>])
+</span></span><span style=display:flex><span><span style=color:#66d9ef>else</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>end</span>
+</span></span></code></pre></div><p><strong>为什么解锁要用 Lua 脚本</strong>：</p><pre tabindex=0><code>如果不使用 Lua 脚本：
 1. GET lock → 返回 &#34;uuid-A&#34;  ← 客户端 A 的锁
 2. （此时锁刚好过期，客户端 B 获取了锁）
 3. DEL lock  ← 删除了客户端 B 的锁！
 
 使用 Lua 脚本：
 GET + DEL 是原子操作，不会被其他命令穿插
-</code></pre><p><strong>Java 实现</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RedisDistributedLock</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> Jedis jedis<span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 加锁脚本
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> String LOCK_SCRIPT <span style="color:#f92672">=</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;if redis.call(&#39;SET&#39;, KEYS[1], ARGV[1], &#39;NX&#39;, &#39;PX&#39;, ARGV[2]) then &#34;</span> <span style="color:#f92672">+</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;    return 1 &#34;</span> <span style="color:#f92672">+</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;else &#34;</span> <span style="color:#f92672">+</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;    return 0 &#34;</span> <span style="color:#f92672">+</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;end&#34;</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 解锁脚本
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> String UNLOCK_SCRIPT <span style="color:#f92672">=</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;if redis.call(&#39;GET&#39;, KEYS[1]) == ARGV[1] then &#34;</span> <span style="color:#f92672">+</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;    return redis.call(&#39;DEL&#39;, KEYS[1]) &#34;</span> <span style="color:#f92672">+</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;else &#34;</span> <span style="color:#f92672">+</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;    return 0 &#34;</span> <span style="color:#f92672">+</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;end&#34;</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">/**
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * 加锁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * @param lockKey 锁名
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * @param requestId 唯一标识
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * @param expireMs 过期时间（毫秒）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     */</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">lock</span><span style="color:#f92672">(</span>String lockKey<span style="color:#f92672">,</span> String requestId<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> expireMs<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        Object result <span style="color:#f92672">=</span> jedis<span style="color:#f92672">.</span><span style="color:#a6e22e">eval</span><span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>            LOCK_SCRIPT<span style="color:#f92672">,</span>
-</span></span><span style="display:flex;"><span>            Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">singletonList</span><span style="color:#f92672">(</span>lockKey<span style="color:#f92672">),</span>
-</span></span><span style="display:flex;"><span>            Arrays<span style="color:#f92672">.</span><span style="color:#a6e22e">asList</span><span style="color:#f92672">(</span>requestId<span style="color:#f92672">,</span> String<span style="color:#f92672">.</span><span style="color:#a6e22e">valueOf</span><span style="color:#f92672">(</span>expireMs<span style="color:#f92672">))</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;1&#34;</span><span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span>result<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">/**
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * 解锁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     */</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">unlock</span><span style="color:#f92672">(</span>String lockKey<span style="color:#f92672">,</span> String requestId<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        Object result <span style="color:#f92672">=</span> jedis<span style="color:#f92672">.</span><span style="color:#a6e22e">eval</span><span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>            UNLOCK_SCRIPT<span style="color:#f92672">,</span>
-</span></span><span style="display:flex;"><span>            Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">singletonList</span><span style="color:#f92672">(</span>lockKey<span style="color:#f92672">),</span>
-</span></span><span style="display:flex;"><span>            Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">singletonList</span><span style="color:#f92672">(</span>requestId<span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#e6db74">&#34;1&#34;</span><span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span>result<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">());</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h3 id="32-基础实现的问题">3.2 基础实现的问题</h3>
-<p><strong>问题一：锁续期（看门狗）</strong></p>
-<pre tabindex="0"><code>客户端 A 获取锁（TTL=10s）
+</code></pre><p><strong>Java 实现</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>RedisDistributedLock</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> Jedis jedis<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 加锁脚本
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>final</span> String LOCK_SCRIPT <span style=color:#f92672>=</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;if redis.call(&#39;SET&#39;, KEYS[1], ARGV[1], &#39;NX&#39;, &#39;PX&#39;, ARGV[2]) then &#34;</span> <span style=color:#f92672>+</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;    return 1 &#34;</span> <span style=color:#f92672>+</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;else &#34;</span> <span style=color:#f92672>+</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;    return 0 &#34;</span> <span style=color:#f92672>+</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;end&#34;</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 解锁脚本
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>final</span> String UNLOCK_SCRIPT <span style=color:#f92672>=</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;if redis.call(&#39;GET&#39;, KEYS[1]) == ARGV[1] then &#34;</span> <span style=color:#f92672>+</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;    return redis.call(&#39;DEL&#39;, KEYS[1]) &#34;</span> <span style=color:#f92672>+</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;else &#34;</span> <span style=color:#f92672>+</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;    return 0 &#34;</span> <span style=color:#f92672>+</span>
+</span></span><span style=display:flex><span>        <span style=color:#e6db74>&#34;end&#34;</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * 加锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * @param lockKey 锁名
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * @param requestId 唯一标识
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * @param expireMs 过期时间（毫秒）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>lock</span><span style=color:#f92672>(</span>String lockKey<span style=color:#f92672>,</span> String requestId<span style=color:#f92672>,</span> <span style=color:#66d9ef>long</span> expireMs<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        Object result <span style=color:#f92672>=</span> jedis<span style=color:#f92672>.</span><span style=color:#a6e22e>eval</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            LOCK_SCRIPT<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>            Collections<span style=color:#f92672>.</span><span style=color:#a6e22e>singletonList</span><span style=color:#f92672>(</span>lockKey<span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>            Arrays<span style=color:#f92672>.</span><span style=color:#a6e22e>asList</span><span style=color:#f92672>(</span>requestId<span style=color:#f92672>,</span> String<span style=color:#f92672>.</span><span style=color:#a6e22e>valueOf</span><span style=color:#f92672>(</span>expireMs<span style=color:#f92672>))</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#e6db74>&#34;1&#34;</span><span style=color:#f92672>.</span><span style=color:#a6e22e>equals</span><span style=color:#f92672>(</span>result<span style=color:#f92672>.</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>/**
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     * 解锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e>     */</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>boolean</span> <span style=color:#a6e22e>unlock</span><span style=color:#f92672>(</span>String lockKey<span style=color:#f92672>,</span> String requestId<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        Object result <span style=color:#f92672>=</span> jedis<span style=color:#f92672>.</span><span style=color:#a6e22e>eval</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            UNLOCK_SCRIPT<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>            Collections<span style=color:#f92672>.</span><span style=color:#a6e22e>singletonList</span><span style=color:#f92672>(</span>lockKey<span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>            Collections<span style=color:#f92672>.</span><span style=color:#a6e22e>singletonList</span><span style=color:#f92672>(</span>requestId<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#e6db74>&#34;1&#34;</span><span style=color:#f92672>.</span><span style=color:#a6e22e>equals</span><span style=color:#f92672>(</span>result<span style=color:#f92672>.</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=32-基础实现的问题>3.2 基础实现的问题</h3><p><strong>问题一：锁续期（看门狗）</strong></p><pre tabindex=0><code>客户端 A 获取锁（TTL=10s）
 业务执行超过 10s → 锁过期 → 其他客户端获取锁 → 并发冲突！
 
 解决方案：看门狗机制（Watchdog）
 → 后台线程定期续期锁的 TTL
 → Redisson 已实现
-</code></pre><p><strong>问题二：不可重入</strong></p>
-<pre tabindex="0"><code>客户端 A 获取锁 lock:order:123
+</code></pre><p><strong>问题二：不可重入</strong></p><pre tabindex=0><code>客户端 A 获取锁 lock:order:123
 方法 A 调用方法 B，方法 B 也需要 lock:order:123
 → 获取失败！死锁！
 
@@ -1061,142 +98,88 @@ GET + DEL 是原子操作，不会被其他命令穿插
 → field = requestId, value = count
 → 加锁时 count + 1，解锁时 count - 1
 → count = 0 时删除锁
-</code></pre><p><strong>问题三：单点故障</strong></p>
-<pre tabindex="0"><code>Redis Master 持有锁
+</code></pre><p><strong>问题三：单点故障</strong></p><pre tabindex=0><code>Redis Master 持有锁
 → Master 宕机
 → Slave 未同步到锁数据
 → Slave 升级为新 Master
 → 其他客户端可以获取同一把锁！
 
 解决方案：Redlock 算法（见后文）
-</code></pre><hr>
-<h3 id="33-redisson-分布式锁">3.3 Redisson 分布式锁</h3>
-<p><strong>Redisson</strong> 是 Redis 的 Java 客户端，提供了完善的分布式锁实现。</p>
-<p><strong>基本使用</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>Config config <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Config<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>config<span style="color:#f92672">.</span><span style="color:#a6e22e">useSingleServer</span><span style="color:#f92672">().</span><span style="color:#a6e22e">setAddress</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;redis://127.0.0.1:6379&#34;</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>RedissonClient redisson <span style="color:#f92672">=</span> Redisson<span style="color:#f92672">.</span><span style="color:#a6e22e">create</span><span style="color:#f92672">(</span>config<span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 获取锁对象
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>RLock lock <span style="color:#f92672">=</span> redisson<span style="color:#f92672">.</span><span style="color:#a6e22e">getLock</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;lock:order:123&#34;</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 加锁（默认看门狗续期）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    lock<span style="color:#f92672">.</span><span style="color:#a6e22e">lock</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 或指定等待时间和过期时间
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">// lock.lock(10, TimeUnit.SECONDS);  // 10 秒后自动释放
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">// lock.tryLock(5, 30, TimeUnit.SECONDS);  // 等待 5 秒，30 秒后自动释放
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 执行业务逻辑
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    doBusiness<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>    
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 解锁（只有锁持有者才能解锁）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    lock<span style="color:#f92672">.</span><span style="color:#a6e22e">unlock</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><p><strong>Redisson 的加锁 Lua 脚本</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-lua" data-lang="lua"><span style="display:flex;"><span><span style="color:#75715e">-- KEYS[1] = 锁名</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">-- ARGV[1] = 看门狗续期时间（默认 30 秒 = 30000 毫秒）</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">-- ARGV[2] = 唯一标识（clientId:threadId）</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 加锁逻辑</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (redis.call(<span style="color:#e6db74">&#39;exists&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>]) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>) <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- 锁不存在，加锁</span>
-</span></span><span style="display:flex;"><span>    redis.call(<span style="color:#e6db74">&#39;hset&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>], ARGV[<span style="color:#ae81ff">2</span>], <span style="color:#ae81ff">1</span>);
-</span></span><span style="display:flex;"><span>    redis.call(<span style="color:#e6db74">&#39;pexpire&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>], ARGV[<span style="color:#ae81ff">1</span>]);
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>;
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span>;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (redis.call(<span style="color:#e6db74">&#39;hexists&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>], ARGV[<span style="color:#ae81ff">2</span>]) <span style="color:#f92672">==</span> <span style="color:#ae81ff">1</span>) <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- 锁存在且是自己的，重入 +1</span>
-</span></span><span style="display:flex;"><span>    redis.call(<span style="color:#e6db74">&#39;hincrby&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>], ARGV[<span style="color:#ae81ff">2</span>], <span style="color:#ae81ff">1</span>);
-</span></span><span style="display:flex;"><span>    redis.call(<span style="color:#e6db74">&#39;pexpire&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>], ARGV[<span style="color:#ae81ff">1</span>]);
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>;
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span>;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 锁存在且不是自己的，返回剩余 TTL</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">return</span> redis.call(<span style="color:#e6db74">&#39;pttl&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>]);
-</span></span></code></pre></div><p><strong>Redisson 的看门狗机制</strong>：</p>
-<pre tabindex="0"><code>1. 加锁成功后，启动看门狗定时任务
+</code></pre><hr><h3 id=33-redisson-分布式锁>3.3 Redisson 分布式锁</h3><p><strong>Redisson</strong> 是 Redis 的 Java 客户端，提供了完善的分布式锁实现。</p><p><strong>基本使用</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span>Config config <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Config<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>config<span style=color:#f92672>.</span><span style=color:#a6e22e>useSingleServer</span><span style=color:#f92672>().</span><span style=color:#a6e22e>setAddress</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;redis://127.0.0.1:6379&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>RedissonClient redisson <span style=color:#f92672>=</span> Redisson<span style=color:#f92672>.</span><span style=color:#a6e22e>create</span><span style=color:#f92672>(</span>config<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 获取锁对象
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>RLock lock <span style=color:#f92672>=</span> redisson<span style=color:#f92672>.</span><span style=color:#a6e22e>getLock</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;lock:order:123&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>try</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 加锁（默认看门狗续期）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    lock<span style=color:#f92672>.</span><span style=color:#a6e22e>lock</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 或指定等待时间和过期时间
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#75715e>// lock.lock(10, TimeUnit.SECONDS);  // 10 秒后自动释放
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#75715e>// lock.tryLock(5, 30, TimeUnit.SECONDS);  // 等待 5 秒，30 秒后自动释放
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 执行业务逻辑
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    doBusiness<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span> <span style=color:#66d9ef>finally</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 解锁（只有锁持有者才能解锁）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    lock<span style=color:#f92672>.</span><span style=color:#a6e22e>unlock</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>Redisson 的加锁 Lua 脚本</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-lua data-lang=lua><span style=display:flex><span><span style=color:#75715e>-- KEYS[1] = 锁名</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- ARGV[1] = 看门狗续期时间（默认 30 秒 = 30000 毫秒）</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- ARGV[2] = 唯一标识（clientId:threadId）</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- 加锁逻辑</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> (redis.call(<span style=color:#e6db74>&#39;exists&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>]) <span style=color:#f92672>==</span> <span style=color:#ae81ff>0</span>) <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>-- 锁不存在，加锁</span>
+</span></span><span style=display:flex><span>    redis.call(<span style=color:#e6db74>&#39;hset&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>], ARGV[<span style=color:#ae81ff>2</span>], <span style=color:#ae81ff>1</span>);
+</span></span><span style=display:flex><span>    redis.call(<span style=color:#e6db74>&#39;pexpire&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>], ARGV[<span style=color:#ae81ff>1</span>]);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>nil</span>;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>end</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> (redis.call(<span style=color:#e6db74>&#39;hexists&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>], ARGV[<span style=color:#ae81ff>2</span>]) <span style=color:#f92672>==</span> <span style=color:#ae81ff>1</span>) <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>-- 锁存在且是自己的，重入 +1</span>
+</span></span><span style=display:flex><span>    redis.call(<span style=color:#e6db74>&#39;hincrby&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>], ARGV[<span style=color:#ae81ff>2</span>], <span style=color:#ae81ff>1</span>);
+</span></span><span style=display:flex><span>    redis.call(<span style=color:#e6db74>&#39;pexpire&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>], ARGV[<span style=color:#ae81ff>1</span>]);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>nil</span>;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>end</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- 锁存在且不是自己的，返回剩余 TTL</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>return</span> redis.call(<span style=color:#e6db74>&#39;pttl&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>]);
+</span></span></code></pre></div><p><strong>Redisson 的看门狗机制</strong>：</p><pre tabindex=0><code>1. 加锁成功后，启动看门狗定时任务
 2. 每隔 lockWatchdogTimeout / 3（默认 10 秒）检查一次
 3. 如果锁仍然持有，自动续期 lockWatchdogTimeout（默认 30 秒）
 4. 如果客户端宕机，看门狗不再续期，锁自动过期
 
 优点：业务未完成时锁不会过期
 优点：客户端宕机时锁自动释放（防死锁）
-</code></pre><p><strong>Redisson 的解锁 Lua 脚本</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-lua" data-lang="lua"><span style="display:flex;"><span><span style="color:#75715e">-- KEYS[1] = 锁名</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">-- ARGV[1] = 唯一标识</span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">-- ARGV[2] = 看门狗续期时间</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 解锁逻辑</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (redis.call(<span style="color:#e6db74">&#39;hexists&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>], ARGV[<span style="color:#ae81ff">2</span>]) <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>) <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- 不是自己的锁</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">nil</span>;
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span>;
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">-- 重入计数 -1</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">local</span> counter <span style="color:#f92672">=</span> redis.call(<span style="color:#e6db74">&#39;hincrby&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>], ARGV[<span style="color:#ae81ff">2</span>], <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span>);
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> (counter <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) <span style="color:#66d9ef">then</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- 还有重入，续期</span>
-</span></span><span style="display:flex;"><span>    redis.call(<span style="color:#e6db74">&#39;pexpire&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>], ARGV[<span style="color:#ae81ff">1</span>]);
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">else</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- 重入归零，删除锁</span>
-</span></span><span style="display:flex;"><span>    redis.call(<span style="color:#e6db74">&#39;del&#39;</span>, KEYS[<span style="color:#ae81ff">1</span>]);
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">-- 发布解锁消息（通知等待的客户端）</span>
-</span></span><span style="display:flex;"><span>    redis.call(<span style="color:#e6db74">&#39;publish&#39;</span>, KEYS[<span style="color:#ae81ff">2</span>] <span style="color:#f92672">+</span> <span style="color:#e6db74">&#39;:unlock&#39;</span>, ARGV[<span style="color:#ae81ff">1</span>]);
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">1</span>;
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">end</span>;
-</span></span></code></pre></div><p><strong>Redisson 支持的锁类型</strong>：</p>
-<table>
-<thead>
-<tr>
-<th>锁类型</th>
-<th>类名</th>
-<th>特点</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>可重入锁</td>
-<td><code>RedissonLock</code></td>
-<td>支持重入、看门狗</td>
-</tr>
-<tr>
-<td>公平锁</td>
-<td><code>RedissonFairLock</code></td>
-<td>按请求顺序获取锁</td>
-</tr>
-<tr>
-<td>读写锁</td>
-<td><code>RedissonReadWriteLock</code></td>
-<td>读读共享，写写互斥</td>
-</tr>
-<tr>
-<td>联锁</td>
-<td><code>RedissonMultiLock</code></td>
-<td>同时加多把锁</td>
-</tr>
-<tr>
-<td>红锁</td>
-<td><code>RedissonRedLock</code></td>
-<td>Redlock 算法实现</td>
-</tr>
-<tr>
-<td>信号量</td>
-<td><code>RedissonSemaphore</code></td>
-<td>限流</td>
-</tr>
-</tbody>
-</table>
-<hr>
-<h2 id="四zookeeper-分布式锁">四、ZooKeeper 分布式锁</h2>
-<h3 id="41-实现原理">4.1 实现原理</h3>
-<p><strong>基于临时顺序节点</strong>：</p>
-<pre tabindex="0"><code>1. 客户端在 /lock 下创建临时顺序节点
+</code></pre><p><strong>Redisson 的解锁 Lua 脚本</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-lua data-lang=lua><span style=display:flex><span><span style=color:#75715e>-- KEYS[1] = 锁名</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- ARGV[1] = 唯一标识</span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- ARGV[2] = 看门狗续期时间</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- 解锁逻辑</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> (redis.call(<span style=color:#e6db74>&#39;hexists&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>], ARGV[<span style=color:#ae81ff>2</span>]) <span style=color:#f92672>==</span> <span style=color:#ae81ff>0</span>) <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>-- 不是自己的锁</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>nil</span>;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>end</span>;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- 重入计数 -1</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>local</span> counter <span style=color:#f92672>=</span> redis.call(<span style=color:#e6db74>&#39;hincrby&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>], ARGV[<span style=color:#ae81ff>2</span>], <span style=color:#f92672>-</span><span style=color:#ae81ff>1</span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> (counter <span style=color:#f92672>&gt;</span> <span style=color:#ae81ff>0</span>) <span style=color:#66d9ef>then</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>-- 还有重入，续期</span>
+</span></span><span style=display:flex><span>    redis.call(<span style=color:#e6db74>&#39;pexpire&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>], ARGV[<span style=color:#ae81ff>1</span>]);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>0</span>;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>else</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>-- 重入归零，删除锁</span>
+</span></span><span style=display:flex><span>    redis.call(<span style=color:#e6db74>&#39;del&#39;</span>, KEYS[<span style=color:#ae81ff>1</span>]);
+</span></span><span style=display:flex><span>    <span style=color:#75715e>-- 发布解锁消息（通知等待的客户端）</span>
+</span></span><span style=display:flex><span>    redis.call(<span style=color:#e6db74>&#39;publish&#39;</span>, KEYS[<span style=color:#ae81ff>2</span>] <span style=color:#f92672>+</span> <span style=color:#e6db74>&#39;:unlock&#39;</span>, ARGV[<span style=color:#ae81ff>1</span>]);
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span><span style=color:#66d9ef>end</span>;
+</span></span></code></pre></div><p><strong>Redisson 支持的锁类型</strong>：</p><table><thead><tr><th>锁类型</th><th>类名</th><th>特点</th></tr></thead><tbody><tr><td>可重入锁</td><td><code>RedissonLock</code></td><td>支持重入、看门狗</td></tr><tr><td>公平锁</td><td><code>RedissonFairLock</code></td><td>按请求顺序获取锁</td></tr><tr><td>读写锁</td><td><code>RedissonReadWriteLock</code></td><td>读读共享，写写互斥</td></tr><tr><td>联锁</td><td><code>RedissonMultiLock</code></td><td>同时加多把锁</td></tr><tr><td>红锁</td><td><code>RedissonRedLock</code></td><td>Redlock 算法实现</td></tr><tr><td>信号量</td><td><code>RedissonSemaphore</code></td><td>限流</td></tr></tbody></table><hr><h2 id=四zookeeper-分布式锁>四、ZooKeeper 分布式锁</h2><h3 id=41-实现原理>4.1 实现原理</h3><p><strong>基于临时顺序节点</strong>：</p><pre tabindex=0><code>1. 客户端在 /lock 下创建临时顺序节点
    → /lock/lock-0000000001
 
 2. 获取 /lock 下所有子节点
@@ -1208,67 +191,28 @@ GET + DEL 是原子操作，不会被其他命令穿插
 4. 前一个节点删除时，收到通知
    → 重新检查自己是否最小
    → 是 → 获得锁
-</code></pre><p><strong>为什么用临时节点</strong>：</p>
-<ul>
-<li>客户端宕机 → Session 过期 → 临时节点自动删除</li>
-<li>不需要手动释放锁（防死锁）</li>
-</ul>
-<p><strong>为什么用顺序节点</strong>：</p>
-<ul>
-<li>避免羊群效应（只有前一个节点的 Watch 被触发）</li>
-<li>保证公平性（按创建顺序获取锁）</li>
-</ul>
-<h3 id="42-curator-实现">4.2 Curator 实现</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>CuratorFramework client <span style="color:#f92672">=</span> CuratorFrameworkFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">newClient</span><span style="color:#f92672">(</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;localhost:2181&#34;</span><span style="color:#f92672">,</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">new</span> ExponentialBackoffRetry<span style="color:#f92672">(</span><span style="color:#ae81ff">1000</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">3</span><span style="color:#f92672">)</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>client<span style="color:#f92672">.</span><span style="color:#a6e22e">start</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// InterProcessMutex：可重入的分布式锁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>InterProcessMutex lock <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> InterProcessMutex<span style="color:#f92672">(</span>client<span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;/lock&#34;</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 加锁（阻塞等待，超时 30 秒）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>lock<span style="color:#f92672">.</span><span style="color:#a6e22e">acquire</span><span style="color:#f92672">(</span><span style="color:#ae81ff">30</span><span style="color:#f92672">,</span> TimeUnit<span style="color:#f92672">.</span><span style="color:#a6e22e">SECONDS</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            doBusiness<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            lock<span style="color:#f92672">.</span><span style="color:#a6e22e">release</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    e<span style="color:#f92672">.</span><span style="color:#a6e22e">printStackTrace</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h3 id="43-zookeeper-锁的优缺点">4.3 ZooKeeper 锁的优缺点</h3>
-<p><strong>优点</strong>：</p>
-<ul>
-<li>天然防死锁（临时节点 + Session 过期）</li>
-<li>公平锁（顺序节点保证 FIFO）</li>
-<li>强一致性（ZAB 协议保证）</li>
-<li>无看门狗问题（Session 机制自动管理）</li>
-</ul>
-<p><strong>缺点</strong>：</p>
-<ul>
-<li>性能较低（每次加锁/解锁需要集群同步）</li>
-<li>不适合高并发场景（ZooKeeper 写性能有限）</li>
-<li>Session 超时可能导致误释放（网络抖动）</li>
-</ul>
-<hr>
-<h2 id="五etcd-分布式锁">五、etcd 分布式锁</h2>
-<h3 id="51-etcd-简介">5.1 etcd 简介</h3>
-<p><strong>etcd</strong> 是 CoreOS 开发的分布式 KV 存储，使用 Raft 协议保证强一致性。</p>
-<p><strong>核心特性</strong>：</p>
-<ul>
-<li>强一致性（线性一致性读）</li>
-<li>Lease 机制（TTL 自动删除）</li>
-<li>Revision 机制（全局递增版本号）</li>
-<li>Watch 机制（监听 Key 变化）</li>
-<li>事务（Compare-And-Set）</li>
-</ul>
-<h3 id="52-etcd-分布式锁实现">5.2 etcd 分布式锁实现</h3>
-<p><strong>基于 Lease + Revision + Watch</strong>：</p>
-<pre tabindex="0"><code>1. 创建 Lease（TTL = 10 秒）
+</code></pre><p><strong>为什么用临时节点</strong>：</p><ul><li>客户端宕机 → Session 过期 → 临时节点自动删除</li><li>不需要手动释放锁（防死锁）</li></ul><p><strong>为什么用顺序节点</strong>：</p><ul><li>避免羊群效应（只有前一个节点的 Watch 被触发）</li><li>保证公平性（按创建顺序获取锁）</li></ul><h3 id=42-curator-实现>4.2 Curator 实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span>CuratorFramework client <span style=color:#f92672>=</span> CuratorFrameworkFactory<span style=color:#f92672>.</span><span style=color:#a6e22e>newClient</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>    <span style=color:#e6db74>&#34;localhost:2181&#34;</span><span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>new</span> ExponentialBackoffRetry<span style=color:#f92672>(</span><span style=color:#ae81ff>1000</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>3</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>client<span style=color:#f92672>.</span><span style=color:#a6e22e>start</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// InterProcessMutex：可重入的分布式锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>InterProcessMutex lock <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> InterProcessMutex<span style=color:#f92672>(</span>client<span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;/lock&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>try</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 加锁（阻塞等待，超时 30 秒）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>lock<span style=color:#f92672>.</span><span style=color:#a6e22e>acquire</span><span style=color:#f92672>(</span><span style=color:#ae81ff>30</span><span style=color:#f92672>,</span> TimeUnit<span style=color:#f92672>.</span><span style=color:#a6e22e>SECONDS</span><span style=color:#f92672>))</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>try</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            doBusiness<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span> <span style=color:#66d9ef>finally</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            lock<span style=color:#f92672>.</span><span style=color:#a6e22e>release</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span> <span style=color:#66d9ef>catch</span> <span style=color:#f92672>(</span>Exception e<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    e<span style=color:#f92672>.</span><span style=color:#a6e22e>printStackTrace</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=43-zookeeper-锁的优缺点>4.3 ZooKeeper 锁的优缺点</h3><p><strong>优点</strong>：</p><ul><li>天然防死锁（临时节点 + Session 过期）</li><li>公平锁（顺序节点保证 FIFO）</li><li>强一致性（ZAB 协议保证）</li><li>无看门狗问题（Session 机制自动管理）</li></ul><p><strong>缺点</strong>：</p><ul><li>性能较低（每次加锁/解锁需要集群同步）</li><li>不适合高并发场景（ZooKeeper 写性能有限）</li><li>Session 超时可能导致误释放（网络抖动）</li></ul><hr><h2 id=五etcd-分布式锁>五、etcd 分布式锁</h2><h3 id=51-etcd-简介>5.1 etcd 简介</h3><p><strong>etcd</strong> 是 CoreOS 开发的分布式 KV 存储，使用 Raft 协议保证强一致性。</p><p><strong>核心特性</strong>：</p><ul><li>强一致性（线性一致性读）</li><li>Lease 机制（TTL 自动删除）</li><li>Revision 机制（全局递增版本号）</li><li>Watch 机制（监听 Key 变化）</li><li>事务（Compare-And-Set）</li></ul><h3 id=52-etcd-分布式锁实现>5.2 etcd 分布式锁实现</h3><p><strong>基于 Lease + Revision + Watch</strong>：</p><pre tabindex=0><code>1. 创建 Lease（TTL = 10 秒）
 2. 创建 Key（附带 Lease），value = 客户端唯一标识
 3. 获取所有竞争 Key，按 Revision 排序
 4. 判断自己是否 Revision 最小的：
@@ -1276,43 +220,24 @@ GET + DEL 是原子操作，不会被其他命令穿插
    - 否 → Watch 前一个 Key 的删除事件
 5. 前一个 Key 删除 → 收到通知 → 获得锁
 6. Lease 过期 → Key 自动删除 → 锁释放
-</code></pre><p><strong>并发控制（Concurrency Control）</strong>：</p>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-go" data-lang="go"><span style="display:flex;"><span><span style="color:#75715e">// etcd v3 客户端
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">cli</span>, <span style="color:#a6e22e">_</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">clientv3</span>.<span style="color:#a6e22e">New</span>(<span style="color:#a6e22e">clientv3</span>.<span style="color:#a6e22e">Config</span>{<span style="color:#a6e22e">Endpoints</span>: []<span style="color:#66d9ef">string</span>{<span style="color:#e6db74">&#34;localhost:2379&#34;</span>}})
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">cli</span>.<span style="color:#a6e22e">Close</span>()
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 创建 Session（包含 Lease）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">session</span>, <span style="color:#a6e22e">_</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">concurrency</span>.<span style="color:#a6e22e">NewSession</span>(<span style="color:#a6e22e">cli</span>)
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">session</span>.<span style="color:#a6e22e">Close</span>()
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 创建 Mutex
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">mutex</span> <span style="color:#f92672">:=</span> <span style="color:#a6e22e">concurrency</span>.<span style="color:#a6e22e">NewMutex</span>(<span style="color:#a6e22e">session</span>, <span style="color:#e6db74">&#34;/lock/order/123&#34;</span>)
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 加锁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">mutex</span>.<span style="color:#a6e22e">Lock</span>(<span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">TODO</span>())
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">defer</span> <span style="color:#a6e22e">mutex</span>.<span style="color:#a6e22e">Unlock</span>(<span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">TODO</span>())
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 执行业务逻辑
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">doBusiness</span>()
-</span></span></code></pre></div><h3 id="53-etcd-锁的优缺点">5.3 etcd 锁的优缺点</h3>
-<p><strong>优点</strong>：</p>
-<ul>
-<li>强一致性（Raft 协议保证）</li>
-<li>Lease 机制天然防死锁</li>
-<li>Revision 天然有序（公平锁）</li>
-<li>读写性能优于 ZooKeeper</li>
-</ul>
-<p><strong>缺点</strong>：</p>
-<ul>
-<li>部署复杂度高于 Redis</li>
-<li>社区和生态不如 Redis 和 ZooKeeper</li>
-</ul>
-<hr>
-<h2 id="六redlock-算法">六、Redlock 算法</h2>
-<h3 id="61-redlock-算法步骤">6.1 Redlock 算法步骤</h3>
-<p><strong>背景</strong>：单节点 Redis 存在主从切换导致锁丢失的问题。Redlock 通过多节点解决。</p>
-<p><strong>算法步骤</strong>：</p>
-<pre tabindex="0"><code>假设有 5 个独立的 Redis 节点（无主从关系）
+</code></pre><p><strong>并发控制（Concurrency Control）</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-go data-lang=go><span style=display:flex><span><span style=color:#75715e>// etcd v3 客户端
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>cli</span>, <span style=color:#a6e22e>_</span> <span style=color:#f92672>:=</span> <span style=color:#a6e22e>clientv3</span>.<span style=color:#a6e22e>New</span>(<span style=color:#a6e22e>clientv3</span>.<span style=color:#a6e22e>Config</span>{<span style=color:#a6e22e>Endpoints</span>: []<span style=color:#66d9ef>string</span>{<span style=color:#e6db74>&#34;localhost:2379&#34;</span>}})
+</span></span><span style=display:flex><span><span style=color:#66d9ef>defer</span> <span style=color:#a6e22e>cli</span>.<span style=color:#a6e22e>Close</span>()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 创建 Session（包含 Lease）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>session</span>, <span style=color:#a6e22e>_</span> <span style=color:#f92672>:=</span> <span style=color:#a6e22e>concurrency</span>.<span style=color:#a6e22e>NewSession</span>(<span style=color:#a6e22e>cli</span>)
+</span></span><span style=display:flex><span><span style=color:#66d9ef>defer</span> <span style=color:#a6e22e>session</span>.<span style=color:#a6e22e>Close</span>()
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 创建 Mutex
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>mutex</span> <span style=color:#f92672>:=</span> <span style=color:#a6e22e>concurrency</span>.<span style=color:#a6e22e>NewMutex</span>(<span style=color:#a6e22e>session</span>, <span style=color:#e6db74>&#34;/lock/order/123&#34;</span>)
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 加锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>mutex</span>.<span style=color:#a6e22e>Lock</span>(<span style=color:#a6e22e>context</span>.<span style=color:#a6e22e>TODO</span>())
+</span></span><span style=display:flex><span><span style=color:#66d9ef>defer</span> <span style=color:#a6e22e>mutex</span>.<span style=color:#a6e22e>Unlock</span>(<span style=color:#a6e22e>context</span>.<span style=color:#a6e22e>TODO</span>())
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 执行业务逻辑
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>doBusiness</span>()
+</span></span></code></pre></div><h3 id=53-etcd-锁的优缺点>5.3 etcd 锁的优缺点</h3><p><strong>优点</strong>：</p><ul><li>强一致性（Raft 协议保证）</li><li>Lease 机制天然防死锁</li><li>Revision 天然有序（公平锁）</li><li>读写性能优于 ZooKeeper</li></ul><p><strong>缺点</strong>：</p><ul><li>部署复杂度高于 Redis</li><li>社区和生态不如 Redis 和 ZooKeeper</li></ul><hr><h2 id=六redlock-算法>六、Redlock 算法</h2><h3 id=61-redlock-算法步骤>6.1 Redlock 算法步骤</h3><p><strong>背景</strong>：单节点 Redis 存在主从切换导致锁丢失的问题。Redlock 通过多节点解决。</p><p><strong>算法步骤</strong>：</p><pre tabindex=0><code>假设有 5 个独立的 Redis 节点（无主从关系）
 
 1. 获取当前时间戳 T1（毫秒）
 
@@ -1332,119 +257,11 @@ GET + DEL 是原子操作，不会被其他命令穿插
 
 6. 如果失败：
    - 向所有节点发送解锁请求（无论是否加锁成功）
-</code></pre><h3 id="62-redlock-的争议">6.2 Redlock 的争议</h3>
-<p><strong>Martin Kleppmann 的批评</strong>（2016）：</p>
-<ol>
-<li>
-<p><strong>时钟依赖</strong>：</p>
-<ul>
-<li>Redlock 依赖系统时钟</li>
-<li>如果某个节点时钟跳变，可能导致锁提前过期</li>
-</ul>
-</li>
-<li>
-<p><strong>GC 停顿</strong>：</p>
-<ul>
-<li>GC STW 可能导致客户端长时间停顿</li>
-<li>停顿恢复后，锁可能已过期且被其他客户端持有</li>
-</ul>
-</li>
-<li>
-<p><strong>进程暂停</strong>：</p>
-<ul>
-<li>类似 GC 停顿的问题</li>
-<li>进程暂停后，锁的有效期计算不再准确</li>
-</ul>
-</li>
-</ol>
-<p><strong>Martin 的建议</strong>：</p>
-<ul>
-<li>使用 fencing token（递增令牌）</li>
-<li>每次加锁返回一个递增的 token</li>
-<li>资源服务只接受比上次更大的 token</li>
-</ul>
-<p><strong>Antirez（Redis 作者）的回应</strong>：</p>
-<ul>
-<li>GC 停顿在所有分布式锁方案中都存在</li>
-<li>Redlock 的时钟依赖可以接受（时钟漂移通常很小）</li>
-<li>fencing token 需要资源服务配合，实现复杂</li>
-</ul>
-<h3 id="63-redlock-的实际使用建议">6.3 Redlock 的实际使用建议</h3>
-<pre tabindex="0"><code>1. 如果对正确性要求极高 → 使用 ZooKeeper 或 etcd
+</code></pre><h3 id=62-redlock-的争议>6.2 Redlock 的争议</h3><p><strong>Martin Kleppmann 的批评</strong>（2016）：</p><ol><li><p><strong>时钟依赖</strong>：</p><ul><li>Redlock 依赖系统时钟</li><li>如果某个节点时钟跳变，可能导致锁提前过期</li></ul></li><li><p><strong>GC 停顿</strong>：</p><ul><li>GC STW 可能导致客户端长时间停顿</li><li>停顿恢复后，锁可能已过期且被其他客户端持有</li></ul></li><li><p><strong>进程暂停</strong>：</p><ul><li>类似 GC 停顿的问题</li><li>进程暂停后，锁的有效期计算不再准确</li></ul></li></ol><p><strong>Martin 的建议</strong>：</p><ul><li>使用 fencing token（递增令牌）</li><li>每次加锁返回一个递增的 token</li><li>资源服务只接受比上次更大的 token</li></ul><p><strong>Antirez（Redis 作者）的回应</strong>：</p><ul><li>GC 停顿在所有分布式锁方案中都存在</li><li>Redlock 的时钟依赖可以接受（时钟漂移通常很小）</li><li>fencing token 需要资源服务配合，实现复杂</li></ul><h3 id=63-redlock-的实际使用建议>6.3 Redlock 的实际使用建议</h3><pre tabindex=0><code>1. 如果对正确性要求极高 → 使用 ZooKeeper 或 etcd
 2. 如果对性能要求高且能容忍极小概率的不一致 → 使用 Redis 单节点 + Redisson
 3. 如果想兼顾两者 → 使用 Redlock，但需要注意时钟同步
 4. 无论使用哪种方案，都建议实现 fencing token 机制
-</code></pre><hr>
-<h2 id="七三种方案对比">七、三种方案对比</h2>
-<h3 id="71-全面对比">7.1 全面对比</h3>
-<table>
-<thead>
-<tr>
-<th>对比项</th>
-<th>Redis</th>
-<th>ZooKeeper</th>
-<th>etcd</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>一致性</strong></td>
-<td>最终一致</td>
-<td>强一致（ZAB）</td>
-<td>强一致（Raft）</td>
-</tr>
-<tr>
-<td><strong>性能</strong></td>
-<td>高（10万+ QPS）</td>
-<td>低（万级 QPS）</td>
-<td>中（几万 QPS）</td>
-</tr>
-<tr>
-<td><strong>防死锁</strong></td>
-<td>需要设置 TTL</td>
-<td>临时节点自动删除</td>
-<td>Lease 自动过期</td>
-</tr>
-<tr>
-<td><strong>可重入</strong></td>
-<td>Redisson 支持</td>
-<td>Curator 支持</td>
-<td>concurrency 支持</td>
-</tr>
-<tr>
-<td><strong>公平锁</strong></td>
-<td>需要额外实现</td>
-<td>顺序节点天然支持</td>
-<td>Revision 天然支持</td>
-</tr>
-<tr>
-<td><strong>看门狗</strong></td>
-<td>Redisson 内置</td>
-<td>Session 机制</td>
-<td>Lease KeepAlive</td>
-</tr>
-<tr>
-<td><strong>部署复杂度</strong></td>
-<td>低</td>
-<td>中</td>
-<td>中</td>
-</tr>
-<tr>
-<td><strong>主从切换风险</strong></td>
-<td>有（锁可能丢失）</td>
-<td>无</td>
-<td>无</td>
-</tr>
-<tr>
-<td><strong>适用场景</strong></td>
-<td>高并发，容忍短暂不一致</td>
-<td>低并发，强一致性</td>
-<td>中等并发，强一致性</td>
-</tr>
-</tbody>
-</table>
-<h3 id="72-选型建议">7.2 选型建议</h3>
-<pre tabindex="0"><code>场景一：电商秒杀（高并发，短暂不一致可接受）
+</code></pre><hr><h2 id=七三种方案对比>七、三种方案对比</h2><h3 id=71-全面对比>7.1 全面对比</h3><table><thead><tr><th>对比项</th><th>Redis</th><th>ZooKeeper</th><th>etcd</th></tr></thead><tbody><tr><td><strong>一致性</strong></td><td>最终一致</td><td>强一致（ZAB）</td><td>强一致（Raft）</td></tr><tr><td><strong>性能</strong></td><td>高（10万+ QPS）</td><td>低（万级 QPS）</td><td>中（几万 QPS）</td></tr><tr><td><strong>防死锁</strong></td><td>需要设置 TTL</td><td>临时节点自动删除</td><td>Lease 自动过期</td></tr><tr><td><strong>可重入</strong></td><td>Redisson 支持</td><td>Curator 支持</td><td>concurrency 支持</td></tr><tr><td><strong>公平锁</strong></td><td>需要额外实现</td><td>顺序节点天然支持</td><td>Revision 天然支持</td></tr><tr><td><strong>看门狗</strong></td><td>Redisson 内置</td><td>Session 机制</td><td>Lease KeepAlive</td></tr><tr><td><strong>部署复杂度</strong></td><td>低</td><td>中</td><td>中</td></tr><tr><td><strong>主从切换风险</strong></td><td>有（锁可能丢失）</td><td>无</td><td>无</td></tr><tr><td><strong>适用场景</strong></td><td>高并发，容忍短暂不一致</td><td>低并发，强一致性</td><td>中等并发，强一致性</td></tr></tbody></table><h3 id=72-选型建议>7.2 选型建议</h3><pre tabindex=0><code>场景一：电商秒杀（高并发，短暂不一致可接受）
 → Redis + Redisson
 → 性能高，Redisson 看门狗解决续期问题
 
@@ -1463,10 +280,7 @@ GET + DEL 是原子操作，不会被其他命令穿插
 场景五：微服务架构
 → Redis + Redisson（默认）
 → ZooKeeper 或 etcd（强一致性场景）
-</code></pre><hr>
-<h2 id="八分布式锁最佳实践">八、分布式锁最佳实践</h2>
-<h3 id="81-锁粒度">8.1 锁粒度</h3>
-<pre tabindex="0"><code>原则：锁的粒度越细越好
+</code></pre><hr><h2 id=八分布式锁最佳实践>八、分布式锁最佳实践</h2><h3 id=81-锁粒度>8.1 锁粒度</h3><pre tabindex=0><code>原则：锁的粒度越细越好
 
 ❌ 锁整个订单服务
    lock(&#34;order-service&#34;)
@@ -1476,8 +290,7 @@ GET + DEL 是原子操作，不会被其他命令穿插
 
 ✅✅ 锁订单的特定操作
    lock(&#34;order:123:pay&#34;)
-</code></pre><h3 id="82-锁超时时间">8.2 锁超时时间</h3>
-<pre tabindex="0"><code>原则：TTL 应该大于业务最长执行时间，但不能太长
+</code></pre><h3 id=82-锁超时时间>8.2 锁超时时间</h3><pre tabindex=0><code>原则：TTL 应该大于业务最长执行时间，但不能太长
 
 推荐公式：
 TTL = 业务平均执行时间 × 3 + 安全余量
@@ -1489,110 +302,38 @@ TTL = 2 × 3 + 4 = 10 秒
 配合看门狗：
 Redisson 默认 lockWatchdogTimeout = 30 秒
 续期间隔 = 30 / 3 = 10 秒
-</code></pre><h3 id="83-加锁失败策略">8.3 加锁失败策略</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 策略一：快速失败（非阻塞）
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>RLock lock <span style="color:#f92672">=</span> redisson<span style="color:#f92672">.</span><span style="color:#a6e22e">getLock</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;lock:order:123&#34;</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">boolean</span> acquired <span style="color:#f92672">=</span> lock<span style="color:#f92672">.</span><span style="color:#a6e22e">tryLock</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">30</span><span style="color:#f92672">,</span> TimeUnit<span style="color:#f92672">.</span><span style="color:#a6e22e">SECONDS</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>acquired<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> BusinessException<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;系统繁忙，请稍后重试&#34;</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 策略二：阻塞等待
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>lock<span style="color:#f92672">.</span><span style="color:#a6e22e">lock</span><span style="color:#f92672">(</span><span style="color:#ae81ff">30</span><span style="color:#f92672">,</span> TimeUnit<span style="color:#f92672">.</span><span style="color:#a6e22e">SECONDS</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// 策略三：有限等待 + 重试
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> maxRetries <span style="color:#f92672">=</span> <span style="color:#ae81ff">3</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> maxRetries<span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>lock<span style="color:#f92672">.</span><span style="color:#a6e22e">tryLock</span><span style="color:#f92672">(</span><span style="color:#ae81ff">5</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">30</span><span style="color:#f92672">,</span> TimeUnit<span style="color:#f92672">.</span><span style="color:#a6e22e">SECONDS</span><span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            doBusiness<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>            lock<span style="color:#f92672">.</span><span style="color:#a6e22e">unlock</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span>    Thread<span style="color:#f92672">.</span><span style="color:#a6e22e">sleep</span><span style="color:#f92672">(</span><span style="color:#ae81ff">1000</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 退避
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><h3 id="84-防止误解锁">8.4 防止误解锁</h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 始终使用 try-finally 保证解锁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>RLock lock <span style="color:#f92672">=</span> redisson<span style="color:#f92672">.</span><span style="color:#a6e22e">getLock</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;lock:order:123&#34;</span><span style="color:#f92672">);</span>
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    lock<span style="color:#f92672">.</span><span style="color:#a6e22e">lock</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>    doBusiness<span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 只有持有锁才解锁
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>lock<span style="color:#f92672">.</span><span style="color:#a6e22e">isHeldByCurrentThread</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
-</span></span><span style="display:flex;"><span>        lock<span style="color:#f92672">.</span><span style="color:#a6e22e">unlock</span><span style="color:#f92672">();</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
-</span></span></code></pre></div><hr>
-<h2 id="九面试高频问题">九、面试高频问题</h2>
-<h3 id="q1-redis-和-zookeeper-分布式锁的区别">Q1: Redis 和 ZooKeeper 分布式锁的区别？</h3>
-<p><strong>答案要点</strong>：</p>
-<ul>
-<li>Redis：性能高，最终一致，主从切换可能丢锁</li>
-<li>ZooKeeper：强一致，性能低，临时节点防死锁</li>
-<li>Redis 适合高并发，ZooKeeper 适合强一致</li>
-</ul>
-<h3 id="q2-redisson-的看门狗是什么">Q2: Redisson 的看门狗是什么？</h3>
-<p><strong>答案要点</strong>：</p>
-<ul>
-<li>后台线程定期续期锁的 TTL</li>
-<li>默认 30 秒，每 10 秒检查一次</li>
-<li>客户端宕机则不再续期，锁自动过期</li>
-<li>解决了业务执行时间超过锁 TTL 的问题</li>
-</ul>
-<h3 id="q3-redlock-算法的步骤">Q3: Redlock 算法的步骤？</h3>
-<p><strong>答案要点</strong>：</p>
-<ol>
-<li>获取时间戳</li>
-<li>向 N 个独立节点加锁</li>
-<li>判断是否在多数节点加锁成功</li>
-<li>判断加锁耗时是否小于 TTL</li>
-<li>失败则向所有节点解锁</li>
-</ol>
-<h3 id="q4-如何保证解铃还须系铃人">Q4: 如何保证解铃还须系铃人？</h3>
-<p><strong>答案要点</strong>：</p>
-<ul>
-<li>Redis：value 存储唯一标识，解锁时 Lua 脚本先比较再删除</li>
-<li>ZooKeeper：临时节点与 Session 绑定，只有创建者能删除</li>
-<li>etcd：Lease 与客户端绑定</li>
-</ul>
-<h3 id="q5-分布式锁的-fencing-token-是什么">Q5: 分布式锁的 fencing token 是什么？</h3>
-<p><strong>答案要点</strong>：</p>
-<ul>
-<li>每次加锁返回递增的 token</li>
-<li>资源服务只接受比上次更大的 token</li>
-<li>解决 GC 停顿或时钟跳变导致的锁失效</li>
-<li>Martin Kleppmann 提出的方案</li>
-</ul>
-<hr>
-<h2 id="十总结">十、总结</h2>
-<p>本文系统对比了三种分布式锁实现方案：</p>
-<ol>
-<li><strong>Redis 分布式锁</strong>：高性能，Redisson 提供完善的看门狗和可重入支持</li>
-<li><strong>ZooKeeper 分布式锁</strong>：强一致，临时顺序节点天然防死锁和公平</li>
-<li><strong>etcd 分布式锁</strong>：强一致，Raft 协议保证，K8s 生态</li>
-</ol>
-<p><strong>核心记忆</strong>：</p>
-<ul>
-<li>Redis 加锁：SET NX PX + Lua 解锁</li>
-<li>Redisson 看门狗：每 10 秒续期，30 秒 TTL</li>
-<li>ZooKeeper 锁：临时顺序节点，避免羊群效应</li>
-<li>Redlock：多节点过半确认，但有争议</li>
-<li>选型：高并发用 Redis，强一致用 ZooKeeper/etcd</li>
-</ul>
-<p><strong>面试关键词</strong>：SET NX PX、Lua 脚本、Redisson、看门狗、Redlock、临时顺序节点、fencing token</p>
-<p>下一篇将深入 <strong>分布式事务</strong>，包括 2PC、3PC、TCC、Saga 等方案的原理与实战，敬请期待。</p>
-<hr>
-<p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p>
-
-    </div>
-</article>
-
-    </main>
-    <footer>
-        <p>&copy; 2026 李亚飞</p>
-    </footer>
-</body>
-</html>
+</code></pre><h3 id=83-加锁失败策略>8.3 加锁失败策略</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 策略一：快速失败（非阻塞）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>RLock lock <span style=color:#f92672>=</span> redisson<span style=color:#f92672>.</span><span style=color:#a6e22e>getLock</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;lock:order:123&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>boolean</span> acquired <span style=color:#f92672>=</span> lock<span style=color:#f92672>.</span><span style=color:#a6e22e>tryLock</span><span style=color:#f92672>(</span><span style=color:#ae81ff>0</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>30</span><span style=color:#f92672>,</span> TimeUnit<span style=color:#f92672>.</span><span style=color:#a6e22e>SECONDS</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>if</span> <span style=color:#f92672>(!</span>acquired<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>throw</span> <span style=color:#66d9ef>new</span> BusinessException<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;系统繁忙，请稍后重试&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 策略二：阻塞等待
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>lock<span style=color:#f92672>.</span><span style=color:#a6e22e>lock</span><span style=color:#f92672>(</span><span style=color:#ae81ff>30</span><span style=color:#f92672>,</span> TimeUnit<span style=color:#f92672>.</span><span style=color:#a6e22e>SECONDS</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 策略三：有限等待 + 重试
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>int</span> maxRetries <span style=color:#f92672>=</span> <span style=color:#ae81ff>3</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> i <span style=color:#f92672>&lt;</span> maxRetries<span style=color:#f92672>;</span> i<span style=color:#f92672>++)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>lock<span style=color:#f92672>.</span><span style=color:#a6e22e>tryLock</span><span style=color:#f92672>(</span><span style=color:#ae81ff>5</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>30</span><span style=color:#f92672>,</span> TimeUnit<span style=color:#f92672>.</span><span style=color:#a6e22e>SECONDS</span><span style=color:#f92672>))</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>try</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            doBusiness<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span> <span style=color:#66d9ef>finally</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            lock<span style=color:#f92672>.</span><span style=color:#a6e22e>unlock</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>break</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    Thread<span style=color:#f92672>.</span><span style=color:#a6e22e>sleep</span><span style=color:#f92672>(</span><span style=color:#ae81ff>1000</span><span style=color:#f92672>);</span>  <span style=color:#75715e>// 退避
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=84-防止误解锁>8.4 防止误解锁</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 始终使用 try-finally 保证解锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>RLock lock <span style=color:#f92672>=</span> redisson<span style=color:#f92672>.</span><span style=color:#a6e22e>getLock</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;lock:order:123&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>try</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    lock<span style=color:#f92672>.</span><span style=color:#a6e22e>lock</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    doBusiness<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span> <span style=color:#66d9ef>finally</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 只有持有锁才解锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>lock<span style=color:#f92672>.</span><span style=color:#a6e22e>isHeldByCurrentThread</span><span style=color:#f92672>())</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        lock<span style=color:#f92672>.</span><span style=color:#a6e22e>unlock</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=九面试高频问题>九、面试高频问题</h2><h3 id=q1-redis-和-zookeeper-分布式锁的区别>Q1: Redis 和 ZooKeeper 分布式锁的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>Redis：性能高，最终一致，主从切换可能丢锁</li><li>ZooKeeper：强一致，性能低，临时节点防死锁</li><li>Redis 适合高并发，ZooKeeper 适合强一致</li></ul><h3 id=q2-redisson-的看门狗是什么>Q2: Redisson 的看门狗是什么？</h3><p><strong>答案要点</strong>：</p><ul><li>后台线程定期续期锁的 TTL</li><li>默认 30 秒，每 10 秒检查一次</li><li>客户端宕机则不再续期，锁自动过期</li><li>解决了业务执行时间超过锁 TTL 的问题</li></ul><h3 id=q3-redlock-算法的步骤>Q3: Redlock 算法的步骤？</h3><p><strong>答案要点</strong>：</p><ol><li>获取时间戳</li><li>向 N 个独立节点加锁</li><li>判断是否在多数节点加锁成功</li><li>判断加锁耗时是否小于 TTL</li><li>失败则向所有节点解锁</li></ol><h3 id=q4-如何保证解铃还须系铃人>Q4: 如何保证解铃还须系铃人？</h3><p><strong>答案要点</strong>：</p><ul><li>Redis：value 存储唯一标识，解锁时 Lua 脚本先比较再删除</li><li>ZooKeeper：临时节点与 Session 绑定，只有创建者能删除</li><li>etcd：Lease 与客户端绑定</li></ul><h3 id=q5-分布式锁的-fencing-token-是什么>Q5: 分布式锁的 fencing token 是什么？</h3><p><strong>答案要点</strong>：</p><ul><li>每次加锁返回递增的 token</li><li>资源服务只接受比上次更大的 token</li><li>解决 GC 停顿或时钟跳变导致的锁失效</li><li>Martin Kleppmann 提出的方案</li></ul><hr><h2 id=十总结>十、总结</h2><p>本文系统对比了三种分布式锁实现方案：</p><ol><li><strong>Redis 分布式锁</strong>：高性能，Redisson 提供完善的看门狗和可重入支持</li><li><strong>ZooKeeper 分布式锁</strong>：强一致，临时顺序节点天然防死锁和公平</li><li><strong>etcd 分布式锁</strong>：强一致，Raft 协议保证，K8s 生态</li></ol><p><strong>核心记忆</strong>：</p><ul><li>Redis 加锁：SET NX PX + Lua 解锁</li><li>Redisson 看门狗：每 10 秒续期，30 秒 TTL</li><li>ZooKeeper 锁：临时顺序节点，避免羊群效应</li><li>Redlock：多节点过半确认，但有争议</li><li>选型：高并发用 Redis，强一致用 ZooKeeper/etcd</li></ul><p><strong>面试关键词</strong>：SET NX PX、Lua 脚本、Redisson、看门狗、Redlock、临时顺序节点、fencing token</p><p>下一篇将深入 <strong>分布式事务</strong>，包括 2PC、3PC、TCC、Saga 等方案的原理与实战，敬请期待。</p><hr><p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p></div></article></main><footer><p>&copy; 2026 李亚飞</p></footer></body></html>
