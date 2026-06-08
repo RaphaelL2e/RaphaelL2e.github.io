@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java 原子类与 CAS 深度解析：从 AtomicInteger 到 LongAdder - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-06-07 <span>/</span> java </div>
+        <h1>Java 原子类与 CAS 深度解析：从 AtomicInteger 到 LongAdder</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="java-原子类与-cas-深度解析从-atomicinteger-到-longadder">Java 原子类与 CAS 深度解析：从 AtomicInteger 到 LongAdder</h1>
+<blockquote>
+<p>面试高频问题：CAS 的原理是什么？ABA 问题怎么解决？AtomicInteger 怎么保证原子性？LongAdder 为什么比 AtomicLong 快？</p>
+</blockquote>
+<h2 id="引言">引言</h2>
+<p>在多线程编程中，保证共享变量的原子性操作是核心挑战。Java 从 JDK 1.5 开始提供了一系列原子类（<code>java.util.concurrent.atomic</code>），基于 <strong>CAS（Compare-And-Swap）</strong> 机制实现无锁并发控制。从基础的 AtomicInteger 到高性能的 LongAdder，原子类的演进体现了并发编程的智慧。</p>
+<p><strong>本文要点</strong>：</p>
+<ul>
+<li>CAS 原理与 Unsafe 类底层实现</li>
+<li>基础原子类源码解析（AtomicInteger/AtomicLong/AtomicReference）</li>
+<li>ABA 问题与解决方案</li>
+<li>LongAdder/LongAccumulator 分段累加原理</li>
+<li>原子数组与原子字段更新器</li>
+<li>性能对比与最佳实践</li>
+</ul>
+<h2 id="一cas-原理">一、CAS 原理</h2>
+<h3 id="11-什么是-cas">1.1 什么是 CAS</h3>
+<p>CAS（Compare-And-Swap）是一条 CPU 原子指令，包含三个操作数：</p>
+<ul>
+<li><strong>V</strong>（Value）：内存中的值</li>
+<li><strong>A</strong>（Expected）：期望的旧值</li>
+<li><strong>B</strong>（New）：要写入的新值</li>
+</ul>
+<p><strong>语义</strong>：如果 V == A，则将 V 设为 B，否则不做任何操作。整个操作是原子的。</p>
+<pre tabindex="0"><code>┌─────────────────────────────────────────────┐
+│              CAS(V, A, B)                    │
+│                                              │
+│   读取内存V ──→ 比较V==A? ──→ 是 ──→ V=B   │
+│                        │                     │
+│                        └─→ 否 ──→ 重试/返回  │
+│                                              │
+│   CPU 保证整个操作原子性（LOCK 指令前缀）     │
+└─────────────────────────────────────────────┘
+</code></pre><h3 id="12-cpu-层面的实现">1.2 CPU 层面的实现</h3>
+<p>x86 架构使用 <code>LOCK CMPXCHG</code> 指令：</p>
+<pre tabindex="0"><code class="language-assembly" data-lang="assembly">; CMPXCHG 指令语义
+; 如果 EAX == 目标操作数，则 ZF=1，目标操作数 = 源操作数
+; 如果 EAX != 目标操作数，则 ZF=0，EAX = 目标操作数
+
+LOCK CMPXCHG [dest], src   ; LOCK 前缀保证总线锁或缓存一致性
+</code></pre><p>ARM 架构使用 <code>LDXR/STXR</code>（独占加载/存储）：</p>
+<pre tabindex="0"><code class="language-assembly" data-lang="assembly">LDXR W0, [X1]        ; 独占加载
+CMP  W0, W2          ; 比较
+B.NE retry           ; 不相等则重试
+STXR W3, W2, [X1]    ; 独占存储
+CBNZ W3, retry       ; 存储失败则重试
+</code></pre><h3 id="13-java-中的-cas--unsafe-类">1.3 Java 中的 CAS — Unsafe 类</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Unsafe</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// int 类型的 CAS
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">native</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">compareAndSwapInt</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>        Object o<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> offset<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> expected<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> x<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// long 类型的 CAS
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">native</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">compareAndSwapLong</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>        Object o<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> offset<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> expected<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> x<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Object 引用的 CAS
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">native</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">compareAndSwapObject</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>        Object o<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> offset<span style="color:#f92672">,</span> Object expected<span style="color:#f92672">,</span> Object x<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 获取字段在对象中的内存偏移量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">native</span> <span style="color:#66d9ef">long</span> <span style="color:#a6e22e">objectFieldOffset</span><span style="color:#f92672">(</span>Field f<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 获取数组元素的内存偏移量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">native</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">arrayBaseOffset</span><span style="color:#f92672">(</span>Class<span style="color:#f92672">&lt;?&gt;</span> arrayClass<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">native</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">arrayIndexScale</span><span style="color:#f92672">(</span>Class<span style="color:#f92672">&lt;?&gt;</span> arrayClass<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>使用示例</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>Unsafe unsafe <span style="color:#f92672">=</span> Unsafe<span style="color:#f92672">.</span><span style="color:#a6e22e">getUnsafe</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">long</span> valueOffset <span style="color:#f92672">=</span> unsafe<span style="color:#f92672">.</span><span style="color:#a6e22e">objectFieldOffset</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    AtomicInteger<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getDeclaredField</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;value&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// CAS 操作
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">boolean</span> success <span style="color:#f92672">=</span> unsafe<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSwapInt</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span><span style="color:#f92672">,</span>        <span style="color:#75715e">// 对象
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    valueOffset<span style="color:#f92672">,</span> <span style="color:#75715e">// 字段偏移量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    expect<span style="color:#f92672">,</span>      <span style="color:#75715e">// 期望值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    update       <span style="color:#75715e">// 新值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">);</span>
+</span></span></code></pre></div><h2 id="二基础原子类源码解析">二、基础原子类源码解析</h2>
+<h3 id="21-atomicinteger">2.1 AtomicInteger</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AtomicInteger</span> <span style="color:#66d9ef">extends</span> Number <span style="color:#66d9ef">implements</span> java<span style="color:#f92672">.</span><span style="color:#a6e22e">io</span><span style="color:#f92672">.</span><span style="color:#a6e22e">Serializable</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> Unsafe unsafe <span style="color:#f92672">=</span> Unsafe<span style="color:#f92672">.</span><span style="color:#a6e22e">getUnsafe</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">long</span> valueOffset<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">static</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            valueOffset <span style="color:#f92672">=</span> unsafe<span style="color:#f92672">.</span><span style="color:#a6e22e">objectFieldOffset</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>                AtomicInteger<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getDeclaredField</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;value&#34;</span><span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error<span style="color:#f92672">(</span>ex<span style="color:#f92672">);</span> <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">volatile</span> <span style="color:#66d9ef">int</span> value<span style="color:#f92672">;</span>  <span style="color:#75715e">// volatile 保证可见性
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 自增并返回新值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">incrementAndGet</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> unsafe<span style="color:#f92672">.</span><span style="color:#a6e22e">getAndAddInt</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">,</span> valueOffset<span style="color:#f92672">,</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">)</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 自减并返回新值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">decrementAndGet</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> unsafe<span style="color:#f92672">.</span><span style="color:#a6e22e">getAndAddInt</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">,</span> valueOffset<span style="color:#f92672">,</span> <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span><span style="color:#f92672">)</span> <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>Unsafe.getAndAddInt — CAS 自旋</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">getAndAddInt</span><span style="color:#f92672">(</span>Object o<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> offset<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> delta<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> v<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">do</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        v <span style="color:#f92672">=</span> getIntVolatile<span style="color:#f92672">(</span>o<span style="color:#f92672">,</span> offset<span style="color:#f92672">);</span>  <span style="color:#75715e">// 读取当前值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span> <span style="color:#66d9ef">while</span> <span style="color:#f92672">(!</span>compareAndSwapInt<span style="color:#f92672">(</span>o<span style="color:#f92672">,</span> offset<span style="color:#f92672">,</span> v<span style="color:#f92672">,</span> v <span style="color:#f92672">+</span> delta<span style="color:#f92672">));</span>  <span style="color:#75715e">// CAS失败则重试
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">return</span> v<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="22-atomicreference">2.2 AtomicReference</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AtomicReference</span><span style="color:#f92672">&lt;</span>V<span style="color:#f92672">&gt;</span> <span style="color:#66d9ef">implements</span> java<span style="color:#f92672">.</span><span style="color:#a6e22e">io</span><span style="color:#f92672">.</span><span style="color:#a6e22e">Serializable</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> Unsafe unsafe <span style="color:#f92672">=</span> Unsafe<span style="color:#f92672">.</span><span style="color:#a6e22e">getUnsafe</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">long</span> valueOffset<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">volatile</span> V value<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// CAS 更新引用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span>V expect<span style="color:#f92672">,</span> V update<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> unsafe<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSwapObject</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">,</span> valueOffset<span style="color:#f92672">,</span> expect<span style="color:#f92672">,</span> update<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>典型用法 — 无锁栈</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ConcurrentStack</span><span style="color:#f92672">&lt;</span>E<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    AtomicReference<span style="color:#f92672">&lt;</span>Node<span style="color:#f92672">&lt;</span>E<span style="color:#f92672">&gt;&gt;</span> top <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AtomicReference<span style="color:#f92672">&lt;&gt;();</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">push</span><span style="color:#f92672">(</span>E item<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        Node<span style="color:#f92672">&lt;</span>E<span style="color:#f92672">&gt;</span> newHead <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Node<span style="color:#f92672">&lt;&gt;(</span>item<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        Node<span style="color:#f92672">&lt;</span>E<span style="color:#f92672">&gt;</span> oldHead<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">do</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            oldHead <span style="color:#f92672">=</span> top<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            newHead<span style="color:#f92672">.</span><span style="color:#a6e22e">next</span> <span style="color:#f92672">=</span> oldHead<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">while</span> <span style="color:#f92672">(!</span>top<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span>oldHead<span style="color:#f92672">,</span> newHead<span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> E <span style="color:#a6e22e">pop</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        Node<span style="color:#f92672">&lt;</span>E<span style="color:#f92672">&gt;</span> oldHead<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        Node<span style="color:#f92672">&lt;</span>E<span style="color:#f92672">&gt;</span> newHead<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">do</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            oldHead <span style="color:#f92672">=</span> top<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>oldHead <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            newHead <span style="color:#f92672">=</span> oldHead<span style="color:#f92672">.</span><span style="color:#a6e22e">next</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">while</span> <span style="color:#f92672">(!</span>top<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span>oldHead<span style="color:#f92672">,</span> newHead<span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> oldHead<span style="color:#f92672">.</span><span style="color:#a6e22e">item</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="23-atomicstampedreference--解决-aba">2.3 AtomicStampedReference — 解决 ABA</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AtomicStampedReference</span><span style="color:#f92672">&lt;</span>V<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 将引用和版本号打包为一个 Pair
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Pair</span><span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">final</span> T reference<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">int</span> stamp<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">private</span> <span style="color:#a6e22e">Pair</span><span style="color:#f92672">(</span>T reference<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> stamp<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">reference</span> <span style="color:#f92672">=</span> reference<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">stamp</span> <span style="color:#f92672">=</span> stamp<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">volatile</span> Pair<span style="color:#f92672">&lt;</span>V<span style="color:#f92672">&gt;</span> pair<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// CAS 同时比较引用和版本号
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span>V expectedReference<span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>                                  V newReference<span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>                                  <span style="color:#66d9ef">int</span> expectedStamp<span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>                                  <span style="color:#66d9ef">int</span> newStamp<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        Pair<span style="color:#f92672">&lt;</span>V<span style="color:#f92672">&gt;</span> current <span style="color:#f92672">=</span> pair<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> expectedReference <span style="color:#f92672">==</span> current<span style="color:#f92672">.</span><span style="color:#a6e22e">reference</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>               expectedStamp <span style="color:#f92672">==</span> current<span style="color:#f92672">.</span><span style="color:#a6e22e">stamp</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>               <span style="color:#f92672">((</span>newReference <span style="color:#f92672">==</span> current<span style="color:#f92672">.</span><span style="color:#a6e22e">reference</span> <span style="color:#f92672">&amp;&amp;</span>
+</span></span><span style="display:flex;"><span>                 newStamp <span style="color:#f92672">==</span> current<span style="color:#f92672">.</span><span style="color:#a6e22e">stamp</span><span style="color:#f92672">)</span> <span style="color:#f92672">||</span>
+</span></span><span style="display:flex;"><span>                casPair<span style="color:#f92672">(</span>current<span style="color:#f92672">,</span> Pair<span style="color:#f92672">.</span><span style="color:#a6e22e">of</span><span style="color:#f92672">(</span>newReference<span style="color:#f92672">,</span> newStamp<span style="color:#f92672">)));</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h2 id="三aba-问题">三、ABA 问题</h2>
+<h3 id="31-什么是-aba-问题">3.1 什么是 ABA 问题</h3>
+<pre tabindex="0"><code>时间线：
+  T1: 读取 V=A
+  T2: 将 V 改为 B
+  T2: 将 V 改回 A
+  T1: CAS(A, A, C) → 成功！但中间状态已被改变
+
+示例（链表操作）：
+  初始：A → B → C
+
+  Thread-1 准备 CAS(top, A, B)  // 期望栈顶是A，替换为B
+  Thread-2 先 pop A，pop B，再 push A
+    此时链表：A → C（B已被移除）
+
+  Thread-1 CAS 成功，top 变为 B → ???（B.next 仍指向 C）
+  结果：C 丢失！
+</code></pre><h3 id="32-aba-的影响">3.2 ABA 的影响</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>影响</th>
+<th>严重程度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>计数器</td>
+<td>无影响（只关心最终值）</td>
+<td>低</td>
+</tr>
+<tr>
+<td>链表/栈</td>
+<td>可能丢失节点</td>
+<td>高</td>
+</tr>
+<tr>
+<td>资源池</td>
+<td>可能重复分配</td>
+<td>高</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-解决方案一版本号atomicstampedreference">3.3 解决方案一：版本号（AtomicStampedReference）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>AtomicStampedReference<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> ref <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">new</span> AtomicStampedReference<span style="color:#f92672">&lt;&gt;(</span><span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 初始值A，版本号1
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Thread-2 修改并增加版本号
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>ref<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;B&#34;</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">2</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// A→B，版本1→2
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>ref<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;B&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">2</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">3</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// B→A，版本2→3
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Thread-1 CAS 失败，因为版本号不匹配
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">boolean</span> success <span style="color:#f92672">=</span> ref<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;C&#34;</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">4</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// success = false，版本号已从1变为3
+</span></span></span></code></pre></div><h3 id="34-解决方案二atomicmarkablereference">3.4 解决方案二：AtomicMarkableReference</h3>
+<p>不需要递增版本号，只需一个布尔标记：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>AtomicMarkableReference<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> ref <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">new</span> AtomicMarkableReference<span style="color:#f92672">&lt;&gt;(</span><span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 标记是否被修改过
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>ref<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;A&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;C&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">);</span>
+</span></span></code></pre></div><h3 id="35-解决方案三jdk-9-varhandle">3.5 解决方案三：JDK 9 VarHandle</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>VarHandle handle <span style="color:#f92672">=</span> MethodHandles<span style="color:#f92672">.</span><span style="color:#a6e22e">lookup</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">findVarHandle</span><span style="color:#f92672">(</span>ABC<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;value&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span><span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// JDK 9+ 提供了更丰富的原子操作
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>handle<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span>obj<span style="color:#f92672">,</span> expected<span style="color:#f92672">,</span> new_value<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>handle<span style="color:#f92672">.</span><span style="color:#a6e22e">getAndAdd</span><span style="color:#f92672">(</span>obj<span style="color:#f92672">,</span> delta<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>handle<span style="color:#f92672">.</span><span style="color:#a6e22e">getAndBitwiseAnd</span><span style="color:#f92672">(</span>obj<span style="color:#f92672">,</span> mask<span style="color:#f92672">);</span>
+</span></span></code></pre></div><h2 id="四longadder--高性能计数器">四、LongAdder — 高性能计数器</h2>
+<h3 id="41-为什么-atomiclong-不够快">4.1 为什么 AtomicLong 不够快？</h3>
+<p>AtomicLong 在高并发下的问题：<strong>所有线程都在 CAS 竞争同一个 value</strong>，冲突率高，自旋开销大。</p>
+<pre tabindex="0"><code>Thread-1 ──CAS(value)──→ 失败 ──重试──→ 失败 ──重试──→ 成功
+Thread-2 ──CAS(value)──→ 失败 ──重试──→ 失败 ──重试──→ 成功
+Thread-3 ──CAS(value)──→ 失败 ──重试──→ 失败 ──重试──→ 成功
+Thread-4 ──CAS(value)──→ 失败 ──重试──→ 失败 ──重试──→ 成功
+                    ↑
+              热点竞争！
+</code></pre><h3 id="42-longadder-的思路分散热点">4.2 LongAdder 的思路：分散热点</h3>
+<p>LongAdder 借鉴了 <strong>ConcurrentHashMap 的分段锁</strong> 思想：将一个 value 分散到多个 Cell 中，每个线程 CAS 不同的 Cell，最后求和。</p>
+<pre tabindex="0"><code>┌─────────────────────────────────────────────────┐
+│                  LongAdder                        │
+│                                                   │
+│   base ──→ 0          (无竞争时直接CAS)           │
+│                                                   │
+│   Cell[0] ──→ 5      Thread-1 CAS here           │
+│   Cell[1] ──→ 3      Thread-2 CAS here           │
+│   Cell[2] ──→ 7      Thread-3 CAS here           │
+│   Cell[3] ──→ 2      Thread-4 CAS here           │
+│   ...                                             │
+│                                                   │
+│   sum() = base + Cell[0] + Cell[1] + ...          │
+│         = 0 + 5 + 3 + 7 + 2 = 17                 │
+└─────────────────────────────────────────────────┘
+</code></pre><h3 id="43-longadder-源码">4.3 LongAdder 源码</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">LongAdder</span> <span style="color:#66d9ef">extends</span> Striped64 <span style="color:#66d9ef">implements</span> Serializable <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Cell 数组，懒初始化
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">// transient volatile Cell[] cells;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 基础值，无竞争时使用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">// transient volatile long base;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 自旋锁，用于Cell数组初始化/扩容
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">// transient volatile int cellsBusy;
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>add() 方法</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">add</span><span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    Cell<span style="color:#f92672">[]</span> as<span style="color:#f92672">;</span> <span style="color:#66d9ef">long</span> b<span style="color:#f92672">,</span> v<span style="color:#f92672">;</span> <span style="color:#66d9ef">int</span> m<span style="color:#f92672">;</span> Cell a<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>as <span style="color:#f92672">=</span> cells<span style="color:#f92672">)</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">||</span> <span style="color:#f92672">!</span>casBase<span style="color:#f92672">(</span>b <span style="color:#f92672">=</span> base<span style="color:#f92672">,</span> b <span style="color:#f92672">+</span> x<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// cells 不为空（已有竞争） 或 casBase 失败
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">boolean</span> uncontended <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>as <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">||</span> <span style="color:#f92672">(</span>m <span style="color:#f92672">=</span> as<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span> <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">)</span> <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">||</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">(</span>a <span style="color:#f92672">=</span> as<span style="color:#f92672">[</span>getProbe<span style="color:#f92672">()</span> <span style="color:#f92672">&amp;</span> m<span style="color:#f92672">])</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">||</span>       <span style="color:#75715e">// 当前线程的Cell为空
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#f92672">!(</span>uncontended <span style="color:#f92672">=</span> a<span style="color:#f92672">.</span><span style="color:#a6e22e">cas</span><span style="color:#f92672">(</span>v <span style="color:#f92672">=</span> a<span style="color:#f92672">.</span><span style="color:#a6e22e">value</span><span style="color:#f92672">,</span> v <span style="color:#f92672">+</span> x<span style="color:#f92672">)))</span>  <span style="color:#75715e">// Cell CAS失败
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            longAccumulate<span style="color:#f92672">(</span>x<span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">,</span> uncontended<span style="color:#f92672">);</span>     <span style="color:#75715e">// 创建/扩容Cell
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 无竞争时：直接 casBase 成功，不需要 Cell
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>线程到 Cell 的映射</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 每个线程有一个 probe 值（类似 hash）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// ThreadLocalRandom.getProbe() 获取
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">getProbe</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> UNSAFE<span style="color:#f92672">.</span><span style="color:#a6e22e">getInt</span><span style="color:#f92672">(</span>Thread<span style="color:#f92672">.</span><span style="color:#a6e22e">currentThread</span><span style="color:#f92672">(),</span> PROBE<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 映射到 Cell 数组索引
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> index <span style="color:#f92672">=</span> getProbe<span style="color:#f92672">()</span> <span style="color:#f92672">&amp;</span> <span style="color:#f92672">(</span>cells<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span> <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 与运算取模
+</span></span></span></code></pre></div><h3 id="44-longaccumulate--cell-创建与扩容">4.4 longAccumulate — Cell 创建与扩容</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">final</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">longAccumulate</span><span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> x<span style="color:#f92672">,</span> LongBinaryOperator fn<span style="color:#f92672">,</span> <span style="color:#66d9ef">boolean</span> wasUncontended<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> h<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>h <span style="color:#f92672">=</span> getProbe<span style="color:#f92672">())</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        ThreadLocalRandom<span style="color:#f92672">.</span><span style="color:#a6e22e">localInit</span><span style="color:#f92672">();</span>  <span style="color:#75715e">// 初始化 probe
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        h <span style="color:#f92672">=</span> getProbe<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        wasUncontended <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">boolean</span> collide <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">;</span>  <span style="color:#75715e">// 是否发生hash冲突
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(;;)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        Cell<span style="color:#f92672">[]</span> as<span style="color:#f92672">;</span> Cell a<span style="color:#f92672">;</span> <span style="color:#66d9ef">int</span> n<span style="color:#f92672">;</span> <span style="color:#66d9ef">long</span> v<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>as <span style="color:#f92672">=</span> cells<span style="color:#f92672">)</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">(</span>n <span style="color:#f92672">=</span> as<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">)</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// Cell 数组已初始化
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>a <span style="color:#f92672">=</span> as<span style="color:#f92672">[(</span>n <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;</span> h<span style="color:#f92672">])</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e">// 当前槽位为空，创建新 Cell
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>cellsBusy <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">&amp;&amp;</span> casCellsBusy<span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                        <span style="color:#75715e">// double-check 并创建 Cell
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                        Cell r <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Cell<span style="color:#f92672">(</span>x<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>as<span style="color:#f92672">[(</span>n <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;</span> h<span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                            as<span style="color:#f92672">[(</span>n <span style="color:#f92672">-</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">)</span> <span style="color:#f92672">&amp;</span> h<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> r<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                        cellsBusy <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>wasUncontended<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                wasUncontended <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>  <span style="color:#75715e">// 重试
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>a<span style="color:#f92672">.</span><span style="color:#a6e22e">cas</span><span style="color:#f92672">(</span>v <span style="color:#f92672">=</span> a<span style="color:#f92672">.</span><span style="color:#a6e22e">value</span><span style="color:#f92672">,</span> <span style="color:#f92672">((</span>fn <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">?</span> v <span style="color:#f92672">+</span> x <span style="color:#f92672">:</span> fn<span style="color:#f92672">.</span><span style="color:#a6e22e">applyAsLong</span><span style="color:#f92672">(</span>v<span style="color:#f92672">,</span> x<span style="color:#f92672">))))</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>  <span style="color:#75715e">// CAS 成功
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>n <span style="color:#f92672">&gt;=</span> NCPU <span style="color:#f92672">||</span> cells <span style="color:#f92672">!=</span> as<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                collide <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">;</span>  <span style="color:#75715e">// 超过CPU核数，不再扩容
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>collide<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                collide <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>   <span style="color:#75715e">// 标记冲突，下次重试
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>cellsBusy <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">&amp;&amp;</span> casCellsBusy<span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e">// 扩容 Cell 数组（2倍）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    Cell<span style="color:#f92672">[]</span> rs <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Cell<span style="color:#f92672">[</span>n <span style="color:#f92672">&lt;&lt;</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">];</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> n<span style="color:#f92672">;</span> <span style="color:#f92672">++</span>i<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                        rs<span style="color:#f92672">[</span>i<span style="color:#f92672">]</span> <span style="color:#f92672">=</span> as<span style="color:#f92672">[</span>i<span style="color:#f92672">];</span>
+</span></span><span style="display:flex;"><span>                    cells <span style="color:#f92672">=</span> rs<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    cellsBusy <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>                collide <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            h <span style="color:#f92672">=</span> advanceProbe<span style="color:#f92672">(</span>h<span style="color:#f92672">);</span>  <span style="color:#75715e">// 重新hash，减少冲突
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>cellsBusy <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">&amp;&amp;</span> cells <span style="color:#f92672">==</span> as <span style="color:#f92672">&amp;&amp;</span> casCellsBusy<span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 初始化 Cell 数组
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                Cell<span style="color:#f92672">[]</span> rs <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Cell<span style="color:#f92672">[</span><span style="color:#ae81ff">2</span><span style="color:#f92672">];</span>
+</span></span><span style="display:flex;"><span>                rs<span style="color:#f92672">[</span>h <span style="color:#f92672">&amp;</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">]</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Cell<span style="color:#f92672">(</span>x<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                cells <span style="color:#f92672">=</span> rs<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                cellsBusy <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>casBase<span style="color:#f92672">(</span>v <span style="color:#f92672">=</span> base<span style="color:#f92672">,</span> <span style="color:#f92672">((</span>fn <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">?</span> v <span style="color:#f92672">+</span> x <span style="color:#f92672">:</span> fn<span style="color:#f92672">.</span><span style="color:#a6e22e">applyAsLong</span><span style="color:#f92672">(</span>v<span style="color:#f92672">,</span> x<span style="color:#f92672">))))</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>  <span style="color:#75715e">// fallback 到 base
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="45-sum-方法">4.5 sum() 方法</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">long</span> <span style="color:#a6e22e">sum</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    Cell<span style="color:#f92672">[]</span> as <span style="color:#f92672">=</span> cells<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">long</span> sum <span style="color:#f92672">=</span> base<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>as <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> as<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">;</span> <span style="color:#f92672">++</span>i<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            Cell a<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">((</span>a <span style="color:#f92672">=</span> as<span style="color:#f92672">[</span>i<span style="color:#f92672">])</span> <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                sum <span style="color:#f92672">+=</span> a<span style="color:#f92672">.</span><span style="color:#a6e22e">value</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> sum<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>⚠️ <strong>注意</strong>：sum() 不是强一致的！遍历 Cell 数组期间可能有其他线程在修改，所以 sum() 返回的是一个近似值。</p>
+<h3 id="46-性能对比">4.6 性能对比</h3>
+<pre tabindex="0"><code>4线程，1000万次 incrementAndGet()：
+
+AtomicLong:  ~1800ms
+LongAdder:   ~200ms
+
+性能提升约 9 倍！
+
+16线程，1000万次：
+
+AtomicLong:  ~5500ms
+LongAdder:   ~300ms
+
+性能提升约 18 倍！
+</code></pre><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>AtomicLong</th>
+<th>LongAdder</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数据结构</td>
+<td>单个 volatile long</td>
+<td>base + Cell[]</td>
+</tr>
+<tr>
+<td>CAS 竞争</td>
+<td>所有线程竞争一个值</td>
+<td>线程分散到不同 Cell</td>
+</tr>
+<tr>
+<td>空间开销</td>
+<td>16 字节</td>
+<td>~16 * (1+NCPU) 字节</td>
+</tr>
+<tr>
+<td>一致性</td>
+<td>强一致</td>
+<td>最终一致（sum 弱一致）</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>低并发/需要精确值</td>
+<td>高并发计数/统计</td>
+</tr>
+<tr>
+<td>reset()</td>
+<td>❌ 不支持</td>
+<td>✅ 支持</td>
+</tr>
+</tbody>
+</table>
+<h2 id="五原子数组">五、原子数组</h2>
+<h3 id="51-atomicintegerarray">5.1 AtomicIntegerArray</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AtomicIntegerArray</span> <span style="color:#66d9ef">implements</span> java<span style="color:#f92672">.</span><span style="color:#a6e22e">io</span><span style="color:#f92672">.</span><span style="color:#a6e22e">Serializable</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> Unsafe unsafe <span style="color:#f92672">=</span> Unsafe<span style="color:#f92672">.</span><span style="color:#a6e22e">getUnsafe</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">int</span><span style="color:#f92672">[]</span> array<span style="color:#f92672">;</span>  <span style="color:#75715e">// final 保证引用不变
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 通过基地址 + 索引 * 元素大小 计算偏移量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">long</span> <span style="color:#a6e22e">checkedByteOffset</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">||</span> i <span style="color:#f92672">&gt;=</span> array<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> IndexOutOfBoundsException<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> byteOffset<span style="color:#f92672">(</span>i<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">long</span> <span style="color:#a6e22e">byteOffset</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#f92672">((</span><span style="color:#66d9ef">long</span><span style="color:#f92672">)</span> i <span style="color:#f92672">&lt;&lt;</span> shift<span style="color:#f92672">)</span> <span style="color:#f92672">+</span> base<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// CAS 操作
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> expect<span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span> update<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> compareAndSwapInt<span style="color:#f92672">(</span>array<span style="color:#f92672">,</span> checkedByteOffset<span style="color:#f92672">(</span>i<span style="color:#f92672">),</span> expect<span style="color:#f92672">,</span> update<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>使用示例 — 并发安全的计数器数组</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>AtomicIntegerArray counters <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AtomicIntegerArray<span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 线程安全地递增第 i 个计数器
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>counters<span style="color:#f92672">.</span><span style="color:#a6e22e">incrementAndGet</span><span style="color:#f92672">(</span>i<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 获取总和
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">long</span> total <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span> i <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">10</span><span style="color:#f92672">;</span> i<span style="color:#f92672">++)</span>
+</span></span><span style="display:flex;"><span>    total <span style="color:#f92672">+=</span> counters<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>i<span style="color:#f92672">);</span>
+</span></span></code></pre></div><h2 id="六原子字段更新器">六、原子字段更新器</h2>
+<h3 id="61-atomicintegerfieldupdater">6.1 AtomicIntegerFieldUpdater</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">abstract</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AtomicIntegerFieldUpdater</span><span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#f92672">&lt;</span>U<span style="color:#f92672">&gt;</span> AtomicIntegerFieldUpdater<span style="color:#f92672">&lt;</span>U<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">newUpdater</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>        Class<span style="color:#f92672">&lt;</span>U<span style="color:#f92672">&gt;</span> tclass<span style="color:#f92672">,</span> String fieldName<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> ReflectionUpdater<span style="color:#f92672">&lt;</span>U<span style="color:#f92672">&gt;(</span>tclass<span style="color:#f92672">,</span> fieldName<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>使用示例</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Student</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">volatile</span> <span style="color:#66d9ef">int</span> score<span style="color:#f92672">;</span>  <span style="color:#75715e">// 必须是 volatile int
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">addScore</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        SCORE_UPDATER<span style="color:#f92672">.</span><span style="color:#a6e22e">incrementAndGet</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> AtomicIntegerFieldUpdater<span style="color:#f92672">&lt;</span>Student<span style="color:#f92672">&gt;</span> SCORE_UPDATER <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>        AtomicIntegerFieldUpdater<span style="color:#f92672">.</span><span style="color:#a6e22e">newUpdater</span><span style="color:#f92672">(</span>Student<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;score&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>限制条件</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>限制</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>字段必须是 volatile</td>
+<td>保证可见性</td>
+</tr>
+<tr>
+<td>字段必须是 int/long/reference</td>
+<td>CAS 只支持这三种类型</td>
+</tr>
+<tr>
+<td>不能是 private（跨类）</td>
+<td>反射访问权限</td>
+</tr>
+<tr>
+<td>不能是 static</td>
+<td>static 字段不在对象实例中</td>
+</tr>
+</tbody>
+</table>
+<h3 id="62-atomicreferencefieldupdater">6.2 AtomicReferenceFieldUpdater</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Node</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">volatile</span> Node next<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">casNext</span><span style="color:#f92672">(</span>Node expect<span style="color:#f92672">,</span> Node update<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> NEXT_UPDATER<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">,</span> expect<span style="color:#f92672">,</span> update<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> AtomicReferenceFieldUpdater<span style="color:#f92672">&lt;</span>Node<span style="color:#f92672">,</span> Node<span style="color:#f92672">&gt;</span> NEXT_UPDATER <span style="color:#f92672">=</span>
+</span></span><span style="display:flex;"><span>        AtomicReferenceFieldUpdater<span style="color:#f92672">.</span><span style="color:#a6e22e">newUpdater</span><span style="color:#f92672">(</span>Node<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> Node<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;next&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span></code></pre></div><h2 id="七longaccumulator--通用累加器">七、LongAccumulator — 通用累加器</h2>
+<p>LongAdder 只支持加法，LongAccumulator 支持任意二元操作：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// LongAdder 等价写法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>LongAccumulator adder <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> LongAccumulator<span style="color:#f92672">(</span>Long<span style="color:#f92672">::</span>sum<span style="color:#f92672">,</span> <span style="color:#ae81ff">0</span>L<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 最大值累加器
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>LongAccumulator max <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> LongAccumulator<span style="color:#f92672">(</span>Long<span style="color:#f92672">::</span>max<span style="color:#f92672">,</span> Long<span style="color:#f92672">.</span><span style="color:#a6e22e">MIN_VALUE</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 最小值累加器
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>LongAccumulator min <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> LongAccumulator<span style="color:#f92672">(</span>Long<span style="color:#f92672">::</span>min<span style="color:#f92672">,</span> Long<span style="color:#f92672">.</span><span style="color:#a6e22e">MAX_VALUE</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 自定义操作：保留二进制1最多的值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>LongAccumulator acc <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> LongAccumulator<span style="color:#f92672">((</span>a<span style="color:#f92672">,</span> b<span style="color:#f92672">)</span> <span style="color:#f92672">-&gt;</span>
+</span></span><span style="display:flex;"><span>    Integer<span style="color:#f92672">.</span><span style="color:#a6e22e">bitCount</span><span style="color:#f92672">(</span>a<span style="color:#f92672">)</span> <span style="color:#f92672">&gt;=</span> Integer<span style="color:#f92672">.</span><span style="color:#a6e22e">bitCount</span><span style="color:#f92672">(</span>b<span style="color:#f92672">)</span> <span style="color:#f92672">?</span> a <span style="color:#f92672">:</span> b<span style="color:#f92672">,</span> <span style="color:#ae81ff">0</span>L<span style="color:#f92672">);</span>
+</span></span></code></pre></div><h3 id="源码对比">源码对比</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// LongAdder.add()
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">add</span><span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ... casBase(b = base, b + x)  // 固定用加法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// LongAccumulator.accumulate()
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">accumulate</span><span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ... a.cas(v = a.value, fn.applyAsLong(v, x))  // 用自定义函数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h2 id="八jdk-9-增强">八、JDK 9+ 增强</h2>
+<h3 id="81-varhandle">8.1 VarHandle</h3>
+<p>JDK 9 引入 VarHandle，替代 Unsafe 进行原子操作：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Counter</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">volatile</span> <span style="color:#66d9ef">int</span> count<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> VarHandle COUNT<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">static</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            COUNT <span style="color:#f92672">=</span> MethodHandles<span style="color:#f92672">.</span><span style="color:#a6e22e">lookup</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">findVarHandle</span><span style="color:#f92672">(</span>Counter<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;count&#34;</span><span style="color:#f92672">,</span> <span style="color:#66d9ef">int</span><span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error<span style="color:#f92672">(</span>e<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">increment</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        COUNT<span style="color:#f92672">.</span><span style="color:#a6e22e">getAndAdd</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">,</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 等价于 Unsafe.getAndAddInt
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>VarHandle vs Unsafe</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>Unsafe</th>
+<th>VarHandle</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>安全性</td>
+<td>私有API，可能被移除</td>
+<td>标准 API</td>
+</tr>
+<tr>
+<td>访问模式</td>
+<td>有限</td>
+<td>丰富（含屏障语义）</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>相似</td>
+<td>相似</td>
+</tr>
+<tr>
+<td>可移植性</td>
+<td>差</td>
+<td>好</td>
+</tr>
+</tbody>
+</table>
+<h3 id="82-新增访问模式">8.2 新增访问模式</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 获取操作 + 内存屏障语义
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>COUNT<span style="color:#f92672">.</span><span style="color:#a6e22e">getOpaque</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">);</span>      <span style="color:#75715e">// 不保证跨线程即时可见
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>COUNT<span style="color:#f92672">.</span><span style="color:#a6e22e">getAcquire</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">);</span>     <span style="color:#75715e">// acquire 语义（读屏障）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>COUNT<span style="color:#f92672">.</span><span style="color:#a6e22e">setRelease</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">,</span> v<span style="color:#f92672">);</span>  <span style="color:#75715e">// release 语义（写屏障）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// compareAndSet 的变体
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>COUNT<span style="color:#f92672">.</span><span style="color:#a6e22e">weakCompareAndSet</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">,</span> expect<span style="color:#f92672">,</span> update<span style="color:#f92672">);</span>  <span style="color:#75715e">// 弱CAS，可能假失败
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>COUNT<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndExchange</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">,</span> expect<span style="color:#f92672">,</span> update<span style="color:#f92672">);</span>  <span style="color:#75715e">// 返回旧值
+</span></span></span></code></pre></div><h2 id="九性能优化策略">九、性能优化策略</h2>
+<h3 id="91-伪共享false-sharing与-cell-填充">9.1 伪共享（False Sharing）与 Cell 填充</h3>
+<pre tabindex="0"><code>CPU 缓存行（64字节）：
+┌──────────────────────────────────────────────────────────┐
+│ Cell[0].value (8字节) │ padding (56字节)                   │
+└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ Cell[1].value (8字节) │ padding (56字节)                   │
+└──────────────────────────────────────────────────────────┘
+
+如果 Cell[0] 和 Cell[1] 在同一缓存行，
+Thread-1 修改 Cell[0] 会导致 Thread-2 的 Cell[1] 缓存失效！
+</code></pre><p><strong>LongAdder Cell 的填充</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@sun.misc.Contended</span>  <span style="color:#75715e">// JDK 8+ 注解，自动填充
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">static</span> <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Cell</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">volatile</span> <span style="color:#66d9ef">long</span> value<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    Cell<span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> x<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> value <span style="color:#f92672">=</span> x<span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">final</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">cas</span><span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> cmp<span style="color:#f92672">,</span> <span style="color:#66d9ef">long</span> val<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> UNSAFE<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSwapLong</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">,</span> valueOffset<span style="color:#f92672">,</span> cmp<span style="color:#f92672">,</span> val<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><code>@Contended</code> 注解让 JVM 自动在 Cell 之间添加填充，避免伪共享。需要 JVM 参数 <code>-XX:-RestrictContended</code> 才能对用户类生效。</p>
+<h3 id="92-选择合适的原子类">9.2 选择合适的原子类</h3>
+<pre tabindex="0"><code>┌──────────────────────────────────────────────────────┐
+│               选择决策树                               │
+│                                                       │
+│  需要原子操作？                                       │
+│   ├─ 否 → volatile 即可                              │
+│   └─ 是                                               │
+│       ├─ 简单计数/累加？                              │
+│       │   ├─ 低并发 → AtomicLong                      │
+│       │   └─ 高并发 → LongAdder                       │
+│       ├─ 需要自定义操作？                             │
+│       │   └─ LongAccumulator                          │
+│       ├─ 引用类型？                                   │
+│       │   ├─ 有ABA问题？→ AtomicStampedReference     │
+│       │   └─ 无ABA问题？→ AtomicReference            │
+│       ├─ 数组元素？→ AtomicIntegerArray 等            │
+│       └─ 对象字段（节省内存）？→ FieldUpdater         │
+└──────────────────────────────────────────────────────┘
+</code></pre><h2 id="十常见面试题">十、常见面试题</h2>
+<h3 id="q1-cas-和-synchronized-的区别">Q1: CAS 和 synchronized 的区别？</h3>
+<table>
+<thead>
+<tr>
+<th>特性</th>
+<th>CAS</th>
+<th>synchronized</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>实现方式</td>
+<td>CPU 原子指令 + 自旋</td>
+<td>JVM 监视器锁</td>
+</tr>
+<tr>
+<td>阻塞</td>
+<td>不阻塞（自旋）</td>
+<td>阻塞等待</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>竞争不激烈</td>
+<td>竞争激烈/复杂操作</td>
+</tr>
+<tr>
+<td>问题</td>
+<td>自旋消耗CPU、ABA</td>
+<td>线程切换开销</td>
+</tr>
+<tr>
+<td>可重入</td>
+<td>不支持</td>
+<td>支持</td>
+</tr>
+</tbody>
+</table>
+<h3 id="q2-什么情况下-cas-性能不如锁">Q2: 什么情况下 CAS 性能不如锁？</h3>
+<ul>
+<li><strong>竞争非常激烈</strong>：大量线程 CAS 失败自旋，CPU 消耗严重</li>
+<li><strong>操作复杂</strong>：CAS 只能保证单个变量的原子性，多变量操作需要锁</li>
+<li><strong>自旋时间长</strong>：每次 CAS 都失败，不如直接阻塞</li>
+</ul>
+<h3 id="q3-longadder-的-sum-为什么不是强一致的">Q3: LongAdder 的 sum() 为什么不是强一致的？</h3>
+<p>sum() 遍历 Cell 数组时没有加锁，遍历期间其他线程可能修改 Cell。这是一种<strong>最终一致性</strong>的设计选择，牺牲了强一致性来换取高吞吐量。</p>
+<h3 id="q4-为什么-longadder-的-cell-数组最大长度是-ncpu">Q4: 为什么 LongAdder 的 Cell 数组最大长度是 NCPU？</h3>
+<p>Cell 数组的意义是让不同线程操作不同的 Cell，减少 CAS 冲突。但同一时刻只有 NCPU 个线程在真正并行执行，超过 NCPU 个 Cell 没有实际意义。</p>
+<h3 id="q5-atomicstampedreference-的缺点">Q5: AtomicStampedReference 的缺点？</h3>
+<ul>
+<li>每次操作都需要传入版本号，使用复杂</li>
+<li>内部使用 Pair 对象包装，每次 CAS 都创建新 Pair，有 GC 开销</li>
+<li>对于不需要版本号的场景，开销高于普通 AtomicReference</li>
+</ul>
+<h2 id="十一总结">十一、总结</h2>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>类名</th>
+<th>核心机制</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>基础原子类</td>
+<td>AtomicInteger/Long/Reference</td>
+<td>CAS 自旋</td>
+<td>低并发简单操作</td>
+</tr>
+<tr>
+<td>ABA 解决</td>
+<td>AtomicStampedReference</td>
+<td>引用+版本号 CAS</td>
+<td>有 ABA 风险场景</td>
+</tr>
+<tr>
+<td>高性能计数</td>
+<td>LongAdder</td>
+<td>分散热点 Cell</td>
+<td>高并发计数统计</td>
+</tr>
+<tr>
+<td>通用累加</td>
+<td>LongAccumulator</td>
+<td>Cell + 自定义函数</td>
+<td>非加法累加操作</td>
+</tr>
+<tr>
+<td>原子数组</td>
+<td>AtomicIntegerArray</td>
+<td>偏移量计算 + CAS</td>
+<td>数组元素原子操作</td>
+</tr>
+<tr>
+<td>字段更新器</td>
+<td>AtomicIntegerFieldUpdater</td>
+<td>反射 + CAS</td>
+<td>节省对象内存</td>
+</tr>
+</tbody>
+</table>
+<p><strong>核心原则</strong>：</p>
+<ol>
+<li>低并发用 AtomicXxx，高并发计数用 LongAdder</li>
+<li>有 ABA 风险用 StampedReference</li>
+<li>注意伪共享问题，高并发场景用 @Contended</li>
+<li>CAS 自旋消耗 CPU，竞争激烈时考虑锁</li>
+</ol>
+<blockquote>
+<p><strong>下期预告</strong>：《Java 并发编程终极指南：从理论到实战的全景总结》—— 并发编程的核心原则是什么？如何选择合适的并发工具？JUC 框架的最佳实践有哪些？作为 Java 并发系列的收官之作，敬请期待！</p>
+</blockquote>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>

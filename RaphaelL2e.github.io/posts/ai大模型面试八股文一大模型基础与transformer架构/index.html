@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI大模型面试八股文（一）——大模型基础与Transformer架构 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-06-08 <span>/</span> AI </div>
+        <h1>AI大模型面试八股文（一）——大模型基础与Transformer架构</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="ai大模型面试八股文一大模型基础与transformer架构">AI大模型面试八股文（一）——大模型基础与Transformer架构</h1>
+<blockquote>
+<p>面试高频问题：什么是大模型？Transformer的核心原理是什么？自注意力机制如何工作？位置编码为什么重要？本文作为AI大模型系列的开篇，带你从零理解大模型的技术底座。</p>
+</blockquote>
+<h2 id="引言">引言</h2>
+<p>2022年底ChatGPT的发布，标志着AI大模型时代的到来。从GPT系列到LLaMA、Qwen、DeepSeek，大模型已经成为技术面试的必考领域。理解大模型，必须从Transformer开始——它是所有现代大模型的基石。</p>
+<p><strong>本文要点</strong>：</p>
+<ol>
+<li>大模型的定义与发展历程</li>
+<li>Transformer架构全景</li>
+<li>自注意力机制深度解析</li>
+<li>多头注意力与位置编码</li>
+<li>编码器与解码器对比</li>
+<li>面试高频问题精讲</li>
+</ol>
+<h2 id="一大模型基础概念">一、大模型基础概念</h2>
+<h3 id="11-什么是大模型">1.1 什么是大模型？</h3>
+<p>大模型（Large Language Model, LLM）是指参数量巨大（通常数十亿到数万亿）、在海量文本数据上训练的深度学习模型。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>参数量</th>
+<th>发布时间</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPT-3</td>
+<td>1750亿</td>
+<td>2020</td>
+<td>证明规模的力量</td>
+</tr>
+<tr>
+<td>GPT-4</td>
+<td>未公开（推测万亿级）</td>
+<td>2023</td>
+<td>多模态，推理增强</td>
+</tr>
+<tr>
+<td>LLaMA 2</td>
+<td>7B-70B</td>
+<td>2023</td>
+<td>开源里程碑</td>
+</tr>
+<tr>
+<td>Qwen 2.5</td>
+<td>0.5B-72B</td>
+<td>2024</td>
+<td>中文能力强</td>
+</tr>
+<tr>
+<td>DeepSeek-V3</td>
+<td>671B（MoE）</td>
+<td>2024</td>
+<td>MoE架构，性价比极高</td>
+</tr>
+<tr>
+<td>LLaMA 3</td>
+<td>8B-405B</td>
+<td>2024</td>
+<td>开源新标杆</td>
+</tr>
+</tbody>
+</table>
+<h3 id="12-大模型的核心能力">1.2 大模型的核心能力</h3>
+<pre tabindex="0"><code>大模型能力图谱
+├── 语言理解：阅读理解、情感分析、意图识别
+├── 语言生成：对话、写作、翻译、摘要
+├── 推理能力：逻辑推理、数学计算、代码生成
+├── 知识检索：事实问答、百科知识
+├── 指令遵循：按格式输出、遵循约束条件
+└── 多模态：图像理解、语音处理（部分模型）
+</code></pre><h3 id="13-大模型的发展脉络">1.3 大模型的发展脉络</h3>
+<pre tabindex="0"><code>统计NLP → 深度学习NLP → 预训练语言模型 → 大语言模型
+  (2010前)    (2013-2017)     (2018-2020)     (2020-至今)
+    │             │                │                │
+  HMM/NB      CNN/RNN/LSTM     BERT/GPT-1      GPT-3/4
+  规则驱动     序列建模        双向/单向预训练    规模涌现
+</code></pre><p><strong>关键里程碑</strong>：</p>
+<ul>
+<li><strong>2017</strong>：Transformer论文《Attention Is All You Need》发布</li>
+<li><strong>2018</strong>：GPT-1发布，开创&quot;预训练+微调&quot;范式</li>
+<li><strong>2018</strong>：BERT发布，双向预训练刷新NLP记录</li>
+<li><strong>2020</strong>：GPT-3证明&quot;规模即力量&quot;（Scaling Law）</li>
+<li><strong>2022</strong>：ChatGPT展示RLHF对齐的力量</li>
+<li><strong>2023</strong>：开源大模型爆发（LLaMA、Mistral等）</li>
+</ul>
+<h3 id="14-scaling-law规模法则">1.4 Scaling Law（规模法则）</h3>
+<p>OpenAI 2020年提出的经验规律：模型性能与三个因素成幂律关系。</p>
+<pre tabindex="0"><code>Loss ∝ C^(-α)
+
+C = 6ND （计算量）
+N = 模型参数量
+D = 训练数据量（token数）
+
+核心结论：
+1. 增大参数量和数据量都能提升性能
+2. 两者需要同步增长，不能偏废
+3. 计算预算有限时，优先增大模型（Chinchilla结论修正为均衡增长）
+</code></pre><p><strong>面试重点</strong>：Scaling Law告诉我们，大模型不是&quot;大力出奇迹&quot;的盲目堆参数，而是参数、数据、计算三者需要协调增长。</p>
+<h2 id="二transformer架构全景">二、Transformer架构全景</h2>
+<h3 id="21-整体架构">2.1 整体架构</h3>
+<pre tabindex="0"><code>输入序列                              输出序列
+   │                                    ↑
+   ↓                                    │
+┌──────────┐                    ┌──────────────┐
+│ Input    │                    │ Output       │
+│ Embedding│                    │ Embedding    │
+│ + PosEnc │                    │ + PosEnc     │
+└────┬─────┘                    └──────┬───────┘
+     │                                 │
+     ↓                                 ↓
+┌──────────┐                    ┌──────────────┐
+│ Encoder  │                    │ Decoder      │
+│ Block ×N │ ────K,V─────────→ │ Block ×N     │
+│ (自注意力 │                    │ (掩码自注意力 │
+│  + FFN)  │                    │  + 交叉注意力  │
+└──────────┘                    │  + FFN)      │
+                                └──────┬───────┘
+                                       │
+                                       ↓
+                                ┌──────────────┐
+                                │ Linear +     │
+                                │ Softmax      │
+                                └──────────────┘
+</code></pre><p><strong>关键设计</strong>：</p>
+<ul>
+<li><strong>Encoder</strong>：理解输入（双向注意力）</li>
+<li><strong>Decoder</strong>：生成输出（单向掩码注意力）</li>
+<li><strong>残差连接</strong> + <strong>层归一化</strong>：每个子层后</li>
+</ul>
+<h3 id="22-数据流详解">2.2 数据流详解</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># Transformer数据流（伪代码）</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 1. 输入嵌入</span>
+</span></span><span style="display:flex;"><span>x <span style="color:#f92672">=</span> embedding(input_tokens)        <span style="color:#75715e"># [batch, seq_len, d_model]</span>
+</span></span><span style="display:flex;"><span>x <span style="color:#f92672">=</span> x <span style="color:#f92672">+</span> positional_encoding(seq_len)  <span style="color:#75715e"># 加入位置信息</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 2. Encoder</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> encoder_block <span style="color:#f92672">in</span> encoder_blocks:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 自注意力</span>
+</span></span><span style="display:flex;"><span>    attn_out <span style="color:#f92672">=</span> multi_head_attention(x, x, x)  <span style="color:#75715e"># Q=K=V=x</span>
+</span></span><span style="display:flex;"><span>    x <span style="color:#f92672">=</span> layer_norm(x <span style="color:#f92672">+</span> attn_out)               <span style="color:#75715e"># 残差 + LN</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 前馈网络</span>
+</span></span><span style="display:flex;"><span>    ff_out <span style="color:#f92672">=</span> feed_forward(x)
+</span></span><span style="display:flex;"><span>    x <span style="color:#f92672">=</span> layer_norm(x <span style="color:#f92672">+</span> ff_out)                 <span style="color:#75715e"># 残差 + LN</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 3. Decoder</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">for</span> decoder_block <span style="color:#f92672">in</span> decoder_blocks:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 掩码自注意力（不能看到未来token）</span>
+</span></span><span style="display:flex;"><span>    attn1 <span style="color:#f92672">=</span> masked_multi_head_attention(y, y, y)
+</span></span><span style="display:flex;"><span>    y <span style="color:#f92672">=</span> layer_norm(y <span style="color:#f92672">+</span> attn1)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 交叉注意力（Q来自decoder, K/V来自encoder）</span>
+</span></span><span style="display:flex;"><span>    attn2 <span style="color:#f92672">=</span> multi_head_attention(y, encoder_out, encoder_out)
+</span></span><span style="display:flex;"><span>    y <span style="color:#f92672">=</span> layer_norm(y <span style="color:#f92672">+</span> attn2)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 前馈网络</span>
+</span></span><span style="display:flex;"><span>    ff_out <span style="color:#f92672">=</span> feed_forward(y)
+</span></span><span style="display:flex;"><span>    y <span style="color:#f92672">=</span> layer_norm(y <span style="color:#f92672">+</span> ff_out)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 4. 输出</span>
+</span></span><span style="display:flex;"><span>logits <span style="color:#f92672">=</span> linear(y)                  <span style="color:#75715e"># [batch, seq_len, vocab_size]</span>
+</span></span><span style="display:flex;"><span>probs <span style="color:#f92672">=</span> softmax(logits)
+</span></span></code></pre></div><h2 id="三自注意力机制深度解析">三、自注意力机制深度解析</h2>
+<h3 id="31-为什么需要注意力">3.1 为什么需要注意力？</h3>
+<p><strong>RNN的问题</strong>：</p>
+<ul>
+<li>顺序计算，无法并行</li>
+<li>长距离依赖衰减（梯度消失）</li>
+<li>固定大小的隐状态瓶颈</li>
+</ul>
+<p><strong>注意力的核心思想</strong>：每个位置可以直接&quot;关注&quot;序列中的任意其他位置，一步到位获取全局信息。</p>
+<h3 id="32-自注意力计算过程">3.2 自注意力计算过程</h3>
+<pre tabindex="0"><code>输入: X [seq_len, d_model]
+
+步骤1: 线性变换生成Q、K、V
+  Q = X × W_Q    [seq_len, d_k]
+  K = X × W_K    [seq_len, d_k]
+  V = X × W_V    [seq_len, d_v]
+
+步骤2: 计算注意力分数
+  scores = Q × K^T / √d_k    [seq_len, seq_len]
+
+步骤3: Softmax归一化
+  attn_weights = softmax(scores)    [seq_len, seq_len]
+
+步骤4: 加权求和
+  output = attn_weights × V    [seq_len, d_v]
+</code></pre><h3 id="33-缩放因子d_k的作用">3.3 缩放因子√d_k的作用</h3>
+<p><strong>问题</strong>：当d_k较大时，Q·K的点积值方差大，导致softmax进入饱和区，梯度极小。</p>
+<p><strong>数学推导</strong>：</p>
+<pre tabindex="0"><code>假设q和k的各元素独立、均值0、方差1
+
+则 q·k = Σ(q_i × k_i)，共d_k项
+
+E[q·k] = 0
+Var[q·k] = d_k
+
+标准差 = √d_k
+
+→ 点积值可能很大，softmax梯度趋近于0
+→ 除以√d_k，将方差归一化为1
+</code></pre><p><strong>面试回答</strong>：除以√d_k是为了防止点积值过大导致softmax饱和，使梯度消失。这是&quot;缩放点积注意力&quot;名称的由来。</p>
+<h3 id="34-直觉理解">3.4 直觉理解</h3>
+<pre tabindex="0"><code>自注意力的本质：让序列中的每个位置，通过&#34;查询&#34;找到相关的&#34;键&#34;，然后提取对应的&#34;值&#34;
+
+类比图书馆：
+- Q (Query):  &#34;我想找关于Java并发的书&#34;
+- K (Key):    每本书的标签/索引（&#34;Java&#34;, &#34;并发&#34;, &#34;数据库&#34;）
+- V (Value):  书的实际内容
+
+注意力 = Q与K的匹配程度 → 决定从V中提取多少信息
+</code></pre><h3 id="35-自注意力-vs-卷积-vs-循环">3.5 自注意力 vs 卷积 vs 循环</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>自注意力</th>
+<th>卷积</th>
+<th>循环</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>最大路径长度</td>
+<td>O(1)</td>
+<td>O(log n)</td>
+<td>O(n)</td>
+</tr>
+<tr>
+<td>每层复杂度</td>
+<td>O(n²·d)</td>
+<td>O(k·n·d)</td>
+<td>O(n·d)</td>
+</tr>
+<tr>
+<td>并行度</td>
+<td>完全并行</td>
+<td>完全并行</td>
+<td>顺序</td>
+</tr>
+<tr>
+<td>长距离依赖</td>
+<td>强</td>
+<td>弱</td>
+<td>弱</td>
+</tr>
+</tbody>
+</table>
+<p><strong>结论</strong>：自注意力在长距离建模上最强，但O(n²)复杂度是瓶颈。</p>
+<h2 id="四多头注意力">四、多头注意力</h2>
+<h3 id="41-为什么要多头">4.1 为什么要多头？</h3>
+<p>单头注意力只能学习一种&quot;关注模式&quot;，多头让模型同时关注不同子空间的不同模式。</p>
+<pre tabindex="0"><code>例如翻译 &#34;The animal didn&#39;t cross the street because it was too tired&#34;
+
+- 头1可能关注 &#34;it&#34; → &#34;animal&#34;（指代消解）
+- 头2可能关注 &#34;it&#34; → &#34;tired&#34;（语义关联）
+- 头3可能关注位置关系（语法结构）
+</code></pre><h3 id="42-多头注意力计算">4.2 多头注意力计算</h3>
+<pre tabindex="0"><code>输入: X [batch, seq_len, d_model]
+
+对每个头h (共h个头):
+  Q_h = X × W_Q_h    [batch, seq_len, d_k]    d_k = d_model / h
+  K_h = X × W_K_h    [batch, seq_len, d_k]
+  V_h = X × W_V_h    [batch, seq_len, d_k]
+  
+  head_h = Attention(Q_h, K_h, V_h)    [batch, seq_len, d_k]
+
+拼接所有头:
+  MultiHead = Concat(head_1, ..., head_h)    [batch, seq_len, d_model]
+
+最终投影:
+  output = MultiHead × W_O    [batch, seq_len, d_model]
+</code></pre><p><strong>关键约束</strong>：d_k × h = d_model，保证计算量与单头相当。</p>
+<h3 id="43-常见配置">4.3 常见配置</h3>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>d_model</th>
+<th>头数h</th>
+<th>d_k</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Transformer-base</td>
+<td>512</td>
+<td>8</td>
+<td>64</td>
+</tr>
+<tr>
+<td>Transformer-large</td>
+<td>1024</td>
+<td>16</td>
+<td>64</td>
+</tr>
+<tr>
+<td>GPT-2</td>
+<td>768/1024/1280</td>
+<td>12/16/20</td>
+<td>64</td>
+</tr>
+<tr>
+<td>GPT-3</td>
+<td>12288</td>
+<td>96</td>
+<td>128</td>
+</tr>
+<tr>
+<td>LLaMA 2-70B</td>
+<td>8192</td>
+<td>64</td>
+<td>128</td>
+</tr>
+</tbody>
+</table>
+<p><strong>趋势</strong>：d_k通常在64-128之间，增加模型大小时主要增加头数和d_model。</p>
+<h2 id="五位置编码">五、位置编码</h2>
+<h3 id="51-为什么需要位置编码">5.1 为什么需要位置编码？</h3>
+<p>自注意力是<strong>置换不变</strong>的（permutation invariant）：</p>
+<pre tabindex="0"><code>Attention([A, B, C]) 与 Attention([C, A, B]) 的输出关系
+≠ 位置交换，而是完全不同的语义
+
+但自注意力本身无法区分位置顺序
+→ 需要显式注入位置信息
+</code></pre><h3 id="52-正弦位置编码原始transformer">5.2 正弦位置编码（原始Transformer）</h3>
+<pre tabindex="0"><code>PE(pos, 2i)   = sin(pos / 10000^(2i/d_model))
+PE(pos, 2i+1) = cos(pos / 10000^(2i/d_model))
+
+pos: 位置索引
+i:   维度索引（0到d_model/2）
+</code></pre><p><strong>特性</strong>：</p>
+<ul>
+<li>每个维度对应不同频率的正弦/余弦波</li>
+<li>低维高频，高维低频</li>
+<li>可以通过线性变换表示相对位置</li>
+</ul>
+<h3 id="53-学习式位置编码bertgpt">5.3 学习式位置编码（BERT/GPT）</h3>
+<pre tabindex="0"><code>PE = 可训练参数 [max_seq_len, d_model]
+
+优点：灵活，可以学习最优的位置表示
+缺点：无法外推到比训练更长的序列
+</code></pre><h3 id="54-旋转位置编码ropellama系列">5.4 旋转位置编码RoPE（LLaMA系列）</h3>
+<pre tabindex="0"><code>核心思想：在复数空间中对Q和K施加旋转，内积自然编码相对位置
+
+q_m = q × e^(i·m·θ)    位置m的query
+k_n = k × e^(i·n·θ)    位置n的key
+
+q_m · k_n = q · k × e^(i·(m-n)·θ)
+                          ↑
+                   只依赖相对位置m-n
+
+优点：
+1. 自然编码相对位置
+2. 理论上可外推
+3. 计算高效
+</code></pre><p><strong>面试重点</strong>：RoPE是当前大模型的主流选择（LLaMA、Qwen、DeepSeek等），因为它能自然地编码相对位置关系。</p>
+<h3 id="55-位置编码对比">5.5 位置编码对比</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>代表模型</th>
+<th>可外推</th>
+<th>相对位置</th>
+<th>复杂度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>正弦编码</td>
+<td>原始Transformer</td>
+<td>部分</td>
+<td>是</td>
+<td>O(1)</td>
+</tr>
+<tr>
+<td>学习式</td>
+<td>BERT, GPT</td>
+<td>否</td>
+<td>否</td>
+<td>O(1)</td>
+</tr>
+<tr>
+<td>RoPE</td>
+<td>LLaMA, Qwen</td>
+<td>是</td>
+<td>是</td>
+<td>O(1)</td>
+</tr>
+<tr>
+<td>ALiBi</td>
+<td>BLOOM</td>
+<td>是</td>
+<td>是</td>
+<td>O(n)</td>
+</tr>
+<tr>
+<td>1D-RoPE</td>
+<td>大多数新模型</td>
+<td>是</td>
+<td>是</td>
+<td>O(1)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="六encoder-vs-decoder">六、Encoder vs Decoder</h2>
+<h3 id="61-架构对比">6.1 架构对比</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Encoder-only</th>
+<th>Decoder-only</th>
+<th>Encoder-Decoder</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>代表</td>
+<td>BERT</td>
+<td>GPT系列</td>
+<td>T5, BART</td>
+</tr>
+<tr>
+<td>注意力</td>
+<td>双向</td>
+<td>单向（掩码）</td>
+<td>编码双向+解码单向</td>
+</tr>
+<tr>
+<td>训练目标</td>
+<td>MLM（掩码语言模型）</td>
+<td>CLM（因果语言模型）</td>
+<td>Seq2Seq</td>
+</tr>
+<tr>
+<td>擅长</td>
+<td>理解任务</td>
+<td>生成任务</td>
+<td>翻译、摘要</td>
+</tr>
+<tr>
+<td>生成能力</td>
+<td>弱</td>
+<td>强</td>
+<td>中等</td>
+</tr>
+</tbody>
+</table>
+<h3 id="62-为什么gpt选择了decoder-only">6.2 为什么GPT选择了Decoder-only？</h3>
+<pre tabindex="0"><code>1. 生成任务的天然适配
+   自回归生成：P(x_t | x_1, ..., x_{t-1})
+   掩码注意力保证只看前文，防止信息泄漏
+
+2. 统一的预训练目标
+   CLM：预测下一个token
+   无需额外任务设计，数据利用率高
+
+3. Scaling Law的优势
+   GPT-3论文证明：更大模型+更多数据=更强能力
+   单向注意力更适合规模扩展
+
+4. In-context Learning的涌现
+   GPT-3发现：模型大到一定程度，无需微调就能理解指令
+   这是Decoder-only架构的独特涌现能力
+</code></pre><h3 id="63-decoder掩码注意力">6.3 Decoder掩码注意力</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># 因果掩码（Causal Mask）</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 防止当前位置看到未来token</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>mask <span style="color:#f92672">=</span> torch<span style="color:#f92672">.</span>triu(torch<span style="color:#f92672">.</span>ones(seq_len, seq_len), diagonal<span style="color:#f92672">=</span><span style="color:#ae81ff">1</span>)<span style="color:#f92672">.</span>bool()
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># mask[i][j] = True 当 j &gt; i，表示位置i不能看到位置j</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>scores <span style="color:#f92672">=</span> scores<span style="color:#f92672">.</span>masked_fill(mask, float(<span style="color:#e6db74">&#39;-inf&#39;</span>))
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 将未来位置的分数设为负无穷，softmax后为0</span>
+</span></span></code></pre></div><pre tabindex="0"><code>掩码矩阵示意（✓=可见，✗=屏蔽）：
+      位置0  位置1  位置2  位置3
+位置0   ✓     ✗     ✗     ✗
+位置1   ✓     ✓     ✗     ✗
+位置2   ✓     ✓     ✓     ✗
+位置3   ✓     ✓     ✓     ✓
+</code></pre><h2 id="七前馈网络ffn">七、前馈网络（FFN）</h2>
+<h3 id="71-标准ffn">7.1 标准FFN</h3>
+<pre tabindex="0"><code>FFN(x) = ReLU(x × W_1 + b_1) × W_2 + b_2
+
+d_model → d_ff → d_model
+典型: 512 → 2048 → 512 (d_ff = 4 × d_model)
+</code></pre><h3 id="72-glu变体llama使用">7.2 GLU变体（LLaMA使用）</h3>
+<pre tabindex="0"><code>SwiGLU(x) = (Swish(x × W_1) ⊙ (x × V)) × W_2
+
+Swish(x) = x × σ(βx)  （σ是sigmoid）
+
+门控机制：V矩阵作为门控，控制信息流
+比ReLU性能更好，当前大模型主流选择
+</code></pre><h3 id="73-ffn的作用">7.3 FFN的作用</h3>
+<pre tabindex="0"><code>注意力层：信息交流（token之间传递信息）
+FFN层：  信息变换（每个token独立变换表示）
+
+类比：
+注意力 = 通信（讨论问题）
+FFN    = 思考（独立消化信息）
+</code></pre><p><strong>研究发现</strong>：FFN可能充当&quot;键值存储&quot;，第一层是键，第二层是值，存储了模型的事实知识。</p>
+<h2 id="八layer-normalization">八、Layer Normalization</h2>
+<h3 id="81-post-ln-vs-pre-ln">8.1 Post-LN vs Pre-LN</h3>
+<pre tabindex="0"><code>Post-LN（原始Transformer）:
+  x = LayerNorm(x + Sublayer(x))
+  问题：训练不稳定，需要warm-up
+
+Pre-LN（GPT-2及之后主流）:
+  x = x + Sublayer(LayerNorm(x))
+  优点：训练稳定，不需要warm-up
+</code></pre><h3 id="82-rmsnormllama使用">8.2 RMSNorm（LLaMA使用）</h3>
+<pre tabindex="0"><code>LayerNorm: 归一化均值和方差
+RMSNorm:   只归一化均方根，去掉均值偏移
+
+RMSNorm(x) = x / √(mean(x²) + ε) × γ
+
+优点：计算量减少约10%，性能基本持平
+</code></pre><h2 id="九面试高频问题">九、面试高频问题</h2>
+<h3 id="q1-transformer为什么比rnn好">Q1: Transformer为什么比RNN好？</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Transformer</th>
+<th>RNN</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>并行</td>
+<td>完全并行</td>
+<td>顺序</td>
+</tr>
+<tr>
+<td>长距离</td>
+<td>O(1)直达</td>
+<td>O(n)衰减</td>
+</tr>
+<tr>
+<td>训练速度</td>
+<td>快（GPU友好）</td>
+<td>慢</td>
+</tr>
+<tr>
+<td>灵活性</td>
+<td>自由组合注意力</td>
+<td>固定隐状态</td>
+</tr>
+</tbody>
+</table>
+<h3 id="q2-自注意力的复杂度怎么优化">Q2: 自注意力的复杂度怎么优化？</h3>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>复杂度</th>
+<th>代表</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>标准注意力</td>
+<td>O(n²)</td>
+<td>原始Transformer</td>
+</tr>
+<tr>
+<td>稀疏注意力</td>
+<td>O(n√n)</td>
+<td>Longformer</td>
+</tr>
+<tr>
+<td>线性注意力</td>
+<td>O(n)</td>
+<td>Linear Transformer</td>
+</tr>
+<tr>
+<td>Flash Attention</td>
+<td>O(n²)但内存O(n)</td>
+<td>FlashAttention-1/2/3</td>
+</tr>
+<tr>
+<td>滑动窗口</td>
+<td>O(n·w)</td>
+<td>Mistral</td>
+</tr>
+</tbody>
+</table>
+<p><strong>注意</strong>：Flash Attention不改变计算复杂度，但通过IO优化大幅减少显存访问，是当前实际使用的标准方案。</p>
+<h3 id="q3-bert和gpt的区别">Q3: BERT和GPT的区别？</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>BERT</th>
+<th>GPT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>架构</td>
+<td>Encoder-only</td>
+<td>Decoder-only</td>
+</tr>
+<tr>
+<td>注意力</td>
+<td>双向</td>
+<td>单向</td>
+</tr>
+<tr>
+<td>预训练</td>
+<td>MLM（填空）</td>
+<td>CLM（续写）</td>
+</tr>
+<tr>
+<td>微调</td>
+<td>判别任务</td>
+<td>生成任务</td>
+</tr>
+<tr>
+<td>代表应用</td>
+<td>文本分类、NER</td>
+<td>对话、写作</td>
+</tr>
+</tbody>
+</table>
+<h3 id="q4-什么是涌现能力emergent-abilities">Q4: 什么是涌现能力（Emergent Abilities）？</h3>
+<pre tabindex="0"><code>定义：小模型没有，大模型突然出现的能力
+
+典型涌现能力：
+1. In-context Learning（上下文学习）
+2. Chain-of-Thought（思维链推理）
+3. 指令遵循
+4. 代码生成
+
+关键研究：
+- 2022年Google论文发现：能力在特定规模阈值后突然出现
+- 后续研究质疑：可能是评估指标导致的&#34;假象&#34;
+- 争议仍在继续，但大模型能力提升是事实
+</code></pre><h3 id="q5-大模型的token是什么">Q5: 大模型的token是什么？</h3>
+<pre tabindex="0"><code>Token = 文本的最小处理单位
+
+主流分词方法：BPE (Byte Pair Encoding)
+1. 从字符级别开始
+2. 统计高频字符对，合并为新token
+3. 重复直到达到目标词表大小
+
+示例：
+&#34;hello world&#34; → [&#34;hel&#34;, &#34;lo&#34;, &#34; world&#34;]
+
+词表大小：
+- GPT-2: 50,257
+- GPT-4: ~100,000
+- LLaMA 2: 32,000
+- Qwen 2.5: 151,643（中文友好）
+
+关键：中文1个字≈1-2个token，英文1个单词≈1-1.5个token
+</code></pre><h2 id="十总结">十、总结</h2>
+<p><strong>本文核心知识</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>关键要点</th>
+<th>面试重点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>大模型基础</td>
+<td>参数量大、涌现能力、Scaling Law</td>
+<td>规模法则三要素</td>
+</tr>
+<tr>
+<td>Transformer</td>
+<td>Encoder-Decoder架构</td>
+<td>数据流走向</td>
+</tr>
+<tr>
+<td>自注意力</td>
+<td>Q·K^T/√d_k × V</td>
+<td>√d_k的缩放作用</td>
+</tr>
+<tr>
+<td>多头注意力</td>
+<td>多子空间并行关注</td>
+<td>d_k×h=d_model</td>
+</tr>
+<tr>
+<td>位置编码</td>
+<td>正弦/学习/RoPE/ALiBi</td>
+<td>RoPE的相对位置编码</td>
+</tr>
+<tr>
+<td>Encoder vs Decoder</td>
+<td>双向vs单向</td>
+<td>GPT选择Decoder的原因</td>
+</tr>
+<tr>
+<td>FFN</td>
+<td>信息变换/键值存储</td>
+<td>SwiGLU优于ReLU</td>
+</tr>
+<tr>
+<td>Layer Norm</td>
+<td>Post-LN vs Pre-LN</td>
+<td>Pre-LN更稳定</td>
+</tr>
+</tbody>
+</table>
+<p><strong>核心记忆口诀</strong>：</p>
+<ol>
+<li><strong>注意力三件套</strong>：Q查K配V取值</li>
+<li><strong>缩放因子</strong>：除以√d_k防饱和</li>
+<li><strong>多头</strong>：不同头看不同模式</li>
+<li><strong>位置编码</strong>：RoPE编码相对位置</li>
+<li><strong>Decoder-only</strong>：统一目标，规模涌现</li>
+</ol>
+<hr>
+<blockquote>
+<p><strong>下期预告</strong>：《AI大模型面试八股文（二）——大模型训练与微调技术》— 预训练怎么做？SFT和RLHF有什么区别？LoRA等参数高效微调的原理是什么？带你深入理解大模型从训练到对齐的完整流程，敬请期待！</p>
+</blockquote>
+<hr>
+<p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java设计模式（十六）：外观模式实战解析 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-04-22 <span>/</span> JAVA </div>
+        <h1>Java设计模式（十六）：外观模式实战解析</h1>
+    </div>
+    <div class="post-content">
+        <h2 id="前言">前言</h2>
+<p>外观模式（Facade Pattern）是一种结构型设计模式，它的核心思想是：<strong>为子系统中的一组接口提供一个一致的界面（Facade），使得子系统更加容易使用</strong>。</p>
+<p><strong>核心思想</strong>：封装复杂性，提供简化的高层接口。</p>
+<h2 id="一为什么需要外观模式">一、为什么需要外观模式</h2>
+<h3 id="11-子系统复杂性">1.1 子系统复杂性</h3>
+<p>假设我们正在开发一个智能家居系统，有灯光、空调、音响、窗帘等多个子系统：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 不用外观模式：客户端需要了解所有子系统的细节
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Client</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">watchMovie</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        Light light <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Light<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        light<span style="color:#f92672">.</span><span style="color:#a6e22e">dim</span><span style="color:#f92672">(</span><span style="color:#ae81ff">20</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        AirConditioner ac <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AirConditioner<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span><span style="color:#ae81ff">24</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setMode</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;cooling&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setFanSpeed</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;medium&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        SoundSystem sound <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SoundSystem<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">setVolume</span><span style="color:#f92672">(</span><span style="color:#ae81ff">30</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">setSurround</span><span style="color:#f92672">(</span><span style="color:#66d9ef">true</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">setInput</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;HDMI&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        Projector projector <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Projector<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">setInput</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;HDMI&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">setMode</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;cinema&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        Curtain curtain <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Curtain<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        curtain<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>客户端需要了解每个子系统的初始化细节和调用顺序，耦合度极高。外观模式将这些复杂性封装在一个简单的接口后面。</p>
+<h3 id="12-迪米特法则">1.2 迪米特法则</h3>
+<p>外观模式符合迪米特法则（Law of Demeter）：一个对象应该对其他对象有尽可能少的了解。客户端只需要与外观对象交互，不需要了解子系统内部结构。</p>
+<h2 id="二外观模式的结构">二、外观模式的结构</h2>
+<h3 id="21-类图">2.1 类图</h3>
+<pre tabindex="0"><code>┌───────────┐      ┌──────────────┐
+│  Client   │─────&gt;│   Facade     │
+└───────────┘      │──────────────│
+                   │ +operation() │
+                   └──────┬───────┘
+                          │
+          ┌───────┬───────┼───────┬───────┐
+          │       │       │       │       │
+     ┌────┴──┐ ┌──┴───┐ ┌┴────┐ ┌┴─────┐ ┌┴──────┐
+     │Sub A  │ │Sub B │ │Sub C│ │Sub D │ │Sub E  │
+     └───────┘ └──────┘ └─────┘ └──────┘ └───────┘
+</code></pre><h3 id="22-核心角色">2.2 核心角色</h3>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Facade（外观）</td>
+<td>提供简化的高层接口，委托子系统完成工作</td>
+</tr>
+<tr>
+<td>Subsystem（子系统）</td>
+<td>实现具体功能，不知道 Facade 的存在</td>
+</tr>
+<tr>
+<td>Client（客户端）</td>
+<td>通过 Facade 与子系统交互</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-关键特点">2.3 关键特点</h3>
+<p>外观模式没有抽象层，不像其他模式那样有复杂的继承体系。它的核心就是<strong>封装和委托</strong>：</p>
+<ul>
+<li>Facade 知道哪些子系统负责处理哪些请求</li>
+<li>子系统不知道 Facade 的存在</li>
+<li>客户端只与 Facade 交互</li>
+</ul>
+<h3 id="24-完整实现">2.4 完整实现</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// ========== 1. 子系统：灯光 ==========
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Light</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">turnOn</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;💡 灯光已开启&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">turnOff</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;💡 灯光已关闭&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">dim</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> level<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;💡 灯光调暗至 &#34;</span> <span style="color:#f92672">+</span> level <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;%&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 2. 子系统：空调 ==========
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AirConditioner</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> temperature <span style="color:#f92672">=</span> <span style="color:#ae81ff">26</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> String mode <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;auto&#34;</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">turnOn</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;❄️ 空调已开启&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">turnOff</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;❄️ 空调已关闭&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> temp<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">temperature</span> <span style="color:#f92672">=</span> temp<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;❄️ 空调温度设为 &#34;</span> <span style="color:#f92672">+</span> temp <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;°C&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setMode</span><span style="color:#f92672">(</span>String mode<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">mode</span> <span style="color:#f92672">=</span> mode<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;❄️ 空调模式设为 &#34;</span> <span style="color:#f92672">+</span> mode<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 3. 子系统：音响 ==========
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SoundSystem</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> volume <span style="color:#f92672">=</span> <span style="color:#ae81ff">20</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">turnOn</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🔊 音响已开启&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">turnOff</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🔊 音响已关闭&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setVolume</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> vol<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">volume</span> <span style="color:#f92672">=</span> vol<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🔊 音量设为 &#34;</span> <span style="color:#f92672">+</span> vol<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setSurround</span><span style="color:#f92672">(</span><span style="color:#66d9ef">boolean</span> enable<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🔊 环绕声 &#34;</span> <span style="color:#f92672">+</span> <span style="color:#f92672">(</span>enable <span style="color:#f92672">?</span> <span style="color:#e6db74">&#34;开启&#34;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;关闭&#34;</span><span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 4. 子系统：投影仪 ==========
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Projector</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">turnOn</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;📽️ 投影仪已开启&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">turnOff</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;📽️ 投影仪已关闭&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setInput</span><span style="color:#f92672">(</span>String input<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;📽️ 输入源设为 &#34;</span> <span style="color:#f92672">+</span> input<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setMode</span><span style="color:#f92672">(</span>String mode<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;📽️ 显示模式设为 &#34;</span> <span style="color:#f92672">+</span> mode<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 5. 子系统：窗帘 ==========
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Curtain</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">open</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🪟 窗帘已打开&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">close</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🪟 窗帘已关闭&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 6. 外观：智能家居控制 ==========
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SmartHomeFacade</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Light light<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> AirConditioner ac<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> SoundSystem sound<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Projector projector<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Curtain curtain<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">SmartHomeFacade</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">light</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Light<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">ac</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AirConditioner<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">sound</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SoundSystem<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">projector</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Projector<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">curtain</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Curtain<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 场景1：看电影
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">watchMovie</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🎬 准备看电影...&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        curtain<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        light<span style="color:#f92672">.</span><span style="color:#a6e22e">dim</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span><span style="color:#ae81ff">24</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setMode</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;cooling&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">setInput</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;HDMI&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">setMode</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;cinema&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">setSurround</span><span style="color:#f92672">(</span><span style="color:#66d9ef">true</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">setVolume</span><span style="color:#f92672">(</span><span style="color:#ae81ff">30</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🎬 电影模式就绪！&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 场景2：结束电影
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">endMovie</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🎬 结束电影...&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOff</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOff</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        light<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        curtain<span style="color:#f92672">.</span><span style="color:#a6e22e">open</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🎬 已退出电影模式&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 场景3：阅读模式
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">readingMode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;📖 进入阅读模式...&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        curtain<span style="color:#f92672">.</span><span style="color:#a6e22e">open</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        light<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span><span style="color:#ae81ff">25</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setMode</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;auto&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOff</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;📖 阅读模式就绪！&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 场景4：睡眠模式
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">sleepMode</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;😴 进入睡眠模式...&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        light<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOff</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        curtain<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOff</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOff</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span><span style="color:#ae81ff">26</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setMode</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;sleep&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;😴 睡眠模式就绪！&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 7. 客户端 ==========
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SmartHomeDemo</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        SmartHomeFacade smartHome <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SmartHomeFacade<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 简单的接口调用，无需了解子系统细节
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        smartHome<span style="color:#f92672">.</span><span style="color:#a6e22e">watchMovie</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        smartHome<span style="color:#f92672">.</span><span style="color:#a6e22e">endMovie</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        smartHome<span style="color:#f92672">.</span><span style="color:#a6e22e">readingMode</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        smartHome<span style="color:#f92672">.</span><span style="color:#a6e22e">sleepMode</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>运行结果：</p>
+<pre tabindex="0"><code>🎬 准备看电影...
+🪟 窗帘已关闭
+💡 灯光调暗至 10%
+❄️ 空调温度设为 24°C
+❄️ 空调模式设为 cooling
+❄️ 空调已开启
+📽️ 输入源设为 HDMI
+📽️ 显示模式设为 cinema
+📽️ 投影仪已开启
+🔊 环绕声 开启
+🔊 音量设为 30
+🔊 音响已开启
+🎬 电影模式就绪！
+
+🎬 结束电影...
+🔊 音响已关闭
+📽️ 投影仪已关闭
+💡 灯光已开启
+🪟 窗帘已打开
+🎬 已退出电影模式
+
+📖 进入阅读模式...
+🪟 窗帘已打开
+💡 灯光已开启
+❄️ 空调温度设为 25°C
+❄️ 空调模式设为 auto
+❄️ 空调已开启
+🔊 音响已关闭
+📖 阅读模式就绪！
+
+😴 进入睡眠模式...
+💡 灯光已关闭
+🪟 窗帘已关闭
+🔊 音响已关闭
+📽️ 投影仪已关闭
+❄️ 空调温度设为 26°C
+❄️ 空调模式设为 sleep
+❄️ 空调已开启
+😴 睡眠模式就绪！
+</code></pre><h2 id="三外观模式的高级用法">三、外观模式的高级用法</h2>
+<h3 id="31-分层外观">3.1 分层外观</h3>
+<p>对于特别复杂的系统，可以创建多层外观：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 底层外观：娱乐系统
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EntertainmentFacade</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> SoundSystem sound<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Projector projector<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">startEntertainment</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">setInput</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;HDMI&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">setSurround</span><span style="color:#f92672">(</span><span style="color:#66d9ef">true</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">stopEntertainment</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOff</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        projector<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOff</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 底层外观：环境系统
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EnvironmentFacade</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Light light<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> AirConditioner ac<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Curtain curtain<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setCinemaEnvironment</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        curtain<span style="color:#f92672">.</span><span style="color:#a6e22e">close</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        light<span style="color:#f92672">.</span><span style="color:#a6e22e">dim</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span><span style="color:#ae81ff">24</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">setNormalEnvironment</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        curtain<span style="color:#f92672">.</span><span style="color:#a6e22e">open</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        light<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 高层外观：组合底层外观
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SmartHomeMasterFacade</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> EntertainmentFacade entertainment<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> EnvironmentFacade environment<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">watchMovie</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        environment<span style="color:#f92672">.</span><span style="color:#a6e22e">setCinemaEnvironment</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        entertainment<span style="color:#f92672">.</span><span style="color:#a6e22e">startEntertainment</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">endMovie</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        entertainment<span style="color:#f92672">.</span><span style="color:#a6e22e">stopEntertainment</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        environment<span style="color:#f92672">.</span><span style="color:#a6e22e">setNormalEnvironment</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="32-外观与枚举场景">3.2 外观与枚举场景</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SmartHomeEnumFacade</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">enum</span> Scene <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        MOVIE<span style="color:#f92672">,</span> READING<span style="color:#f92672">,</span> SLEEP<span style="color:#f92672">,</span> PARTY
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Light light <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Light<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> AirConditioner ac <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AirConditioner<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> SoundSystem sound <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SoundSystem<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">applyScene</span><span style="color:#f92672">(</span>Scene scene<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">switch</span> <span style="color:#f92672">(</span>scene<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">case</span> MOVIE<span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>                light<span style="color:#f92672">.</span><span style="color:#a6e22e">dim</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span><span style="color:#ae81ff">24</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                sound<span style="color:#f92672">.</span><span style="color:#a6e22e">setVolume</span><span style="color:#f92672">(</span><span style="color:#ae81ff">30</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">case</span> READING<span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>                light<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span><span style="color:#ae81ff">25</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">case</span> SLEEP<span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>                light<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOff</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setMode</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;sleep&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">case</span> PARTY<span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>                light<span style="color:#f92672">.</span><span style="color:#a6e22e">dim</span><span style="color:#f92672">(</span><span style="color:#ae81ff">50</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span><span style="color:#ae81ff">22</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                sound<span style="color:#f92672">.</span><span style="color:#a6e22e">setVolume</span><span style="color:#f92672">(</span><span style="color:#ae81ff">60</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">break</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="33-外观模式与建造者模式结合">3.3 外观模式与建造者模式结合</h3>
+<p>为复杂的外观操作提供流式接口：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SmartHomeBuilderFacade</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Light light <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Light<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> AirConditioner ac <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> AirConditioner<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> SoundSystem sound <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SoundSystem<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> SceneBuilder <span style="color:#a6e22e">createScene</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> SceneBuilder<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SceneBuilder</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> lightLevel <span style="color:#f92672">=</span> <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> temperature <span style="color:#f92672">=</span> <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> volume <span style="color:#f92672">=</span> <span style="color:#f92672">-</span><span style="color:#ae81ff">1</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">public</span> SceneBuilder <span style="color:#a6e22e">withLight</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> level<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">lightLevel</span> <span style="color:#f92672">=</span> level<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">public</span> SceneBuilder <span style="color:#a6e22e">withTemperature</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> temp<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">temperature</span> <span style="color:#f92672">=</span> temp<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">public</span> SceneBuilder <span style="color:#a6e22e">withSound</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> vol<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">volume</span> <span style="color:#f92672">=</span> vol<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">apply</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>lightLevel <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>lightLevel <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">)</span> light<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOff</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">else</span> light<span style="color:#f92672">.</span><span style="color:#a6e22e">dim</span><span style="color:#f92672">(</span>lightLevel<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>temperature <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span>temperature<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>volume <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                sound<span style="color:#f92672">.</span><span style="color:#a6e22e">setVolume</span><span style="color:#f92672">(</span>volume<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 使用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>SmartHomeBuilderFacade facade <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SmartHomeBuilderFacade<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>facade<span style="color:#f92672">.</span><span style="color:#a6e22e">createScene</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withLight</span><span style="color:#f92672">(</span><span style="color:#ae81ff">20</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withTemperature</span><span style="color:#f92672">(</span><span style="color:#ae81ff">24</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withSound</span><span style="color:#f92672">(</span><span style="color:#ae81ff">40</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">apply</span><span style="color:#f92672">();</span>
+</span></span></code></pre></div><h2 id="四外观模式在-jdk-中的应用">四、外观模式在 JDK 中的应用</h2>
+<h3 id="41-javautilcollections">4.1 java.util.Collections</h3>
+<p><code>Collections</code> 类是外观模式的经典应用，它为一组集合操作提供了统一的接口：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Collections 是外观类，内部委托给各种算法实现
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Collections</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 排序
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#f92672">&lt;</span>T <span style="color:#66d9ef">extends</span> Comparable<span style="color:#f92672">&lt;?</span> <span style="color:#66d9ef">super</span> T<span style="color:#f92672">&gt;&gt;</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">sort</span><span style="color:#f92672">(</span>List<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> list<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        list<span style="color:#f92672">.</span><span style="color:#a6e22e">sort</span><span style="color:#f92672">(</span><span style="color:#66d9ef">null</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// 委托给 List.sort()
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 二分查找
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">binarySearch</span><span style="color:#f92672">(</span>List<span style="color:#f92672">&lt;?</span> <span style="color:#66d9ef">extends</span> T<span style="color:#f92672">&gt;</span> list<span style="color:#f92672">,</span> T key<span style="color:#f92672">,</span> Comparator<span style="color:#f92672">&lt;?</span> <span style="color:#66d9ef">super</span> T<span style="color:#f92672">&gt;</span> c<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 委托给迭代器或随机访问实现
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 反转
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">reverse</span><span style="color:#f92672">(</span>List<span style="color:#f92672">&lt;?&gt;</span> list<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#f92672">...</span> <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 打乱
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">shuffle</span><span style="color:#f92672">(</span>List<span style="color:#f92672">&lt;?&gt;</span> list<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#f92672">...</span> <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 不可变集合
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> List<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">unmodifiableList</span><span style="color:#f92672">(</span>List<span style="color:#f92672">&lt;?</span> <span style="color:#66d9ef">extends</span> T<span style="color:#f92672">&gt;</span> list<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#f92672">...</span> <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 同步包装
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> List<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">synchronizedList</span><span style="color:#f92672">(</span>List<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> list<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#f92672">...</span> <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="42-javaniofilefiles">4.2 java.nio.file.Files</h3>
+<p><code>Files</code> 类是 NIO 子系统的外观：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Files 为文件系统操作提供简化的接口
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 内部委托给 FileSystemProvider 等底层实现
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 读取所有行
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>List<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> lines <span style="color:#f92672">=</span> Files<span style="color:#f92672">.</span><span style="color:#a6e22e">readAllLines</span><span style="color:#f92672">(</span>Paths<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;data.txt&#34;</span><span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 写入
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Files<span style="color:#f92672">.</span><span style="color:#a6e22e">writeString</span><span style="color:#f92672">(</span>Paths<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;output.txt&#34;</span><span style="color:#f92672">),</span> <span style="color:#e6db74">&#34;Hello World&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 复制
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Files<span style="color:#f92672">.</span><span style="color:#a6e22e">copy</span><span style="color:#f92672">(</span>source<span style="color:#f92672">,</span> target<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 遍历
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">try</span> <span style="color:#f92672">(</span>Stream<span style="color:#f92672">&lt;</span>Path<span style="color:#f92672">&gt;</span> paths <span style="color:#f92672">=</span> Files<span style="color:#f92672">.</span><span style="color:#a6e22e">walk</span><span style="color:#f92672">(</span>Paths<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;/project&#34;</span><span style="color:#f92672">)))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    paths<span style="color:#f92672">.</span><span style="color:#a6e22e">filter</span><span style="color:#f92672">(</span>p <span style="color:#f92672">-&gt;</span> p<span style="color:#f92672">.</span><span style="color:#a6e22e">toString</span><span style="color:#f92672">().</span><span style="color:#a6e22e">endsWith</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;.java&#34;</span><span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>         <span style="color:#f92672">.</span><span style="color:#a6e22e">forEach</span><span style="color:#f92672">(</span>System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">::</span>println<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="43-javaxsqldatasource">4.3 javax.sql.DataSource</h3>
+<p>JDBC 的 <code>DataSource</code> 是数据库连接子系统的外观：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// DataSource 隐藏了驱动加载、连接创建等复杂性
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>DataSource ds <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> HikariDataSource<span style="color:#f92672">(</span>config<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>Connection conn <span style="color:#f92672">=</span> ds<span style="color:#f92672">.</span><span style="color:#a6e22e">getConnection</span><span style="color:#f92672">();</span>  <span style="color:#75715e">// 简化！
+</span></span></span></code></pre></div><h3 id="44-javautillogginglogger">4.4 java.util.logging.Logger</h3>
+<p><code>Logger</code> 是日志子系统的外观：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Logger 隐藏了 Handler、Formatter、Level 等子系统的复杂性
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Logger logger <span style="color:#f92672">=</span> Logger<span style="color:#f92672">.</span><span style="color:#a6e22e">getLogger</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;com.example&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>logger<span style="color:#f92672">.</span><span style="color:#a6e22e">info</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;简单的一行代码&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 内部：选择 Handler → 格式化 → 输出
+</span></span></span></code></pre></div><h2 id="五外观模式-vs-其他模式">五、外观模式 vs 其他模式</h2>
+<h3 id="51-对比中介者模式">5.1 对比中介者模式</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>外观模式</th>
+<th>中介者模式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>方向</td>
+<td>单向（客户端→外观→子系统）</td>
+<td>双向（同事→中介者→同事）</td>
+</tr>
+<tr>
+<td>目的</td>
+<td>简化接口</td>
+<td>解耦同事间交互</td>
+</tr>
+<tr>
+<td>子系统</td>
+<td>不知道外观存在</td>
+<td>知道中介者存在</td>
+</tr>
+<tr>
+<td>交互</td>
+<td>客户端只调用外观</td>
+<td>同事通过中介者通信</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-对比适配器模式">5.2 对比适配器模式</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>外观模式</th>
+<th>适配器模式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>目的</td>
+<td>简化接口</td>
+<td>转换接口</td>
+</tr>
+<tr>
+<td>接口</td>
+<td>提供新的简化接口</td>
+<td>适配已有接口</td>
+</tr>
+<tr>
+<td>子系统</td>
+<td>多个子系统</td>
+<td>通常一个</td>
+</tr>
+<tr>
+<td>设计</td>
+<td>正向设计</td>
+<td>事后补救</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-对比建造者模式">5.3 对比建造者模式</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>外观模式</th>
+<th>建造者模式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>目的</td>
+<td>简化调用</td>
+<td>分步构建复杂对象</td>
+</tr>
+<tr>
+<td>关注点</td>
+<td>接口简化</td>
+<td>对象创建</td>
+</tr>
+<tr>
+<td>返回值</td>
+<td>通常 void</td>
+<td>构建的产品</td>
+</tr>
+</tbody>
+</table>
+<h2 id="六外观模式的优缺点">六、外观模式的优缺点</h2>
+<h3 id="优点">优点</h3>
+<ol>
+<li><strong>简化接口</strong>：客户端无需了解子系统复杂性</li>
+<li><strong>解耦</strong>：客户端与子系统松耦合</li>
+<li><strong>分层</strong>：有助于建立分层架构</li>
+<li><strong>不影响子系统</strong>：子系统可以独立使用</li>
+</ol>
+<h3 id="缺点">缺点</h3>
+<ol>
+<li><strong>可能成为上帝对象</strong>：外观承担过多职责</li>
+<li><strong>不能替代子系统</strong>：只是简化，不能替代直接使用</li>
+<li><strong>新增子系统需修改外观</strong>：违背开闭原则</li>
+</ol>
+<h3 id="适用场景">适用场景</h3>
+<ul>
+<li>需要为复杂子系统提供简单接口</li>
+<li>客户端与子系统之间存在很多依赖</li>
+<li>需要构建分层架构</li>
+<li>遗留系统的简化封装</li>
+</ul>
+<h2 id="七实战应用部署流程">七、实战：应用部署流程</h2>
+<p>用外观模式封装复杂的应用部署流程：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// ========== 子系统 ==========
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">GitService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">pull</span><span style="color:#f92672">(</span>String branch<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;📥 拉取代码: &#34;</span> <span style="color:#f92672">+</span> branch<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> String <span style="color:#a6e22e">getCommitHash</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        String hash <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;abc1234&#34;</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;📥 当前提交: &#34;</span> <span style="color:#f92672">+</span> hash<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> hash<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">BuildService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">compile</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🔨 编译项目...&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">runTests</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🧪 运行测试...&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">packageArtifact</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;📦 打包产物...&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DockerService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">buildImage</span><span style="color:#f92672">(</span>String tag<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🐳 构建 Docker 镜像: &#34;</span> <span style="color:#f92672">+</span> tag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">pushImage</span><span style="color:#f92672">(</span>String tag<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🐳 推送镜像: &#34;</span> <span style="color:#f92672">+</span> tag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DeployService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">deploy</span><span style="color:#f92672">(</span>String env<span style="color:#f92672">,</span> String imageTag<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🚀 部署到 &#34;</span> <span style="color:#f92672">+</span> env <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;，镜像: &#34;</span> <span style="color:#f92672">+</span> imageTag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">healthCheck</span><span style="color:#f92672">(</span>String env<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;❤️ 健康检查: &#34;</span> <span style="color:#f92672">+</span> env<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">NotifyService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">notify</span><span style="color:#f92672">(</span>String message<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;📢 通知: &#34;</span> <span style="color:#f92672">+</span> message<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 外观 ==========
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DeployFacade</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> GitService git <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> GitService<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> BuildService build <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> BuildService<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> DockerService docker <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DockerService<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> DeployService deploy <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DeployService<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> NotifyService notify <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> NotifyService<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 完整部署流程
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">fullDeploy</span><span style="color:#f92672">(</span>String branch<span style="color:#f92672">,</span> String env<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;=== 开始部署流程 ===&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 1. 拉取代码
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            git<span style="color:#f92672">.</span><span style="color:#a6e22e">pull</span><span style="color:#f92672">(</span>branch<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            String commitHash <span style="color:#f92672">=</span> git<span style="color:#f92672">.</span><span style="color:#a6e22e">getCommitHash</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 2. 构建测试
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            build<span style="color:#f92672">.</span><span style="color:#a6e22e">compile</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            build<span style="color:#f92672">.</span><span style="color:#a6e22e">runTests</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            build<span style="color:#f92672">.</span><span style="color:#a6e22e">packageArtifact</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 3. Docker 镜像
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            String imageTag <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;app:&#34;</span> <span style="color:#f92672">+</span> commitHash<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            docker<span style="color:#f92672">.</span><span style="color:#a6e22e">buildImage</span><span style="color:#f92672">(</span>imageTag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            docker<span style="color:#f92672">.</span><span style="color:#a6e22e">pushImage</span><span style="color:#f92672">(</span>imageTag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 4. 部署
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            deploy<span style="color:#f92672">.</span><span style="color:#a6e22e">deploy</span><span style="color:#f92672">(</span>env<span style="color:#f92672">,</span> imageTag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            deploy<span style="color:#f92672">.</span><span style="color:#a6e22e">healthCheck</span><span style="color:#f92672">(</span>env<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 5. 通知
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            notify<span style="color:#f92672">.</span><span style="color:#a6e22e">notify</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;✅ 部署成功！分支=&#34;</span> <span style="color:#f92672">+</span> branch <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; 环境=&#34;</span> <span style="color:#f92672">+</span> env <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34; 提交=&#34;</span> <span style="color:#f92672">+</span> commitHash<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">catch</span> <span style="color:#f92672">(</span>Exception e<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            notify<span style="color:#f92672">.</span><span style="color:#a6e22e">notify</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;❌ 部署失败: &#34;</span> <span style="color:#f92672">+</span> e<span style="color:#f92672">.</span><span style="color:#a6e22e">getMessage</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">throw</span> e<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;=== 部署完成 ===&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 快速部署（跳过测试）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">quickDeploy</span><span style="color:#f92672">(</span>String branch<span style="color:#f92672">,</span> String env<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;=== 快速部署 ===&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        git<span style="color:#f92672">.</span><span style="color:#a6e22e">pull</span><span style="color:#f92672">(</span>branch<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        String commitHash <span style="color:#f92672">=</span> git<span style="color:#f92672">.</span><span style="color:#a6e22e">getCommitHash</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        build<span style="color:#f92672">.</span><span style="color:#a6e22e">compile</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        build<span style="color:#f92672">.</span><span style="color:#a6e22e">packageArtifact</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        String imageTag <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;app:&#34;</span> <span style="color:#f92672">+</span> commitHash<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        docker<span style="color:#f92672">.</span><span style="color:#a6e22e">buildImage</span><span style="color:#f92672">(</span>imageTag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        docker<span style="color:#f92672">.</span><span style="color:#a6e22e">pushImage</span><span style="color:#f92672">(</span>imageTag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        deploy<span style="color:#f92672">.</span><span style="color:#a6e22e">deploy</span><span style="color:#f92672">(</span>env<span style="color:#f92672">,</span> imageTag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        notify<span style="color:#f92672">.</span><span style="color:#a6e22e">notify</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;⚡ 快速部署完成: &#34;</span> <span style="color:#f92672">+</span> commitHash<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 回滚
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">rollback</span><span style="color:#f92672">(</span>String env<span style="color:#f92672">,</span> String previousTag<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;=== 回滚部署 ===&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        deploy<span style="color:#f92672">.</span><span style="color:#a6e22e">deploy</span><span style="color:#f92672">(</span>env<span style="color:#f92672">,</span> previousTag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        deploy<span style="color:#f92672">.</span><span style="color:#a6e22e">healthCheck</span><span style="color:#f92672">(</span>env<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        notify<span style="color:#f92672">.</span><span style="color:#a6e22e">notify</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;🔄 已回滚到: &#34;</span> <span style="color:#f92672">+</span> previousTag<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// ========== 客户端 ==========
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DeployDemo</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        DeployFacade deployer <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DeployFacade<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 一行代码完成完整部署
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        deployer<span style="color:#f92672">.</span><span style="color:#a6e22e">fullDeploy</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;main&#34;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#34;production&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>运行结果：</p>
+<pre tabindex="0"><code>=== 开始部署流程 ===
+📥 拉取代码: main
+📥 当前提交: abc1234
+🔨 编译项目...
+🧪 运行测试...
+📦 打包产物...
+🐳 构建 Docker 镜像: app:abc1234
+🐳 推送镜像: app:abc1234
+🚀 部署到 production，镜像: app:abc1234
+❤️ 健康检查: production
+📢 通知: ✅ 部署成功！分支=main 环境=production 提交=abc1234
+=== 部署完成 ===
+</code></pre><h2 id="八外观模式在-spring-中的应用">八、外观模式在 Spring 中的应用</h2>
+<h3 id="81-jdbctemplate">8.1 JdbcTemplate</h3>
+<p>Spring 的 <code>JdbcTemplate</code> 是 JDBC 子系统的外观：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// JdbcTemplate 隐藏了 Connection、Statement、ResultSet 的复杂性
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@Repository</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UserRepository</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> JdbcTemplate jdbcTemplate<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 一行代码完成查询，无需手动管理连接
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> User <span style="color:#a6e22e">findById</span><span style="color:#f92672">(</span>Long id<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> jdbcTemplate<span style="color:#f92672">.</span><span style="color:#a6e22e">queryForObject</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;SELECT * FROM users WHERE id = ?&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">(</span>rs<span style="color:#f92672">,</span> rowNum<span style="color:#f92672">)</span> <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">new</span> User<span style="color:#f92672">(</span>rs<span style="color:#f92672">.</span><span style="color:#a6e22e">getLong</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;id&#34;</span><span style="color:#f92672">),</span> rs<span style="color:#f92672">.</span><span style="color:#a6e22e">getString</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;name&#34;</span><span style="color:#f92672">)),</span>
+</span></span><span style="display:flex;"><span>            id
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="82-resttemplate--restclient">8.2 RestTemplate / RestClient</h3>
+<p>Spring 的 HTTP 客户端也是外观模式：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// RestTemplate 隐藏了 HttpURLConnection / HttpClient 的复杂性
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>RestTemplate restTemplate <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> RestTemplate<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>String result <span style="color:#f92672">=</span> restTemplate<span style="color:#f92672">.</span><span style="color:#a6e22e">getForObject</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;https://api.example.com/data&#34;</span><span style="color:#f92672">,</span> String<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+</span></span></code></pre></div><h3 id="83-springapplication">8.3 SpringApplication</h3>
+<p>Spring Boot 的 <code>SpringApplication</code> 是 Spring 生态的外观：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@SpringBootApplication</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MyApp</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 一行代码启动整个 Spring 应用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        SpringApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">(</span>MyApp<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> args<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 内部：创建 ApplicationContext → 注册 Bean → 自动配置 → 启动内嵌服务器
+</span></span></span></code></pre></div><h2 id="九外观模式与函数式编程">九、外观模式与函数式编程</h2>
+<h3 id="91-使用函数式接口组合操作">9.1 使用函数式接口组合操作</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">FunctionalFacade</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> List<span style="color:#f92672">&lt;</span>Runnable<span style="color:#f92672">&gt;</span> operations <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ArrayList<span style="color:#f92672">&lt;&gt;();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> FunctionalFacade <span style="color:#a6e22e">light</span><span style="color:#f92672">(</span>Runnable action<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        operations<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">(</span>action<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> FunctionalFacade <span style="color:#a6e22e">ac</span><span style="color:#f92672">(</span>Runnable action<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        operations<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">(</span>action<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> FunctionalFacade <span style="color:#a6e22e">sound</span><span style="color:#f92672">(</span>Runnable action<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        operations<span style="color:#f92672">.</span><span style="color:#a6e22e">add</span><span style="color:#f92672">(</span>action<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">execute</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        operations<span style="color:#f92672">.</span><span style="color:#a6e22e">forEach</span><span style="color:#f92672">(</span>Runnable<span style="color:#f92672">::</span>run<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        operations<span style="color:#f92672">.</span><span style="color:#a6e22e">clear</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 使用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">new</span> FunctionalFacade<span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">light</span><span style="color:#f92672">(()</span> <span style="color:#f92672">-&gt;</span> light<span style="color:#f92672">.</span><span style="color:#a6e22e">dim</span><span style="color:#f92672">(</span><span style="color:#ae81ff">20</span><span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">ac</span><span style="color:#f92672">(()</span> <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span> ac<span style="color:#f92672">.</span><span style="color:#a6e22e">setTemperature</span><span style="color:#f92672">(</span><span style="color:#ae81ff">24</span><span style="color:#f92672">);</span> ac<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span> <span style="color:#f92672">})</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">sound</span><span style="color:#f92672">(()</span> <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span> sound<span style="color:#f92672">.</span><span style="color:#a6e22e">setVolume</span><span style="color:#f92672">(</span><span style="color:#ae81ff">30</span><span style="color:#f92672">);</span> sound<span style="color:#f92672">.</span><span style="color:#a6e22e">turnOn</span><span style="color:#f92672">();</span> <span style="color:#f92672">})</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">execute</span><span style="color:#f92672">();</span>
+</span></span></code></pre></div><h3 id="92-使用-consumer-链">9.2 使用 Consumer 链</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SceneConfigurer</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">configure</span><span style="color:#f92672">(</span>Consumer<span style="color:#f92672">&lt;</span>SceneBuilder<span style="color:#f92672">&gt;</span> configurer<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        SceneBuilder builder <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SceneBuilder<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        configurer<span style="color:#f92672">.</span><span style="color:#a6e22e">accept</span><span style="color:#f92672">(</span>builder<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        builder<span style="color:#f92672">.</span><span style="color:#a6e22e">apply</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SceneBuilder</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> lightLevel <span style="color:#f92672">=</span> <span style="color:#ae81ff">100</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> temperature <span style="color:#f92672">=</span> <span style="color:#ae81ff">25</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> volume <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">public</span> SceneBuilder <span style="color:#a6e22e">light</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> level<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">lightLevel</span> <span style="color:#f92672">=</span> level<span style="color:#f92672">;</span> <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">public</span> SceneBuilder <span style="color:#a6e22e">temp</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> t<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">temperature</span> <span style="color:#f92672">=</span> t<span style="color:#f92672">;</span> <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">public</span> SceneBuilder <span style="color:#a6e22e">volume</span><span style="color:#f92672">(</span><span style="color:#66d9ef">int</span> v<span style="color:#f92672">)</span> <span style="color:#f92672">{</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">volume</span> <span style="color:#f92672">=</span> v<span style="color:#f92672">;</span> <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span><span style="color:#f92672">;</span> <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">apply</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            System<span style="color:#f92672">.</span><span style="color:#a6e22e">out</span><span style="color:#f92672">.</span><span style="color:#a6e22e">println</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;应用场景: 灯光=&#34;</span> <span style="color:#f92672">+</span> lightLevel <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;% 温度=&#34;</span> <span style="color:#f92672">+</span> temperature <span style="color:#f92672">+</span> <span style="color:#e6db74">&#34;°C 音量=&#34;</span> <span style="color:#f92672">+</span> volume<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 使用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>SceneConfigurer<span style="color:#f92672">.</span><span style="color:#a6e22e">configure</span><span style="color:#f92672">(</span>scene <span style="color:#f92672">-&gt;</span> scene<span style="color:#f92672">.</span><span style="color:#a6e22e">light</span><span style="color:#f92672">(</span><span style="color:#ae81ff">20</span><span style="color:#f92672">).</span><span style="color:#a6e22e">temp</span><span style="color:#f92672">(</span><span style="color:#ae81ff">24</span><span style="color:#f92672">).</span><span style="color:#a6e22e">volume</span><span style="color:#f92672">(</span><span style="color:#ae81ff">30</span><span style="color:#f92672">));</span>
+</span></span></code></pre></div><h2 id="十面试常见问题">十、面试常见问题</h2>
+<h3 id="q1-外观模式的核心思想是什么">Q1: 外观模式的核心思想是什么？</h3>
+<p>外观模式为复杂子系统提供一个简化的高层接口，使得子系统更容易使用。它不是封装子系统，而是提供一个更方便的入口。客户端可以选择使用外观，也可以直接使用子系统。</p>
+<h3 id="q2-外观模式和适配器模式有什么区别">Q2: 外观模式和适配器模式有什么区别？</h3>
+<p>适配器模式的目的是<strong>转换接口</strong>，让不兼容的接口能够协同工作；外观模式的目的是<strong>简化接口</strong>，让复杂的子系统更容易使用。适配器通常针对一个接口，外观通常针对多个子系统。</p>
+<h3 id="q3-外观模式是否违反开闭原则">Q3: 外观模式是否违反开闭原则？</h3>
+<p>严格来说，新增子系统时需要修改外观类，确实违反开闭原则。但外观模式的目的是简化，如果需要扩展，可以创建新的外观类，或使用分层外观来解决。</p>
+<h3 id="q4-外观模式可以替代子系统吗">Q4: 外观模式可以替代子系统吗？</h3>
+<p>不能。外观模式只是提供了一个更方便的入口，它不限制客户端直接使用子系统。在需要细粒度控制时，客户端仍然可以直接使用子系统。</p>
+<h3 id="q5-什么场景下应该使用外观模式">Q5: 什么场景下应该使用外观模式？</h3>
+<ul>
+<li>为复杂子系统提供简单接口</li>
+<li>客户端与多个子系统耦合</li>
+<li>构建分层架构</li>
+<li>封装遗留系统</li>
+</ul>
+<h3 id="q6-外观模式与中介者模式的区别">Q6: 外观模式与中介者模式的区别？</h3>
+<p>外观是单向的——客户端调用外观，外观调用子系统，子系统不知道外观存在。中介者是双向的——同事对象通过中介者通信，同事知道中介者存在。外观简化接口，中介者解耦交互。</p>
+<h2 id="十一总结">十一、总结</h2>
+<p>外观模式是最实用的设计模式之一，它不引入复杂的继承体系，只是简单地将复杂性封装在一个高层接口后面。</p>
+<p><strong>核心要点</strong>：</p>
+<ol>
+<li><strong>简化接口</strong>：一个方法代替多步操作</li>
+<li><strong>解耦客户端</strong>：客户端无需了解子系统细节</li>
+<li><strong>迪米特法则</strong>：减少客户端与子系统的直接交互</li>
+<li><strong>JDK 应用</strong>：Collections、Files、JdbcTemplate 都是经典实现</li>
+<li><strong>不替代子系统</strong>：外观是便利入口，不是唯一入口</li>
+</ol>
+<p>外观模式告诉我们：<strong>好的 API 设计不在于功能多强大，而在于能否让使用者轻松上手</strong>。封装复杂性，暴露简单性——这就是外观模式的精髓。</p>
+<hr>
+<p><strong>相关设计模式系列</strong>：</p>
+<ul>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B8%80-%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E6%8C%87%E5%8D%97/">Java设计模式（一）：单例模式完全指南</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BA%8C-%E5%B7%A5%E5%8E%82%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%85%A5%E8%AF%A6%E8%A7%A3/">Java设计模式（二）：工厂模式深入详解</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B8%89-%E5%BB%BA%E9%80%A0%E8%80%85%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（三）：建造者模式深度实践</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%9B%9B-%E5%8E%9F%E5%9E%8B%E6%A8%A1%E5%BC%8F%E4%B8%8E%E5%AF%B9%E8%B1%A1%E5%85%8B%E9%9A%86/">Java设计模式（四）：原型模式与对象克隆</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%BA%94-%E9%80%82%E9%85%8D%E5%99%A8%E6%A8%A1%E5%BC%8F%E5%AE%9E%E6%88%98%E8%A7%A3%E6%9E%90/">Java设计模式（五）：适配器模式实战解析</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%85%AD-%E8%A3%85%E9%A5%B0%E5%99%A8%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%85%A5%E5%AE%9E%E8%B7%B5/">Java设计模式（六）：装饰器模式深入实践</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B8%83-%E8%A7%82%E5%AF%9F%E8%80%85%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E8%A7%A3%E6%9E%90/">Java设计模式（七）：观察者模式完全解析</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%85%AB-%E7%AD%96%E7%95%A5%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（八）：策略模式深度实践</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E4%B9%9D-%E6%A8%A1%E6%9D%BF%E6%96%B9%E6%B3%95%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E6%8C%87%E5%8D%97/">Java设计模式（九）：模板方法模式完全指南</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81-%E8%B4%A3%E4%BB%BB%E9%93%BE%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十）：责任链模式深度实践</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%B8%80-%E5%91%BD%E4%BB%A4%E6%A8%A1%E5%BC%8F%E5%AE%8C%E5%85%A8%E8%A7%A3%E6%9E%90/">Java设计模式（十一）：命令模式完全解析</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%BA%8C-%E8%BF%AD%E4%BB%A3%E5%99%A8%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十二）：迭代器模式深度实践</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%B8%89-%E8%AE%BF%E9%97%AE%E8%80%85%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十三）：访问者模式深度实践</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E5%9B%9B-%E7%BB%84%E5%90%88%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十四）：组合模式深度实践</a></li>
+<li><a href="/posts/java%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%8D%81%E4%BA%94-%E4%BA%AB%E5%85%83%E6%A8%A1%E5%BC%8F%E6%B7%B1%E5%BA%A6%E5%AE%9E%E8%B7%B5/">Java设计模式（十五）：享元模式深度实践</a></li>
+</ul>
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>

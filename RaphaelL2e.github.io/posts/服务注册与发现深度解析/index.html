@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务注册与发现深度解析 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-05-15 <span>/</span> 微服务 </div>
+        <h1>服务注册与发现深度解析</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="服务注册与发现深度解析">服务注册与发现深度解析</h1>
+<h2 id="一引言">一、引言</h2>
+<p>服务注册与发现是微服务的基石，没有它，服务之间无法相互调用。理解 Eureka 和 Nacos 的原理与差异，是微服务开发和面试的核心考点。</p>
+<p><strong>本文要点</strong>：</p>
+<ol>
+<li>服务发现原理（客户端 vs 服务端）</li>
+<li>Eureka 深度解析</li>
+<li>Nacos 深度解析</li>
+<li>Eureka 与 Nacos 对比</li>
+<li>服务发现实战</li>
+<li>面试高频问题</li>
+</ol>
+<hr>
+<h2 id="二服务发现原理">二、服务发现原理</h2>
+<h3 id="21-没有服务发现的问题">2.1 没有服务发现的问题</h3>
+<pre tabindex="0"><code>传统静态配置：
+  # 订单服务调用用户服务
+  user.service.url=http://192.168.1.100:8080
+  
+问题：
+  1. IP 写死，服务迁移要改配置
+  2. 无法动态扩缩容
+  3. 单点故障（一个服务实例挂了，调用方不知道）
+</code></pre><h3 id="22-服务发现架构">2.2 服务发现架构</h3>
+<pre tabindex="0"><code>方案一：客户端发现（Client-Side Discovery）
+
+  服务实例启动 → 注册到注册中心
+  服务消费者 → 从注册中心拉取服务列表
+               → 本地缓存 + 负载均衡
+               → 直接调用服务提供者
+
+  代表：Eureka + Ribbon、Nacos
+
+
+方案二：服务端发现（Server-Side Discovery）
+
+  服务实例启动 → 注册到注册中心
+  服务消费者 → 请求发给负载均衡器/API 网关
+               → 负载均衡器查询注册中心
+               → 转发请求到服务提供者
+
+  代表：Kubernetes Service、AWS ELB
+</code></pre><h3 id="23-核心流程">2.3 核心流程</h3>
+<pre tabindex="0"><code>                注册中心
+              （Eureka/Nacos）
+                    │
+    ① 注册 ─────────┤───────── ③ 拉取服务列表
+    ② 心跳 ─────────┤───────── ④ 缓存 + 负载均衡
+                    │
+              ┌─────┴─────┐
+              │   服务提供者 │
+              └────────────┘
+                    │
+              ┌─────┴─────┐
+              │   服务消费者 │
+              └────────────┘
+                    │
+                ⑤ 远程调用
+</code></pre><hr>
+<h2 id="三eureka-深度解析">三、Eureka 深度解析</h2>
+<h3 id="31-eureka-架构">3.1 Eureka 架构</h3>
+<pre tabindex="0"><code>                    ┌─────────────────────┐
+                    │   Eureka Server      │
+                    │   （注册中心）        │
+                    │                     │
+                    │  ┌─────┐  ┌─────┐│
+                    │  │Node1│  │Node2││
+                    │  └─────┘  └─────┘│
+                    │  Peer-to-Peer 复制  │
+                    └─────────────────────┘
+     注册/心跳 │            │ 拉取服务列表
+       ┌──────┴────────────┴──────┐
+       ↓                           ↓
+┌─────────────┐            ┌─────────────┐
+│  Service A  │            │  Service B  │
+│ (Provider)  │            │ (Consumer)  │
+└─────────────┘            └─────────────┘
+</code></pre><h3 id="32-eureka-server注册中心">3.2 Eureka Server（注册中心）</h3>
+<p><strong>搭建 Eureka Server</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@SpringBootApplication</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@EnableEurekaServer</span>  <span style="color:#75715e">// ← 开启 Eureka Server
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">EurekaServerApplication</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        SpringApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">(</span>EurekaServerApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> args<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># application.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">server</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">port</span>: <span style="color:#ae81ff">8761</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">eureka</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">client</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">register-with-eureka</span>: <span style="color:#66d9ef">false</span>  <span style="color:#75715e"># 不注册自己</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">fetch-registry</span>: <span style="color:#66d9ef">false</span>       <span style="color:#75715e"># 不从其他 Eureka 拉取注册表</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">service-url</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">defaultZone</span>: <span style="color:#ae81ff">http://localhost:8761/eureka/</span>
+</span></span></code></pre></div><h3 id="33-eureka-client服务提供者消费者">3.3 Eureka Client（服务提供者/消费者）</h3>
+<p><strong>服务提供者注册</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@SpringBootApplication</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@EnableEurekaClient</span>  <span style="color:#75715e">// ← 开启 Eureka Client（可省略，自动开启）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderServiceApplication</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        SpringApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">(</span>OrderServiceApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> args<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># application.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">spring</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">application</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">name</span>: <span style="color:#ae81ff">order-service </span> <span style="color:#75715e"># ← 服务名，非常重要！</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">eureka</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">client</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">service-url</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">defaultZone</span>: <span style="color:#ae81ff">http://localhost:8761/eureka/</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">instance</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">prefer-ip-address</span>: <span style="color:#66d9ef">true</span>  <span style="color:#75715e"># 注册 IP 而非主机名</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">instance-id</span>: <span style="color:#ae81ff">${spring.cloud.client.ip-address}:${server.port} </span> <span style="color:#75715e"># 实例 ID</span>
+</span></span></code></pre></div><h3 id="34-eureka-核心机制">3.4 Eureka 核心机制</h3>
+<p><strong>心跳与续约（Renew/Heartbeat）</strong>：</p>
+<pre tabindex="0"><code>提供者 → 每 30 秒发送心跳 → Eureka Server
+Eureka Server → 超过 90 秒未收到心跳 → 剔除实例
+
+配置：
+  # 提供者配置
+  eureka.instance.lease-renewal-interval-in-seconds: 30   # 心跳间隔
+  eureka.instance.lease-expiration-duration-in-seconds: 90 # 过期时间
+
+  # Server 配置
+  eureka.server.eviction-interval-timer-in-ms: 60000  # 剔除任务间隔
+</code></pre><p><strong>服务剔除（Eviction）</strong>：</p>
+<pre tabindex="0"><code>Eureka Server 后台任务：
+  每隔 eureka.server.eviction-interval-timer-in-ms（默认 60 秒）
+  → 扫描过期实例（超过 90 秒未心跳）
+  → 从注册表剔除
+</code></pre><p><strong>自我保护模式（Self-Preservation）</strong>：</p>
+<pre tabindex="0"><code>问题：网络分区时，大量服务心跳失败
+  → Eureka 误剔除所有服务 → 系统崩溃
+
+解决：自我保护模式
+  → 若心跳失败比例 &gt; 15%（15 分钟内）
+  → 进入自我保护模式
+  → 不再剔除任何实例
+
+配置：
+  eureka.server.enable-self-preservation: true  # 默认开启
+  eureka.server.renewal-percent-threshold: 0.85  # 心跳阈值（85%）
+
+生产建议：
+  ✓ 生产环境：开启自我保护
+  ✗ 测试环境：关闭自我保护（方便测试）
+</code></pre><p><strong>服务拉取（Fetch Registry）</strong>：</p>
+<pre tabindex="0"><code>消费者 → 每 30 秒拉取服务列表 → 本地缓存
+
+配置：
+  eureka.client.registry-fetch-interval-seconds: 30  # 拉取间隔
+  eureka.client.fetch-registry: true                   # 是否拉取注册表
+</code></pre><h3 id="35-eureka-的-ap-特性">3.5 Eureka 的 AP 特性</h3>
+<pre tabindex="0"><code>CAP 理论：
+  C（Consistency）：一致性
+  A（Availability）：可用性
+  P（Partition Tolerance）：分区容错性
+
+Eureka 选择 AP：
+  ✓ 高可用（节点故障不影响服务调用）
+  ✗ 一致性弱（可能获取到已下线的服务实例）
+
+场景：
+  服务 A 下线 → Eureka Server 标记剔除
+  → 消费者 30 秒内仍可能调用到已下线服务 A
+  → 需要 Ribbon 重试机制配合
+</code></pre><hr>
+<h2 id="四nacos-深度解析">四、Nacos 深度解析</h2>
+<h3 id="41-nacos-架构">4.1 Nacos 架构</h3>
+<pre tabindex="0"><code>                      ┌─────────────────────┐
+                      │    Nacos Server      │
+                      │   （注册中心 +      │
+                      │    配置中心）        │
+                      │                     │
+                      │  ┌─────┐  ┌─────┐│
+                      │  │Node1│  │Node2││
+                      │  └─────┘  └─────┘│
+                      │  Raft 协议（CP）   │
+                      │  或 Distro（AP）   │
+                      └─────────────────────┘
+         注册/心跳 │            │ 拉取服务列表
+           ┌──────┴────────────┴──────┐
+           ↓                           ↓
+    ┌─────────────┐            ┌─────────────┐
+    │  Service A  │            │  Service B  │
+    │ (Provider)  │            │ (Consumer)  │
+    └─────────────┘            └─────────────┘
+</code></pre><h3 id="42-nacos-server-搭建">4.2 Nacos Server 搭建</h3>
+<p><strong>方式一：独立部署（推荐）</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 下载 Nacos</span>
+</span></span><span style="display:flex;"><span>wget https://github.com/alibaba/nacos/releases/download/2.2.3/nacos-server-2.2.3.tar.gz
+</span></span><span style="display:flex;"><span>tar -xzf nacos-server-2.2.3.tar.gz
+</span></span><span style="display:flex;"><span>cd nacos/bin
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 单机模式启动（测试）</span>
+</span></span><span style="display:flex;"><span>sh startup.sh -m standalone
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 集群模式启动（生产）</span>
+</span></span><span style="display:flex;"><span>sh startup.sh
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 访问控制台</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># http://localhost:8848/nacos</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 默认账号/密码：nacos/nacos</span>
+</span></span></code></pre></div><p><strong>方式二：Docker 部署</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>docker run -d <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --name nacos <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -p 8848:8848 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -p 9848:9848 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -e MODE<span style="color:#f92672">=</span>standalone <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  nacos/nacos-server:v2.2.3
+</span></span></code></pre></div><h3 id="43-服务注册spring-cloud-alibaba">4.3 服务注册（Spring Cloud Alibaba）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@SpringBootApplication</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderServiceApplication</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        SpringApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">(</span>OrderServiceApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> args<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># application.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">spring</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">application</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">name</span>: <span style="color:#ae81ff">order-service</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cloud</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">nacos</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">discovery</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">server-addr</span>: <span style="color:#ae81ff">localhost:8848</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">namespace</span>: <span style="color:#ae81ff">dev </span> <span style="color:#75715e"># 命名空间（环境隔离）</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">group</span>: <span style="color:#ae81ff">DEFAULT_GROUP </span> <span style="color:#75715e"># 分组</span>
+</span></span></code></pre></div><p><strong>依赖</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#f92672">&lt;dependency&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;groupId&gt;</span>com.alibaba.cloud<span style="color:#f92672">&lt;/groupId&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;artifactId&gt;</span>spring-cloud-starter-alibaba-nacos-discovery<span style="color:#f92672">&lt;/artifactId&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/dependency&gt;</span>
+</span></span></code></pre></div><h3 id="44-nacos-核心机制">4.4 Nacos 核心机制</h3>
+<p><strong>心跳机制</strong>：</p>
+<pre tabindex="0"><code>提供者 → 每 5 秒发送心跳 → Nacos Server
+Nacos Server → 超过 15 秒未收到心跳 → 标记为不健康
+             → 超过 30 秒未收到心跳 → 剔除实例
+
+配置（客户端）：
+  spring.cloud.nacos.discovery.heart-beat-interval: 5   # 心跳间隔（秒）
+  spring.cloud.nacos.discovery.heart-beat-timeout: 15  # 心跳超时（秒）
+  spring.cloud.nacos.discovery.ip-delete-timeout: 30   # 剔除超时（秒）
+</code></pre><p><strong>服务拉取</strong>：</p>
+<pre tabindex="0"><code>消费者 → 长轮询（Long Polling）← Nacos Server
+         → 每 10 秒拉取一次（可配置）
+         → 服务变更时，Server 立即推送
+
+配置：
+  spring.cloud.nacos.discovery.watch-delay: 10000  # 拉取间隔（毫秒）
+</code></pre><p><strong>临时实例 vs 持久化实例</strong>：</p>
+<pre tabindex="0"><code>临时实例（Temporary Instance）：
+  - 客户端上报心跳
+  - 心跳超时 → 剔除
+  - 对应 AP 模式
+  
+持久化实例（Persistent Instance）：
+  - Server 主动健康检查（TCP/HTTP/MySQL）
+  - 实例信息持久化到 Server
+  - 对应 CP 模式
+
+配置：
+  spring.cloud.nacos.discovery.ephemeral: true  # true=临时，false=持久化
+</code></pre><h3 id="45-nacos-cpap-模式切换">4.5 Nacos CP/AP 模式切换</h3>
+<pre tabindex="0"><code>Nacos 支持两种模式：
+
+CP 模式（Raft 协议）：
+  - 强一致性
+  - 选举期间集群不可用
+  - 适合：配置中心、核心服务注册
+
+AP 模式（Distro 协议）：
+  - 高可用
+  - 最终一致性
+  - 适合：服务发现
+
+切换方式：
+  # 启动时指定模式
+  startup.sh -m cp   # CP 模式
+  startup.sh -m ap   # AP 模式（默认）
+</code></pre><hr>
+<h2 id="五eureka-与-nacos-对比">五、Eureka 与 Nacos 对比</h2>
+<h3 id="51-功能对比">5.1 功能对比</h3>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>Eureka</th>
+<th>Nacos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>服务发现</strong></td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr>
+<td><strong>配置管理</strong></td>
+<td>✗（需配合 Config）</td>
+<td>✓（内置）</td>
+</tr>
+<tr>
+<td><strong>CAP</strong></td>
+<td>AP</td>
+<td>CP/AP 可切换</td>
+</tr>
+<tr>
+<td><strong>健康检查</strong></td>
+<td>心跳（客户端）</td>
+<td>心跳 + Server 主动检查</td>
+</tr>
+<tr>
+<td><strong>保护模式</strong></td>
+<td>自我保护（AP）</td>
+<td>保护阈值（可配置）</td>
+</tr>
+<tr>
+<td><strong>控制台</strong></td>
+<td>无</td>
+<td>有（功能强大）</td>
+</tr>
+<tr>
+<td><strong>动态配置刷新</strong></td>
+<td>需手动调用 /actuator/refresh</td>
+<td>自动推送</td>
+</tr>
+<tr>
+<td><strong>命名空间</strong></td>
+<td>无</td>
+<td>有（环境隔离）</td>
+</tr>
+<tr>
+<td><strong>分组</strong></td>
+<td>无</td>
+<td>有（服务分组）</td>
+</tr>
+<tr>
+<td><strong>权重</strong></td>
+<td>无</td>
+<td>有（负载均衡权重）</td>
+</tr>
+<tr>
+<td><strong>元数据</strong></td>
+<td>有</td>
+<td>有（更强）</td>
+</tr>
+<tr>
+<td><strong>集群</strong></td>
+<td>Peer-to-Peer 复制</td>
+<td>Raft/Distro</td>
+</tr>
+<tr>
+<td><strong>维护性</strong></td>
+<td>维护模式（不推荐新项目）</td>
+<td>活跃（强烈推荐）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-性能对比">5.2 性能对比</h3>
+<pre tabindex="0"><code>Eureka：
+  - 服务实例上限：约 1 万（单 Server）
+  - 心跳压力：每 30 秒一次
+  - 适合小规模集群
+
+Nacos：
+  - 服务实例上限：约 10 万（单 Server）
+  - 心跳压力：每 5 秒一次（可调整）
+  - 适合大规模集群
+</code></pre><h3 id="53-选型建议">5.3 选型建议</h3>
+<pre tabindex="0"><code>新项目：
+  ✓ 推荐 Nacos（功能全、性能高、维护活跃）
+  
+老项目（已用 Eureka）：
+  1. 继续使用 Eureka（迁移成本高）
+  2. 或逐步迁移到 Nacos
+
+配置管理：
+  ✓ 推荐 Nacos（服务发现 + 配置中心 二合一）
+  ✗ 不推荐 Eureka + Config（两个组件）
+</code></pre><hr>
+<h2 id="六服务发现实战">六、服务发现实战</h2>
+<h3 id="61-高可用部署">6.1 高可用部署</h3>
+<p><strong>Eureka 集群</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># application-peer1.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">eureka</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">client</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">service-url</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">defaultZone</span>: <span style="color:#ae81ff">http://peer2:8762/eureka/,http://peer3:8763/eureka/</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># application-peer2.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">eureka</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">client</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">service-url</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">defaultZone</span>: <span style="color:#ae81ff">http://peer1:8761/eureka/,http://peer3:8763/eureka/</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># application-peer3.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">eureka</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">client</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">service-url</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">defaultZone</span>: <span style="color:#ae81ff">http://peer1:8761/eureka/,http://peer2:8762/eureka/</span>
+</span></span></code></pre></div><p><strong>Nacos 集群</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 1. 修改 cluster.conf</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#   192.168.1.101:8848</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#   192.168.1.102:8848</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#   192.168.1.103:8848</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 2. 使用外部数据库（MySQL）</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#   修改 application.properties</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#   spring.datasource.platform=mysql</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#   db.url.0=jdbc:mysql://localhost:3306/nacos?...</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#   db.user.0=nacos</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#   db.password.0=nacos</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 3. 启动所有节点</span>
+</span></span><span style="display:flex;"><span>sh startup.sh
+</span></span></code></pre></div><h3 id="62-服务发现最佳实践">6.2 服务发现最佳实践</h3>
+<pre tabindex="0"><code>1. 本地缓存
+   → 消费者缓存服务列表（Eureka/Nacos Client 自动缓存）
+   → 注册中心故障时，仍可从缓存调用
+
+2. 重试机制
+   → 调用失败 → 重试其他实例
+   → Ribbon/LoadBalancer 自动重试
+
+3. 熔断降级
+   → 服务实例不健康 → 熔断
+   → 降级返回默认值
+
+4. 监控告警
+   → 服务实例上下线告警
+   → 心跳丢失告警
+
+5. 灰度发布
+   → Nacos 权重配置
+   → 新版本权重调低，逐步放量
+</code></pre><h3 id="63-常见坑点">6.3 常见坑点</h3>
+<pre tabindex="0"><code>坑点 1：Eureka 自我保护导致问题
+  现象：服务下线了，但消费者仍能拉取到
+  解决：测试环境关闭自我保护
+        eureka.server.enable-self-preservation=false
+
+坑点 2：服务名写错
+  现象：No instances available for xxx
+  解决：检查 spring.application.name 是否一致
+
+坑点 3：网络分区
+  现象：服务心跳失败，被大量剔除
+  解决：开启自我保护 + 调整心跳超时时间
+
+坑点 4：Nacos 配置不生效
+  现象：修改配置后，服务未刷新
+  解决：检查是否引入了 @RefreshScope
+       检查配置格式是否正确（YAML/Properties）
+
+坑点 5：Eureka 和 Nacos 混用
+  现象：服务无法发现
+  解决：统一使用一种注册中心
+</code></pre><hr>
+<h2 id="七面试高频问题">七、面试高频问题</h2>
+<h3 id="q1-eureka-自我保护模式是什么">Q1: Eureka 自我保护模式是什么？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>网络分区时，防止误剔除健康实例</li>
+<li>心跳失败比例 &gt; 15%（15 分钟内），进入保护模式</li>
+<li>生产环境建议开启，测试环境可关闭</li>
+</ul>
+<h3 id="q2-eureka-和-nacos-的区别">Q2: Eureka 和 Nacos 的区别？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>Eureka：AP 系统，功能简单，已进入维护模式</li>
+<li>Nacos：CP/AP 可切换，功能全面（服务发现 + 配置中心），维护活跃</li>
+<li>新项目强烈推荐 Nacos</li>
+</ul>
+<h3 id="q3-服务发现的原则">Q3: 服务发现的原则？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>客户端发现（Eureka/Nacos）：消费者拉取服务列表，自己负载均衡</li>
+<li>服务端发现（K8s Service）：负载均衡器转发</li>
+<li>高可用：本地缓存 + 重试 + 熔断</li>
+</ul>
+<h3 id="q4-nacos-如何保证高可用">Q4: Nacos 如何保证高可用？</h3>
+<p><strong>答案要点</strong>：</p>
+<ul>
+<li>集群部署（至少 3 节点）</li>
+<li>CP 模式使用 Raft 协议选举</li>
+<li>AP 模式使用 Distro 协议最终一致</li>
+<li>持久化到 MySQL（防止数据丢失）</li>
+</ul>
+<h3 id="q5-微服务中服务注册与发现的核心流程">Q5: 微服务中，服务注册与发现的核心流程？</h3>
+<p><strong>答案要点</strong>：</p>
+<ol>
+<li>提供者启动 → 注册到注册中心</li>
+<li>提供者定时发送心跳</li>
+<li>消费者拉取服务列表并缓存</li>
+<li>消费者调用时，从缓存负载均衡</li>
+<li>注册中心检测心跳，剔除不健康实例</li>
+</ol>
+<hr>
+<h2 id="八总结">八、总结</h2>
+<p>本文深度解析了服务注册与发现的核心知识：</p>
+<ol>
+<li><strong>服务发现原理</strong>：客户端发现（Eureka/Nacos）vs 服务端发现（K8s）</li>
+<li><strong>Eureka</strong>：AP 系统，自我保护模式，心跳续约</li>
+<li><strong>Nacos</strong>：CP/AP 可切换，功能全面（服务发现 + 配置中心）</li>
+<li><strong>Eureka vs Nacos</strong>：Nacos 全面优于 Eureka，新项目推荐 Nacos</li>
+</ol>
+<p><strong>核心记忆</strong>：</p>
+<ul>
+<li>Eureka：AP、自我保护、心跳 30 秒、维护模式</li>
+<li>Nacos：CP/AP 可切换、内置配置中心、心跳 5 秒、维护活跃</li>
+<li>新项目选 Nacos，老项目 Eureka 可继续用</li>
+<li>服务发现三板斧：注册、心跳、拉取</li>
+</ul>
+<p>下一篇将深入 <strong>负载均衡深度解析（Ribbon/Spring Cloud LoadBalancer）</strong>，包括负载均衡策略、自定义负载均衡、重试机制等，敬请期待。</p>
+<hr>
+<p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>

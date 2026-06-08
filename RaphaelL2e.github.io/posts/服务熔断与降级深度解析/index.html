@@ -1,0 +1,2408 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务熔断与降级深度解析 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-05-15 <span>/</span> java </div>
+        <h1>服务熔断与降级深度解析</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="服务熔断与降级深度解析">服务熔断与降级深度解析</h1>
+<h2 id="一引言">一、引言</h2>
+<p>在微服务架构中，服务之间的调用关系错综复杂，一个服务的故障可能像多米诺骨牌一样引发连锁反应，导致整个系统崩溃——这就是所谓的<strong>雪崩效应</strong>。服务熔断与降级是应对雪崩效应的两大核心手段，也是微服务高可用架构的基石。</p>
+<p>本文将从原理到实践，深度解析熔断与降级机制，并对比三大主流框架：Netflix Hystrix、Alibaba Sentinel 和 Resilience4j。</p>
+<h3 id="雪崩效应的形成过程">雪崩效应的形成过程</h3>
+<pre tabindex="0"><code>服务A → 服务B → 服务C → 服务D(故障)
+                     ↑
+              请求堆积，线程耗尽
+                     ↑
+          服务C也因线程池耗尽而不可用
+                     ↑
+          服务B因等待服务C响应而阻塞
+                     ↑
+          服务A也因等待服务B响应而阻塞
+                     ↑
+          整个调用链崩溃 = 雪崩效应
+</code></pre><h3 id="熔断与降级的关系">熔断与降级的关系</h3>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>定义</th>
+<th>目的</th>
+<th>触发条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>熔断</strong></td>
+<td>当失败率达到阈值时，快速切断对故障服务的调用</td>
+<td>防止故障扩散，快速失败</td>
+<td>失败率/慢调用率超阈值</td>
+</tr>
+<tr>
+<td><strong>降级</strong></td>
+<td>当服务不可用时，返回兜底方案而非报错</td>
+<td>保证核心功能可用</td>
+<td>熔断触发/超时/异常</td>
+</tr>
+<tr>
+<td><strong>限流</strong></td>
+<td>限制单位时间内的请求数量</td>
+<td>防止过载</td>
+<td>QPS超限</td>
+</tr>
+</tbody>
+</table>
+<h2 id="二熔断器模式深度解析">二、熔断器模式深度解析</h2>
+<h3 id="21-熔断器的状态机">2.1 熔断器的状态机</h3>
+<p>熔断器（Circuit Breaker）的核心是一个有限状态机，包含三个状态：</p>
+<pre tabindex="0"><code>         失败率达阈值              冷却期结束
+  ┌──────────────────┐      ┌──────────────────┐
+  │                  │      │                  │
+  │                  ▼      │                  │
+┌───┐           ┌────────┐  │          ┌──────────┐
+│CLOSED────────►│  OPEN  │──┘─────────►│HALF-OPEN │
+│               └────────┘             └──────────┘
+│                                          │  │
+│                  探测成功 ◄────────────────┘  │
+│                  (恢复CLOSED)                 │
+│                                               │
+└───────────────────────────────────────────────┘
+                     探测失败(回到OPEN)
+</code></pre><p><strong>三个状态详解</strong>：</p>
+<ol>
+<li><strong>CLOSED（关闭）</strong>：正常状态，所有请求正常通过。统计窗口内持续监控失败率。</li>
+<li><strong>OPEN（打开）</strong>：熔断状态，所有请求被快速拒绝（走降级逻辑），不发起远程调用。</li>
+<li><strong>HALF-OPEN（半开）</strong>：试探状态，允许少量请求通过。如果这些请求成功，说明服务已恢复，切换回 CLOSED；如果失败，说明服务仍未恢复，切回 OPEN。</li>
+</ol>
+<h3 id="22-熔断器的关键参数">2.2 熔断器的关键参数</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 熔断器核心配置
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>CircuitBreakerConfig config <span style="color:#f92672">=</span> CircuitBreakerConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">custom</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 滑动窗口类型：COUNT_BASED（基于计数）或 TIME_BASED（基于时间）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">slidingWindowType</span><span style="color:#f92672">(</span>SlidingWindowType<span style="color:#f92672">.</span><span style="color:#a6e22e">COUNT_BASED</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 滑动窗口大小：统计最近100次调用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">slidingWindowSize</span><span style="color:#f92672">(</span><span style="color:#ae81ff">100</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 最小调用次数：达到10次才开始计算失败率
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">minimumNumberOfCalls</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 失败率阈值：超过50%则熔断
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">failureRateThreshold</span><span style="color:#f92672">(</span><span style="color:#ae81ff">50.0</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 慢调用阈值：超过5秒视为慢调用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">slowCallDurationThreshold</span><span style="color:#f92672">(</span>Duration<span style="color:#f92672">.</span><span style="color:#a6e22e">ofSeconds</span><span style="color:#f92672">(</span><span style="color:#ae81ff">5</span><span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 慢调用率阈值：超过60%则熔断
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">slowCallRateThreshold</span><span style="color:#f92672">(</span><span style="color:#ae81ff">60.0</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 熔断持续时间：OPEN状态保持30秒
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">waitDurationInOpenState</span><span style="color:#f92672">(</span>Duration<span style="color:#f92672">.</span><span style="color:#a6e22e">ofSeconds</span><span style="color:#f92672">(</span><span style="color:#ae81ff">30</span><span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 半开状态允许的请求数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">permittedNumberOfCallsInHalfOpenState</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 自动从OPEN转为HALF_OPEN
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">automaticTransitionFromOpenToHalfOpenEnabled</span><span style="color:#f92672">(</span><span style="color:#66d9ef">true</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
+</span></span></code></pre></div><h3 id="23-滑动窗口算法">2.3 滑动窗口算法</h3>
+<p>滑动窗口是熔断器统计指标的核心算法，分为两种：</p>
+<p><strong>基于计数的滑动窗口</strong>：</p>
+<pre tabindex="0"><code>| 请求1 | 请求2 | ... | 请求100 |  ← 窗口大小=100
+                                ↑ 新请求进入
+| 请求2 | 请求3 | ... | 请求101 |  ← 窗口滑动
+</code></pre><p><strong>基于时间的滑动窗口</strong>：</p>
+<pre tabindex="0"><code>| 00:00-00:10 | 00:10-00:20 | ... | 00:50-01:00 |  ← 10分钟窗口
+                                            ↑ 时间推进
+| 00:01-00:11 | 00:11-00:21 | ... | 00:51-01:01 |  ← 窗口滑动
+</code></pre><p><strong>实现对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>实现方式</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数组环形缓冲区</td>
+<td>O(1)时间复杂度，内存高效</td>
+<td>精度固定</td>
+<td>基于计数的窗口</td>
+</tr>
+<tr>
+<td>时间桶聚合</td>
+<td>时间维度更精确</td>
+<td>需要维护多个桶</td>
+<td>基于时间的窗口</td>
+</tr>
+<tr>
+<td>时间窗口+计数</td>
+<td>兼顾精度与性能</td>
+<td>实现较复杂</td>
+<td>需要精确统计</td>
+</tr>
+</tbody>
+</table>
+<h2 id="三netflix-hystrix-深度解析">三、Netflix Hystrix 深度解析</h2>
+<h3 id="31-hystrix-核心设计">3.1 Hystrix 核心设计</h3>
+<p>Hystrix 是 Netflix 开源的服务容错框架，虽然已停止维护（进入维护模式），但其设计理念仍是行业标杆。</p>
+<p><strong>Hystrix 的核心机制</strong>：</p>
+<ol>
+<li><strong>资源隔离</strong>：通过线程池或信号量隔离，防止故障蔓延</li>
+<li><strong>熔断器</strong>：基于失败率自动熔断</li>
+<li><strong>降级回退</strong>：提供 fallback 逻辑</li>
+<li><strong>请求合并</strong>：合并多个请求减少开销</li>
+<li><strong>请求缓存</strong>：缓存重复请求结果</li>
+</ol>
+<h3 id="32-资源隔离策略">3.2 资源隔离策略</h3>
+<h4 id="线程池隔离">线程池隔离</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Hystrix 线程池隔离配置
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@HystrixCommand</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    groupKey <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;userServiceGroup&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>    commandKey <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;getUserById&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>    threadPoolKey <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;userServicePool&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>    threadPoolProperties <span style="color:#f92672">=</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;coreSize&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;10&#34;</span><span style="color:#f92672">),</span>           <span style="color:#75715e">// 核心线程数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;maximumSize&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;20&#34;</span><span style="color:#f92672">),</span>        <span style="color:#75715e">// 最大线程数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;maxQueueSize&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;100&#34;</span><span style="color:#f92672">),</span>      <span style="color:#75715e">// 队列大小
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;keepAliveTimeMinutes&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;1&#34;</span><span style="color:#f92672">),</span><span style="color:#75715e">// 空闲线程存活时间
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;queueSizeRejectionThreshold&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;100&#34;</span><span style="color:#f92672">)</span> <span style="color:#75715e">// 队列拒绝阈值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">},</span>
+</span></span><span style="display:flex;"><span>    commandProperties <span style="color:#f92672">=</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;execution.isolation.strategy&#34;</span><span style="color:#f92672">,</span> 
+</span></span><span style="display:flex;"><span>                        value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;THREAD&#34;</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 线程池隔离
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> User <span style="color:#a6e22e">getUserById</span><span style="color:#f92672">(</span>Long id<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> userClient<span style="color:#f92672">.</span><span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>id<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>线程池隔离模型</strong>：</p>
+<pre tabindex="0"><code>Tomcat线程池          Hystrix线程池
+┌─────────┐         ┌──────────────────┐
+│ Thread-1 │────────►│ Hystrix-User-1   │──► 用户服务
+│ Thread-2 │────────►│ Hystrix-User-2   │──► 用户服务
+│ Thread-3 │────────►│ Hystrix-Order-1  │──► 订单服务
+│ Thread-4 │────────►│ Hystrix-Order-2  │──► 订单服务
+│ ...      │         │ ...              │
+└─────────┘         └──────────────────┘
+
+每个依赖服务有独立的线程池，互不影响
+</code></pre><h4 id="信号量隔离">信号量隔离</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@HystrixCommand</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    commandProperties <span style="color:#f92672">=</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;execution.isolation.strategy&#34;</span><span style="color:#f92672">,</span> 
+</span></span><span style="display:flex;"><span>                        value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;SEMAPHORE&#34;</span><span style="color:#f92672">),</span>  <span style="color:#75715e">// 信号量隔离
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;execution.isolation.semaphore.maxConcurrentRequests&#34;</span><span style="color:#f92672">,</span> 
+</span></span><span style="display:flex;"><span>                        value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;10&#34;</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 最大并发数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> User <span style="color:#a6e22e">getUserFromCache</span><span style="color:#f92672">(</span>Long id<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> userCache<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>id<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>两种隔离策略对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>线程池隔离</th>
+<th>信号量隔离</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>线程开销</td>
+<td>高（每个命令独立线程）</td>
+<td>低（在调用线程执行）</td>
+</tr>
+<tr>
+<td>超时控制</td>
+<td>支持（可中断线程）</td>
+<td>不支持（无法中断）</td>
+</tr>
+<tr>
+<td>异步执行</td>
+<td>支持</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>远程调用（网络IO）</td>
+<td>本地调用（缓存/计算）</td>
+</tr>
+<tr>
+<td>隔离性</td>
+<td>强（完全隔离）</td>
+<td>弱（共享调用线程）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-hystrix-熔断器实现">3.3 Hystrix 熔断器实现</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Hystrix 熔断器配置
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@HystrixCommand</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    commandProperties <span style="color:#f92672">=</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 熔断器开启
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;circuitBreaker.enabled&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;true&#34;</span><span style="color:#f92672">),</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 请求量阈值（窗口内达到此数量才开始计算）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;circuitBreaker.requestVolumeThreshold&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;20&#34;</span><span style="color:#f92672">),</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 错误百分比阈值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;circuitBreaker.errorThresholdPercentage&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;50&#34;</span><span style="color:#f92672">),</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 熔断器休眠时间（毫秒）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;circuitBreaker.sleepWindowInMilliseconds&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;5000&#34;</span><span style="color:#f92672">),</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 强制开启熔断器
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;circuitBreaker.forceOpen&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;false&#34;</span><span style="color:#f92672">),</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 强制关闭熔断器
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;circuitBreaker.forceClosed&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;false&#34;</span><span style="color:#f92672">),</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 统计窗口时间（毫秒）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;metrics.rollingStats.timeInMilliseconds&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;10000&#34;</span><span style="color:#f92672">),</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 统计窗口桶数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">@HystrixProperty</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;metrics.rollingStats.numBuckets&#34;</span><span style="color:#f92672">,</span> value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;10&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">},</span>
+</span></span><span style="display:flex;"><span>    fallbackMethod <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;getUserFallback&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> User <span style="color:#a6e22e">getUserById</span><span style="color:#f92672">(</span>Long id<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> userClient<span style="color:#f92672">.</span><span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>id<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 降级方法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">private</span> User <span style="color:#a6e22e">getUserFallback</span><span style="color:#f92672">(</span>Long id<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    log<span style="color:#f92672">.</span><span style="color:#a6e22e">warn</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;用户服务降级，userId={}&#34;</span><span style="color:#f92672">,</span> id<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> User<span style="color:#f92672">.</span><span style="color:#a6e22e">defaultUser</span><span style="color:#f92672">(</span>id<span style="color:#f92672">);</span>  <span style="color:#75715e">// 返回默认用户
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>Hystrix 熔断器工作流程</strong>：</p>
+<pre tabindex="0"><code>1. 请求到达
+     │
+2. 检查熔断器状态
+     ├── OPEN → 直接执行fallback
+     ├── HALF-OPEN → 允许请求通过（试探）
+     └── CLOSED → 继续执行
+              │
+3. 检查线程池/信号量
+     ├── 满载 → 执行fallback
+     └── 有余量 → 执行命令
+              │
+4. 执行远程调用
+     ├── 成功 → 返回结果，更新统计
+     └── 失败/超时 → 执行fallback，更新统计
+              │
+5. 统计计算
+     └── 失败率 &gt;= 阈值 → 切换为OPEN
+</code></pre><h3 id="34-hystrix-请求合并">3.4 Hystrix 请求合并</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 请求合并器：将多个单条请求合并为批量请求
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UserCollapseCommand</span> <span style="color:#66d9ef">extends</span> HystrixCollapser<span style="color:#f92672">&lt;</span>List<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;,</span> User<span style="color:#f92672">,</span> Long<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Long userId<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">UserCollapseCommand</span><span style="color:#f92672">(</span>Long userId<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">super</span><span style="color:#f92672">(</span>Setter<span style="color:#f92672">.</span><span style="color:#a6e22e">withCollapserKey</span><span style="color:#f92672">(</span>HystrixCollapserKey<span style="color:#f92672">.</span><span style="color:#a6e22e">Factory</span><span style="color:#f92672">.</span><span style="color:#a6e22e">asKey</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;userCollapse&#34;</span><span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">andCollapserPropertiesDefaults</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>                HystrixCollapserProperties<span style="color:#f92672">.</span><span style="color:#a6e22e">Setter</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">.</span><span style="color:#a6e22e">withTimerDelayInMilliseconds</span><span style="color:#f92672">(</span><span style="color:#ae81ff">100</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 合并窗口100ms
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                    <span style="color:#f92672">.</span><span style="color:#a6e22e">withMaxRequestsInBatch</span><span style="color:#f92672">(</span><span style="color:#ae81ff">200</span><span style="color:#f92672">)</span>         <span style="color:#75715e">// 最大合并数200
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">userId</span> <span style="color:#f92672">=</span> userId<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Long <span style="color:#a6e22e">getRequestArgument</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> userId<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">protected</span> HystrixCommand<span style="color:#f92672">&lt;</span>List<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;&gt;</span> <span style="color:#a6e22e">createCommand</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            Collection<span style="color:#f92672">&lt;</span>CollapsedRequest<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">,</span> Long<span style="color:#f92672">&gt;&gt;</span> requests<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 将多个userId合并为批量请求
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        List<span style="color:#f92672">&lt;</span>Long<span style="color:#f92672">&gt;</span> userIds <span style="color:#f92672">=</span> requests<span style="color:#f92672">.</span><span style="color:#a6e22e">stream</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">map</span><span style="color:#f92672">(</span>CollapsedRequest<span style="color:#f92672">::</span>getArgument<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">collect</span><span style="color:#f92672">(</span>Collectors<span style="color:#f92672">.</span><span style="color:#a6e22e">toList</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> UserBatchCommand<span style="color:#f92672">(</span>userIds<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">mapResponseToRequests</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            List<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;</span> batchResponse<span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            Collection<span style="color:#f92672">&lt;</span>CollapsedRequest<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">,</span> Long<span style="color:#f92672">&gt;&gt;</span> requests<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 将批量响应映射回单个请求
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        Iterator<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;</span> iter <span style="color:#f92672">=</span> batchResponse<span style="color:#f92672">.</span><span style="color:#a6e22e">iterator</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        requests<span style="color:#f92672">.</span><span style="color:#a6e22e">forEach</span><span style="color:#f92672">(</span>request <span style="color:#f92672">-&gt;</span> request<span style="color:#f92672">.</span><span style="color:#a6e22e">response</span><span style="color:#f92672">(</span>iter<span style="color:#f92672">.</span><span style="color:#a6e22e">next</span><span style="color:#f92672">()));</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="35-hystrix-的局限性">3.5 Hystrix 的局限性</h3>
+<table>
+<thead>
+<tr>
+<th>局限性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>已停止维护</td>
+<td>2018年进入维护模式，不再发布新版本</td>
+</tr>
+<tr>
+<td>线程池开销</td>
+<td>线程池隔离带来额外的线程切换和内存开销</td>
+</tr>
+<tr>
+<td>不支持限流</td>
+<td>只有熔断和降级，没有流量控制</td>
+</tr>
+<tr>
+<td>配置复杂</td>
+<td>大量注解和配置项，学习曲线陡峭</td>
+</tr>
+<tr>
+<td>不支持热点参数</td>
+<td>无法根据参数维度做细粒度控制</td>
+</tr>
+<tr>
+<td>无实时监控</td>
+<td>需要单独搭建 Hystrix Dashboard</td>
+</tr>
+</tbody>
+</table>
+<h2 id="四alibaba-sentinel-深度解析">四、Alibaba Sentinel 深度解析</h2>
+<h3 id="41-sentinel-核心设计">4.1 Sentinel 核心设计</h3>
+<p>Sentinel 是阿里巴巴开源的面向分布式服务架构的流量控制组件，以流量为切入点，提供流量控制、熔断降级、系统负载保护等多个维度来保障服务的稳定性。</p>
+<p><strong>Sentinel 核心概念</strong>：</p>
+<ol>
+<li><strong>资源</strong>：需要保护的内容（接口、方法、代码块）</li>
+<li><strong>规则</strong>：如何保护资源（限流、熔断、降级规则）</li>
+<li><strong>Slot Chain</strong>：责任链模式，每个Slot负责一个功能</li>
+</ol>
+<p><strong>Sentinel vs Hystrix 对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>功能</th>
+<th>Hystrix</th>
+<th>Sentinel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>熔断降级</td>
+<td>✅ 基于异常比例</td>
+<td>✅ 基于异常比例/慢调用比例</td>
+</tr>
+<tr>
+<td>实时统计</td>
+<td>✅ 滑动窗口</td>
+<td>✅ 滑动窗口（LeapArray）</td>
+</tr>
+<tr>
+<td>流量控制</td>
+<td>❌</td>
+<td>✅ QPS/线程数/关联/链路</td>
+</tr>
+<tr>
+<td>系统保护</td>
+<td>❌</td>
+<td>✅ Load/CPU/RT/线程数</td>
+</tr>
+<tr>
+<td>热点参数</td>
+<td>❌</td>
+<td>✅ 参数级限流</td>
+</tr>
+<tr>
+<td>控制台</td>
+<td>✅ Dashboard</td>
+<td>✅ Sentinel Dashboard（更强大）</td>
+</tr>
+<tr>
+<td>扩展性</td>
+<td>一般</td>
+<td>强（SPI扩展机制）</td>
+</tr>
+<tr>
+<td>维护状态</td>
+<td>停止维护</td>
+<td>活跃维护</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-sentinel-责任链slot-chain">4.2 Sentinel 责任链（Slot Chain）</h3>
+<p>Sentinel 的核心处理流程是一个 Slot Chain（责任链），每个 Slot 负责不同的功能：</p>
+<pre tabindex="0"><code>请求进入
+   │
+   ▼
+┌──────────────────┐
+│ NodeSelectorSlot │ ← 构建调用树（Context维度）
+└────────┬─────────┘
+         │
+┌────────▼─────────┐
+│ ClusterBuilderSlot│ ← 构建集群节点（Resource维度）
+└────────┬─────────┘
+         │
+┌────────▼─────────┐
+│    LogSlot       │ ← 记录日志
+└────────┬─────────┘
+         │
+┌────────▼─────────┐
+│  StatisticSlot   │ ← 实时数据统计（QPS、RT、线程数）
+└────────┬─────────┘
+         │
+┌────────▼─────────┐
+│  AuthoritySlot   │ ← 授权控制（黑白名单）
+└────────┬─────────┘
+         │
+┌────────▼─────────┐
+│  SystemSlot      │ ← 系统保护（Load、CPU、RT、线程数）
+└────────┬─────────┘
+         │
+┌────────▼─────────┐
+│  FlowSlot        │ ← 流量控制（QPS、线程数）
+└────────┬─────────┘
+         │
+┌────────▼─────────┐
+│  DegradeSlot     │ ← 熔断降级（异常比例/慢调用）
+└────────┬─────────┘
+         │
+     执行业务逻辑
+</code></pre><h3 id="43-sentinel-流量控制">4.3 Sentinel 流量控制</h3>
+<h4 id="qps-限流">QPS 限流</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// QPS限流规则
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>FlowRule flowRule <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> FlowRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;getUser&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">100</span><span style="color:#f92672">)</span>                           <span style="color:#75715e">// QPS阈值100
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>RuleConstant<span style="color:#f92672">.</span><span style="color:#a6e22e">FLOW_GRADE_QPS</span><span style="color:#f92672">)</span>   <span style="color:#75715e">// 按QPS限流
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setLimitApp</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;default&#34;</span><span style="color:#f92672">)</span>                  <span style="color:#75715e">// 来源应用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setStrategy</span><span style="color:#f92672">(</span>RuleConstant<span style="color:#f92672">.</span><span style="color:#a6e22e">FLOW_CHAIN</span><span style="color:#f92672">);</span>   <span style="color:#75715e">// 链路限流
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>FlowRuleManager<span style="color:#f92672">.</span><span style="color:#a6e22e">loadRules</span><span style="color:#f92672">(</span>Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">singletonList</span><span style="color:#f92672">(</span>flowRule<span style="color:#f92672">));</span>
+</span></span></code></pre></div><p><strong>流控模式</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>说明</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>直接</strong></td>
+<td>资源自身达到阈值时限流</td>
+<td>接口自身保护</td>
+</tr>
+<tr>
+<td><strong>关联</strong></td>
+<td>关联资源达到阈值时限流当前资源</td>
+<td>写操作影响读操作时</td>
+</tr>
+<tr>
+<td><strong>链路</strong></td>
+<td>只统计从指定入口进入的流量</td>
+<td>精细化链路控制</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关联限流示例</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 当写接口QPS达到阈值时，限制读接口
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 场景：数据库写操作压力大时，限制读操作保护数据库
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>FlowRule readRule <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> FlowRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;readResource&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">100</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>RuleConstant<span style="color:#f92672">.</span><span style="color:#a6e22e">FLOW_GRADE_QPS</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setStrategy</span><span style="color:#f92672">(</span>RuleConstant<span style="color:#f92672">.</span><span style="color:#a6e22e">FLOW_RELATE</span><span style="color:#f92672">)</span>        <span style="color:#75715e">// 关联模式
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setRefResource</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;writeResource&#34;</span><span style="color:#f92672">);</span>              <span style="color:#75715e">// 关联写接口
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>FlowRule writeRule <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> FlowRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;writeResource&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">50</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>RuleConstant<span style="color:#f92672">.</span><span style="color:#a6e22e">FLOW_GRADE_QPS</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>FlowRuleManager<span style="color:#f92672">.</span><span style="color:#a6e22e">loadRules</span><span style="color:#f92672">(</span>Arrays<span style="color:#f92672">.</span><span style="color:#a6e22e">asList</span><span style="color:#f92672">(</span>readRule<span style="color:#f92672">,</span> writeRule<span style="color:#f92672">));</span>
+</span></span></code></pre></div><p><strong>流控效果</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>效果</th>
+<th>说明</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>快速失败</strong></td>
+<td>直接抛出 FlowException</td>
+<td>默认方式，适合大多数场景</td>
+</tr>
+<tr>
+<td><strong>Warm Up</strong></td>
+<td>冷启动，逐渐增大流量</td>
+<td>适合突发流量场景</td>
+</tr>
+<tr>
+<td><strong>排队等待</strong></td>
+<td>请求匀速通过</td>
+<td>适合削峰填谷场景</td>
+</tr>
+</tbody>
+</table>
+<h4 id="warm-up冷启动">Warm Up（冷启动）</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Warm Up：冷启动模式
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>FlowRule warmUpRule <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> FlowRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;getUser&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">100</span><span style="color:#f92672">)</span>                               <span style="color:#75715e">// 最终QPS阈值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>RuleConstant<span style="color:#f92672">.</span><span style="color:#a6e22e">FLOW_GRADE_QPS</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setControlBehavior</span><span style="color:#f92672">(</span>RuleConstant<span style="color:#f92672">.</span><span style="color:#a6e22e">CONTROL_BEHAVIOR_WARM_UP</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 冷启动
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setWarmUpPeriodSec</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">);</span>                     <span style="color:#75715e">// 预热时长10秒
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 效果：系统刚启动时QPS阈值为 100/3 ≈ 33，10秒内逐渐增大到100
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 适用场景：数据库连接池需要预热、缓存需要填充
+</span></span></span></code></pre></div><h4 id="排队等待匀速器">排队等待（匀速器）</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 排队等待：请求匀速通过
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>FlowRule rateLimiterRule <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> FlowRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;processOrder&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">100</span><span style="color:#f92672">)</span>                                    <span style="color:#75715e">// QPS阈值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>RuleConstant<span style="color:#f92672">.</span><span style="color:#a6e22e">FLOW_GRADE_QPS</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setControlBehavior</span><span style="color:#f92672">(</span>RuleConstant<span style="color:#f92672">.</span><span style="color:#a6e22e">CONTROL_BEHAVIOR_RATE_LIMITER</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 排队等待
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setMaxQueueingTimeMs</span><span style="color:#f92672">(</span><span style="color:#ae81ff">5000</span><span style="color:#f92672">);</span>                      <span style="color:#75715e">// 最大排队时间5秒
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 效果：请求以匀速方式通过，间隔10ms一个请求
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 适用场景：消息队列消费者、定时任务触发
+</span></span></span></code></pre></div><h3 id="44-sentinel-熔断降级">4.4 Sentinel 熔断降级</h3>
+<p>Sentinel 提供三种熔断策略：</p>
+<h4 id="慢调用比例">慢调用比例</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 慢调用比例熔断规则
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>DegradeRule slowCallRule <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DegradeRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;getUser&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>CircuitBreakerStrategy<span style="color:#f92672">.</span><span style="color:#a6e22e">SLOW_REQUEST_RATIO</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getType</span><span style="color:#f92672">())</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0.5</span><span style="color:#f92672">)</span>           <span style="color:#75715e">// 慢调用比例阈值：50%
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setSlowRatioThreshold</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0.5</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setTimeWindow</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">)</span>       <span style="color:#75715e">// 熔断时长10秒
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setMinRequestAmount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">5</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 最小请求数5
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setStatIntervalMs</span><span style="color:#f92672">(</span><span style="color:#ae81ff">1000</span><span style="color:#f92672">);</span><span style="color:#75715e">// 统计时长1秒
+</span></span></span></code></pre></div><h4 id="异常比例">异常比例</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 异常比例熔断规则
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>DegradeRule exceptionRatioRule <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DegradeRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;getUser&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>CircuitBreakerStrategy<span style="color:#f92672">.</span><span style="color:#a6e22e">ERROR_RATIO</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getType</span><span style="color:#f92672">())</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0.5</span><span style="color:#f92672">)</span>           <span style="color:#75715e">// 异常比例阈值：50%
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setTimeWindow</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">)</span>       <span style="color:#75715e">// 熔断时长10秒
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setMinRequestAmount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">5</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 最小请求数5
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setStatIntervalMs</span><span style="color:#f92672">(</span><span style="color:#ae81ff">1000</span><span style="color:#f92672">);</span><span style="color:#75715e">// 统计时长1秒
+</span></span></span></code></pre></div><h4 id="异常数">异常数</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 异常数熔断规则
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>DegradeRule exceptionCountRule <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> DegradeRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;getUser&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>CircuitBreakerStrategy<span style="color:#f92672">.</span><span style="color:#a6e22e">ERROR_COUNT</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getType</span><span style="color:#f92672">())</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">)</span>            <span style="color:#75715e">// 异常数阈值：10次
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setTimeWindow</span><span style="color:#f92672">(</span><span style="color:#ae81ff">60</span><span style="color:#f92672">)</span>       <span style="color:#75715e">// 熔断时长60秒
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setMinRequestAmount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">5</span><span style="color:#f92672">)</span>  <span style="color:#75715e">// 最小请求数5
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setStatIntervalMs</span><span style="color:#f92672">(</span><span style="color:#ae81ff">60000</span><span style="color:#f92672">);</span><span style="color:#75715e">// 统计时长60秒
+</span></span></span></code></pre></div><p><strong>三种熔断策略对比</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>触发条件</th>
+<th>适用场景</th>
+<th>优势</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>慢调用比例</td>
+<td>慢调用比例超阈值</td>
+<td>对延迟敏感的服务</td>
+<td>提前预警，不等报错</td>
+</tr>
+<tr>
+<td>异常比例</td>
+<td>异常比例超阈值</td>
+<td>不稳定的依赖服务</td>
+<td>识别部分故障</td>
+</tr>
+<tr>
+<td>异常数</td>
+<td>异常数量超阈值</td>
+<td>严格要求错误的场景</td>
+<td>绝对值控制，更直观</td>
+</tr>
+</tbody>
+</table>
+<h3 id="45-sentinel-热点参数限流">4.5 Sentinel 热点参数限流</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 热点参数限流：根据参数值维度做限流
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>ParamFlowRule rule <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ParamFlowRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;getUser&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setParamIdx</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">)</span>          <span style="color:#75715e">// 限流参数索引（第0个参数）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">100</span><span style="color:#f92672">)</span>           <span style="color:#75715e">// 每秒QPS阈值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>RuleConstant<span style="color:#f92672">.</span><span style="color:#a6e22e">FLOW_GRADE_QPS</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 对特定参数值设置例外限流
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>ParamFlowItem item <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> ParamFlowItem<span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setObject</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;vip-user-123&#34;</span><span style="color:#f92672">)</span>   <span style="color:#75715e">// 特定参数值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setClassType</span><span style="color:#f92672">(</span>String<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getName</span><span style="color:#f92672">())</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">500</span><span style="color:#f92672">);</span>              <span style="color:#75715e">// VIP用户更高的QPS阈值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>rule<span style="color:#f92672">.</span><span style="color:#a6e22e">setParamFlowItemList</span><span style="color:#f92672">(</span>Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">singletonList</span><span style="color:#f92672">(</span>item<span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>ParamFlowRuleManager<span style="color:#f92672">.</span><span style="color:#a6e22e">loadRules</span><span style="color:#f92672">(</span>Collections<span style="color:#f92672">.</span><span style="color:#a6e22e">singletonList</span><span style="color:#f92672">(</span>rule<span style="color:#f92672">));</span>
+</span></span></code></pre></div><p><strong>热点参数限流场景</strong>：</p>
+<ul>
+<li>电商秒杀：对热门商品ID做更严格的限流</li>
+<li>社交平台：对热点用户做特殊限流</li>
+<li>API网关：对不同租户做差异化限流</li>
+</ul>
+<h3 id="46-sentinel-系统保护">4.6 Sentinel 系统保护</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 系统保护规则：从全局维度保护系统
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>SystemRule systemRule1 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SystemRule<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>systemRule1<span style="color:#f92672">.</span><span style="color:#a6e22e">setHighestSystemLoad</span><span style="color:#f92672">(</span><span style="color:#ae81ff">2.0</span><span style="color:#f92672">);</span>    <span style="color:#75715e">// 系统Load超过2.0触发保护
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>SystemRule systemRule2 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SystemRule<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>systemRule2<span style="color:#f92672">.</span><span style="color:#a6e22e">setHighestCpuUsage</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0.8</span><span style="color:#f92672">);</span>      <span style="color:#75715e">// CPU使用率超过80%触发保护
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>SystemRule systemRule3 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SystemRule<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>systemRule3<span style="color:#f92672">.</span><span style="color:#a6e22e">setAvgRt</span><span style="color:#f92672">(</span><span style="color:#ae81ff">200</span><span style="color:#f92672">);</span>                <span style="color:#75715e">// 平均RT超过200ms触发保护
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>SystemRule systemRule4 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SystemRule<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>systemRule4<span style="color:#f92672">.</span><span style="color:#a6e22e">setMaxThread</span><span style="color:#f92672">(</span><span style="color:#ae81ff">500</span><span style="color:#f92672">);</span>            <span style="color:#75715e">// 并发线程数超过500触发保护
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>SystemRule systemRule5 <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> SystemRule<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>systemRule5<span style="color:#f92672">.</span><span style="color:#a6e22e">setQps</span><span style="color:#f92672">(</span><span style="color:#ae81ff">5000</span><span style="color:#f92672">);</span>                 <span style="color:#75715e">// 总QPS超过5000触发保护
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>SystemRuleManager<span style="color:#f92672">.</span><span style="color:#a6e22e">loadRules</span><span style="color:#f92672">(</span>Arrays<span style="color:#f92672">.</span><span style="color:#a6e22e">asList</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    systemRule1<span style="color:#f92672">,</span> systemRule2<span style="color:#f92672">,</span> systemRule3<span style="color:#f92672">,</span> systemRule4<span style="color:#f92672">,</span> systemRule5
+</span></span><span style="display:flex;"><span><span style="color:#f92672">));</span>
+</span></span></code></pre></div><h3 id="47-sentinel-注解方式">4.7 Sentinel 注解方式</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// @SentinelResource 注解
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@SentinelResource</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;getUser&#34;</span><span style="color:#f92672">,</span>                    <span style="color:#75715e">// 资源名称
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    blockHandler <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;getUserBlockHandler&#34;</span><span style="color:#f92672">,</span> <span style="color:#75715e">// 限流/熔断处理
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    fallback <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;getUserFallback&#34;</span><span style="color:#f92672">,</span>         <span style="color:#75715e">// 异常降级处理
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    blockHandlerClass <span style="color:#f92672">=</span> UserBlockHandler<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span>  <span style="color:#75715e">// 限流处理类
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    fallbackClass <span style="color:#f92672">=</span> UserFallbackHandler<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span>    <span style="color:#75715e">// 降级处理类
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> User <span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>Long id<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> userClient<span style="color:#f92672">.</span><span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>id<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 限流/熔断处理方法（必须为static，如果在单独类中）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UserBlockHandler</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> User <span style="color:#a6e22e">getUserBlockHandler</span><span style="color:#f92672">(</span>Long id<span style="color:#f92672">,</span> BlockException ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        log<span style="color:#f92672">.</span><span style="color:#a6e22e">warn</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;请求被限流/熔断，userId={}&#34;</span><span style="color:#f92672">,</span> id<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> User<span style="color:#f92672">.</span><span style="color:#a6e22e">defaultUser</span><span style="color:#f92672">(</span>id<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 异常降级处理方法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UserFallbackHandler</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> User <span style="color:#a6e22e">getUserFallback</span><span style="color:#f92672">(</span>Long id<span style="color:#f92672">,</span> Throwable ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        log<span style="color:#f92672">.</span><span style="color:#a6e22e">error</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;用户服务异常，userId={}&#34;</span><span style="color:#f92672">,</span> id<span style="color:#f92672">,</span> ex<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> User<span style="color:#f92672">.</span><span style="color:#a6e22e">defaultUser</span><span style="color:#f92672">(</span>id<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>blockHandler vs fallback</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>触发条件</th>
+<th>异常类型</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>blockHandler</code></td>
+<td>限流、熔断触发</td>
+<td><code>BlockException</code></td>
+<td>流控降级</td>
+</tr>
+<tr>
+<td><code>fallback</code></td>
+<td>业务异常</td>
+<td><code>Throwable</code></td>
+<td>异常降级</td>
+</tr>
+</tbody>
+</table>
+<h3 id="48-sentinel-核心数据结构leaparray">4.8 Sentinel 核心数据结构：LeapArray</h3>
+<p>LeapArray 是 Sentinel 实现滑动窗口的核心数据结构：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// LeapArray 核心实现（简化版）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">LeapArray</span><span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 窗口长度（毫秒）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">int</span> windowLengthInMs<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 采样窗口数量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">int</span> sampleCount<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 总时间窗口长度（毫秒）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">int</span> intervalInMs<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 窗口数组（AtomicReferenceArray保证线程安全）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">protected</span> <span style="color:#66d9ef">final</span> AtomicReferenceArray<span style="color:#f92672">&lt;</span>WindowWrap<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;&gt;</span> array<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">/**
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * 根据当前时间获取对应的窗口
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * 核心算法：timeId = currentTimeMillis / windowLengthInMs
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     *          idx = timeId % array.length()
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     */</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> WindowWrap<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">currentWindow</span><span style="color:#f92672">(</span><span style="color:#66d9ef">long</span> currentTimeMillis<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 计算当前时间对应的窗口索引
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">long</span> timeId <span style="color:#f92672">=</span> currentTimeMillis <span style="color:#f92672">/</span> windowLengthInMs<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">int</span> idx <span style="color:#f92672">=</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">int</span><span style="color:#f92672">)</span> <span style="color:#f92672">(</span>timeId <span style="color:#f92672">%</span> array<span style="color:#f92672">.</span><span style="color:#a6e22e">length</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 计算窗口开始时间
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">long</span> windowStart <span style="color:#f92672">=</span> currentTimeMillis 
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">-</span> <span style="color:#f92672">(</span>currentTimeMillis <span style="color:#f92672">%</span> windowLengthInMs<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">while</span> <span style="color:#f92672">(</span><span style="color:#66d9ef">true</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            WindowWrap<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> old <span style="color:#f92672">=</span> array<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>idx<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>old <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e">// 创建新窗口
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                WindowWrap<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> window <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> WindowWrap<span style="color:#f92672">&lt;&gt;(</span>
+</span></span><span style="display:flex;"><span>                    windowLengthInMs<span style="color:#f92672">,</span> windowStart<span style="color:#f92672">,</span> newEmptyBucket<span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>array<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span>idx<span style="color:#f92672">,</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">,</span> window<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">return</span> window<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>windowStart <span style="color:#f92672">==</span> old<span style="color:#f92672">.</span><span style="color:#a6e22e">windowStart</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e">// 当前窗口已存在且时间匹配
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                <span style="color:#66d9ef">return</span> old<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>windowStart <span style="color:#f92672">&gt;</span> old<span style="color:#f92672">.</span><span style="color:#a6e22e">windowStart</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e">// 窗口已过期，重置
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>updateLock<span style="color:#f92672">.</span><span style="color:#a6e22e">tryLock</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">try</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                        <span style="color:#66d9ef">return</span> resetWindowTo<span style="color:#f92672">(</span>old<span style="color:#f92672">,</span> windowStart<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">}</span> <span style="color:#66d9ef">finally</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                        updateLock<span style="color:#f92672">.</span><span style="color:#a6e22e">unlock</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>LeapArray 时间复杂度分析</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>时间复杂度</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>获取当前窗口</td>
+<td>O(1)</td>
+<td>取模计算索引</td>
+</tr>
+<tr>
+<td>更新窗口数据</td>
+<td>O(1)</td>
+<td>CAS更新</td>
+</tr>
+<tr>
+<td>统计窗口数据</td>
+<td>O(n)</td>
+<td>n=sampleCount，遍历窗口</td>
+</tr>
+<tr>
+<td>重置过期窗口</td>
+<td>O(1)</td>
+<td>直接替换</td>
+</tr>
+</tbody>
+</table>
+<h2 id="五resilience4j-深度解析">五、Resilience4j 深度解析</h2>
+<h3 id="51-resilience4j-核心设计">5.1 Resilience4j 核心设计</h3>
+<p>Resilience4j 是专为 Java 8+ 函数式编程设计的轻量级容错库，是 Hystrix 的官方推荐替代方案。</p>
+<p><strong>设计理念</strong>：</p>
+<ul>
+<li>轻量级（仅依赖 vavr 库）</li>
+<li>函数式编程风格</li>
+<li>模块化设计（按需引入）</li>
+<li>无外部依赖</li>
+<li>响应式编程支持</li>
+</ul>
+<p><strong>核心模块</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>功能</th>
+<th>对应 Hystrix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CircuitBreaker</td>
+<td>熔断器</td>
+<td>✅ 对应</td>
+</tr>
+<tr>
+<td>RateLimiter</td>
+<td>限流器</td>
+<td>❌ Hystrix无</td>
+</tr>
+<tr>
+<td>Retry</td>
+<td>重试</td>
+<td>✅ 对应</td>
+</tr>
+<tr>
+<td>Bulkhead</td>
+<td>舱壁隔离</td>
+<td>✅ 线程池隔离</td>
+</tr>
+<tr>
+<td>TimeLimiter</td>
+<td>超时控制</td>
+<td>✅ 对应</td>
+</tr>
+<tr>
+<td>Cache</td>
+<td>缓存</td>
+<td>✅ 对应</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-circuitbreaker-配置">5.2 CircuitBreaker 配置</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Resilience4j CircuitBreaker 配置
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>CircuitBreakerConfig circuitBreakerConfig <span style="color:#f92672">=</span> CircuitBreakerConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">custom</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 滑动窗口类型和大小
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">slidingWindowType</span><span style="color:#f92672">(</span>SlidingWindowType<span style="color:#f92672">.</span><span style="color:#a6e22e">COUNT_BASED</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">slidingWindowSize</span><span style="color:#f92672">(</span><span style="color:#ae81ff">100</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">minimumNumberOfCalls</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 失败率阈值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">failureRateThreshold</span><span style="color:#f92672">(</span><span style="color:#ae81ff">50.0f</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 慢调用配置
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">slowCallDurationThreshold</span><span style="color:#f92672">(</span>Duration<span style="color:#f92672">.</span><span style="color:#a6e22e">ofSeconds</span><span style="color:#f92672">(</span><span style="color:#ae81ff">3</span><span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">slowCallRateThreshold</span><span style="color:#f92672">(</span><span style="color:#ae81ff">80.0f</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 熔断持续时间
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">waitDurationInOpenState</span><span style="color:#f92672">(</span>Duration<span style="color:#f92672">.</span><span style="color:#a6e22e">ofSeconds</span><span style="color:#f92672">(</span><span style="color:#ae81ff">30</span><span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 半开状态配置
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">permittedNumberOfCallsInHalfOpenState</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">maxWaitDurationInHalfOpenState</span><span style="color:#f92672">(</span>Duration<span style="color:#f92672">.</span><span style="color:#a6e22e">ofSeconds</span><span style="color:#f92672">(</span><span style="color:#ae81ff">60</span><span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 自动从OPEN转为HALF_OPEN
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">automaticTransitionFromOpenToHalfOpenEnabled</span><span style="color:#f92672">(</span><span style="color:#66d9ef">true</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 记录异常
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">recordExceptions</span><span style="color:#f92672">(</span>IOException<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> TimeoutException<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">ignoreExceptions</span><span style="color:#f92672">(</span>BusinessException<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 创建 CircuitBreaker
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>CircuitBreaker circuitBreaker <span style="color:#f92672">=</span> CircuitBreaker<span style="color:#f92672">.</span><span style="color:#a6e22e">of</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;userService&#34;</span><span style="color:#f92672">,</span> circuitBreakerConfig<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 注册事件监听
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>circuitBreaker<span style="color:#f92672">.</span><span style="color:#a6e22e">getEventPublisher</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">onSuccess</span><span style="color:#f92672">(</span>event <span style="color:#f92672">-&gt;</span> log<span style="color:#f92672">.</span><span style="color:#a6e22e">info</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;调用成功: {}&#34;</span><span style="color:#f92672">,</span> event<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">onError</span><span style="color:#f92672">(</span>event <span style="color:#f92672">-&gt;</span> log<span style="color:#f92672">.</span><span style="color:#a6e22e">warn</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;调用失败: {}&#34;</span><span style="color:#f92672">,</span> event<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">onStateTransition</span><span style="color:#f92672">(</span>event <span style="color:#f92672">-&gt;</span> log<span style="color:#f92672">.</span><span style="color:#a6e22e">info</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;状态转换: {}&#34;</span><span style="color:#f92672">,</span> event<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">onFailureRateExceeded</span><span style="color:#f92672">(</span>event <span style="color:#f92672">-&gt;</span> log<span style="color:#f92672">.</span><span style="color:#a6e22e">error</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;失败率超阈值: {}&#34;</span><span style="color:#f92672">,</span> event<span style="color:#f92672">));</span>
+</span></span></code></pre></div><h3 id="53-函数式编程风格">5.3 函数式编程风格</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 使用 Supplier 包装调用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Supplier<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;</span> supplier <span style="color:#f92672">=</span> CircuitBreaker<span style="color:#f92672">.</span><span style="color:#a6e22e">decorateSupplier</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    circuitBreaker<span style="color:#f92672">,</span> 
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> userClient<span style="color:#f92672">.</span><span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>userId<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 同步调用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Try<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;</span> result <span style="color:#f92672">=</span> Try<span style="color:#f92672">.</span><span style="color:#a6e22e">ofSupplier</span><span style="color:#f92672">(</span>supplier<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">recover</span><span style="color:#f92672">(</span>throwable <span style="color:#f92672">-&gt;</span> User<span style="color:#f92672">.</span><span style="color:#a6e22e">defaultUser</span><span style="color:#f92672">(</span>userId<span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 异步调用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>CompletableFuture<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;</span> asyncResult <span style="color:#f92672">=</span> CompletableFuture<span style="color:#f92672">.</span><span style="color:#a6e22e">supplyAsync</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    circuitBreaker<span style="color:#f92672">.</span><span style="color:#a6e22e">decorateSupplier</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> userClient<span style="color:#f92672">.</span><span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>userId<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">).</span><span style="color:#a6e22e">exceptionally</span><span style="color:#f92672">(</span>throwable <span style="color:#f92672">-&gt;</span> User<span style="color:#f92672">.</span><span style="color:#a6e22e">defaultUser</span><span style="color:#f92672">(</span>userId<span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 使用 decorators 组合多个功能
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Supplier<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;</span> decoratedSupplier <span style="color:#f92672">=</span> Decorators<span style="color:#f92672">.</span><span style="color:#a6e22e">ofSupplier</span><span style="color:#f92672">(()</span> <span style="color:#f92672">-&gt;</span> userClient<span style="color:#f92672">.</span><span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>userId<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withCircuitBreaker</span><span style="color:#f92672">(</span>circuitBreaker<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withRateLimiter</span><span style="color:#f92672">(</span>rateLimiter<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withRetry</span><span style="color:#f92672">(</span>retry<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withBulkhead</span><span style="color:#f92672">(</span>bulkhead<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">();</span>
+</span></span></code></pre></div><h3 id="54-bulkhead舱壁隔离">5.4 Bulkhead（舱壁隔离）</h3>
+<p>Resilience4j 提供两种舱壁隔离：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 1. 基于信号量的舱壁（推荐，轻量级）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>BulkheadConfig semaphoreConfig <span style="color:#f92672">=</span> BulkheadConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">custom</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">maxConcurrentCalls</span><span style="color:#f92672">(</span><span style="color:#ae81ff">25</span><span style="color:#f92672">)</span>         <span style="color:#75715e">// 最大并发调用数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">maxWaitDuration</span><span style="color:#f92672">(</span>Duration<span style="color:#f92672">.</span><span style="color:#a6e22e">ofMillis</span><span style="color:#f92672">(</span><span style="color:#ae81ff">500</span><span style="color:#f92672">))</span>  <span style="color:#75715e">// 最大等待时间
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>Bulkhead semaphoreBulkhead <span style="color:#f92672">=</span> Bulkhead<span style="color:#f92672">.</span><span style="color:#a6e22e">of</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;userService&#34;</span><span style="color:#f92672">,</span> semaphoreConfig<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 2. 基于固定线程池的舱壁
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>ThreadPoolBulkheadConfig threadPoolConfig <span style="color:#f92672">=</span> ThreadPoolBulkheadConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">custom</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">maxThreadPoolSize</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">)</span>          <span style="color:#75715e">// 最大线程数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">coreThreadPoolSize</span><span style="color:#f92672">(</span><span style="color:#ae81ff">5</span><span style="color:#f92672">)</span>          <span style="color:#75715e">// 核心线程数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">queueCapacity</span><span style="color:#f92672">(</span><span style="color:#ae81ff">20</span><span style="color:#f92672">)</span>              <span style="color:#75715e">// 队列容量
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">keepAliveDuration</span><span style="color:#f92672">(</span>Duration<span style="color:#f92672">.</span><span style="color:#a6e22e">ofSeconds</span><span style="color:#f92672">(</span><span style="color:#ae81ff">20</span><span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>ThreadPoolBulkhead threadPoolBulkhead <span style="color:#f92672">=</span> 
+</span></span><span style="display:flex;"><span>    ThreadPoolBulkhead<span style="color:#f92672">.</span><span style="color:#a6e22e">of</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;userService&#34;</span><span style="color:#f92672">,</span> threadPoolConfig<span style="color:#f92672">);</span>
+</span></span></code></pre></div><h3 id="55-ratelimiter限流器">5.5 RateLimiter（限流器）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 基于令牌桶算法的限流器
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>RateLimiterConfig rateLimiterConfig <span style="color:#f92672">=</span> RateLimiterConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">custom</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">limitForPeriod</span><span style="color:#f92672">(</span><span style="color:#ae81ff">100</span><span style="color:#f92672">)</span>            <span style="color:#75715e">// 每个周期100个许可
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">limitRefreshPeriod</span><span style="color:#f92672">(</span>Duration<span style="color:#f92672">.</span><span style="color:#a6e22e">ofSeconds</span><span style="color:#f92672">(</span><span style="color:#ae81ff">1</span><span style="color:#f92672">))</span>  <span style="color:#75715e">// 1秒刷新一次
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">timeoutDuration</span><span style="color:#f92672">(</span>Duration<span style="color:#f92672">.</span><span style="color:#a6e22e">ofMillis</span><span style="color:#f92672">(</span><span style="color:#ae81ff">500</span><span style="color:#f92672">))</span>    <span style="color:#75715e">// 等待许可的超时时间
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">build</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>RateLimiter rateLimiter <span style="color:#f92672">=</span> RateLimiter<span style="color:#f92672">.</span><span style="color:#a6e22e">of</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;userService&#34;</span><span style="color:#f92672">,</span> rateLimiterConfig<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// 使用限流器
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>Supplier<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;</span> limitedSupplier <span style="color:#f92672">=</span> RateLimiter<span style="color:#f92672">.</span><span style="color:#a6e22e">decorateSupplier</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>    rateLimiter<span style="color:#f92672">,</span> <span style="color:#f92672">()</span> <span style="color:#f92672">-&gt;</span> userClient<span style="color:#f92672">.</span><span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>userId<span style="color:#f92672">));</span>
+</span></span></code></pre></div><h3 id="56-spring-boot-集成">5.6 Spring Boot 集成</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># application.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">resilience4j</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">circuitbreaker</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">configs</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">default</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">slidingWindowType</span>: <span style="color:#ae81ff">COUNT_BASED</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">slidingWindowSize</span>: <span style="color:#ae81ff">100</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">minimumNumberOfCalls</span>: <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">failureRateThreshold</span>: <span style="color:#ae81ff">50</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">slowCallDurationThreshold</span>: <span style="color:#ae81ff">3s</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">slowCallRateThreshold</span>: <span style="color:#ae81ff">80</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">waitDurationInOpenState</span>: <span style="color:#ae81ff">30s</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">permittedNumberOfCallsInHalfOpenState</span>: <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">instances</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">userService</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">baseConfig</span>: <span style="color:#ae81ff">default</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">failureRateThreshold</span>: <span style="color:#ae81ff">40</span>    <span style="color:#75715e"># 用户服务更敏感</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">orderService</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">baseConfig</span>: <span style="color:#ae81ff">default</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">waitDurationInOpenState</span>: <span style="color:#ae81ff">60s </span> <span style="color:#75715e"># 订单服务熔断更久</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">bulkhead</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">configs</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">default</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">maxConcurrentCalls</span>: <span style="color:#ae81ff">25</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">maxWaitDuration</span>: <span style="color:#ae81ff">500ms</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">instances</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">userService</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">baseConfig</span>: <span style="color:#ae81ff">default</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ratelimiter</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">configs</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">default</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">limitForPeriod</span>: <span style="color:#ae81ff">100</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">limitRefreshPeriod</span>: <span style="color:#ae81ff">1s</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">timeoutDuration</span>: <span style="color:#ae81ff">500ms</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">instances</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">userService</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">baseConfig</span>: <span style="color:#ae81ff">default</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">limitForPeriod</span>: <span style="color:#ae81ff">200</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 在 Spring Boot 中使用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@Service</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UserService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@CircuitBreaker</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;userService&#34;</span><span style="color:#f92672">,</span> fallbackMethod <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;getUserFallback&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bulkhead</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;userService&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@RateLimiter</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;userService&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> User <span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>Long id<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> userClient<span style="color:#f92672">.</span><span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>id<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> User <span style="color:#a6e22e">getUserFallback</span><span style="color:#f92672">(</span>Long id<span style="color:#f92672">,</span> Exception ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        log<span style="color:#f92672">.</span><span style="color:#a6e22e">warn</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;用户服务降级，userId={}, error={}&#34;</span><span style="color:#f92672">,</span> id<span style="color:#f92672">,</span> ex<span style="color:#f92672">.</span><span style="color:#a6e22e">getMessage</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> User<span style="color:#f92672">.</span><span style="color:#a6e22e">defaultUser</span><span style="color:#f92672">(</span>id<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h2 id="六三大框架全面对比">六、三大框架全面对比</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Hystrix</th>
+<th>Sentinel</th>
+<th>Resilience4j</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>维护状态</strong></td>
+<td>停止维护</td>
+<td>活跃维护</td>
+<td>活跃维护</td>
+</tr>
+<tr>
+<td><strong>设计风格</strong></td>
+<td>命令式</td>
+<td>命令式 + SPI</td>
+<td>函数式</td>
+</tr>
+<tr>
+<td><strong>隔离方式</strong></td>
+<td>线程池/信号量</td>
+<td>信号量（计数器）</td>
+<td>信号量/线程池</td>
+</tr>
+<tr>
+<td><strong>熔断策略</strong></td>
+<td>异常比例</td>
+<td>异常比例/慢调用/异常数</td>
+<td>异常比例/慢调用</td>
+</tr>
+<tr>
+<td><strong>限流能力</strong></td>
+<td>❌</td>
+<td>✅（QPS/线程/热点/系统）</td>
+<td>✅（令牌桶）</td>
+</tr>
+<tr>
+<td><strong>系统保护</strong></td>
+<td>❌</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>热点参数</strong></td>
+<td>❌</td>
+<td>✅</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>控制台</strong></td>
+<td>Dashboard（简单）</td>
+<td>Dashboard（强大）</td>
+<td>无（需自建）</td>
+</tr>
+<tr>
+<td><strong>规则动态配置</strong></td>
+<td>❌（需重启）</td>
+<td>✅（动态推送）</td>
+<td>❌（需重启）</td>
+</tr>
+<tr>
+<td><strong>依赖大小</strong></td>
+<td>重（含RxJava）</td>
+<td>轻</td>
+<td>极轻（仅vavr）</td>
+</tr>
+<tr>
+<td><strong>Spring Cloud</strong></td>
+<td>Netflix OSS</td>
+<td>Alibaba</td>
+<td>默认推荐</td>
+</tr>
+<tr>
+<td><strong>响应式</strong></td>
+<td>有限支持</td>
+<td>有限支持</td>
+<td>✅ 完整支持</td>
+</tr>
+<tr>
+<td><strong>集群限流</strong></td>
+<td>❌</td>
+<td>✅（集群限流服务）</td>
+<td>❌</td>
+</tr>
+</tbody>
+</table>
+<p><strong>选型建议</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐框架</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Spring Cloud Alibaba 体系</td>
+<td>Sentinel</td>
+<td>生态契合，功能最全</td>
+</tr>
+<tr>
+<td>Spring Cloud 默认体系</td>
+<td>Resilience4j</td>
+<td>官方推荐，轻量级</td>
+</tr>
+<tr>
+<td>轻量级/响应式项目</td>
+<td>Resilience4j</td>
+<td>函数式风格，响应式支持</td>
+</tr>
+<tr>
+<td>需要强大控制台</td>
+<td>Sentinel</td>
+<td>Dashboard 功能最强大</td>
+</tr>
+<tr>
+<td>需要热点参数限流</td>
+<td>Sentinel</td>
+<td>独有能力</td>
+</tr>
+<tr>
+<td>已有 Hystrix 项目</td>
+<td>迁移至 Resilience4j</td>
+<td>官方迁移路径</td>
+</tr>
+</tbody>
+</table>
+<h2 id="七降级策略设计实战">七、降级策略设计实战</h2>
+<h3 id="71-降级策略分类">7.1 降级策略分类</h3>
+<pre tabindex="0"><code>降级策略
+├── 返回默认值
+│   └── 返回静态数据（如默认用户、默认配置）
+├── 返回缓存数据
+│   ├── 本地缓存
+│   └── Redis缓存
+├── 返回兜底逻辑
+│   ├── 简化版计算
+│   └── 替代服务调用
+└── 快速失败
+    └── 直接抛出异常（核心链路降级）
+</code></pre><h3 id="72-降级策略选择矩阵">7.2 降级策略选择矩阵</h3>
+<table>
+<thead>
+<tr>
+<th>业务场景</th>
+<th>可用性要求</th>
+<th>数据一致性要求</th>
+<th>推荐策略</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>首页推荐</td>
+<td>高</td>
+<td>低</td>
+<td>返回默认推荐列表</td>
+</tr>
+<tr>
+<td>商品详情</td>
+<td>高</td>
+<td>中</td>
+<td>返回缓存数据</td>
+</tr>
+<tr>
+<td>订单创建</td>
+<td>极高</td>
+<td>极高</td>
+<td>快速失败，不允许降级</td>
+</tr>
+<tr>
+<td>用户评价</td>
+<td>中</td>
+<td>低</td>
+<td>返回简化版评价</td>
+</tr>
+<tr>
+<td>搜索服务</td>
+<td>高</td>
+<td>低</td>
+<td>返回热门搜索结果</td>
+</tr>
+<tr>
+<td>支付服务</td>
+<td>极高</td>
+<td>极高</td>
+<td>快速失败</td>
+</tr>
+<tr>
+<td>库存查询</td>
+<td>高</td>
+<td>中</td>
+<td>返回缓存数据（可能过期）</td>
+</tr>
+<tr>
+<td>消息通知</td>
+<td>中</td>
+<td>中</td>
+<td>写入MQ异步重试</td>
+</tr>
+</tbody>
+</table>
+<h3 id="73-多级降级实战">7.3 多级降级实战</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Service</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ProductService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> ProductClient productClient<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> RedisTemplate<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">,</span> Product<span style="color:#f92672">&gt;</span> redisTemplate<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> LocalCacheManager localCache<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">/**
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * 三级降级策略：
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * 1. 正常调用远程服务
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * 2. 远程服务失败 → 从Redis缓存获取
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * 3. Redis缓存未命中 → 从本地缓存获取
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     * 4. 本地缓存未命中 → 返回默认商品
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">     */</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@SentinelResource</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>        value <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;getProduct&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>        blockHandler <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;getProductBlockHandler&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>        fallback <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;getProductFallback&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Product <span style="color:#a6e22e">getProduct</span><span style="color:#f92672">(</span>Long productId<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 第一级：远程调用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        Product product <span style="color:#f92672">=</span> productClient<span style="color:#f92672">.</span><span style="color:#a6e22e">getProduct</span><span style="color:#f92672">(</span>productId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 成功后写入缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        redisTemplate<span style="color:#f92672">.</span><span style="color:#a6e22e">opsForValue</span><span style="color:#f92672">().</span><span style="color:#a6e22e">set</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#e6db74">&#34;product:&#34;</span> <span style="color:#f92672">+</span> productId<span style="color:#f92672">,</span> product<span style="color:#f92672">,</span> <span style="color:#ae81ff">30</span><span style="color:#f92672">,</span> TimeUnit<span style="color:#f92672">.</span><span style="color:#a6e22e">MINUTES</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        localCache<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;product:&#34;</span> <span style="color:#f92672">+</span> productId<span style="color:#f92672">,</span> product<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> product<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 熔断/限流时的降级处理
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> Product <span style="color:#a6e22e">getProductBlockHandler</span><span style="color:#f92672">(</span>Long productId<span style="color:#f92672">,</span> BlockException ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        log<span style="color:#f92672">.</span><span style="color:#a6e22e">warn</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;商品服务被限流/熔断，productId={}&#34;</span><span style="color:#f92672">,</span> productId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> getProductFromCache<span style="color:#f92672">(</span>productId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 异常时的降级处理
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> Product <span style="color:#a6e22e">getProductFallback</span><span style="color:#f92672">(</span>Long productId<span style="color:#f92672">,</span> Throwable ex<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        log<span style="color:#f92672">.</span><span style="color:#a6e22e">error</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;商品服务异常，productId={}&#34;</span><span style="color:#f92672">,</span> productId<span style="color:#f92672">,</span> ex<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> getProductFromCache<span style="color:#f92672">(</span>productId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> Product <span style="color:#a6e22e">getProductFromCache</span><span style="color:#f92672">(</span>Long productId<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 第二级：Redis缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        Product product <span style="color:#f92672">=</span> redisTemplate<span style="color:#f92672">.</span><span style="color:#a6e22e">opsForValue</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;product:&#34;</span> <span style="color:#f92672">+</span> productId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>product <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            log<span style="color:#f92672">.</span><span style="color:#a6e22e">info</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;从Redis缓存获取商品，productId={}&#34;</span><span style="color:#f92672">,</span> productId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> product<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 第三级：本地缓存
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        product <span style="color:#f92672">=</span> localCache<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;product:&#34;</span> <span style="color:#f92672">+</span> productId<span style="color:#f92672">,</span> Product<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>product <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            log<span style="color:#f92672">.</span><span style="color:#a6e22e">info</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;从本地缓存获取商品，productId={}&#34;</span><span style="color:#f92672">,</span> productId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> product<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 第四级：默认值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        log<span style="color:#f92672">.</span><span style="color:#a6e22e">warn</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;所有降级策略失效，返回默认商品，productId={}&#34;</span><span style="color:#f92672">,</span> productId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> Product<span style="color:#f92672">.</span><span style="color:#a6e22e">defaultProduct</span><span style="color:#f92672">(</span>productId<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="74-核心链路与非核心链路">7.4 核心链路与非核心链路</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Configuration</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DegradeConfig</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 核心链路：不允许降级，直接快速失败
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">@Bean</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> DegradeRule <span style="color:#a6e22e">coreServiceRule</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> DegradeRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;createOrder&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>CircuitBreakerStrategy<span style="color:#f92672">.</span><span style="color:#a6e22e">ERROR_RATIO</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getType</span><span style="color:#f92672">())</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0.3</span><span style="color:#f92672">)</span>          <span style="color:#75715e">// 核心服务更低的容错率
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">setTimeWindow</span><span style="color:#f92672">(</span><span style="color:#ae81ff">30</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">setMinRequestAmount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">5</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 非核心链路：允许降级，返回兜底数据
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">@Bean</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> DegradeRule <span style="color:#a6e22e">nonCoreServiceRule</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> DegradeRule<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;getRecommendation&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">setGrade</span><span style="color:#f92672">(</span>CircuitBreakerStrategy<span style="color:#f92672">.</span><span style="color:#a6e22e">SLOW_REQUEST_RATIO</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getType</span><span style="color:#f92672">())</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">setCount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0.8</span><span style="color:#f92672">)</span>          <span style="color:#75715e">// 非核心服务更高的容错率
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">setTimeWindow</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">setMinRequestAmount</span><span style="color:#f92672">(</span><span style="color:#ae81ff">10</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h2 id="八熔断与降级的监控">八、熔断与降级的监控</h2>
+<h3 id="81-sentinel-dashboard">8.1 Sentinel Dashboard</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># Sentinel Dashboard 部署</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">spring</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">application</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">name</span>: <span style="color:#ae81ff">sentinel-dashboard</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cloud</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">sentinel</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">transport</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">dashboard</span>: <span style="color:#ae81ff">localhost:8080   </span> <span style="color:#75715e"># Dashboard地址</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">port</span>: <span style="color:#ae81ff">8719</span>                   <span style="color:#75715e"># 客户端通信端口</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">heartbeat</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">interval</span>: <span style="color:#ae81ff">10000</span>              <span style="color:#75715e"># 心跳间隔</span>
+</span></span></code></pre></div><p><strong>Dashboard 核心功能</strong>：</p>
+<ul>
+<li>实时监控：QPS、RT、线程数、异常数</li>
+<li>规则管理：动态推送限流/熔断/系统规则</li>
+<li>集群管理：集群限流服务管理</li>
+<li>机器发现：自动发现接入的客户端</li>
+</ul>
+<h3 id="82-自定义监控指标">8.2 自定义监控指标</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Prometheus + Grafana 监控
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@Component</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SentinelMetricsExporter</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Scheduled</span><span style="color:#f92672">(</span>fixedRate <span style="color:#f92672">=</span> <span style="color:#ae81ff">1000</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">exportMetrics</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 获取所有资源名称
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        Set<span style="color:#f92672">&lt;</span>String<span style="color:#f92672">&gt;</span> resources <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> HashSet<span style="color:#f92672">&lt;&gt;();</span>
+</span></span><span style="display:flex;"><span>        ClusterBuilderSlot<span style="color:#f92672">.</span><span style="color:#a6e22e">getClusterNodeMap</span><span style="color:#f92672">().</span><span style="color:#a6e22e">keySet</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">.</span><span style="color:#a6e22e">forEach</span><span style="color:#f92672">(</span>resources<span style="color:#f92672">::</span>add<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>String resource <span style="color:#f92672">:</span> resources<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            ClusterNode node <span style="color:#f92672">=</span> ClusterBuilderSlot<span style="color:#f92672">.</span><span style="color:#a6e22e">getClusterNode</span><span style="color:#f92672">(</span>resource<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>node <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#66d9ef">continue</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 导出QPS
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            Metrics<span style="color:#f92672">.</span><span style="color:#a6e22e">gauge</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;sentinel_qps&#34;</span><span style="color:#f92672">,</span> 
+</span></span><span style="display:flex;"><span>                Tags<span style="color:#f92672">.</span><span style="color:#a6e22e">of</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;resource&#34;</span><span style="color:#f92672">,</span> resource<span style="color:#f92672">),</span>
+</span></span><span style="display:flex;"><span>                node<span style="color:#f92672">.</span><span style="color:#a6e22e">passQps</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 导出RT
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            Metrics<span style="color:#f92672">.</span><span style="color:#a6e22e">gauge</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;sentinel_rt&#34;</span><span style="color:#f92672">,</span> 
+</span></span><span style="display:flex;"><span>                Tags<span style="color:#f92672">.</span><span style="color:#a6e22e">of</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;resource&#34;</span><span style="color:#f92672">,</span> resource<span style="color:#f92672">),</span>
+</span></span><span style="display:flex;"><span>                node<span style="color:#f92672">.</span><span style="color:#a6e22e">avgRt</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 导出异常数
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            Metrics<span style="color:#f92672">.</span><span style="color:#a6e22e">counter</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;sentinel_exception&#34;</span><span style="color:#f92672">,</span> 
+</span></span><span style="display:flex;"><span>                Tags<span style="color:#f92672">.</span><span style="color:#a6e22e">of</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;resource&#34;</span><span style="color:#f92672">,</span> resource<span style="color:#f92672">))</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">increment</span><span style="color:#f92672">(</span>node<span style="color:#f92672">.</span><span style="color:#a6e22e">exceptionQps</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 导出熔断状态
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            CircuitBreaker breaker <span style="color:#f92672">=</span> DegradeSlot<span style="color:#f92672">.</span><span style="color:#a6e22e">getCircuitBreaker</span><span style="color:#f92672">(</span>resource<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>breaker <span style="color:#f92672">!=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                Metrics<span style="color:#f92672">.</span><span style="color:#a6e22e">gauge</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;sentinel_circuit_breaker_state&#34;</span><span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>                    Tags<span style="color:#f92672">.</span><span style="color:#a6e22e">of</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;resource&#34;</span><span style="color:#f92672">,</span> resource<span style="color:#f92672">),</span>
+</span></span><span style="display:flex;"><span>                    breaker<span style="color:#f92672">.</span><span style="color:#a6e22e">currentState</span><span style="color:#f92672">().</span><span style="color:#a6e22e">ordinal</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="83-关键告警指标">8.3 关键告警指标</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>告警阈值</th>
+<th>告警级别</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QPS接近限流阈值</td>
+<td>&gt;80%</td>
+<td>P2</td>
+<td>即将被限流</td>
+</tr>
+<tr>
+<td>熔断器OPEN</td>
+<td>任意触发</td>
+<td>P1</td>
+<td>服务故障</td>
+</tr>
+<tr>
+<td>RT突增</td>
+<td>&gt;P99的2倍</td>
+<td>P2</td>
+<td>延迟异常</td>
+</tr>
+<tr>
+<td>异常率上升</td>
+<td>&gt;10%</td>
+<td>P2</td>
+<td>服务不稳定</td>
+</tr>
+<tr>
+<td>半开状态频繁切换</td>
+<td>&gt;3次/5分钟</td>
+<td>P1</td>
+<td>服务抖动</td>
+</tr>
+<tr>
+<td>线程池使用率</td>
+<td>&gt;80%</td>
+<td>P2</td>
+<td>即将饱和</td>
+</tr>
+</tbody>
+</table>
+<h2 id="九面试高频问题">九、面试高频问题</h2>
+<h3 id="q1熔断器的三种状态是什么如何转换">Q1：熔断器的三种状态是什么？如何转换？</h3>
+<p><strong>答</strong>：熔断器有三种状态——CLOSED、OPEN、HALF-OPEN。</p>
+<ul>
+<li><strong>CLOSED → OPEN</strong>：当统计窗口内的失败率（或慢调用率）超过阈值，并且请求量达到最小请求量时，熔断器打开。</li>
+<li><strong>OPEN → HALF-OPEN</strong>：经过 waitDurationInOpenState 后，熔断器自动转入半开状态。</li>
+<li><strong>HALF-OPEN → CLOSED</strong>：半开状态允许少量请求通过，如果这些请求成功率达标，说明服务已恢复，切换回关闭状态。</li>
+<li><strong>HALF-OPEN → OPEN</strong>：如果半开状态的请求仍然失败，说明服务未恢复，切换回打开状态。</li>
+</ul>
+<h3 id="q2hystrix-和-sentinel-的主要区别">Q2：Hystrix 和 Sentinel 的主要区别？</h3>
+<p><strong>答</strong>：</p>
+<ol>
+<li><strong>功能维度</strong>：Sentinel 功能更全面，除了熔断降级还有流量控制、系统保护、热点参数限流等；Hystrix 只有熔断降级和资源隔离。</li>
+<li><strong>隔离策略</strong>：Hystrix 默认线程池隔离，开销大；Sentinel 基于信号量计数器，轻量级。</li>
+<li><strong>动态配置</strong>：Sentinel 支持动态规则推送（Nacos/ZooKeeper/Apollo），Hystrix 需要重启。</li>
+<li><strong>监控能力</strong>：Sentinel Dashboard 功能更强大，支持实时监控和规则管理。</li>
+<li><strong>维护状态</strong>：Hystrix 已停止维护，Sentinel 仍活跃维护。</li>
+</ol>
+<h3 id="q3什么是雪崩效应如何防止">Q3：什么是雪崩效应？如何防止？</h3>
+<p><strong>答</strong>：雪崩效应是指一个服务的故障引发连锁反应，导致整个系统崩溃。</p>
+<p><strong>防止方法</strong>：</p>
+<ol>
+<li><strong>熔断</strong>：快速切断对故障服务的调用，防止故障扩散</li>
+<li><strong>降级</strong>：提供兜底方案，保证核心功能可用</li>
+<li><strong>限流</strong>：限制请求量，防止系统过载</li>
+<li><strong>资源隔离</strong>：线程池/信号量隔离，防止故障蔓延</li>
+<li><strong>超时控制</strong>：设置合理的超时时间，避免线程长时间阻塞</li>
+<li><strong>重试机制</strong>：合理重试（注意重试风暴）</li>
+</ol>
+<h3 id="q4sentinel-的热点参数限流是什么适用场景">Q4：Sentinel 的热点参数限流是什么？适用场景？</h3>
+<p><strong>答</strong>：热点参数限流是 Sentinel 独有的功能，可以根据请求参数的值维度做细粒度的限流。比如对热门商品ID、VIP用户ID等特殊参数值设置不同的限流阈值。</p>
+<p>适用场景：</p>
+<ul>
+<li>电商秒杀：热门商品更严格的限流</li>
+<li>社交平台：热点用户做特殊处理</li>
+<li>多租户系统：不同租户差异化限流</li>
+</ul>
+<h3 id="q5如何设计多级降级策略">Q5：如何设计多级降级策略？</h3>
+<p><strong>答</strong>：多级降级策略从优先级高到低：</p>
+<ol>
+<li><strong>远程调用</strong> → 正常路径</li>
+<li><strong>分布式缓存（Redis）</strong> → 数据可能略有过期但可用</li>
+<li><strong>本地缓存（Caffeine/Guava）</strong> → 数据可能更旧但仍可用</li>
+<li><strong>默认值</strong> → 最后兜底，保证不报错</li>
+</ol>
+<p>关键点：</p>
+<ul>
+<li>核心链路不允许降级（如支付、下单），直接快速失败</li>
+<li>非核心链路优先保证可用性（如推荐、评价），允许降级</li>
+<li>缓存数据要设置合理的过期时间</li>
+<li>降级策略要有监控和告警</li>
+</ul>
+<h3 id="q6熔断器的时间窗口有哪些类型各有什么特点">Q6：熔断器的时间窗口有哪些类型？各有什么特点？</h3>
+<p><strong>答</strong>：</p>
+<ol>
+<li><strong>基于计数的滑动窗口</strong>：统计最近N次请求的指标。优点是内存高效（环形数组），缺点是对突发流量不敏感。</li>
+<li><strong>基于时间的滑动窗口</strong>：统计最近T时间内的指标。优点是对时间维度更精确，缺点是实现稍复杂。</li>
+</ol>
+<p>Hystrix 使用基于时间的滑动窗口（10秒），Sentinel 使用 LeapArray 实现两种窗口，Resilience4j 也支持两种类型。</p>
+<h3 id="q7sentinel-的-slot-chain-是什么执行流程">Q7：Sentinel 的 Slot Chain 是什么？执行流程？</h3>
+<p><strong>答</strong>：Slot Chain 是 Sentinel 的核心处理链，采用责任链模式，每个 Slot 负责一个功能：</p>
+<ol>
+<li><strong>NodeSelectorSlot</strong>：构建调用树</li>
+<li><strong>ClusterBuilderSlot</strong>：构建集群节点</li>
+<li><strong>LogSlot</strong>：记录日志</li>
+<li><strong>StatisticSlot</strong>：实时数据统计</li>
+<li><strong>AuthoritySlot</strong>：授权控制</li>
+<li><strong>SystemSlot</strong>：系统保护</li>
+<li><strong>FlowSlot</strong>：流量控制</li>
+<li><strong>DegradeSlot</strong>：熔断降级</li>
+</ol>
+<p>请求依次通过每个 Slot，任何一个 Slot 拦截请求都会抛出 BlockException。</p>
+<h3 id="q8resilience4j-如何组合多个容错功能">Q8：Resilience4j 如何组合多个容错功能？</h3>
+<p><strong>答</strong>：Resilience4j 提供 Decorators 工具类和函数式组合方式：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span>Supplier<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;</span> decorated <span style="color:#f92672">=</span> Decorators<span style="color:#f92672">.</span><span style="color:#a6e22e">ofSupplier</span><span style="color:#f92672">(()</span> <span style="color:#f92672">-&gt;</span> client<span style="color:#f92672">.</span><span style="color:#a6e22e">call</span><span style="color:#f92672">())</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withCircuitBreaker</span><span style="color:#f92672">(</span>circuitBreaker<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withRateLimiter</span><span style="color:#f92672">(</span>rateLimiter<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withRetry</span><span style="color:#f92672">(</span>retry<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">withBulkhead</span><span style="color:#f92672">(</span>bulkhead<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">();</span>
+</span></span></code></pre></div><p>也可以使用 Spring 注解组合：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@CircuitBreaker</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;service&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@Bulkhead</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;service&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@RateLimiter</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;service&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> User <span style="color:#a6e22e">call</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span> <span style="color:#f92672">...</span> <span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>注意：装饰器的顺序很重要，建议顺序为 RateLimiter → Bulkhead → CircuitBreaker → Retry → 实际调用。</p>
+<h2 id="十总结">十、总结</h2>
+<h3 id="核心要点">核心要点</h3>
+<ol>
+<li><strong>熔断器是状态机</strong>：CLOSED → OPEN → HALF-OPEN 三态转换，是应对雪崩效应的第一道防线</li>
+<li><strong>降级是兜底策略</strong>：保证核心功能可用，非核心功能可以牺牲</li>
+<li><strong>Hystrix 是历史</strong>：已停止维护，但设计理念值得学习</li>
+<li><strong>Sentinel 是全能王</strong>：功能最全面，适合 Spring Cloud Alibaba 体系</li>
+<li><strong>Resilience4j 是轻量之选</strong>：函数式风格，Spring Cloud 默认推荐</li>
+</ol>
+<h3 id="最佳实践">最佳实践</h3>
+<ol>
+<li>核心链路不降级，非核心链路多级降级</li>
+<li>熔断阈值要根据业务特点设置（核心服务更低容错率）</li>
+<li>监控和告警必不可少（熔断器OPEN必须P1告警）</li>
+<li>规则要支持动态配置（不重启生效）</li>
+<li>降级策略要有演练（定期验证降级是否有效）</li>
+<li>注意重试风暴（重试间隔要递增，重试次数要合理）</li>
+</ol>
+<h3 id="技术演进路线">技术演进路线</h3>
+<pre tabindex="0"><code>Hystrix（Netflix，已停止维护）
+    │
+    ├──────► Resilience4j（官方推荐替代，轻量级）
+    │
+    └──────► Sentinel（阿里巴巴，功能最全）
+</code></pre><p>选择建议：</p>
+<ul>
+<li><strong>新项目</strong>：Spring Cloud Alibaba → Sentinel；Spring Cloud → Resilience4j</li>
+<li><strong>老项目</strong>：Hystrix → 迁移到 Resilience4j</li>
+<li><strong>全功能需求</strong>：Sentinel（限流+熔断+系统保护+热点参数）</li>
+</ul>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>

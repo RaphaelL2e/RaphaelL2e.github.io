@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Redis on Raphael Tech Blog</title>
+    <link>https://raphaell2e.github.io/tags/redis/</link>
+    <description>Recent content in Redis on Raphael Tech Blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>zh-CN</language>
+    <lastBuildDate>Thu, 04 Jun 2026 10:00:00 +0800</lastBuildDate><atom:link href="https://raphaell2e.github.io/tags/redis/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>数据库面试八股文（八）——Redis持久化、集群与缓存问题</title>
+      <link>https://raphaell2e.github.io/posts/%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ABredis%E6%8C%81%E4%B9%85%E5%8C%96%E9%9B%86%E7%BE%A4%E4%B8%8E%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98/</link>
+      <pubDate>Thu, 04 Jun 2026 10:00:00 +0800</pubDate>
+      
+      <guid>https://raphaell2e.github.io/posts/%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ABredis%E6%8C%81%E4%B9%85%E5%8C%96%E9%9B%86%E7%BE%A4%E4%B8%8E%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98/</guid>
+      <description>数据库面试八股文（八）——Redis持久化、集群与缓存问题 面试高频考点：RDB与AOF持久化原理与选择、主从复制与哨兵模式、Cluster集群方案、缓存穿透/击穿/雪崩的解决方案。本文从持久化机制到集群架构再到缓存实战问题，全面覆盖Redis高可用与缓存面试题。
+一、Redis持久化概述 Redis是内存数据库，一旦进程退出数据就会丢失。持久化机制将内存数据保存到磁盘，保证重启后数据恢复。
+Redis提供两种持久化方式：
+方式 原理 特点 RDB 定时快照 文件小、恢复快、可能丢数据 AOF 追加写日志 数据安全、文件大、恢复慢 混合持久化 RDB+AOF 兼顾两者优点（Redis 4.0+） 二、RDB持久化 2.1 RDB原理 RDB（Redis Database）是将某一时刻的内存数据以二进制形式写入磁盘（dump.rdb文件）。
+触发方式：
+类型 命令/配置 说明 手动触发 SAVE 阻塞主进程，不推荐 手动触发 BGSAVE fork子进程，推荐 自动触发 save 900 1 900秒内至少1次修改 自动触发 save 300 10 300秒内至少10次修改 自动触发 save 60 10000 60秒内至少10000次修改 2.2 BGSAVE执行流程 客户端发送BGSAVE ↓ 主进程fork()子进程 ↓ ┌──────────────┐ ┌──────────────┐ │ 主进程 │ │ 子进程 │ │ 继续处理请求 │ │ 生成RDB文件 │ │ 写操作→COW │ │ 写入dump.</description>
+    </item>
+    
+    <item>
+      <title>数据库面试八股文（七）——Redis核心数据结构与应用场景</title>
+      <link>https://raphaell2e.github.io/posts/%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83redis%E6%A0%B8%E5%BF%83%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E4%B8%8E%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF/</link>
+      <pubDate>Wed, 03 Jun 2026 11:00:00 +0800</pubDate>
+      
+      <guid>https://raphaell2e.github.io/posts/%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83redis%E6%A0%B8%E5%BF%83%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E4%B8%8E%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF/</guid>
+      <description>数据库面试八股文（七）——Redis核心数据结构与应用场景 面试高频考点：Redis五种基本数据结构的底层实现、三种特殊数据结构的应用场景、跳表原理、对象系统。本文从SDS到跳表，从原理到实战，全面覆盖Redis数据结构面试题。
+一、Redis对象系统 1.1 Redis对象结构 Redis每个键值对都是一个对象：
+typedef struct redisObject { unsigned type:4; // 类型（4bit） unsigned encoding:4; // 编码（4bit） unsigned lru:LRU_BITS; // LRU时间或LFU数据 int refcount; // 引用计数 void *ptr; // 指向底层数据结构的指针 } robj; type：对外暴露的类型（STRING, LIST, HASH, SET, ZSET） encoding：底层实现的数据结构（同一type可以有多种encoding）
+1.2 类型与编码对应关系 类型 编码 底层数据结构 STRING int 整数值 STRING embstr embstr编码的SDS STRING raw SDS LIST listpack 紧凑列表（Redis 7.0+） LIST quicklist 快速列表 HASH listpack 紧凑列表（小数据量） HASH ht 字典（大数据量） SET intset 整数集合（全整数+小数据量） SET ht 字典 SET listpack 紧凑列表（Redis 7.</description>
+    </item>
+    
+    <item>
+      <title>Redis 集群深度解析</title>
+      <link>https://raphaell2e.github.io/posts/redis%E9%9B%86%E7%BE%A4%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/</link>
+      <pubDate>Thu, 14 May 2026 19:30:00 +0800</pubDate>
+      
+      <guid>https://raphaell2e.github.io/posts/redis%E9%9B%86%E7%BE%A4%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/</guid>
+      <description>Redis 集群深度解析 一、引言 当单节点 Redis 无法满足业务需求时，需要构建 Redis 集群来实现数据分片和高可用。Redis 集群主流方案有 Redis Cluster 和 Codis 两种，本文将深入解析两种方案的原理、架构与实战。
+本文要点：
+数据分片与哈希槽原理 Redis Cluster 架构与实战 Codis 架构与实战 集群方案对比与选择 集群运维与故障处理 二、数据分片基础 2.1 为什么要分片 单节点 Redis 的瓶颈：
+内存容量有限（最大几十GB） 单实例无法支撑高并发 故障导致服务不可用 分片解决方案：
+数据分散存储到多个节点 并行处理请求，提升吞吐量 部分节点故障不影响整体服务 2.2 分片策略 客户端分片：
+// 哈希取余 int slot = key.hashCode() % nodeCount; 中间件分片：
+请求 → Codis Proxy → Slot 分配 → Redis 节点 服务端分片（Redis Cluster）：
+Key → CRC16(key) % 16384 → Slot → 节点 三、Redis Cluster 3.</description>
+    </item>
+    
+    <item>
+      <title>Redis 持久化深度解析</title>
+      <link>https://raphaell2e.github.io/posts/redis%E6%8C%81%E4%B9%85%E5%8C%96%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/</link>
+      <pubDate>Thu, 14 May 2026 19:00:00 +0800</pubDate>
+      
+      <guid>https://raphaell2e.github.io/posts/redis%E6%8C%81%E4%B9%85%E5%8C%96%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/</guid>
+      <description>Redis 持久化深度解析 一、引言 Redis 作为内存数据库，数据存储在内存中。为了在服务器重启后能够恢复数据，Redis 提供了两种持久化机制：RDB（Redis DataBase） 和 AOF（Append Only File）。理解持久化原理对于生产环境数据安全至关重要，也是面试高频考点。
+本文要点：
+RDB 持久化原理与配置 AOF 持久化原理与配置 RDB 与 AOF 对比与选择 混合持久化策略 数据恢复实战 二、RDB 持久化 2.1 RDB 原理 RDB 持久化会定时将内存中的数据快照保存到磁盘上的 dump.rdb 文件中。
+工作机制：
+Redis 定期检查 → 生成子进程 → 内存数据写入 RDB 文件 → 替换旧文件 触发机制：
+触发方式 配置 说明 定时触发 save &amp;lt;seconds&amp;gt; &amp;lt;changes&amp;gt; 默认 save 900 1 save 300 10 save 60 10000 手动触发 BGSAVE 后台异步执行 手动触发 SAVE 阻塞主进程（生产禁用） 关机触发 shutdown 正常关机时自动触发 配置文件：</description>
+    </item>
+    
+    <item>
+      <title>分布式锁实现深度解析</title>
+      <link>https://raphaell2e.github.io/posts/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E5%AE%9E%E7%8E%B0%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/</link>
+      <pubDate>Thu, 14 May 2026 11:20:00 +0800</pubDate>
+      
+      <guid>https://raphaell2e.github.io/posts/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E5%AE%9E%E7%8E%B0%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/</guid>
+      <description>分布式锁实现深度解析 一、引言 在分布式系统中，多个节点可能同时访问共享资源（如数据库、文件、缓存），需要通过分布式锁来保证互斥访问。分布式锁是面试中的必考题，也是实际开发中最常用的分布式组件之一。
+本文要点：
+分布式锁的核心要求 Redis 分布式锁（SET NX + Lua） Redisson 分布式锁（看门狗机制） ZooKeeper 分布式锁（临时顺序节点） etcd 分布式锁（Lease + Revision） Redlock 算法与争议 三种方案对比与选型 面试高频问题 二、分布式锁的核心要求 2.1 四个基本要求 要求 描述 互斥性 同一时刻只有一个客户端持有锁 防死锁 持有锁的客户端宕机，锁必须自动释放 解铃还须系铃人 加锁和解锁必须是同一个客户端 高可用 锁服务本身不能成为单点故障 2.2 额外要求（生产环境） 要求 描述 可重入 同一个客户端可以多次获取同一把锁 阻塞/非阻塞 获取锁失败时，可以阻塞等待或立即返回 公平性 按请求顺序获取锁（FIFO） 性能 加锁/解锁延迟低，吞吐高 2.3 分布式锁的常见陷阱 陷阱一：锁过期但业务未完成 → 客户端 A 获取锁（TTL=10s） → 业务执行了 15s → 锁在 10s 时过期，客户端 B 获取了锁 → 客户端 A 在 15s 时完成，删除了客户端 B 的锁！ 陷阱二：误解锁 → 客户端 A 获取锁，value = &amp;#34;A&amp;#34; → 客户端 A 的锁过期 → 客户端 B 获取锁，value = &amp;#34;B&amp;#34; → 客户端 A 尝试解锁，删除了客户端 B 的锁！ 陷阱三：GC 停顿导致锁失效 → 客户端 A 获取锁（TTL=10s） → GC 停顿 12s（STW） → 锁过期，客户端 B 获取锁 → GC 恢复后，两个客户端同时持有锁！ 三、Redis 分布式锁 3.</description>
+    </item>
+    
+    <item>
+      <title>Redis 性能优化与实战</title>
+      <link>https://raphaell2e.github.io/posts/redis%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E5%AE%9E%E6%88%98/</link>
+      <pubDate>Wed, 13 May 2026 19:00:00 +0800</pubDate>
+      
+      <guid>https://raphaell2e.github.io/posts/redis%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96%E4%B8%8E%E5%AE%9E%E6%88%98/</guid>
+      <description>Redis 性能优化与实战 一、引言 本系列前面四篇分别探讨了 Redis 的数据结构、持久化与内存管理、主从复制与高可用、缓存问题（穿透/击穿/雪崩）。作为系列最后一篇，本文将聚焦 Redis 的性能优化技巧、Pipeline 与 Lua 脚本、分布式锁实战、慢查询分析等实战内容，帮助你系统掌握 Redis 在生产环境中的最佳实践。
+本文要点：
+慢查询分析与性能监控 内存优化技巧 Pipeline 与批量操作 Lua 脚本保证原子性 分布式锁实战（Redlock） Redis 最佳实践总结 二、慢查询分析与性能监控 2.1 慢查询日志 Redis 的慢查询日志用于记录执行时间超过指定阈值的命令。
+配置参数：
+# redis.conf slowlog-log-slower-than 10000 # 单位：微秒（μs），默认 10000 = 10 毫秒 slowlog-max-len 128 # 慢查询日志最大长度（FIFO 队列） 动态配置：
+redis-cli CONFIG SET slowlog-log-slower-than 5000 redis-cli CONFIG SET slowlog-max-len 256 查看慢查询：
+# 查看所有慢查询 SLOWLOG GET [count] # 查看慢查询条数 SLOWLOG LEN # 清空慢查询日志 SLOWLOG RESET 示例输出：</description>
+    </item>
+    
+    <item>
+      <title>Redis 缓存问题深度解析</title>
+      <link>https://raphaell2e.github.io/posts/redis%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/</link>
+      <pubDate>Wed, 13 May 2026 18:45:00 +0800</pubDate>
+      
+      <guid>https://raphaell2e.github.io/posts/redis%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/</guid>
+      <description>Redis 缓存问题深度解析 一、引言 前面三篇我们分别探讨了 Redis 的数据结构、持久化内存管理、主从复制与高可用架构。在生产环境中使用 Redis 作为缓存时，还会遇到经典的缓存穿透、缓存击穿、缓存雪崩三大问题。这些问题是面试高频考点，也是实际工作中必须掌握的技术方案。
+本文要点：
+缓存处理请求的完整流程 缓存穿透的原理与解决方案 缓存击穿的原理与解决方案 缓存雪崩的原理与解决方案 缓存预热、更新策略与最佳实践 二、缓存的基本工作流程 在讨论缓存问题之前，先明确缓存处理请求的标准流程。
+2.1 缓存读取流程 客户端请求数据 ↓ 缓存中是否存在？ ↓ ↓ 是 否 ↓ ↓ 直接返回 查询数据库 ↓ ↓ 结束 数据库存在？ ↓ ↓ 是 否 ↓ ↓ 写入缓存 返回空/报错 ↓ ↓ 返回数据 结束 代码实现（Java）：
+public User getUserById(Long userId) { String key = &amp;#34;user:&amp;#34; + userId; // 1. 先查缓存 String value = redis.get(key); if (value != null) { return JSON.</description>
+    </item>
+    
+    <item>
+      <title>Redis 主从复制与高可用深度解析</title>
+      <link>https://raphaell2e.github.io/posts/redis%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E4%B8%8E%E9%AB%98%E5%8F%AF%E7%94%A8%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/</link>
+      <pubDate>Wed, 13 May 2026 18:35:00 +0800</pubDate>
+      
+      <guid>https://raphaell2e.github.io/posts/redis%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E4%B8%8E%E9%AB%98%E5%8F%AF%E7%94%A8%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/</guid>
+      <description>Redis 主从复制与高可用深度解析 一、引言 前面两篇我们分别深入探讨了 Redis 的数据结构、持久化机制和内存管理策略。在生产环境中，单节点 Redis 往往面临单点故障风险，无法满足高可用需求。本文将深入解析 Redis 的主从复制机制、哨兵高可用方案以及 Redis Cluster 分布式集群，帮助你在面试中系统回答 Redis 高可用相关问题。
+本文要点：
+主从复制的原理与实现 哨兵（Sentinel）机制详解 Redis Cluster 分布式方案 高可用架构选型与实践 二、主从复制（Master-Slave Replication） 2.1 为什么需要主从复制 单节点 Redis 的问题：
+单点故障：主节点宕机，服务完全不可用 性能瓶颈：单节点读写压力大，QPS 有限 数据安全：无数据冗余，磁盘损坏导致数据丢失 主从复制的价值：
+主节点（Master） → 负责写操作 ↓ 复制 从节点（Slave） → 负责读操作（分担压力） 核心作用：
+数据冗余：从节点备份主节点数据 读写分离：主写从读，提升整体性能 高可用基础：主节点故障，从节点可提升为主节点 负载均衡：多个从节点分担读请求 2.2 主从复制原理 2.2.1 复制流程 Redis 主从复制分为两个阶段：
+阶段一：全量复制（Full Resynchronization）
+从节点启动 → 发送 PSYNC ? -1 → 主节点回复 FULLRESYNC &amp;lt;runid&amp;gt; &amp;lt;offset&amp;gt; ↓ 主节点执行 BGSAVE → 生成 RDB 文件 ↓ 主节点将 RDB 文件发送给从节点 ↓ 从节点清空旧数据 → 加载 RDB 文件 ↓ 主节点将缓冲区（replication buffer）中的写命令发送给从节点 ↓ 从节点执行这些写命令，完成同步 阶段二：部分复制（Partial Resynchronization）</description>
+    </item>
+    
+    <item>
+      <title>redis配置</title>
+      <link>https://raphaell2e.github.io/posts/redis%E9%85%8D%E7%BD%AE/</link>
+      <pubDate>Sat, 11 Jan 2020 20:03:57 +0800</pubDate>
+      
+      <guid>https://raphaell2e.github.io/posts/redis%E9%85%8D%E7%BD%AE/</guid>
+      <description>下载 wget https://github.com/microsoftarchive/redis/archive/win-3.2.100.tar.gz
+解压 tar -zxvf win-3.2.100.tar.gz
+cd Redis-x64-3.2.100/
+cd utlis
+安装 ./install_server.sh
+默认安装就一直回车就可以
+配置redis vi /etc/redis/6379.conf
+requirepass password 设置新密码
+修改bind 为 0.0.0.0则可以被外网所访问
+设置开机启动 cp redis_init_script /etc/init.d/redisd
+vi /etc/init.d/redisd
+将路径修改 为之前自动安装的配置
+启动 service redisd start</description>
+    </item>
+    
+  </channel>
+</rss>

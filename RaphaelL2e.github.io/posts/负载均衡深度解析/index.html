@@ -1,0 +1,2160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>负载均衡深度解析 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-05-15 <span>/</span> 微服务 </div>
+        <h1>负载均衡深度解析</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="负载均衡深度解析">负载均衡深度解析</h1>
+<h2 id="一引言">一、引言</h2>
+<p>在微服务架构中，服务消费者需要调用服务提供者，而服务提供者通常会有多个实例。如何选择一个合适的实例进行调用？这就是**负载均衡（Load Balancing）**要解决的问题。</p>
+<p>负载均衡是微服务流量管控的核心组件，它决定了请求如何分发到多个服务实例，直接影响系统的<strong>吞吐量、可用性和响应延迟</strong>。</p>
+<p>Spring Cloud 提供了两套负载均衡解决方案：</p>
+<ol>
+<li><strong>Ribbon</strong>（Netflix 开源，已进入维护模式）</li>
+<li><strong>Spring Cloud LoadBalancer</strong>（Spring 官方推荐，Spring Cloud 2020.0.0+ 默认）</li>
+</ol>
+<p>理解负载均衡的原理、Ribbon 与 Spring Cloud LoadBalancer 的差异，是微服务开发和面试的核心考点。</p>
+<p><strong>本文要点</strong>：</p>
+<ol>
+<li>负载均衡原理（客户端 vs 服务端）</li>
+<li>Ribbon 深度解析（IRule、负载均衡策略、自定义策略）</li>
+<li>Spring Cloud LoadBalancer 深度解析（新版本推荐）</li>
+<li>Ribbon vs Spring Cloud LoadBalancer 对比</li>
+<li>负载均衡策略详解</li>
+<li>自定义负载均衡实战</li>
+<li>面试高频问题</li>
+</ol>
+<hr>
+<h2 id="二负载均衡原理">二、负载均衡原理</h2>
+<h3 id="21-什么是负载均衡">2.1 什么是负载均衡</h3>
+<p><strong>负载均衡（Load Balancing）</strong> 是将请求分摊到多个操作单元（服务器、服务实例）上执行，从而：</p>
+<ul>
+<li><strong>提升系统吞吐量</strong>：并行处理更多请求</li>
+<li><strong>提高系统可用性</strong>：避免单点故障</li>
+<li><strong>优化资源利用</strong>：合理分配请求，避免部分实例过载</li>
+</ul>
+<h3 id="22-负载均衡的类型">2.2 负载均衡的类型</h3>
+<h4 id="221-服务端负载均衡server-side-load-balancing">2.2.1 服务端负载均衡（Server-Side Load Balancing）</h4>
+<p><strong>原理</strong>：客户端发送请求到负载均衡器（如 Nginx、F5），由负载均衡器选择后端服务器。</p>
+<pre tabindex="0"><code>客户端 → 负载均衡器 (Nginx) → 后端服务器1
+                           → 后端服务器2
+                           → 后端服务器3
+</code></pre><p><strong>代表产品</strong>：</p>
+<ul>
+<li><strong>硬件负载均衡</strong>：F5、A10</li>
+<li><strong>软件负载均衡</strong>：Nginx、HAProxy、LVS</li>
+</ul>
+<p><strong>优点</strong>：</p>
+<ul>
+<li>客户端无感知，无需配置</li>
+<li>集中管理，方便监控</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>负载均衡器本身可能成为单点故障（需主备）</li>
+<li>额外网络跳转，增加延迟</li>
+</ul>
+<h4 id="222-客户端负载均衡client-side-load-balancing">2.2.2 客户端负载均衡（Client-Side Load Balancing）</h4>
+<p><strong>原理</strong>：客户端从注册中心获取服务实例列表，自己选择调用哪个实例。</p>
+<pre tabindex="0"><code>客户端（内置负载均衡算法）→ 服务实例1
+                      → 服务实例2
+                      → 服务实例3
+</code></pre><p><strong>代表产品</strong>：</p>
+<ul>
+<li><strong>Ribbon</strong>（Netflix）</li>
+<li><strong>Spring Cloud LoadBalancer</strong>（Spring）</li>
+</ul>
+<p><strong>优点</strong>：</p>
+<ul>
+<li>无单点故障，客户端直接调用</li>
+<li>减少网络跳转，降低延迟</li>
+<li>可定制化强，灵活配置</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>客户端需要维护服务列表和负载均衡算法</li>
+<li>配置相对复杂</li>
+</ul>
+<h3 id="23-微服务中的负载均衡">2.3 微服务中的负载均衡</h3>
+<p>在微服务架构中，<strong>客户端负载均衡</strong>是主流方案，因为：</p>
+<ol>
+<li>避免单点故障（服务端负载均衡器挂了全挂）</li>
+<li>减少网络跳转（客户端直连服务实例）</li>
+<li>与注册中心无缝集成（动态感知服务上下线）</li>
+</ol>
+<p><strong>Spring Cloud 负载均衡架构</strong>：</p>
+<pre tabindex="0"><code>服务消费者 (Consumer)          服务提供者 (Provider)
+        ↓                             ↑
+        ↓                             │
+   ① 从注册中心拉取服务列表   ④ 注册服务实例
+        ↓                             │
+   ② 本地缓存服务列表                    │
+        ↓                             │
+   ③ 负载均衡算法选择实例 ────────→ 调用服务
+</code></pre><p><strong>工作流程</strong>：</p>
+<ol>
+<li>服务消费者从注册中心拉取服务提供者实例列表</li>
+<li>本地缓存服务列表（定期更新）</li>
+<li>负载均衡算法选择一个实例</li>
+<li>发起远程调用</li>
+</ol>
+<hr>
+<h2 id="三ribbon-深度解析">三、Ribbon 深度解析</h2>
+<h3 id="31-ribbon-简介">3.1 Ribbon 简介</h3>
+<p><strong>Ribbon</strong> 是 Netflix 开源的客户端负载均衡器，Spring Cloud 早期默认集成。</p>
+<p><strong>现状</strong>：Spring Cloud 2020.0.0（Ilford）开始，Ribbon 进入<strong>维护模式</strong>，不再接受新功能，推荐使用 Spring Cloud LoadBalancer。</p>
+<p><strong>核心功能</strong>：</p>
+<ul>
+<li>服务实例列表获取（从注册中心）</li>
+<li>负载均衡算法（轮询、随机、重试等）</li>
+<li>健康检查（ping）</li>
+<li>故障实例剔除</li>
+</ul>
+<h3 id="32-ribbon-核心组件">3.2 Ribbon 核心组件</h3>
+<h4 id="321-irule负载均衡规则">3.2.1 IRule（负载均衡规则）</h4>
+<p><strong>IRule</strong> 是 Ribbon 的负载均衡策略接口，内置多种实现：</p>
+<table>
+<thead>
+<tr>
+<th>策略类</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RoundRobinRule</td>
+<td>轮询（默认）</td>
+</tr>
+<tr>
+<td>RandomRule</td>
+<td>随机</td>
+</tr>
+<tr>
+<td>RetryRule</td>
+<td>重试（先按轮询，失败重试其他实例）</td>
+</tr>
+<tr>
+<td>WeightedResponseTimeRule</td>
+<td>响应时间加权（响应越快，权重越高）</td>
+</tr>
+<tr>
+<td>BestAvailableRule</td>
+<td>选择并发请求最少的实例</td>
+</tr>
+<tr>
+<td>AvailabilityFilteringRule</td>
+<td>过滤熔断/高并发实例，轮询剩余</td>
+</tr>
+<tr>
+<td>ZoneAvoidanceRule</td>
+<td>复合判断（区域 + 可用性）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>默认策略</strong>：ZoneAvoidanceRule（区域感知轮询）</p>
+<h4 id="322-iping健康检查">3.2.2 IPing（健康检查）</h4>
+<p><strong>IPing</strong> 用于检查服务实例是否存活：</p>
+<table>
+<thead>
+<tr>
+<th>实现类</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DummyPing</td>
+<td>默认返回 true（不检查）</td>
+</tr>
+<tr>
+<td>NoOpPing</td>
+<td>默认返回 true（不检查）</td>
+</tr>
+<tr>
+<td>PingConstant</td>
+<td>固定返回 true/false</td>
+</tr>
+<tr>
+<td>PingUrl</td>
+<td>HTTP 请求检查（真实 ping）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>默认实现</strong>：DummyPing（不检查，依赖注册中心心跳）</p>
+<h4 id="323-serverlist服务列表">3.2.3 ServerList（服务列表）</h4>
+<p><strong>ServerList</strong> 获取服务实例列表：</p>
+<table>
+<thead>
+<tr>
+<th>实现类</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ConfigurationBasedServerList</td>
+<td>从配置文件加载（静态配置）</td>
+</tr>
+<tr>
+<td>DiscoveryEnabledNIWSServerList</td>
+<td>从 Eureka 拉取（动态发现）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>默认实现</strong>：DiscoveryEnabledNIWSServerList（配合 Eureka）</p>
+<h3 id="33-ribbon-配置">3.3 Ribbon 配置</h3>
+<h4 id="331-全局配置">3.3.1 全局配置</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># application.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">ribbon</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ConnectTimeout</span>: <span style="color:#ae81ff">2000</span>        <span style="color:#75715e"># 连接超时（ms）</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ReadTimeout</span>: <span style="color:#ae81ff">5000</span>           <span style="color:#75715e"># 读取超时（ms）</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">OkToRetryOnAllOperations</span>: <span style="color:#66d9ef">false</span>  <span style="color:#75715e"># 是否所有操作都重试</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">MaxAutoRetries</span>: <span style="color:#ae81ff">0</span>           <span style="color:#75715e"># 同一实例重试次数</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">MaxAutoRetriesNextServer</span>: <span style="color:#ae81ff">1</span> <span style="color:#75715e"># 切换实例重试次数</span>
+</span></span></code></pre></div><h4 id="332-指定服务配置">3.3.2 指定服务配置</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># application.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 格式：&lt;service-name&gt;.ribbon.&lt;property&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">user-service</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ribbon</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ConnectTimeout</span>: <span style="color:#ae81ff">3000</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">ReadTimeout</span>: <span style="color:#ae81ff">6000</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">NFLoadBalancerRuleClassName</span>: <span style="color:#ae81ff">com.netflix.loadbalancer.RandomRule </span> <span style="color:#75715e"># 随机策略</span>
+</span></span></code></pre></div><h4 id="333-自定义-irule">3.3.3 自定义 IRule</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 自定义负载均衡策略
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@Configuration</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RibbonConfig</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> IRule <span style="color:#a6e22e">myRule</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> RandomRule<span style="color:#f92672">();</span>  <span style="color:#75715e">// 使用随机策略
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 在启动类指定配置
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">@SpringBootApplication</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@RibbonClient</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;user-service&#34;</span><span style="color:#f92672">,</span> configuration <span style="color:#f92672">=</span> RibbonConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderServiceApplication</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        SpringApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">(</span>OrderServiceApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> args<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="34-ribbon--retry机制">3.4 Ribbon  retry机制</h3>
+<p><strong>Ribbon 重试</strong>：当调用失败时，自动切换到其他实例重试。</p>
+<p><strong>配置示例</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">ribbon</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">MaxAutoRetries</span>: <span style="color:#ae81ff">1</span>           <span style="color:#75715e"># 同一实例重试1次</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">MaxAutoRetriesNextServer</span>: <span style="color:#ae81ff">2</span> <span style="color:#75715e"># 切换2个不同实例</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">OkToRetryOnAllOperations</span>: <span style="color:#66d9ef">true</span>  <span style="color:#75715e"># 所有操作都重试（包括POST，危险！）</span>
+</span></span></code></pre></div><p><strong>重试流程</strong>：</p>
+<pre tabindex="0"><code>第1次调用 → 实例1失败
+    ↓
+重试实例1 → 失败
+    ↓
+切换实例2 → 失败
+    ↓
+重试实例2 → 成功 ✅
+</code></pre><p><strong>注意</strong>：<code>OkToRetryOnAllOperations=true</code> 时，<strong>POST 请求也会重试</strong>，可能导致<strong>重复提交</strong>！建议设置为 <code>false</code>，仅 GET 请求重试。</p>
+<h3 id="35-ribbon-与-resttemplate-集成">3.5 Ribbon 与 RestTemplate 集成</h3>
+<p><strong>使用 Ribbon 的 RestTemplate</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Configuration</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RestTemplateConfig</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@LoadBalanced</span>  <span style="color:#75715e">// 关键注解：启用 Ribbon 负载均衡
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> RestTemplate <span style="color:#a6e22e">restTemplate</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> RestTemplate<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Service</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> RestTemplate restTemplate<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> User <span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>Long userId<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 使用服务名（而非 IP:Port），Ribbon 会自动选择实例
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        String url <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;http://user-service/users/&#34;</span> <span style="color:#f92672">+</span> userId<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> restTemplate<span style="color:#f92672">.</span><span style="color:#a6e22e">getForObject</span><span style="color:#f92672">(</span>url<span style="color:#f92672">,</span> User<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>工作原理</strong>：</p>
+<ol>
+<li><code>@LoadBalanced</code> 注解给 RestTemplate 添加拦截器 <code>LoadBalancerInterceptor</code></li>
+<li>拦截器从 URL 中提取服务名（<code>user-service</code>）</li>
+<li>通过 Ribbon 获取该服务的实例列表</li>
+<li>负载均衡算法选择一个实例</li>
+<li>将服务名替换为 <code>IP:Port</code>，发起 HTTP 请求</li>
+</ol>
+<h2 id="四spring-cloud-loadbalancer-深度解析">四、Spring Cloud LoadBalancer 深度解析</h2>
+<h3 id="41-spring-cloud-loadbalancer-简介">4.1 Spring Cloud LoadBalancer 简介</h3>
+<p><strong>Spring Cloud LoadBalancer</strong> 是 Spring 官方推出的客户端负载均衡器，用于<strong>替代 Ribbon</strong>。</p>
+<p><strong>背景</strong>：</p>
+<ul>
+<li>Netflix Ribbon 进入维护模式（不再接受新功能）</li>
+<li>Spring Cloud 2020.0.0（Ilford）开始，默认使用 Spring Cloud LoadBalancer</li>
+<li>支持 <strong>Reactive</strong>（WebFlux）和 <strong>Servlet</strong>（Web MVC）两种环境</li>
+</ul>
+<p><strong>核心特性</strong>：</p>
+<ul>
+<li>轻量级，非阻塞（基于 Project Reactor）</li>
+<li>支持响应式编程（WebFlux）</li>
+<li>可扩展性强（自定义负载均衡算法）</li>
+<li>与 Spring Cloud 生态深度集成</li>
+</ul>
+<h3 id="42-spring-cloud-loadbalancer-核心组件">4.2 Spring Cloud LoadBalancer 核心组件</h3>
+<h4 id="421-reactorloadbalancer">4.2.1 ReactorLoadBalancer</h4>
+<p><strong>Reactive 负载均衡器接口</strong>，支持 Mono/Flux：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">ReactorLoadBalancer</span><span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#66d9ef">extends</span> ReactiveLoadBalancer<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    Mono<span style="color:#f92672">&lt;</span>Response<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">&gt;&gt;</span> <span style="color:#a6e22e">choose</span><span style="color:#f92672">(</span>Request request<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="422-loadbalancer-实现">4.2.2 LoadBalancer 实现</h4>
+<p>Spring Cloud LoadBalancer 内置两种实现：</p>
+<table>
+<thead>
+<tr>
+<th>实现类</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RoundRobinLoadBalancer</td>
+<td><strong>轮询</strong>（默认）</td>
+</tr>
+<tr>
+<td>RandomLoadBalancer</td>
+<td><strong>随机</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>默认策略</strong>：RoundRobinLoadBalancer（轮询）</p>
+<h4 id="423-serviceinstancelistsupplier">4.2.3 ServiceInstanceListSupplier</h4>
+<p><strong>服务实例列表提供者</strong>，替代 Ribbon 的 ServerList：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">ServiceInstanceListSupplier</span> <span style="color:#66d9ef">extends</span> Supplier<span style="color:#f92672">&lt;</span>Flux<span style="color:#f92672">&lt;</span>List<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;&gt;&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 从注册中心获取实例列表
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>内置实现</strong>：</p>
+<ul>
+<li><code>DiscoveryClientServiceInstanceListSupplier</code>：从 <code>DiscoveryClient</code> 获取（Eureka、Nacos 等）</li>
+<li><code>CachingServiceInstanceListSupplier</code>：带缓存的列表（提升性能）</li>
+</ul>
+<h3 id="43-spring-cloud-loadbalancer-配置">4.3 Spring Cloud LoadBalancer 配置</h3>
+<h4 id="431-maven-依赖">4.3.1 Maven 依赖</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#75715e">&lt;!-- Spring Cloud LoadBalancer Starter --&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;dependency&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;groupId&gt;</span>org.springframework.cloud<span style="color:#f92672">&lt;/groupId&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;artifactId&gt;</span>spring-cloud-starter-loadbalancer<span style="color:#f92672">&lt;/artifactId&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/dependency&gt;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">&lt;!-- 如果使用 Eureka --&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;dependency&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;groupId&gt;</span>org.springframework.cloud<span style="color:#f92672">&lt;/groupId&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;artifactId&gt;</span>spring-cloud-starter-netflix-eureka-client<span style="color:#f92672">&lt;/artifactId&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/dependency&gt;</span>
+</span></span></code></pre></div><p><strong>注意</strong>：Spring Cloud 2020.0.0+ 默认不包含 Ribbon，如需使用需单独引入。</p>
+<h4 id="432-配置文件">4.3.2 配置文件</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">spring</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cloud</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">loadbalancer</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">configurations</span>: <span style="color:#ae81ff">round-robin </span> <span style="color:#75715e"># 负载均衡策略（round-robin | random）</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">retry</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">enabled</span>: <span style="color:#66d9ef">true</span>               <span style="color:#75715e"># 启用重试</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">max-retries-on-same-service-instance</span>: <span style="color:#ae81ff">1</span>  <span style="color:#75715e"># 同实例重试次数</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">max-retries-on-next-service-instance</span>: <span style="color:#ae81ff">1</span>  <span style="color:#75715e"># 切换实例重试次数</span>
+</span></span></code></pre></div><h4 id="433-自定义负载均衡策略">4.3.3 自定义负载均衡策略</h4>
+<p><strong>方式1：配置类</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Configuration</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@LoadBalancerClientConfiguration</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">CustomLoadBalancerConfig</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> ReactorLoadBalancer<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">customLoadBalancer</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            Environment environment<span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            LoadBalancerClientFactory factory<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        String name <span style="color:#f92672">=</span> environment<span style="color:#f92672">.</span><span style="color:#a6e22e">getProperty</span><span style="color:#f92672">(</span>LoadBalancerClientFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">PROPERTY_NAME</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> RandomLoadBalancer<span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            factory<span style="color:#f92672">.</span><span style="color:#a6e22e">getLazyProvider</span><span style="color:#f92672">(</span>name<span style="color:#f92672">,</span> ServiceInstanceListSupplier<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">),</span> 
+</span></span><span style="display:flex;"><span>            name
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>方式2：注解指定</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@SpringBootApplication</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@LoadBalancerClient</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;user-service&#34;</span><span style="color:#f92672">,</span> configuration <span style="color:#f92672">=</span> CustomLoadBalancerConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderServiceApplication</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        SpringApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">(</span>OrderServiceApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> args<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="44-spring-cloud-loadbalancer-与-resttemplatewebclient-集成">4.4 Spring Cloud LoadBalancer 与 RestTemplate/WebClient 集成</h3>
+<h4 id="441-resttemplateweb-mvc">4.4.1 RestTemplate（Web MVC）</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Configuration</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RestTemplateConfig</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@LoadBalanced</span>  <span style="color:#75715e">// 启用 Spring Cloud LoadBalancer
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> RestTemplate <span style="color:#a6e22e">restTemplate</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> RestTemplate<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="442-webclientwebflux推荐">4.4.2 WebClient（WebFlux，推荐）</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Configuration</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">WebClientConfig</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@LoadBalanced</span>  <span style="color:#75715e">// 启用 Spring Cloud LoadBalancer
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">public</span> WebClient<span style="color:#f92672">.</span><span style="color:#a6e22e">Builder</span> <span style="color:#a6e22e">webClientBuilder</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> WebClient<span style="color:#f92672">.</span><span style="color:#a6e22e">builder</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Service</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">UserService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> WebClient<span style="color:#f92672">.</span><span style="color:#a6e22e">Builder</span> webClientBuilder<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Mono<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">getUser</span><span style="color:#f92672">(</span>Long userId<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> webClientBuilder<span style="color:#f92672">.</span><span style="color:#a6e22e">build</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">uri</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;http://user-service/users/&#34;</span> <span style="color:#f92672">+</span> userId<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">retrieve</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">bodyToMono</span><span style="color:#f92672">(</span>User<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>推荐 WebClient</strong>：</p>
+<ul>
+<li>支持异步非阻塞（性能更好）</li>
+<li>与 Spring Cloud LoadBalancer 深度集成</li>
+<li>适合高并发场景</li>
+</ul>
+<h2 id="五ribbon-vs-spring-cloud-loadbalancer-对比">五、Ribbon vs Spring Cloud LoadBalancer 对比</h2>
+<h3 id="51-核心差异对比">5.1 核心差异对比</h3>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>Ribbon</th>
+<th>Spring Cloud LoadBalancer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>维护状态</strong></td>
+<td>维护模式（不推荐新项目）</td>
+<td>活跃开发（官方推荐）</td>
+</tr>
+<tr>
+<td><strong>响应式支持</strong></td>
+<td>不支持（阻塞式）</td>
+<td>支持（WebFlux）</td>
+</tr>
+<tr>
+<td><strong>负载均衡策略</strong></td>
+<td>7种内置（IRule）</td>
+<td>2种内置（轮询/随机）</td>
+</tr>
+<tr>
+<td><strong>扩展性</strong></td>
+<td>中等</td>
+<td>强（基于 Reactor）</td>
+</tr>
+<tr>
+<td><strong>性能</strong></td>
+<td>阻塞式，性能一般</td>
+<td>非阻塞，性能更好</td>
+</tr>
+<tr>
+<td><strong>依赖</strong></td>
+<td>Netflix 生态</td>
+<td>Spring 生态</td>
+</tr>
+<tr>
+<td><strong>Spring Cloud 默认</strong></td>
+<td>2020.0.0 之前</td>
+<td>2020.0.0 之后</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-功能对比">5.2 功能对比</h3>
+<h4 id="521-负载均衡策略">5.2.1 负载均衡策略</h4>
+<p><strong>Ribbon（丰富）</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 7种内置策略
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">1.</span> RoundRobinRule           <span style="color:#75715e">// 轮询
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">2.</span> RandomRule               <span style="color:#75715e">// 随机
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">3.</span> RetryRule                <span style="color:#75715e">// 重试
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">4.</span> WeightedResponseTimeRule <span style="color:#75715e">// 响应时间加权
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">5.</span> BestAvailableRule        <span style="color:#75715e">// 最少并发
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">6.</span> AvailabilityFilteringRule <span style="color:#75715e">// 可用过滤
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">7.</span> ZoneAvoidanceRule        <span style="color:#75715e">// 区域感知（默认）
+</span></span></span></code></pre></div><p><strong>Spring Cloud LoadBalancer（精简）</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 2种内置策略
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">1.</span> RoundRobinLoadBalancer   <span style="color:#75715e">// 轮询（默认）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#ae81ff">2.</span> RandomLoadBalancer       <span style="color:#75715e">// 随机
+</span></span></span></code></pre></div><p><strong>差异分析</strong>：</p>
+<ul>
+<li>Ribbon 策略更丰富（特别是 <code>WeightedResponseTimeRule</code> 响应时间加权）</li>
+<li>Spring Cloud LoadBalancer 需要自定义实现复杂策略</li>
+</ul>
+<h4 id="522-重试机制">5.2.2 重试机制</h4>
+<p><strong>Ribbon 重试</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">ribbon</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">MaxAutoRetries</span>: <span style="color:#ae81ff">1</span>           <span style="color:#75715e"># 同一实例重试1次</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">MaxAutoRetriesNextServer</span>: <span style="color:#ae81ff">2</span> <span style="color:#75715e"># 切换2个实例</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">OkToRetryOnAllOperations</span>: <span style="color:#66d9ef">false</span>  <span style="color:#75715e"># 是否所有操作重试（危险！）</span>
+</span></span></code></pre></div><p><strong>Spring Cloud LoadBalancer 重试</strong>（需引入 <code>spring-retry</code>）：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">spring</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cloud</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">loadbalancer</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">retry</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">enabled</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">max-retries-on-same-service-instance</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">max-retries-on-next-service-instance</span>: <span style="color:#ae81ff">1</span>
+</span></span></code></pre></div><p><strong>差异分析</strong>：</p>
+<ul>
+<li>Ribbon 重试配置简单，但 <code>OkToRetryOnAllOperations=true</code> 可能导致 POST 重复提交</li>
+<li>Spring Cloud LoadBalancer 重试需额外依赖，但更安全</li>
+</ul>
+<h4 id="523-健康检查">5.2.3 健康检查</h4>
+<p><strong>Ribbon</strong>：通过 <code>IPing</code> 检查实例存活（默认 DummyPing，不检查）。</p>
+<p><strong>Spring Cloud LoadBalancer</strong>：依赖注册中心健康检查（如 Eureka 心跳、Nacos 心跳）。</p>
+<p><strong>差异分析</strong>：</p>
+<ul>
+<li>Ribbon 可主动 ping（但默认不开启）</li>
+<li>Spring Cloud LoadBalancer 完全依赖注册中心（更简洁）</li>
+</ul>
+<h3 id="53-迁移指南ribbon--spring-cloud-loadbalancer">5.3 迁移指南（Ribbon → Spring Cloud LoadBalancer）</h3>
+<p><strong>步骤1：移除 Ribbon 依赖</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#75715e">&lt;!-- 删除 --&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;dependency&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;groupId&gt;</span>org.springframework.cloud<span style="color:#f92672">&lt;/groupId&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;artifactId&gt;</span>spring-cloud-starter-netflix-ribbon<span style="color:#f92672">&lt;/artifactId&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/dependency&gt;</span>
+</span></span></code></pre></div><p><strong>步骤2：添加 Spring Cloud LoadBalancer 依赖</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-xml" data-lang="xml"><span style="display:flex;"><span><span style="color:#f92672">&lt;dependency&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;groupId&gt;</span>org.springframework.cloud<span style="color:#f92672">&lt;/groupId&gt;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&lt;artifactId&gt;</span>spring-cloud-starter-loadbalancer<span style="color:#f92672">&lt;/artifactId&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">&lt;/dependency&gt;</span>
+</span></span></code></pre></div><p><strong>步骤3：修改配置</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># 删除 Ribbon 配置</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># ribbon:</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#   ConnectTimeout: 2000</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 添加 Spring Cloud LoadBalancer 配置</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">spring</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cloud</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">loadbalancer</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">configurations</span>: <span style="color:#ae81ff">round-robin</span>
+</span></span></code></pre></div><p><strong>步骤4：验证功能</strong></p>
+<p>启动应用，调用服务，观察日志：</p>
+<pre tabindex="0"><code>DEBUG o.s.c.l.core.RoundRobinLoadBalancer - Chose instance 192.168.1.100:8080
+</code></pre><h3 id="54-如何选择">5.4 如何选择？</h3>
+<p><strong>使用 Ribbon</strong>：</p>
+<ul>
+<li>老项目（已使用 Ribbon，无特别需求）</li>
+<li>需要复杂的负载均衡策略（如响应时间加权）</li>
+<li>暂时不想迁移</li>
+</ul>
+<p><strong>使用 Spring Cloud LoadBalancer</strong>：</p>
+<ul>
+<li>新项目（Spring Cloud 2020.0.0+）</li>
+<li>使用 WebFlux（响应式编程）</li>
+<li>追求更好的性能</li>
+<li>希望与 Spring 生态深度集成</li>
+</ul>
+<p><strong>推荐</strong>：<strong>新项目使用 Spring Cloud LoadBalancer</strong>，老项目逐步迁移。</p>
+<h2 id="六负载均衡策略详解">六、负载均衡策略详解</h2>
+<h3 id="61-轮询策略round-robin">6.1 轮询策略（Round Robin）</h3>
+<p><strong>原理</strong>：按顺序依次选择实例。</p>
+<pre tabindex="0"><code>实例列表：[A, B, C]
+请求1 → A
+请求2 → B
+请求3 → C
+请求4 → A（循环）
+</code></pre><p><strong>优点</strong>：</p>
+<ul>
+<li>简单公平，均匀分布</li>
+<li>无状态，实现简单</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>无视实例性能差异（性能差的实例会拖累整体）</li>
+<li>无视实例当前负载（可能把请求发给高负载实例）</li>
+</ul>
+<p><strong>适用场景</strong>：</p>
+<ul>
+<li>实例性能相近</li>
+<li>无状态服务</li>
+</ul>
+<p><strong>Ribbon 实现</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RoundRobinRule</span> <span style="color:#66d9ef">extends</span> AbstractLoadBalancerRule <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> AtomicInteger nextServerCyclicCounter<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Server <span style="color:#a6e22e">choose</span><span style="color:#f92672">(</span>ILoadBalancer lb<span style="color:#f92672">,</span> Object key<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 自旋锁 + CAS 实现线程安全
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">int</span> count <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(;;)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">int</span> current <span style="color:#f92672">=</span> nextServerCyclicCounter<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">int</span> next <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>current <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span><span style="color:#f92672">)</span> <span style="color:#f92672">%</span> allServers<span style="color:#f92672">.</span><span style="color:#a6e22e">size</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>nextServerCyclicCounter<span style="color:#f92672">.</span><span style="color:#a6e22e">compareAndSet</span><span style="color:#f92672">(</span>current<span style="color:#f92672">,</span> next<span style="color:#f92672">))</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> allServers<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>next<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>            count<span style="color:#f92672">++;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>count <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">10</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>  <span style="color:#75715e">// 重试10次失败，返回null
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>Spring Cloud LoadBalancer 实现</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RoundRobinLoadBalancer</span> <span style="color:#66d9ef">implements</span> ReactorLoadBalancer<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> AtomicInteger position<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Mono<span style="color:#f92672">&lt;</span>Response<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;&gt;</span> <span style="color:#a6e22e">choose</span><span style="color:#f92672">(</span>Request request<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        ServiceInstanceListSupplier supplier <span style="color:#f92672">=</span> <span style="color:#f92672">...</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> supplier<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>request<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">map</span><span style="color:#f92672">(</span>instances <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">int</span> pos <span style="color:#f92672">=</span> Math<span style="color:#f92672">.</span><span style="color:#a6e22e">abs</span><span style="color:#f92672">(</span><span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">position</span><span style="color:#f92672">.</span><span style="color:#a6e22e">getAndIncrement</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">return</span> instances<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>pos <span style="color:#f92672">%</span> instances<span style="color:#f92672">.</span><span style="color:#a6e22e">size</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">});</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="62-随机策略random">6.2 随机策略（Random）</h3>
+<p><strong>原理</strong>：随机选择实例。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// Ribbon 实现
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RandomRule</span> <span style="color:#66d9ef">extends</span> AbstractLoadBalancerRule <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Server <span style="color:#a6e22e">choose</span><span style="color:#f92672">(</span>ILoadBalancer lb<span style="color:#f92672">,</span> Object key<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">int</span> index <span style="color:#f92672">=</span> ThreadLocalRandom<span style="color:#f92672">.</span><span style="color:#a6e22e">current</span><span style="color:#f92672">().</span><span style="color:#a6e22e">nextInt</span><span style="color:#f92672">(</span>allServers<span style="color:#f92672">.</span><span style="color:#a6e22e">size</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> allServers<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>index<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>优点</strong>：</p>
+<ul>
+<li>简单，分布均匀</li>
+<li>避免&quot;热点&quot;（某些实例一直被轮询到）</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>无视实例性能差异</li>
+<li>无视实例当前负载</li>
+</ul>
+<p><strong>适用场景</strong>：</p>
+<ul>
+<li>实例性能相近</li>
+<li>需要简单快速的负载均衡</li>
+</ul>
+<h3 id="63-响应时间加权策略weighted-response-time">6.3 响应时间加权策略（Weighted Response Time）</h3>
+<p><strong>原理</strong>：根据实例的平均响应时间计算权重，响应越快权重越高。</p>
+<p><strong>Ribbon 实现</strong>：<code>WeightedResponseTimeRule</code></p>
+<p><strong>权重计算</strong>：</p>
+<pre tabindex="0"><code>实例A 平均响应时间 100ms → 权重 10
+实例B 平均响应时间 200ms → 权重 5
+实例C 平均响应时间 500ms → 权重 2
+
+总权重 = 10 + 5 + 2 = 17
+
+实例A 被选中的概率 = 10 / 17 ≈ 59%
+实例B 被选中的概率 = 5 / 17 ≈ 29%
+实例C 被选中的概率 = 2 / 17 ≈ 12%
+</code></pre><p><strong>优点</strong>：</p>
+<ul>
+<li>自动感知实例性能</li>
+<li>性能好的实例承担更多流量</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>启动阶段无统计数据，退化成轮询</li>
+<li>权重计算开销（需定时更新）</li>
+</ul>
+<p><strong>适用场景</strong>：</p>
+<ul>
+<li>实例性能差异较大</li>
+<li>服务响应时间差异明显</li>
+</ul>
+<h3 id="64-最少并发策略best-available">6.4 最少并发策略（Best Available）</h3>
+<p><strong>原理</strong>：选择当前并发请求最少的实例。</p>
+<p><strong>Ribbon 实现</strong>：<code>BestAvailableRule</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">BestAvailableRule</span> <span style="color:#66d9ef">extends</span> ClientConfigEnabledRoundRobinRule <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Server <span style="color:#a6e22e">choose</span><span style="color:#f92672">(</span>Object key<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 遍历所有实例，选择并发请求最少的
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">int</span> minConcurrent <span style="color:#f92672">=</span> Integer<span style="color:#f92672">.</span><span style="color:#a6e22e">MAX_VALUE</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        Server bestServer <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Server server <span style="color:#f92672">:</span> allServers<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">int</span> concurrent <span style="color:#f92672">=</span> serverStats<span style="color:#f92672">.</span><span style="color:#a6e22e">getConcurrentRequests</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>concurrent <span style="color:#f92672">&lt;</span> minConcurrent <span style="color:#f92672">&amp;&amp;</span> server<span style="color:#f92672">.</span><span style="color:#a6e22e">isAlive</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                minConcurrent <span style="color:#f92672">=</span> concurrent<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>                bestServer <span style="color:#f92672">=</span> server<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> bestServer<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>优点</strong>：</p>
+<ul>
+<li>动态感知实例负载</li>
+<li>避免高负载实例</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>需要统计每个实例的并发数（开销）</li>
+<li>可能选择到性能差的实例（并发少但响应慢）</li>
+</ul>
+<p><strong>适用场景</strong>：</p>
+<ul>
+<li>实例性能相近</li>
+<li>需要动态感知负载</li>
+</ul>
+<h3 id="65-可用过滤策略availability-filtering">6.5 可用过滤策略（Availability Filtering）</h3>
+<p><strong>原理</strong>：先过滤掉故障/高并发实例，再从剩余实例中轮询。</p>
+<p><strong>Ribbon 实现</strong>：<code>AvailabilityFilteringRule</code></p>
+<p><strong>过滤条件</strong>：</p>
+<ol>
+<li>实例熔断（断路器打开）</li>
+<li>实例并发请求数 &gt; 阈值（默认 2^31-1，实际无限）</li>
+<li>实例故障（连接失败）</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AvailabilityFilteringRule</span> <span style="color:#66d9ef">extends</span> PredicateBasedRule <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">boolean</span> <span style="color:#a6e22e">apply</span><span style="color:#f92672">(</span>Server server<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        ServerStats stats <span style="color:#f92672">=</span> lbStats<span style="color:#f92672">.</span><span style="color:#a6e22e">getSingleServerStat</span><span style="color:#f92672">(</span>server<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 过滤条件1：实例熔断
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>stats<span style="color:#f92672">.</span><span style="color:#a6e22e">isCircuitBreakerTripped</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 过滤条件2：并发请求数 &gt; 阈值
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>stats<span style="color:#f92672">.</span><span style="color:#a6e22e">getActiveRequestsCount</span><span style="color:#f92672">()</span> <span style="color:#f92672">&gt;=</span> server<span style="color:#f92672">.</span><span style="color:#a6e22e">getMaxTotalHttpConnections</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">false</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">true</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>优点</strong>：</p>
+<ul>
+<li>自动剔除故障实例</li>
+<li>提升系统可用性</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>过滤后可能只剩少量实例（甚至0个）</li>
+<li>阈值配置需调优</li>
+</ul>
+<p><strong>适用场景</strong>：</p>
+<ul>
+<li>实例可能故障</li>
+<li>需要高可用保障</li>
+</ul>
+<h3 id="66-区域感知策略zone-avoidance">6.6 区域感知策略（Zone Avoidance）</h3>
+<p><strong>原理</strong>：先过滤掉不可用区域，再从可用区域中轮询选择实例。</p>
+<p><strong>Ribbon 默认策略</strong>：<code>ZoneAvoidanceRule</code></p>
+<p><strong>区域感知</strong>：</p>
+<ul>
+<li>实例按区域（Zone）分组（如 <code>us-east-1a</code>、<code>us-west-2b</code>）</li>
+<li>优先选择同区域的实例（减少跨区延迟）</li>
+<li>如果同区域实例故障，才跨区调用</li>
+</ul>
+<p><strong>优点</strong>：</p>
+<ul>
+<li>减少跨区延迟（同区域调用）</li>
+<li>提升容灾能力（跨区故障切换）</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>需要实例配置区域信息</li>
+<li>区域划分需合理</li>
+</ul>
+<p><strong>适用场景</strong>：</p>
+<ul>
+<li>多区域部署（如 AWS 多 AZ）</li>
+<li>跨区延迟明显</li>
+</ul>
+<h2 id="七自定义负载均衡实战">七、自定义负载均衡实战</h2>
+<h3 id="71-自定义-ribbon-负载均衡策略">7.1 自定义 Ribbon 负载均衡策略</h3>
+<h4 id="711-实现-irule-接口">7.1.1 实现 IRule 接口</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 自定义策略：加权随机（根据实例元数据中的权重）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">WeightedRandomRule</span> <span style="color:#66d9ef">extends</span> AbstractLoadBalancerRule <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> Random random <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Random<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">initWithNiwsConfig</span><span style="color:#f92672">(</span>IClientConfig clientConfig<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 初始化配置（可选）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Server <span style="color:#a6e22e">choose</span><span style="color:#f92672">(</span>Object key<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        ILoadBalancer lb <span style="color:#f92672">=</span> getLoadBalancer<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        List<span style="color:#f92672">&lt;</span>Server<span style="color:#f92672">&gt;</span> servers <span style="color:#f92672">=</span> lb<span style="color:#f92672">.</span><span style="color:#a6e22e">getReachableServers</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>servers<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 读取实例元数据中的权重（从 Eureka metadata 或 Nacos metadata）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        Map<span style="color:#f92672">&lt;</span>Server<span style="color:#f92672">,</span> Integer<span style="color:#f92672">&gt;</span> weightMap <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> HashMap<span style="color:#f92672">&lt;&gt;();</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">int</span> totalWeight <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Server server <span style="color:#f92672">:</span> servers<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">int</span> weight <span style="color:#f92672">=</span> getWeightFromMetadata<span style="color:#f92672">(</span>server<span style="color:#f92672">);</span>  <span style="color:#75715e">// 自定义方法
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            weightMap<span style="color:#f92672">.</span><span style="color:#a6e22e">put</span><span style="color:#f92672">(</span>server<span style="color:#f92672">,</span> weight<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            totalWeight <span style="color:#f92672">+=</span> weight<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 加权随机选择
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">int</span> randomWeight <span style="color:#f92672">=</span> random<span style="color:#f92672">.</span><span style="color:#a6e22e">nextInt</span><span style="color:#f92672">(</span>totalWeight<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">int</span> current <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> <span style="color:#f92672">(</span>Map<span style="color:#f92672">.</span><span style="color:#a6e22e">Entry</span><span style="color:#f92672">&lt;</span>Server<span style="color:#f92672">,</span> Integer<span style="color:#f92672">&gt;</span> entry <span style="color:#f92672">:</span> weightMap<span style="color:#f92672">.</span><span style="color:#a6e22e">entrySet</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            current <span style="color:#f92672">+=</span> entry<span style="color:#f92672">.</span><span style="color:#a6e22e">getValue</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>current <span style="color:#f92672">&gt;</span> randomWeight<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">return</span> entry<span style="color:#f92672">.</span><span style="color:#a6e22e">getKey</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> servers<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span><span style="color:#ae81ff">0</span><span style="color:#f92672">);</span>  <span style="color:#75715e">// fallback
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">int</span> <span style="color:#a6e22e">getWeightFromMetadata</span><span style="color:#f92672">(</span>Server server<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 从 Eureka metadata 读取 &#34;weight&#34; 配置
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">// 默认权重 1
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        String weightStr <span style="color:#f92672">=</span> <span style="color:#f92672">((</span>DiscoveryEnabledServer<span style="color:#f92672">)</span> server<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">getInstanceInfo</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">getMetadata</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;weight&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> weightStr <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">?</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">:</span> Integer<span style="color:#f92672">.</span><span style="color:#a6e22e">parseInt</span><span style="color:#f92672">(</span>weightStr<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="712-配置自定义策略">7.1.2 配置自定义策略</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Configuration</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">RibbonConfig</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> IRule <span style="color:#a6e22e">weightedRandomRule</span><span style="color:#f92672">()</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> WeightedRandomRule<span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@SpringBootApplication</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@RibbonClient</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;user-service&#34;</span><span style="color:#f92672">,</span> configuration <span style="color:#f92672">=</span> RibbonConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderServiceApplication</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        SpringApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">(</span>OrderServiceApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> args<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="713-eureka-配置元数据">7.1.3 Eureka 配置元数据</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># user-service (服务提供者) 的配置</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">eureka</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">instance</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">metadata-map</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">weight</span>: <span style="color:#ae81ff">5</span>  <span style="color:#75715e"># 权重 5（默认 1）</span>
+</span></span></code></pre></div><h3 id="72-自定义-spring-cloud-loadbalancer-负载均衡策略">7.2 自定义 Spring Cloud LoadBalancer 负载均衡策略</h3>
+<h4 id="721-实现-reactorloadbalancer-接口">7.2.1 实现 ReactorLoadBalancer 接口</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#75715e">// 自定义策略：灰度发布（根据请求头中的版本号路由）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">GrayReleaseLoadBalancer</span> <span style="color:#66d9ef">implements</span> ReactorLoadBalancer<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> String serviceId<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">final</span> ServiceInstanceListSupplier supplier<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#a6e22e">GrayReleaseLoadBalancer</span><span style="color:#f92672">(</span>String serviceId<span style="color:#f92672">,</span> ServiceInstanceListSupplier supplier<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">serviceId</span> <span style="color:#f92672">=</span> serviceId<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">this</span><span style="color:#f92672">.</span><span style="color:#a6e22e">supplier</span> <span style="color:#f92672">=</span> supplier<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Mono<span style="color:#f92672">&lt;</span>Response<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;&gt;</span> <span style="color:#a6e22e">choose</span><span style="color:#f92672">(</span>Request request<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 从 Request 中提取请求头（灰度版本号）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        String grayVersion <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>request <span style="color:#66d9ef">instanceof</span> DefaultRequest<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            Object context <span style="color:#f92672">=</span> <span style="color:#f92672">((</span>DefaultRequest<span style="color:#f92672">&lt;?&gt;)</span> request<span style="color:#f92672">).</span><span style="color:#a6e22e">getContext</span><span style="color:#f92672">();</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>context <span style="color:#66d9ef">instanceof</span> HttpRequest<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                HttpRequest httpRequest <span style="color:#f92672">=</span> <span style="color:#f92672">(</span>HttpRequest<span style="color:#f92672">)</span> context<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>                grayVersion <span style="color:#f92672">=</span> httpRequest<span style="color:#f92672">.</span><span style="color:#a6e22e">getHeaders</span><span style="color:#f92672">().</span><span style="color:#a6e22e">getFirst</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;X-Version&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">final</span> String finalGrayVersion <span style="color:#f92672">=</span> grayVersion<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> supplier<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">map</span><span style="color:#f92672">(</span>instances <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">// 过滤出版本匹配的实例
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                    List<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;</span> matchedInstances <span style="color:#f92672">=</span> instances<span style="color:#f92672">.</span><span style="color:#a6e22e">stream</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                            <span style="color:#f92672">.</span><span style="color:#a6e22e">filter</span><span style="color:#f92672">(</span>instance <span style="color:#f92672">-&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                                String instanceVersion <span style="color:#f92672">=</span> instance<span style="color:#f92672">.</span><span style="color:#a6e22e">getMetadata</span><span style="color:#f92672">().</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;version&#34;</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                                <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>finalGrayVersion <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                                    <span style="color:#75715e">// 无版本头，选择默认版本（无 version 标签或 version=stable）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                                    <span style="color:#66d9ef">return</span> instanceVersion <span style="color:#f92672">==</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#34;stable&#34;</span><span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span>instanceVersion<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                                <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                                    <span style="color:#75715e">// 有版本头，选择匹配版本
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                                    <span style="color:#66d9ef">return</span> finalGrayVersion<span style="color:#f92672">.</span><span style="color:#a6e22e">equals</span><span style="color:#f92672">(</span>instanceVersion<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>                                <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>                            <span style="color:#f92672">})</span>
+</span></span><span style="display:flex;"><span>                            <span style="color:#f92672">.</span><span style="color:#a6e22e">collect</span><span style="color:#f92672">(</span>Collectors<span style="color:#f92672">.</span><span style="color:#a6e22e">toList</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>                    
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>matchedInstances<span style="color:#f92672">.</span><span style="color:#a6e22e">isEmpty</span><span style="color:#f92672">())</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> EmptyResponse<span style="color:#f92672">();</span>  <span style="color:#75715e">// 无可用实例
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>                    
+</span></span><span style="display:flex;"><span>                    <span style="color:#75715e">// 从匹配的实例中随机选择一个
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                    <span style="color:#66d9ef">int</span> index <span style="color:#f92672">=</span> ThreadLocalRandom<span style="color:#f92672">.</span><span style="color:#a6e22e">current</span><span style="color:#f92672">().</span><span style="color:#a6e22e">nextInt</span><span style="color:#f92672">(</span>matchedInstances<span style="color:#f92672">.</span><span style="color:#a6e22e">size</span><span style="color:#f92672">());</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> DefaultResponse<span style="color:#f92672">(</span>matchedInstances<span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">(</span>index<span style="color:#f92672">));</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">});</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="722-配置自定义策略">7.2.2 配置自定义策略</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Configuration</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">GrayLoadBalancerConfig</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> ReactorLoadBalancer<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">grayReleaseLoadBalancer</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            Environment environment<span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            LoadBalancerClientFactory factory<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        String serviceId <span style="color:#f92672">=</span> environment<span style="color:#f92672">.</span><span style="color:#a6e22e">getProperty</span><span style="color:#f92672">(</span>LoadBalancerClientFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">PROPERTY_NAME</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> GrayReleaseLoadBalancer<span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            serviceId<span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            factory<span style="color:#f92672">.</span><span style="color:#a6e22e">getLazyProvider</span><span style="color:#f92672">(</span>serviceId<span style="color:#f92672">,</span> ServiceInstanceListSupplier<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@SpringBootApplication</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@LoadBalancerClient</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;user-service&#34;</span><span style="color:#f92672">,</span> configuration <span style="color:#f92672">=</span> GrayLoadBalancerConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderServiceApplication</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">main</span><span style="color:#f92672">(</span>String<span style="color:#f92672">[]</span> args<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        SpringApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">run</span><span style="color:#f92672">(</span>OrderServiceApplication<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">,</span> args<span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h4 id="723-服务提供者配置元数据灰度版本">7.2.3 服务提供者配置元数据（灰度版本）</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># user-service (灰度实例) 的配置</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">spring</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cloud</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">nacos</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">discovery</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">metadata</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">version</span>: <span style="color:#ae81ff">gray </span> <span style="color:#75715e"># 灰度版本</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>---
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># user-service (稳定实例) 的配置</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">spring</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cloud</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">nacos</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">discovery</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">metadata</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">version</span>: <span style="color:#ae81ff">stable </span> <span style="color:#75715e"># 稳定版本</span>
+</span></span></code></pre></div><h4 id="724-消费者发起灰度请求">7.2.4 消费者发起灰度请求</h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Service</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderService</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Autowired</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">private</span> WebClient<span style="color:#f92672">.</span><span style="color:#a6e22e">Builder</span> webClientBuilder<span style="color:#f92672">;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Mono<span style="color:#f92672">&lt;</span>User<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">getUserWithGrayVersion</span><span style="color:#f92672">(</span>Long userId<span style="color:#f92672">,</span> String version<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> webClientBuilder<span style="color:#f92672">.</span><span style="color:#a6e22e">build</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">get</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">uri</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;http://user-service/users/&#34;</span> <span style="color:#f92672">+</span> userId<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">header</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;X-Version&#34;</span><span style="color:#f92672">,</span> version<span style="color:#f92672">)</span>  <span style="color:#75715e">// 指定版本
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">retrieve</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">.</span><span style="color:#a6e22e">bodyToMono</span><span style="color:#f92672">(</span>User<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h2 id="八面试高频问题">八、面试高频问题</h2>
+<h3 id="81-ribbon-相关">8.1 Ribbon 相关</h3>
+<h4 id="q1-ribbon-的负载均衡策略有哪些">Q1: Ribbon 的负载均衡策略有哪些？</h4>
+<p><strong>答</strong>：Ribbon 内置 7 种策略：</p>
+<ol>
+<li><strong>RoundRobinRule</strong>：轮询（默认 ZoneAvoidanceRule 内部使用）</li>
+<li><strong>RandomRule</strong>：随机</li>
+<li><strong>RetryRule</strong>：重试（先按轮询，失败重试其他实例）</li>
+<li><strong>WeightedResponseTimeRule</strong>：响应时间加权</li>
+<li><strong>BestAvailableRule</strong>：最少并发请求</li>
+<li><strong>AvailabilityFilteringRule</strong>：可用实例过滤 + 轮询</li>
+<li><strong>ZoneAvoidanceRule</strong>：区域感知（默认策略）</li>
+</ol>
+<p><strong>记忆口诀</strong>：</p>
+<blockquote>
+<p>轮询随机重试三大将，
+响应时间加权重，
+最少并发可用过滤，
+区域感知是默认。</p>
+</blockquote>
+<h4 id="q2-ribbon-的重试机制是什么">Q2: Ribbon 的重试机制是什么？</h4>
+<p><strong>答</strong>：Ribbon 重试分两层：</p>
+<ol>
+<li><strong>同一实例重试</strong>（<code>MaxAutoRetries</code>）：对同一个实例重试 N 次</li>
+<li><strong>切换实例重试</strong>（<code>MaxAutoRetriesNextServer</code>）：切换 N 个不同实例</li>
+</ol>
+<p><strong>配置示例</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">ribbon</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">MaxAutoRetries</span>: <span style="color:#ae81ff">1</span>           <span style="color:#75715e"># 同实例重试1次</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">MaxAutoRetriesNextServer</span>: <span style="color:#ae81ff">2</span> <span style="color:#75715e"># 切换2个实例</span>
+</span></span></code></pre></div><p><strong>注意</strong>：</p>
+<ul>
+<li><code>OkToRetryOnAllOperations=true</code> 时，POST 请求也会重试，可能导致<strong>重复提交</strong>！</li>
+<li>生产环境建议 <code>OkToRetryOnAllOperations=false</code>，仅 GET 请求重试。</li>
+</ul>
+<h4 id="q3-loadbalanced-注解的作用是什么">Q3: @LoadBalanced 注解的作用是什么？</h4>
+<p><strong>答</strong>：</p>
+<ul>
+<li><code>@LoadBalanced</code> 给 <code>RestTemplate</code> 添加拦截器 <code>LoadBalancerInterceptor</code></li>
+<li>拦截器从 URL 中提取<strong>服务名</strong>（如 <code>user-service</code>）</li>
+<li>通过 Ribbon/Spring Cloud LoadBalancer 获取该服务的实例列表</li>
+<li>负载均衡算法选择一个实例</li>
+<li>将服务名替换为 <code>IP:Port</code>，发起 HTTP 请求</li>
+</ul>
+<p><strong>源码流程</strong>：</p>
+<pre tabindex="0"><code>RestTemplate 发起请求
+    ↓
+LoadBalancerInterceptor 拦截
+    ↓
+从 URL 提取服务名（user-service）
+    ↓
+LoadBalancerClient.choose(serviceId) 选择实例
+    ↓
+将 URL 中的服务名替换为 IP:Port
+    ↓
+发起真实 HTTP 请求
+</code></pre><h3 id="82-spring-cloud-loadbalancer-相关">8.2 Spring Cloud LoadBalancer 相关</h3>
+<h4 id="q4-spring-cloud-loadbalancer-与-ribbon-的区别">Q4: Spring Cloud LoadBalancer 与 Ribbon 的区别？</h4>
+<p><strong>答</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>Ribbon</th>
+<th>Spring Cloud LoadBalancer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>维护状态</td>
+<td>维护模式</td>
+<td>活跃开发</td>
+</tr>
+<tr>
+<td>响应式支持</td>
+<td>不支持</td>
+<td>支持（WebFlux）</td>
+</tr>
+<tr>
+<td>负载均衡策略</td>
+<td>7种</td>
+<td>2种（轮询、随机）</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>阻塞式</td>
+<td>非阻塞（Reactor）</td>
+</tr>
+<tr>
+<td>Spring Cloud 默认</td>
+<td>2020.0.0 之前</td>
+<td>2020.0.0 之后</td>
+</tr>
+</tbody>
+</table>
+<h4 id="q5-如何自定义-spring-cloud-loadbalancer-的负载均衡策略">Q5: 如何自定义 Spring Cloud LoadBalancer 的负载均衡策略？</h4>
+<p><strong>答</strong>：两种方法：</p>
+<p><strong>方法1：配置类</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@Configuration</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">CustomLoadBalancerConfig</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Bean</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> ReactorLoadBalancer<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;</span> <span style="color:#a6e22e">customLoadBalancer</span><span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            Environment environment<span style="color:#f92672">,</span>
+</span></span><span style="display:flex;"><span>            LoadBalancerClientFactory factory<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        String name <span style="color:#f92672">=</span> environment<span style="color:#f92672">.</span><span style="color:#a6e22e">getProperty</span><span style="color:#f92672">(</span>LoadBalancerClientFactory<span style="color:#f92672">.</span><span style="color:#a6e22e">PROPERTY_NAME</span><span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> RandomLoadBalancer<span style="color:#f92672">(</span>
+</span></span><span style="display:flex;"><span>            factory<span style="color:#f92672">.</span><span style="color:#a6e22e">getLazyProvider</span><span style="color:#f92672">(</span>name<span style="color:#f92672">,</span> ServiceInstanceListSupplier<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">),</span> 
+</span></span><span style="display:flex;"><span>            name
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">);</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>方法2：注解指定</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#a6e22e">@SpringBootApplication</span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@LoadBalancerClient</span><span style="color:#f92672">(</span>name <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;user-service&#34;</span><span style="color:#f92672">,</span> configuration <span style="color:#f92672">=</span> CustomLoadBalancerConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">class</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">OrderServiceApplication</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// ...
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="83-负载均衡原理相关">8.3 负载均衡原理相关</h3>
+<h4 id="q6-客户端负载均衡-vs-服务端负载均衡">Q6: 客户端负载均衡 vs 服务端负载均衡？</h4>
+<p><strong>答</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>客户端负载均衡</th>
+<th>服务端负载均衡</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>代表</td>
+<td>Ribbon、Spring Cloud LoadBalancer</td>
+<td>Nginx、HAProxy、F5</td>
+</tr>
+<tr>
+<td>位置</td>
+<td>客户端内部</td>
+<td>独立服务器/硬件</td>
+</tr>
+<tr>
+<td>单点故障</td>
+<td>无（客户端直连）</td>
+<td>有（需主备）</td>
+</tr>
+<tr>
+<td>网络跳转</td>
+<td>无（直连）</td>
+<td>有（多一次跳转）</td>
+</tr>
+<tr>
+<td>灵活性</td>
+<td>高（客户端可定制）</td>
+<td>低（集中配置）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>微服务推荐</strong>：客户端负载均衡（避免单点故障）。</p>
+<h4 id="q7-负载均衡算法有哪些">Q7: 负载均衡算法有哪些？</h4>
+<p><strong>答</strong>：</p>
+<ol>
+<li><strong>轮询（Round Robin）</strong>：按顺序依次选择</li>
+<li><strong>随机（Random）</strong>：随机选择</li>
+<li><strong>加权轮询（Weighted Round Robin）</strong>：根据权重轮询</li>
+<li><strong>加权随机（Weighted Random）</strong>：根据权重随机</li>
+<li><strong>最小连接数（Least Connections）</strong>：选择并发最少的实例</li>
+<li><strong>源 IP 哈希（IP Hash）</strong>：同一 IP 总是路由到同一实例（会话保持）</li>
+<li><strong>响应时间加权（Response Time Weighted）</strong>：响应越快，权重越高</li>
+</ol>
+<h4 id="q8-如何实现灰度发布gray-release">Q8: 如何实现灰度发布（Gray Release）？</h4>
+<p><strong>答</strong>：
+灰度发布的核心是根据<strong>请求特征</strong>（如请求头、用户 ID）将部分流量路由到新版本。</p>
+<p><strong>实现方案1：自定义 Spring Cloud LoadBalancer</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-java" data-lang="java"><span style="display:flex;"><span><span style="color:#66d9ef">public</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">GrayReleaseLoadBalancer</span> <span style="color:#66d9ef">implements</span> ReactorLoadBalancer<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">@Override</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">public</span> Mono<span style="color:#f92672">&lt;</span>Response<span style="color:#f92672">&lt;</span>ServiceInstance<span style="color:#f92672">&gt;&gt;</span> <span style="color:#a6e22e">choose</span><span style="color:#f92672">(</span>Request request<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 1. 从 Request 中提取灰度标记（如请求头 X-Version）
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">// 2. 过滤出匹配版本的服务实例
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">// 3. 从匹配实例中随机选择一个
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p><strong>实现方案2：服务网格（Service Mesh）</strong></p>
+<p>使用 Istio、Linkerd 等服务网格，通过 <strong>Virtual Service</strong> 和 <strong>Destination Rule</strong> 配置流量分配：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># Istio VirtualService 配置</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">apiVersion</span>: <span style="color:#ae81ff">networking.istio.io/v1beta1</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">kind</span>: <span style="color:#ae81ff">VirtualService</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">metadata</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">name</span>: <span style="color:#ae81ff">user-service</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">spec</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">hosts</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">user-service</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">http</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">match</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">headers</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">x-version</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">exact</span>: <span style="color:#ae81ff">gray</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">route</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">destination</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">host</span>: <span style="color:#ae81ff">user-service</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">subset</span>: <span style="color:#ae81ff">gray</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">route</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">destination</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">host</span>: <span style="color:#ae81ff">user-service</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">subset</span>: <span style="color:#ae81ff">stable</span>
+</span></span></code></pre></div><p><strong>推荐</strong>：小团队用自定义负载均衡，大团队用服务网格。</p>
+<h2 id="九总结">九、总结</h2>
+<p>本文深度解析了微服务架构中的负载均衡技术，核心知识点如下：</p>
+<h3 id="91-核心知识点回顾">9.1 核心知识点回顾</h3>
+<ol>
+<li>
+<p><strong>负载均衡类型</strong>：</p>
+<ul>
+<li>服务端负载均衡（Nginx、F5）</li>
+<li>客户端负载均衡（Ribbon、Spring Cloud LoadBalancer）✅ 微服务推荐</li>
+</ul>
+</li>
+<li>
+<p><strong>Ribbon</strong>（维护模式）：</p>
+<ul>
+<li>7种负载均衡策略（轮询、随机、响应时间加权等）</li>
+<li>重试机制（<code>MaxAutoRetries</code>、<code>MaxAutoRetriesNextServer</code>）</li>
+<li>与 <code>@LoadBalanced</code> + <code>RestTemplate</code> 集成</li>
+</ul>
+</li>
+<li>
+<p><strong>Spring Cloud LoadBalancer</strong>（官方推荐）：</p>
+<ul>
+<li>2种内置策略（轮询、随机）</li>
+<li>支持响应式编程（WebFlux）</li>
+<li>非阻塞，性能更好</li>
+</ul>
+</li>
+<li>
+<p><strong>Ribbon vs Spring Cloud LoadBalancer</strong>：</p>
+<ul>
+<li>新项目用 Spring Cloud LoadBalancer</li>
+<li>老项目可逐步迁移</li>
+</ul>
+</li>
+<li>
+<p><strong>自定义负载均衡</strong>：</p>
+<ul>
+<li>Ribbon：实现 <code>IRule</code> 接口</li>
+<li>Spring Cloud LoadBalancer：实现 <code>ReactorLoadBalancer</code> 接口</li>
+<li>实战案例：灰度发布（Gray Release）</li>
+</ul>
+</li>
+<li>
+<p><strong>面试高频问题</strong>：</p>
+<ul>
+<li>Ribbon 7种策略</li>
+<li><code>@LoadBalanced</code> 原理</li>
+<li>客户端 vs 服务端负载均衡</li>
+<li>灰度发布实现方案</li>
+</ul>
+</li>
+</ol>
+<h3 id="92-负载均衡策略选择指南">9.2 负载均衡策略选择指南</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐策略</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>实例性能相近</td>
+<td>轮询（Round Robin）</td>
+</tr>
+<tr>
+<td>实例性能差异大</td>
+<td>响应时间加权（WeightedResponseTime）</td>
+</tr>
+<tr>
+<td>需要快速实现</td>
+<td>随机（Random）</td>
+</tr>
+<tr>
+<td>需要高可用</td>
+<td>可用过滤（Availability Filtering）</td>
+</tr>
+<tr>
+<td>多区域部署</td>
+<td>区域感知（Zone Avoidance）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="93-最佳实践">9.3 最佳实践</h3>
+<ol>
+<li><strong>新项目使用 Spring Cloud LoadBalancer</strong>（官方推荐，性能更好）</li>
+<li><strong>合理配置重试</strong>（<code>OkToRetryOnAllOperations=false</code>，避免 POST 重复提交）</li>
+<li><strong>自定义策略要谨慎</strong>（确保线程安全、性能达标）</li>
+<li><strong>结合注册中心健康检查</strong>（自动剔除故障实例）</li>
+<li><strong>监控负载均衡效果</strong>（通过 Metrics 监控各实例请求分布）</li>
+</ol>
+<h3 id="94-核心记忆口诀">9.4 核心记忆口诀</h3>
+<blockquote>
+<p>负载均衡两类型，
+客户端式最流行。
+Ribbon 七策维护中，
+Spring 官方推新宠。
+轮询随机响应加权，
+最少并发可用过滤。
+自定义策要实现接口，
+灰度发布是实战。</p>
+</blockquote>
+<hr>
+<p><strong>下一篇预告</strong>：《服务熔断与降级深度解析（Hystrix/Sentinel）》，将深入解析熔断器原理、Hystrix 与 Sentinel 对比、熔断降级实战，敬请期待！</p>
+<hr>
+<p><em>作者：亚飞的技术笔记 | 公众号：亚飞的技术笔记</em></p>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 李亚飞</p>
+    </footer>
+</body>
+</html>
