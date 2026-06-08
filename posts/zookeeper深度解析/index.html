@@ -2,6 +2,7 @@
 <a href=https://raphaell2e.github.io/posts/>文章</a>
 <a href=https://raphaell2e.github.io/categories/>分类</a>
 <a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/wealth/>财富</a>
 <a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-14 <span>/</span> 分布式系统</div><h1>ZooKeeper 深度解析</h1></div><div class=post-content><h1 id=zookeeper-深度解析>ZooKeeper 深度解析</h1><h2 id=一引言>一、引言</h2><p>ZooKeeper 是 Apache 基金会下的开源分布式协调服务，是分布式系统的"管家"。无论是 Hadoop、Kafka、Dubbo 还是 HBase，都依赖 ZooKeeper 做服务发现、配置管理、Leader 选举等工作。理解 ZooKeeper 是掌握分布式系统的关键一步。</p><p><strong>本文要点</strong>：</p><ol><li>ZooKeeper 的设计目标与架构</li><li>ZAB 协议详解</li><li>ZNode 数据模型</li><li>Watch 机制</li><li>Session 管理</li><li>典型应用场景与实战</li><li>面试高频问题</li></ol><hr><h2 id=二zookeeper-概述>二、ZooKeeper 概述</h2><h3 id=21-设计目标>2.1 设计目标</h3><p>ZooKeeper 的设计目标可以用四个词概括：<strong>简单、高可用、有序、快速</strong>。</p><table><thead><tr><th>目标</th><th>描述</th></tr></thead><tbody><tr><td><strong>简单</strong></td><td>提供树形命名空间，类似文件系统</td></tr><tr><td><strong>高可用</strong></td><td>通过复制实现高可用（2f+1 节点容忍 f 个故障）</td></tr><tr><td><strong>有序</strong></td><td>每个更新操作都有全局唯一的 ZXID</td></tr><tr><td><strong>快速</strong></td><td>读操作快（本地读取），写操作通过 Leader</td></tr></tbody></table><h3 id=22-核心特性>2.2 核心特性</h3><pre tabindex=0><code>1. 顺序一致性：客户端的更新操作按发送顺序应用
 2. 原子性：更新操作要么成功要么失败，没有中间状态
 3. 单一系统镜像：客户端连接任何节点看到的数据一致

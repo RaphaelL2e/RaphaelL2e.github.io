@@ -2,6 +2,7 @@
 <a href=https://raphaell2e.github.io/posts/>文章</a>
 <a href=https://raphaell2e.github.io/categories/>分类</a>
 <a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/wealth/>财富</a>
 <a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-05-13 <span>/</span> Redis</div><h1>Redis 主从复制与高可用深度解析</h1></div><div class=post-content><h1 id=redis-主从复制与高可用深度解析>Redis 主从复制与高可用深度解析</h1><h2 id=一引言>一、引言</h2><p>前面两篇我们分别深入探讨了 Redis 的数据结构、持久化机制和内存管理策略。在生产环境中，单节点 Redis 往往面临单点故障风险，无法满足高可用需求。本文将深入解析 Redis 的主从复制机制、哨兵高可用方案以及 Redis Cluster 分布式集群，帮助你在面试中系统回答 Redis 高可用相关问题。</p><p><strong>本文要点</strong>：</p><ol><li>主从复制的原理与实现</li><li>哨兵（Sentinel）机制详解</li><li>Redis Cluster 分布式方案</li><li>高可用架构选型与实践</li></ol><hr><h2 id=二主从复制master-slave-replication>二、主从复制（Master-Slave Replication）</h2><h3 id=21-为什么需要主从复制>2.1 为什么需要主从复制</h3><p><strong>单节点 Redis 的问题</strong>：</p><ul><li><strong>单点故障</strong>：主节点宕机，服务完全不可用</li><li><strong>性能瓶颈</strong>：单节点读写压力大，QPS 有限</li><li><strong>数据安全</strong>：无数据冗余，磁盘损坏导致数据丢失</li></ul><p><strong>主从复制的价值</strong>：</p><pre tabindex=0><code>主节点（Master）  →  负责写操作
        ↓ 复制
 从节点（Slave）   →  负责读操作（分担压力）
