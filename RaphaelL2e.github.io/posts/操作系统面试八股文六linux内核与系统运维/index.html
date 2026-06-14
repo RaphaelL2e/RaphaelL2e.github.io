@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>操作系统面试八股文（六）——Linux内核与系统运维 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/wealth/">财富</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-06-11 <span>/</span> 操作系统 </div>
+        <h1>操作系统面试八股文（六）——Linux内核与系统运维</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="操作系统面试八股文六linux内核与系统运维">操作系统面试八股文（六）——Linux内核与系统运维</h1>
+<blockquote>
+<p>面试高频问题：Linux内核架构是怎样的？系统调用怎么从用户态到内核态？epoll为什么比select高效？怎么用perf分析性能问题？容器和虚拟机有什么区别？本文带你掌握Linux内核原理与系统运维实战。</p>
+</blockquote>
+<h2 id="引言">引言</h2>
+<p>前五篇我们讨论了操作系统的进程管理、线程同步、死锁、内存管理、文件系统与I/O。但面试中操作系统问题远不止理论，对Linux内核的理解和系统运维能力同样是高频考点——从系统调用机制到高性能I/O模型，从内核模块到容器技术。掌握这些，面试中&quot;Linux相关&quot;的问题你就能扎实应对。</p>
+<p><strong>本文要点</strong>：</p>
+<ol>
+<li>Linux内核架构与启动流程</li>
+<li>系统调用机制详解</li>
+<li>高性能I/O模型：select/poll/epoll</li>
+<li>Linux性能分析工具</li>
+<li>容器技术与虚拟化</li>
+<li>常见面试题与实战</li>
+</ol>
+<hr>
+<h2 id="一linux内核架构与启动流程">一、Linux内核架构与启动流程</h2>
+<h3 id="11-内核架构">1.1 内核架构</h3>
+<p>Linux采用**宏内核（Monolithic Kernel）**架构，但支持动态加载模块：</p>
+<pre tabindex="0"><code>┌─────────────────────────────────────────────┐
+│              用户空间（User Space）            │
+│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐          │
+│  │Shell│ │应用1│ │应用2│ │ ... │          │
+│  └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘          │
+│     │        │       │       │              │
+│     └────────┴───────┴───────┘              │
+│              系统调用接口（API）               │
+├─────────────────────────────────────────────┤
+│              内核空间（Kernel Space）          │
+│  ┌────────────────────────────────────┐     │
+│  │         系统调用接口层               │     │
+│  ├────────────────────────────────────┤     │
+│  │  进程管理  │ 内存管理  │ 文件系统    │     │
+│  ├────────────────────────────────────┤     │
+│  │  网络栈    │ 设备驱动  │ IPC        │     │
+│  ├────────────────────────────────────┤     │
+│  │         硬件抽象层（HAL）            │     │
+│  └────────────────────────────────────┘     │
+├─────────────────────────────────────────────┤
+│              硬件（CPU、内存、磁盘、网卡）    │
+└─────────────────────────────────────────────┘
+</code></pre><h3 id="12-宏内核-vs-微内核">1.2 宏内核 vs 微内核</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>宏内核（Linux）</th>
+<th>微内核（MINIX/QNX）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>架构</td>
+<td>所有服务在内核态</td>
+<td>核心功能在内核态，其余在用户态</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>高（无用户态切换开销）</td>
+<td>较低（频繁切换）</td>
+</tr>
+<tr>
+<td>可靠性</td>
+<td>一个Bug可能崩溃整个系统</td>
+<td>服务隔离，更稳定</td>
+</tr>
+<tr>
+<td>扩展性</td>
+<td>支持内核模块动态加载</td>
+<td>天然模块化</td>
+</tr>
+<tr>
+<td>代表</td>
+<td>Linux、Windows</td>
+<td>MINIX、QNX、seL4</td>
+</tr>
+</tbody>
+</table>
+<h3 id="13-linux启动流程">1.3 Linux启动流程</h3>
+<pre tabindex="0"><code>BIOS/UEFI → Bootloader(GRUB) → 内核加载 → 内核初始化 → init进程
+   │              │                │             │            │
+   │              │                │             │            │
+硬件自检       加载内核映像      解压内核        初始化硬件     启动用户
+POST          到内存           设置页表        挂载根文件系统  空间服务
+              选择启动项        启动核心线程    加载驱动模块   systemd
+</code></pre><p><strong>详细步骤</strong>：</p>
+<ol>
+<li><strong>BIOS/UEFI POST</strong>：加电自检，初始化硬件</li>
+<li><strong>Bootloader</strong>：GRUB加载内核映像（vmlinuz）和initramfs</li>
+<li><strong>内核解压启动</strong>：设置保护模式、分页机制，启动0号进程（idle）</li>
+<li><strong>内核初始化</strong>：硬件检测、驱动加载、文件系统挂载</li>
+<li><strong>init进程</strong>：PID 1，启动用户空间服务（systemd）</li>
+</ol>
+<hr>
+<h2 id="二系统调用机制详解">二、系统调用机制详解</h2>
+<h3 id="21-用户态与内核态">2.1 用户态与内核态</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>用户态</th>
+<th>内核态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>权限</td>
+<td>有限（Ring 3）</td>
+<td>完全（Ring 0）</td>
+</tr>
+<tr>
+<td>访问范围</td>
+<td>用户程序内存</td>
+<td>所有内存和硬件</td>
+</tr>
+<tr>
+<td>限制</td>
+<td>不能直接访问硬件</td>
+<td>可以执行特权指令</td>
+</tr>
+<tr>
+<td>切换方式</td>
+<td>系统调用/中断/异常</td>
+<td>返回用户态</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-系统调用流程">2.2 系统调用流程</h3>
+<pre tabindex="0"><code>用户程序                         内核
+   │                              │
+   │  C库函数(wrapper)             │
+   │  write(fd, buf, len)        │
+   │       │                      │
+   │       │ 设置参数到寄存器       │
+   │       │ int 0x80 / syscall  │ ← 切换到内核态
+   │       │                      │
+   │       │ ←─── 内核执行处理 ──→ │
+   │       │       │               │
+   │       │ ←── 返回结果 ─────── │ → 切换回用户态
+   │       │                      │
+   ↓       ↓                      │
+ 返回值                             │
+</code></pre><p><strong>系统调用号机制</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// 以x86_64为例
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 系统调用号放入rax寄存器
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 参数放入rdi, rsi, rdx, r10, r8, r9
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 调用syscall指令
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// write系统调用
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>syscall_number <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>  <span style="color:#75715e">// __NR_write
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>mov rax, <span style="color:#ae81ff">1</span>          <span style="color:#75715e">// 系统调用号
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>mov rdi, fd         <span style="color:#75715e">// 第1个参数：文件描述符
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>mov rsi, buf        <span style="color:#75715e">// 第2个参数：缓冲区
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>mov rdx, len        <span style="color:#75715e">// 第3个参数：长度
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>syscall             <span style="color:#75715e">// 触发系统调用
+</span></span></span></code></pre></div><h3 id="23-常见系统调用">2.3 常见系统调用</h3>
+<table>
+<thead>
+<tr>
+<th>分类</th>
+<th>系统调用</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文件I/O</td>
+<td>open, read, write, close</td>
+<td>文件操作</td>
+</tr>
+<tr>
+<td>进程</td>
+<td>fork, exec, wait, exit</td>
+<td>进程管理</td>
+</tr>
+<tr>
+<td>内存</td>
+<td>mmap, brk, munmap</td>
+<td>内存映射</td>
+</tr>
+<tr>
+<td>网络</td>
+<td>socket, bind, listen, accept</td>
+<td>网络通信</td>
+</tr>
+<tr>
+<td>信号</td>
+<td>kill, sigaction, signal</td>
+<td>进程间信号</td>
+</tr>
+<tr>
+<td>信息</td>
+<td>getpid, getuid, stat</td>
+<td>系统信息查询</td>
+</tr>
+</tbody>
+</table>
+<h3 id="24-面试高频问题">2.4 面试高频问题</h3>
+<p><strong>Q: 系统调用的开销是什么？</strong></p>
+<p>A: 系统调用开销主要来自：</p>
+<ol>
+<li><strong>上下文切换</strong>：用户态→内核态→用户态，涉及寄存器保存/恢复</li>
+<li><strong>权限检查</strong>：内核需验证参数合法性和权限</li>
+<li><strong>缓存失效</strong>：切换TLB可能导致缓存未命中</li>
+<li>典型开销：100-1000纳秒（用户态函数调用约1-10纳秒）</li>
+</ol>
+<p><strong>Q: 如何减少系统调用开销？</strong></p>
+<p>A: 常见优化策略：</p>
+<ol>
+<li><strong>批量操作</strong>：<code>writev/readv</code> 一次系统调用处理多个缓冲区</li>
+<li><strong>mmap</strong>：将文件映射到用户空间，避免频繁read/write</li>
+<li><strong>io_uring</strong>：Linux 5.1+的异步I/O，通过共享环缓冲区减少系统调用</li>
+<li><strong>用户态缓冲</strong>：应用层缓冲合并小请求（如<code>std::cout</code>的缓冲）</li>
+</ol>
+<hr>
+<h2 id="三高性能io模型">三、高性能I/O模型</h2>
+<h3 id="31-io模型分类">3.1 I/O模型分类</h3>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>阻塞</th>
+<th>效率</th>
+<th>复杂度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>阻塞I/O</td>
+<td>阻塞等待</td>
+<td>低</td>
+<td>简单</td>
+</tr>
+<tr>
+<td>非阻塞I/O</td>
+<td>轮询</td>
+<td>较低</td>
+<td>中等</td>
+</tr>
+<tr>
+<td>I/O多路复用</td>
+<td>等待事件就绪</td>
+<td>高</td>
+<td>中等</td>
+</tr>
+<tr>
+<td>信号驱动I/O</td>
+<td>信号通知</td>
+<td>高</td>
+<td>较高</td>
+</tr>
+<tr>
+<td>异步I/O</td>
+<td>内核完成通知</td>
+<td>最高</td>
+<td>复杂</td>
+</tr>
+</tbody>
+</table>
+<h3 id="32-select">3.2 select</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">select</span>(<span style="color:#66d9ef">int</span> nfds, fd_set <span style="color:#f92672">*</span>readfds, fd_set <span style="color:#f92672">*</span>writefds,
+</span></span><span style="display:flex;"><span>            fd_set <span style="color:#f92672">*</span>exceptfds, <span style="color:#66d9ef">struct</span> timeval <span style="color:#f92672">*</span>timeout);
+</span></span></code></pre></div><p><strong>工作原理</strong>：</p>
+<pre tabindex="0"><code>用户进程 → 将所有fd拷贝到内核 → 内核遍历fd检查就绪 → 返回就绪fd数
+   ↓                                              ↓
+再次遍历fd_set确认哪些就绪 ← 修改fd_set标记就绪的fd
+</code></pre><p><strong>缺点</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文件描述符限制</td>
+<td>默认1024，修改需重编译</td>
+</tr>
+<tr>
+<td>O(n)遍历</td>
+<td>每次调用需遍历所有fd</td>
+</tr>
+<tr>
+<td>数据拷贝</td>
+<td>每次都要将fd_set从用户态拷贝到内核态</td>
+</tr>
+<tr>
+<td>返回值模糊</td>
+<td>只返回就绪数量，还需遍历确认</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-poll">3.3 poll</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">poll</span>(<span style="color:#66d9ef">struct</span> pollfd <span style="color:#f92672">*</span>fds, <span style="color:#66d9ef">nfds_t</span> nfds, <span style="color:#66d9ef">int</span> timeout);
+</span></span></code></pre></div><p>与select类似，但改进了：</p>
+<ul>
+<li>不用fd_set，用pollfd结构体数组（没有1024限制）</li>
+<li>输入输出参数分离（select的fd_set是输入输出复用的）</li>
+</ul>
+<p><strong>但核心问题仍在</strong>：O(n)遍历，频繁拷贝。</p>
+<h3 id="34-epoll重点">3.4 epoll（重点！）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">epoll_create</span>(<span style="color:#66d9ef">int</span> size);           <span style="color:#75715e">// 创建epoll实例
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">epoll_ctl</span>(<span style="color:#66d9ef">int</span> epfd, <span style="color:#66d9ef">int</span> op,       <span style="color:#75715e">// 添加/修改/删除fd
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>              <span style="color:#66d9ef">int</span> fd, <span style="color:#66d9ef">struct</span> epoll_event <span style="color:#f92672">*</span>event);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">epoll_wait</span>(<span style="color:#66d9ef">int</span> epfd,               <span style="color:#75715e">// 等待就绪事件
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>               <span style="color:#66d9ef">struct</span> epoll_event <span style="color:#f92672">*</span>events,
+</span></span><span style="display:flex;"><span>               <span style="color:#66d9ef">int</span> maxevents, <span style="color:#66d9ef">int</span> timeout);
+</span></span></code></pre></div><p><strong>核心机制</strong>：</p>
+<pre tabindex="0"><code>                     ┌──────────────────┐
+用户程序 ── epoll_ctl ──→ │  红黑树（监听fd） │
+                     │   每个fd一个节点    │
+                     └────────┬─────────┘
+                              │ fd就绪时
+                              ↓
+                     ┌──────────────────┐
+                     │  就绪链表         │
+                     └────────┬─────────┘
+                              │
+用户程序 ←── epoll_wait ──────┘
+          （只返回就绪的fd，O(k)，k为就绪数）
+</code></pre><p><strong>epoll为什么高效？</strong></p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>select/poll</th>
+<th>epoll</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>时间复杂度</td>
+<td>O(n)</td>
+<td>O(k)，k=就绪fd数</td>
+</tr>
+<tr>
+<td>fd上限</td>
+<td>1024（select）/ 无硬限制（poll）</td>
+<td>无限制（受系统内存）</td>
+</tr>
+<tr>
+<td>数据拷贝</td>
+<td>每次全量拷贝</td>
+<td>只拷贝就绪fd</td>
+</tr>
+<tr>
+<td>内核实现</td>
+<td>每次遍历</td>
+<td>事件驱动，回调注册</td>
+</tr>
+</tbody>
+</table>
+<p><strong>epoll两种触发模式</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>行为</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LT（Level Triggered）</td>
+<td>水平触发，只要缓冲区有数据就通知</td>
+<td>通用场景</td>
+</tr>
+<tr>
+<td>ET（Edge Triggered）</td>
+<td>边沿触发，只在状态变化时通知一次</td>
+<td>高性能Nginx</td>
+</tr>
+<tr>
+<td>ET要求</td>
+<td>必须非阻塞+一次性读完所有数据</td>
+<td>编程复杂度高</td>
+</tr>
+</tbody>
+</table>
+<h3 id="35-reactor与proactor模式">3.5 Reactor与Proactor模式</h3>
+<p><strong>Reactor（同步I/O多路复用）</strong>：</p>
+<pre tabindex="0"><code>Reactor线程：epoll_wait等待事件 → 分发给Handler
+Handler线程：执行read/write（同步）
+</code></pre><p><strong>Proactor（异步I/O）</strong>：</p>
+<pre tabindex="0"><code>Proactor线程：发起aio_read → 由内核完成 → 回调通知
+Callback线程：处理已完成的I/O结果
+</code></pre><table>
+<thead>
+<tr>
+<th>模式</th>
+<th>代表</th>
+<th>I/O方式</th>
+<th>回调时机</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reactor</td>
+<td>Netty/Nginx</td>
+<td>同步I/O多路复用</td>
+<td>事件就绪时</td>
+</tr>
+<tr>
+<td>Proactor</td>
+<td>Boost.Asio/Windows IOCP</td>
+<td>异步I/O</td>
+<td>I/O完成时</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="四linux性能分析工具">四、Linux性能分析工具</h2>
+<h3 id="41-性能分析工具箱">4.1 性能分析工具箱</h3>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>功能</th>
+<th>使用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>top/htop</td>
+<td>进程监控</td>
+<td>快速查看CPU/内存使用</td>
+</tr>
+<tr>
+<td>vmstat</td>
+<td>虚拟内存统计</td>
+<td>内存/swap/上下文切换</td>
+</tr>
+<tr>
+<td>iostat</td>
+<td>I/O统计</td>
+<td>磁盘I/O瓶颈分析</td>
+</tr>
+<tr>
+<td>netstat/ss</td>
+<td>网络统计</td>
+<td>网络连接状态</td>
+</tr>
+<tr>
+<td>strace</td>
+<td>系统调用追踪</td>
+<td>分析程序行为</td>
+</tr>
+<tr>
+<td>ltrace</td>
+<td>库函数追踪</td>
+<td>分析库调用</td>
+</tr>
+<tr>
+<td>perf</td>
+<td>性能分析</td>
+<td>CPU profiling、火焰图</td>
+</tr>
+<tr>
+<td>eBPF</td>
+<td>内核级可编程追踪</td>
+<td>高级性能分析和监控</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-perf使用详解">4.2 perf使用详解</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># CPU profiling（最常用）</span>
+</span></span><span style="display:flex;"><span>perf record -g -p &lt;pid&gt; -- sleep <span style="color:#ae81ff">30</span>    <span style="color:#75715e"># 记录30秒</span>
+</span></span><span style="display:flex;"><span>perf report                              <span style="color:#75715e"># 查看报告</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 生成火焰图</span>
+</span></span><span style="display:flex;"><span>perf script | stackcollapse-perf.pl | flamegraph.pl &gt; flame.svg
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 硬件事件统计</span>
+</span></span><span style="display:flex;"><span>perf stat ./my_program                  <span style="color:#75715e"># 统计cycles、cache-miss等</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 分析特定事件</span>
+</span></span><span style="display:flex;"><span>perf record -e cache-misses -g -p &lt;pid&gt;  <span style="color:#75715e"># 分析缓存缺失</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 离线分析</span>
+</span></span><span style="display:flex;"><span>perf record -o perf.data ./my_program    <span style="color:#75715e"># 记录到文件</span>
+</span></span><span style="display:flex;"><span>perf report -i perf.data                 <span style="color:#75715e"># 离线分析</span>
+</span></span></code></pre></div><h3 id="43-常见性能瓶颈分析">4.3 常见性能瓶颈分析</h3>
+<p><strong>CPU瓶颈</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 查看CPU使用率</span>
+</span></span><span style="display:flex;"><span>top -o %CPU
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 查看每个CPU核心的使用情况</span>
+</span></span><span style="display:flex;"><span>mpstat -P ALL <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 查看上下文切换</span>
+</span></span><span style="display:flex;"><span>vmstat <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 注意cs（context switch）列</span>
+</span></span></code></pre></div><p><strong>内存瓶颈</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 查看内存使用</span>
+</span></span><span style="display:flex;"><span>free -h
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 查看进程内存映射</span>
+</span></span><span style="display:flex;"><span>pmap -x &lt;pid&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 查看页面错误</span>
+</span></span><span style="display:flex;"><span>ps -o pid,minflt,majflt,cmd
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 查看OOM情况</span>
+</span></span><span style="display:flex;"><span>dmesg | grep -i oom
+</span></span></code></pre></div><p><strong>I/O瓶颈</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 查看磁盘I/O</span>
+</span></span><span style="display:flex;"><span>iostat -x <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 查看I/O等待</span>
+</span></span><span style="display:flex;"><span>vmstat <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 注意wa（I/O wait）列</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 查看哪些进程在等待I/O</span>
+</span></span><span style="display:flex;"><span>iotop
+</span></span></code></pre></div><h3 id="44-面试高频问题">4.4 面试高频问题</h3>
+<p><strong>Q: 系统CPU使用率100%怎么排查？</strong></p>
+<p>A: 排查步骤：</p>
+<ol>
+<li><code>top -o %CPU</code> 确定是哪个进程</li>
+<li><code>top -H -p &lt;pid&gt;</code> 查看线程级别</li>
+<li><code>perf top -p &lt;pid&gt;</code> 或 <code>perf record -g -p &lt;pid&gt;</code> 分析热点函数</li>
+<li>如果是用户态 → 分析代码，看是否死循环或热点计算</li>
+<li>如果是内核态 → <code>perf record -g -p &lt;pid&gt;</code> 看是否系统调用过多</li>
+<li><code>strace -c -p &lt;pid&gt;</code> 统计系统调用频率</li>
+</ol>
+<p><strong>Q: 如何定位内存泄漏？</strong></p>
+<p>A: 方法：</p>
+<ol>
+<li><code>top</code> 观察进程RES/VSZ持续增长</li>
+<li><code>pmap -x &lt;pid&gt;</code> 查看各内存段增长</li>
+<li><code>valgrind --leak-check=full ./program</code>（开发环境）</li>
+<li><code>gdb</code> attach后 <code>info proc mappings</code></li>
+<li>生产环境用eBPF工具 <code>bcc/tools/memleak</code></li>
+</ol>
+<hr>
+<h2 id="五容器技术与虚拟化">五、容器技术与虚拟化</h2>
+<h3 id="51-容器-vs-虚拟机">5.1 容器 vs 虚拟机</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>容器（Docker）</th>
+<th>虚拟机（VM）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>隔离级别</td>
+<td>进程级</td>
+<td>硬件级</td>
+</tr>
+<tr>
+<td>内核</td>
+<td>共享宿主机内核</td>
+<td>独立Guest OS内核</td>
+</tr>
+<tr>
+<td>启动速度</td>
+<td>秒级</td>
+<td>分钟级</td>
+</tr>
+<tr>
+<td>资源占用</td>
+<td>MB级</td>
+<td>GB级</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>接近原生</td>
+<td>有虚拟化开销</td>
+</tr>
+<tr>
+<td>安全性</td>
+<td>较低（共享内核）</td>
+<td>较高（隔离内核）</td>
+</tr>
+<tr>
+<td>镜像大小</td>
+<td>MB-GB</td>
+<td>GB-TB</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-容器核心技术">5.2 容器核心技术</h3>
+<p><strong>Namespaces（资源隔离）</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>Namespace</th>
+<th>隔离内容</th>
+<th>版本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PID</td>
+<td>进程ID</td>
+<td>Linux 2.6</td>
+</tr>
+<tr>
+<td>Network</td>
+<td>网络设备、端口</td>
+<td>Linux 2.6</td>
+</tr>
+<tr>
+<td>Mount</td>
+<td>文件系统挂载点</td>
+<td>Linux 2.4</td>
+</tr>
+<tr>
+<td>UTS</td>
+<td>主机名和域名</td>
+<td>Linux 2.6</td>
+</tr>
+<tr>
+<td>IPC</td>
+<td>进程间通信</td>
+<td>Linux 2.6</td>
+</tr>
+<tr>
+<td>User</td>
+<td>用户和用户组</td>
+<td>Linux 3.8</td>
+</tr>
+<tr>
+<td>Cgroup</td>
+<td>控制组（资源限制）</td>
+<td>Linux 2.6</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Cgroups（资源限制）</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 限制CPU使用</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;50000 100000&#34;</span> &gt; /sys/fs/cgroup/cpu/my_container/cpu.cfs_quota_us
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;100000&#34;</span> &gt; /sys/fs/cgroup/cpu/my_container/cpu.cfs_period_us
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 限制内存</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;512M&#34;</span> &gt; /sys/fs/cgroup/memory/my_container/memory.limit_in_bytes
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 限制I/O</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#34;8:0 1048576&#34;</span> &gt; /sys/fs/cgroup/blkio/my_container/blkio.throttle.read_bps_device
+</span></span></code></pre></div><p><strong>UnionFS（联合文件系统）</strong>：</p>
+<pre tabindex="0"><code>┌─────────────────────┐  ← 容器层（可写层）
+│  Container Layer     │    运行时的修改
+├─────────────────────┤
+│  Image Layer 2      │  ← 只读层
+├─────────────────────┤
+│  Image Layer 1      │  ← 只读层
+├─────────────────────┤
+│  Base Image         │  ← 基础层
+└─────────────────────┘
+Copy-on-Write：修改时复制到上层，不影响下层
+</code></pre><h3 id="53-docker架构">5.3 Docker架构</h3>
+<pre tabindex="0"><code>┌─────────────┐     REST API     ┌──────────────┐
+│ Docker CLI  │ ←──────────────→ │ Docker Daemon │
+└─────────────┘                  │   (dockerd)   │
+                                 └──────┬───────┘
+                                        │
+                    ┌───────────────────┼───────────────────┐
+                    │                   │                   │
+               ┌────┴────┐        ┌────┴────┐        ┌────┴────┐
+               │Container│        │Container│        │Container│
+               │   A     │        │   B     │        │   C     │
+               └─────────┘        └─────────┘        └─────────┘
+</code></pre><h3 id="54-面试高频问题">5.4 面试高频问题</h3>
+<p><strong>Q: 容器本质上是什么？</strong></p>
+<p>A: 容器本质上是<strong>一组被Namespaces隔离、被Cgroups限制的进程</strong>。容器不是虚拟机，没有独立的内核，它只是宿主机上受限制的进程。Docker等工具是对Linux内核Namespaces、Cgroups、UnionFS等特性的封装。</p>
+<p><strong>Q: Docker和Kubernetes的关系？</strong></p>
+<p>A:</p>
+<ul>
+<li><strong>Docker</strong>：容器运行时，负责创建和管理单个容器</li>
+<li><strong>Kubernetes</strong>：容器编排平台，负责管理大规模容器集群</li>
+<li>Kubernetes不直接依赖Docker，可以对接containerd、CRI-O等容器运行时</li>
+<li>Kubernetes负责：服务发现、负载均衡、自动扩缩、滚动更新、自愈</li>
+</ul>
+<p><strong>Q: 容器安全怎么保障？</strong></p>
+<p>A: 多层安全策略：</p>
+<ol>
+<li><strong>最小特权</strong>：容器以非root用户运行</li>
+<li><strong>只读文件系统</strong>：容器的文件系统设为只读</li>
+<li><strong>资源限制</strong>：Cgroup限制CPU/内存</li>
+<li><strong>Seccomp</strong>：限制容器可执行的系统调用</li>
+<li><strong>AppArmor/SELinux</strong>：强制访问控制</li>
+<li><strong>镜像安全</strong>：使用可信基础镜像，定期扫描漏洞</li>
+<li><strong>网络隔离</strong>：Network Namespace + 网络策略</li>
+</ol>
+<hr>
+<h2 id="六常见面试题与实战">六、常见面试题与实战</h2>
+<h3 id="61-综合面试题">6.1 综合面试题</h3>
+<p><strong>Q: 一个Web服务器能同时处理多少并发连接？</strong></p>
+<p>A: 取决于架构：</p>
+<ol>
+<li><strong>传统阻塞模型</strong>（每连接一个线程）：几千（受线程数和内存限制）</li>
+<li><strong>epoll非阻塞模型</strong>（Nginx）：数万到数十万（单机C10K→C100K）</li>
+<li><strong>突破方法</strong>：
+<ul>
+<li>调整ulimit提高文件描述符上限</li>
+<li>使用epoll的ET模式减少通知次数</li>
+<li>多进程/多线程 + epoll（Nginx的worker进程模式）</li>
+<li>内核参数调优（somaxconn、tcp_tw_reuse）</li>
+</ul>
+</li>
+</ol>
+<p><strong>Q: 什么是Zero-Copy？有什么应用场景？</strong></p>
+<p>A: Zero-Copy减少数据在内核态和用户态之间的拷贝：</p>
+<pre tabindex="0"><code>传统方式（4次拷贝）：
+磁盘 → 内核缓冲 → 用户缓冲 → Socket缓冲 → 网卡
+
+Zero-Copy（2次拷贝，sendfile）：
+磁盘 → 内核缓冲 → 网卡（mmap + write或直接sendfile）
+</code></pre><p>应用场景：Nginx静态文件服务、Kafka消息传递、文件传输。</p>
+<p><strong>Q: Linux中的软中断和硬中断有什么区别？</strong></p>
+<p>A:</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>硬中断</th>
+<th>软中断</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>触发源</td>
+<td>硬件设备</td>
+<td>内核自身</td>
+</tr>
+<tr>
+<td>执行时机</td>
+<td>立即打断当前执行</td>
+<td>在中断上下文或内核线程中</td>
+</tr>
+<tr>
+<td>可中断</td>
+<td>不可嵌套同类硬中断</td>
+<td>可以被硬中断打断</td>
+</tr>
+<tr>
+<td>典型例子</td>
+<td>网卡收包、键盘中断</td>
+<td>网络收包处理（NET_RX）、定时器</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="总结">总结</h2>
+<table>
+<thead>
+<tr>
+<th>主题</th>
+<th>核心要点</th>
+<th>面试关键词</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>内核架构</td>
+<td>宏内核、模块化、启动流程</td>
+<td>GRUB、idle进程、systemd</td>
+</tr>
+<tr>
+<td>系统调用</td>
+<td>用户态/内核态切换、系统调用号</td>
+<td>syscall、上下文切换开销</td>
+</tr>
+<tr>
+<td>I/O模型</td>
+<td>select/poll/epoll对比</td>
+<td>epoll红黑树、ET/LT、Reactor</td>
+</tr>
+<tr>
+<td>性能分析</td>
+<td>perf火焰图、系统级瓶颈排查</td>
+<td>vmstat、strace、eBPF</td>
+</tr>
+<tr>
+<td>容器技术</td>
+<td>Namespace+Cgroups+UnionFS</td>
+<td>进程隔离、资源限制、Zero-Copy</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<blockquote>
+<p>📌 <strong>下期预告</strong>：《操作系统面试八股文（七）——Linux网络编程与Shell实战》将深入Socket编程模型、TCP/UDP实战、Shell脚本编程、awk/sed/grep三剑客等运维开发必备话题，敬请期待！</p>
+</blockquote>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 飞哥的 AI 折腾日记</p>
+    </footer>
+</body>
+</html>

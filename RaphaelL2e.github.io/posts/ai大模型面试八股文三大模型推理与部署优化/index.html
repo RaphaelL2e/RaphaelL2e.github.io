@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI大模型面试八股文（三）——大模型推理与部署优化 - Raphael Tech Blog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a25;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --border: #27272a;
+            --code-bg: #0f0f15;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+         
+        header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header-content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        
+        header h1 a {
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        header h1 a::before {
+            content: '◆';
+            color: var(--accent);
+            font-size: 0.875rem;
+        }
+        
+        nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+        
+        nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+            position: relative;
+        }
+        
+        nav a:hover {
+            color: var(--text-primary);
+        }
+        
+        nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--accent);
+            transition: width 0.2s;
+        }
+        
+        nav a:hover::after {
+            width: 100%;
+        }
+        
+         
+        main {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+        
+         
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+        
+        article:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        
+        article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        article h2 a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+        
+        article h2 a:hover {
+            color: var(--accent);
+        }
+        
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+        }
+        
+        .meta span {
+            color: var(--accent);
+        }
+        
+        .summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+        
+        .summary a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 0.5rem;
+        }
+        
+        .summary a:hover {
+            text-decoration: underline;
+        }
+        
+         
+        .post-header {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 1rem;
+        }
+        
+        .post-content {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+        
+        .post-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2.5rem 0 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .post-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem;
+            color: var(--accent);
+        }
+        
+        .post-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem;
+        }
+        
+        .post-content p {
+            margin-bottom: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .post-content a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        
+        .post-content a:hover {
+            text-decoration: underline;
+        }
+        
+        .post-content ul, .post-content ol {
+            margin: 1rem 0 1.5rem 1.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .post-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .post-content code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--code-bg);
+            color: var(--accent);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875em;
+        }
+        
+        .post-content pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+        
+        .post-content pre code {
+            background: none;
+            color: var(--text-primary);
+            padding: 0;
+        }
+        
+        .post-content blockquote {
+            border-left: 3px solid var(--accent);
+            background: var(--bg-tertiary);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .post-content blockquote p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+        
+        .post-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9375rem;
+        }
+        
+        .post-content th {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-weight: 600;
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .post-content td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+        
+        .post-content tr:hover td {
+            background: var(--bg-tertiary);
+        }
+        
+         
+        footer {
+            max-width: 900px;
+            margin: 4rem auto 0;
+            padding: 2rem 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+         
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+        
+         
+        ::selection {
+            background: var(--accent-glow);
+            color: var(--text-primary);
+        }
+
+         
+         
+        .tags-container {
+            max-width: 900px;
+        }
+
+        .tags-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 2rem;
+        }
+
+        .tag-card {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.625rem 1rem;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .tag-card:hover {
+            border-color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+        .tag-card .tag-name {
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            font-weight: 500;
+        }
+
+        .tag-card .tag-num {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+         
+        .categories-container {
+            max-width: 900px;
+        }
+
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+        }
+
+        .modal-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .modal-close {
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .tag-card {
+            cursor: pointer;
+        }
+
+         
+        .tag-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .tag-modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tag-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            flex-shrink: 0;
+        }
+
+        .tag-modal-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .modal-count {
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 700;
+            padding: 0.375rem 1rem;
+            border-radius: 20px;
+        }
+
+        .tag-modal-close {
+            font-size: 2rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .tag-modal-close:hover {
+            color: var(--text-primary);
+            background: var(--bg-tertiary);
+        }
+
+        .tag-modal-body {
+            padding: 1.5rem 2rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-article {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .modal-article:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            transform: translateX(8px);
+        }
+
+        .modal-article-title {
+            color: var(--text-primary);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        .modal-article:hover .modal-article-title {
+            color: white;
+        }
+
+        .modal-article-date {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .modal-article:hover .modal-article-date {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+         
+        .category-tree {
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tree-branch {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .tree-branch:hover {
+            border-color: var(--accent);
+        }
+
+        .branch-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .branch-icon {
+            font-size: 1.25rem;
+        }
+
+        .branch-name {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            flex: 1;
+        }
+
+        .branch-name:hover {
+            color: var(--accent);
+        }
+
+        .branch-count {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .branch-leaves {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .leaf-item {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-decoration: none;
+            padding: 0.375rem 0.75rem;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .leaf-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .leaf-more {
+            color: var(--accent);
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .leaf-more:hover {
+            text-decoration: underline;
+        }
+
+         
+        .taxonomy-detail {
+            max-width: 900px;
+        }
+
+        .taxonomy-stats {
+            margin-bottom: 2rem;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent);
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        .taxonomy-articles {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .taxonomy-article {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .taxonomy-article:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--accent-glow);
+        }
+
+        .article-link {
+            display: block;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .taxonomy-article h2 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .article-meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .article-summary {
+            color: var(--text-secondary);
+            font-size: 0.9375rem;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1><a href="https://raphaell2e.github.io/">Raphael Tech Blog</a></h1>
+            <nav>
+                <a href="https://raphaell2e.github.io/">首页</a>
+                <a href="https://raphaell2e.github.io/posts/">文章</a>
+                <a href="https://raphaell2e.github.io/categories/">分类</a>
+                <a href="https://raphaell2e.github.io/tags/">标签</a>
+                <a href="https://raphaell2e.github.io/wealth/">财富</a>
+                <a href="https://raphaell2e.github.io/about/">关于</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        
+<article class="post">
+    <div class="post-header">
+        <div class="meta">2026-06-09 <span>/</span> AI </div>
+        <h1>AI大模型面试八股文（三）——大模型推理与部署优化</h1>
+    </div>
+    <div class="post-content">
+        <h1 id="ai大模型面试八股文三大模型推理与部署优化">AI大模型面试八股文（三）——大模型推理与部署优化</h1>
+<blockquote>
+<p>面试高频问题：KV Cache的原理是什么？Flash Attention怎么加速？INT8/INT4量化有什么区别？vLLM和TensorRT-LLM怎么选？本文带你掌握大模型从训练到生产的最后一公里。</p>
+</blockquote>
+<h2 id="引言">引言</h2>
+<p>前两篇我们聊了大模型的架构和训练。但训练出来的模型要真正服务用户，还需要经过推理优化和部署——这是大模型落地的&quot;最后一公里&quot;。一个7B模型，不优化可能推理速度只有2-3 token/s，优化后可以达到100+ token/s，差距50倍。理解推理优化，不仅能帮你通过面试，更是工程实践的必备技能。</p>
+<p><strong>本文要点</strong>：</p>
+<ol>
+<li>推理瓶颈分析</li>
+<li>KV Cache：推理加速的基石</li>
+<li>Flash Attention：IO优化的典范</li>
+<li>模型量化：精度与速度的权衡</li>
+<li>推理引擎与部署方案</li>
+<li>面试高频问题精讲</li>
+</ol>
+<h2 id="一推理瓶颈分析">一、推理瓶颈分析</h2>
+<h3 id="11-自回归推理的特点">1.1 自回归推理的特点</h3>
+<pre tabindex="0"><code>大模型推理是自回归的：
+
+生成第1个token：处理整个prompt
+生成第2个token：处理prompt + 第1个token
+生成第3个token：处理prompt + 前2个token
+...
+生成第n个token：处理prompt + 前(n-1)个token
+
+问题：每生成一个token都要重新计算前面所有token的表示
+→ 计算量随生成长度线性增长
+→ 这是KV Cache要解决的核心问题
+</code></pre><h3 id="12-推理的两个阶段">1.2 推理的两个阶段</h3>
+<pre tabindex="0"><code>┌─────────────────────────────────────────────────┐
+│  Prefill阶段（预填充）                            │
+│  - 处理整个prompt                                │
+│  - 计算所有prompt token的KV                       │
+│  - 计算密集型（Compute-bound）                    │
+│  - 一次处理，可并行                               │
+└──────────────────────┬──────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────┐
+│  Decode阶段（解码）                               │
+│  - 逐个生成token                                 │
+│  - 每步只需计算新token的Q，复用已有KV              │
+│  - 内存密集型（Memory-bound）                     │
+│  - 批处理是关键优化点                             │
+└─────────────────────────────────────────────────┘
+</code></pre><h3 id="13-性能指标">1.3 性能指标</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+<th>典型值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TTFT</td>
+<td>首Token延迟（Time To First Token）</td>
+<td>100ms~2s</td>
+</tr>
+<tr>
+<td>TPS</td>
+<td>每秒生成Token数（Tokens Per Second）</td>
+<td>10~200</td>
+</tr>
+<tr>
+<td>Throughput</td>
+<td>吞吐量（token/s/GPU）</td>
+<td>1000~10000</td>
+</tr>
+<tr>
+<td>延迟</td>
+<td>单请求端到端时间</td>
+<td>秒级</td>
+</tr>
+<tr>
+<td>显存占用</td>
+<td>模型+KV Cache占用</td>
+<td>几GB~几十GB</td>
+</tr>
+</tbody>
+</table>
+<pre tabindex="0"><code>关键洞察：
+  Prefill阶段 → 计算瓶颈 → 需要算力
+  Decode阶段 → 内存瓶颈 → 需要带宽
+
+  优化策略取决于瓶颈类型！
+</code></pre><h2 id="二kv-cache推理加速的基石">二、KV Cache：推理加速的基石</h2>
+<h3 id="21-基本原理">2.1 基本原理</h3>
+<pre tabindex="0"><code>不用KV Cache：
+  生成第i个token时，要重新计算前i-1个token的K和V
+  重复计算，浪费算力
+
+使用KV Cache：
+  将已经计算过的K和V缓存下来
+  生成新token时，只需计算当前token的Q
+  然后用Q和缓存的K、V计算注意力
+
+  缓存：K_1, K_2, ..., K_{i-1}
+        V_1, V_2, ..., V_{i-1}
+  新计算：Q_i, K_i, V_i
+  注意力：Attention(Q_i, [K_1...K_i], [V_1...V_i])
+</code></pre><h3 id="22-kv-cache显存计算">2.2 KV Cache显存计算</h3>
+<pre tabindex="0"><code>KV Cache显存 = 2 × num_layers × seq_len × d_model × batch_size × dtype_size
+
+以LLaMA 2-7B为例：
+  num_layers = 32
+  d_model = 4096
+  seq_len = 4096
+  batch_size = 1
+  dtype_size = 2 (FP16)
+
+KV Cache = 2 × 32 × 4096 × 4096 × 1 × 2
+         = 2 × 32 × 4096 × 4096 × 2
+         = 2,147,483,648 bytes
+         ≈ 2GB
+
+对于70B模型、长序列、大batch：
+KV Cache可达几十GB，甚至超过模型本身！
+</code></pre><h3 id="23-kv-cache优化">2.3 KV Cache优化</h3>
+<pre tabindex="0"><code>优化1: MQA (Multi-Query Attention) — PaLM等使用
+  所有注意力头共享同一组K和V
+  K/V: [batch, seq_len, d_kv]  ← 只有一份
+  Q:   [batch, num_heads, seq_len, d_kv]
+
+  KV Cache减少: num_heads倍（如32倍）
+  效果：微降，速度大幅提升
+
+优化2: GQA (Grouped-Query Attention) — LLaMA 2-70B使用
+  折中方案：K和V分成g组，每组内共享
+  g=1 → MQA（最激进）
+  g=num_heads → 标准MHA（最保守）
+
+  LLaMA 2-70B: g=8, num_heads=64
+  KV Cache减少: 8倍
+
+优化3: KV Cache量化
+  将缓存的K和V从FP16量化为INT8/FP8
+  显存减半，精度损失很小
+
+优化4: PagedAttention (vLLM)
+  操作系统式的分页管理KV Cache
+  解决显存碎片问题
+  详见推理引擎部分
+</code></pre><h3 id="24-mha-vs-mqa-vs-gqa对比">2.4 MHA vs MQA vs GQA对比</h3>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>K/V数量</th>
+<th>KV Cache</th>
+<th>效果</th>
+<th>代表模型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MHA</td>
+<td>num_heads份</td>
+<td>大</td>
+<td>最好</td>
+<td>GPT-3, LLaMA 2-7B</td>
+</tr>
+<tr>
+<td>GQA</td>
+<td>g份(g组)</td>
+<td>中</td>
+<td>接近MHA</td>
+<td>LLaMA 2-70B, Mistral</td>
+</tr>
+<tr>
+<td>MQA</td>
+<td>1份</td>
+<td>最小</td>
+<td>略低</td>
+<td>PaLM, Falcon</td>
+</tr>
+</tbody>
+</table>
+<h2 id="三flash-attentionio优化的典范">三、Flash Attention：IO优化的典范</h2>
+<h3 id="31-标准注意力的问题">3.1 标准注意力的问题</h3>
+<pre tabindex="0"><code>标准注意力的内存操作：
+
+1. 读取Q, K → 计算 S = QK^T         写入S [seq_len × seq_len]
+2. 读取S    → 计算 P = softmax(S)    写入P [seq_len × seq_len]
+3. 读取P, V → 计算 O = PV            写入O [seq_len × d_v]
+
+问题：
+  S和P的大小 = seq_len²，非常巨大
+  seq_len=8192时，S矩阵=256MB（FP16）
+  反向传播还需要保存S和P用于梯度计算
+
+瓶颈不是计算（FLOPS），而是显存读写（IO）！
+</code></pre><h3 id="32-flash-attention的核心思想">3.2 Flash Attention的核心思想</h3>
+<pre tabindex="0"><code>分块计算（Tiling）+ 在线Softmax
+
+核心洞察：
+  GPU有高速SRAM（~20MB）和慢速HBM（~80GB）
+  标准注意力在HBM中存储完整的S和P矩阵
+  → 大量HBM读写是瓶颈
+
+Flash Attention策略：
+  将Q、K、V分块，在SRAM中完成注意力计算
+  不需要在HBM中存储中间矩阵S和P
+  → 大幅减少HBM读写量
+</code></pre><pre tabindex="0"><code>分块计算示意：
+
+Q = [Q1, Q2, Q3, Q4]   按行分块
+K = [K1, K2, K3, K4]   按行分块
+V = [V1, V2, V3, V4]   按行分块
+
+对每个Qi:
+  Oi = 0, li = 0, mi = -inf   (累加器、行和、行最大值)
+  
+  for each Kj, Vj:
+    Sij = Qi × Kj^T
+    mij = max(mi, rowmax(Sij))
+    Pij = exp(Sij - mij)       (数值稳定softmax)
+    αi = exp(mi - mij)         (修正因子)
+    
+    Oi = αi × Oi + Pij × Vj   (在线更新输出)
+    li = αi × li + rowsum(Pij)
+    mi = mij
+  
+  Oi = Oi / li                 (最终归一化)
+
+关键：不需要存储S和P矩阵，只维护Oi的运行结果
+</code></pre><h3 id="33-flash-attention版本演进">3.3 Flash Attention版本演进</h3>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>特点</th>
+<th>IO节省</th>
+<th>速度提升</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flash Attention 1</td>
+<td>分块计算+在线softmax</td>
+<td>~5-10x</td>
+<td>2-4x</td>
+</tr>
+<tr>
+<td>Flash Attention 2</td>
+<td>优化并行策略、减少非矩阵运算</td>
+<td>~5-10x</td>
+<td>2x vs FA1</td>
+</tr>
+<tr>
+<td>Flash Attention 3</td>
+<td>Hopper架构优化、异步</td>
+<td>~5-10x</td>
+<td>1.5-2x vs FA2</td>
+</tr>
+</tbody>
+</table>
+<h3 id="34-flash-attention的不可能三角">3.4 Flash Attention的&quot;不可能三角&quot;</h3>
+<pre tabindex="0"><code>Flash Attention的性质：
+  ✅ 内存O(n)（不存S和P矩阵）
+  ✅ 精确注意力（不是近似）
+  ❌ 不能高效获取注意力矩阵（不存储）
+
+标准注意力：
+  ✅ 可以获取注意力矩阵
+  ❌ 内存O(n²)
+
+稀疏注意力：
+  ✅ 内存O(n)
+  ❌ 近似注意力（有精度损失）
+
+Flash Attention选择了：精确+省内存，放弃注意力矩阵的获取
+→ 这对大多数应用完全OK
+</code></pre><h2 id="四模型量化">四、模型量化</h2>
+<h3 id="41-量化的基本原理">4.1 量化的基本原理</h3>
+<pre tabindex="0"><code>量化：将高精度数值映射到低精度表示
+
+FP32 → FP16 → BF16 → INT8 → INT4 → INT3 → INT2
+ 32位    16位    16位    8位     4位    3位    2位
+
+映射方式：
+
+1. 对称量化：
+   x_quant = round(x / scale)
+   x_dequant = x_quant × scale
+   scale = max(|x|) / (2^(b-1) - 1)
+
+2. 非对称量化：
+   x_quant = round((x - zero_point) / scale)
+   x_dequant = x_quant × scale + zero_point
+   适合分布不对称的数据
+</code></pre><h3 id="42-量化方案对比">4.2 量化方案对比</h3>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>精度</th>
+<th>显存</th>
+<th>速度</th>
+<th>精度损失</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FP16</td>
+<td>基准</td>
+<td>1x</td>
+<td>基准</td>
+<td>无</td>
+<td>训练和推理默认</td>
+</tr>
+<tr>
+<td>BF16</td>
+<td>与FP16相当</td>
+<td>1x</td>
+<td>基准</td>
+<td>无</td>
+<td>训练首选</td>
+</tr>
+<tr>
+<td>INT8 (PTQ)</td>
+<td>8bit</td>
+<td>0.5x</td>
+<td>1.5-2x</td>
+<td>小</td>
+<td>线上推理</td>
+</tr>
+<tr>
+<td>INT8 (QAT)</td>
+<td>8bit</td>
+<td>0.5x</td>
+<td>1.5-2x</td>
+<td>很小</td>
+<td>高精度要求</td>
+</tr>
+<tr>
+<td>INT4 (GPTQ)</td>
+<td>4bit</td>
+<td>0.25x</td>
+<td>2-3x</td>
+<td>中等</td>
+<td>显存受限</td>
+</tr>
+<tr>
+<td>INT4 (AWQ)</td>
+<td>4bit</td>
+<td>0.25x</td>
+<td>2-3x</td>
+<td>较小</td>
+<td>推荐INT4方案</td>
+</tr>
+<tr>
+<td>INT4 (GGUF)</td>
+<td>4bit</td>
+<td>0.25x</td>
+<td>可CPU</td>
+<td>中等</td>
+<td>CPU推理</td>
+</tr>
+</tbody>
+</table>
+<h3 id="43-主流量化方法详解">4.3 主流量化方法详解</h3>
+<pre tabindex="0"><code>GPTQ (GPT Quantization):
+  - 训练后量化（Post-Training Quantization）
+  - 基于近似二阶信息（Hessian矩阵）
+  - 逐层量化，最小化重构误差
+  - 需要校准数据（~128条）
+  - 4-bit量化效果最好
+
+AWQ (Activation-Aware Weight Quantization):
+  - 观察：不是所有权重同等重要
+  - 核心思想：保护&#34;显著&#34;权重通道
+  - 显著性由激活值大小决定（激活大的通道更敏感）
+  - 缩放显著通道后再量化
+  - 通常比GPTQ效果更好
+
+GGUF (GPT-Generated Unified Format):
+  - llama.cpp的量化格式
+  - 支持CPU和GPU混合推理
+  - 多种量化级别（Q2_K, Q3_K, Q4_K_M, Q5_K_M, Q8_0等）
+  - 适合本地部署
+
+SmoothQuant:
+  - 将激活的量化难度迁移到权重
+  - 数学等价变换：Y = X × W → Y = (X × s^(-1)) × (s × W)
+  - 让激活更容易量化
+  - W8A8（权重8bit+激活8bit）方案
+</code></pre><h3 id="44-量化效果对比7b模型为例">4.4 量化效果对比（7B模型为例）</h3>
+<pre tabindex="0"><code>模型显存占用：
+  FP16:  14GB
+  INT8:  7GB
+  INT4:  3.5GB
+
+推理速度（token/s, A100）：
+  FP16:  ~50
+  INT8:  ~80
+  INT4:  ~120
+
+精度损失（MMLU）：
+  FP16:  基准（如60.0%）
+  INT8:  ~-0.5%（59.7%）
+  INT4:  ~-1~2%（58.5%）
+
+结论：INT4量化在多数场景下精度损失可接受
+</code></pre><h2 id="五推理引擎与部署方案">五、推理引擎与部署方案</h2>
+<h3 id="51-推理引擎对比">5.1 推理引擎对比</h3>
+<table>
+<thead>
+<tr>
+<th>引擎</th>
+<th>核心特点</th>
+<th>适用场景</th>
+<th>GPU要求</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>vLLM</td>
+<td>PagedAttention、高吞吐</td>
+<td>在线服务</td>
+<td>NVIDIA GPU</td>
+</tr>
+<tr>
+<td>TensorRT-LLM</td>
+<td>NVIDIA优化、极低延迟</td>
+<td>生产环境</td>
+<td>NVIDIA GPU</td>
+</tr>
+<tr>
+<td>llama.cpp</td>
+<td>CPU友好、跨平台</td>
+<td>本地/边缘</td>
+<td>CPU/GPU</td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td>一键部署、用户友好</td>
+<td>个人使用</td>
+<td>CPU/GPU</td>
+</tr>
+<tr>
+<td>TGI</td>
+<td>HuggingFace出品</td>
+<td>快速原型</td>
+<td>NVIDIA GPU</td>
+</tr>
+<tr>
+<td>SGLang</td>
+<td>编程式控制、灵活</td>
+<td>复杂应用</td>
+<td>NVIDIA GPU</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-vllm深入解析">5.2 vLLM深入解析</h3>
+<pre tabindex="0"><code>核心创新：PagedAttention
+
+问题：KV Cache的显存管理
+  - 预分配最大长度的连续内存 → 浪费
+  - 动态分配 → 碎片化严重
+
+vLLM的解决：
+  借鉴操作系统的虚拟内存分页机制
+
+  物理GPU显存分为固定大小的&#34;页&#34;(block)
+  每个请求的KV Cache用页表映射到物理页
+  按需分配，不需要连续内存
+
+  优点：
+  1. 几乎无显存浪费（仅最后一页可能浪费）
+  2. 支持共享前缀（如system prompt）
+  3. 更高的批处理效率
+</code></pre><pre tabindex="0"><code>vLLM关键特性：
+
+1. Continuous Batching
+   传统：等一批请求全部完成再处理下一批
+   vLLM：请求完成立即腾出位置，新请求立即进入
+   → GPU利用率大幅提升
+
+2. Speculative Decoding（投机解码）
+   用小模型快速生成候选token
+   大模型并行验证
+   延迟降低2-3倍
+
+3. Prefix Caching
+   相同前缀的请求共享KV Cache
+   适合多轮对话场景
+
+4. 量化支持
+   AWQ、GPTQ、FP8等开箱即用
+</code></pre><h3 id="53-tensorrt-llm深入解析">5.3 TensorRT-LLM深入解析</h3>
+<pre tabindex="0"><code>NVIDIA官方推理优化引擎
+
+核心优化：
+1. 算子融合（Kernel Fusion）
+   将多个小算子合并为一个大算子
+   减少显存读写和kernel launch开销
+
+2. 张量并行
+   自动将模型分片到多GPU
+   对用户透明
+
+3. 流水线并行
+   支持多GPU流水线推理
+   适合超大模型
+
+4. Inflight Batching
+   类似Continuous Batching
+   NVIDIA的实现版本
+
+5. FP8/INT8支持
+   硬件级加速
+   H100/Ada架构专用优化
+</code></pre><h3 id="54-vllm-vs-tensorrt-llm">5.4 vLLM vs TensorRT-LLM</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>vLLM</th>
+<th>TensorRT-LLM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>易用性</td>
+<td>高（pip install）</td>
+<td>中（需编译）</td>
+</tr>
+<tr>
+<td>吞吐量</td>
+<td>高</td>
+<td>更高</td>
+</tr>
+<tr>
+<td>延迟</td>
+<td>低</td>
+<td>更低</td>
+</tr>
+<tr>
+<td>灵活性</td>
+<td>高（纯Python）</td>
+<td>中（C++核心）</td>
+</tr>
+<tr>
+<td>社区</td>
+<td>活跃</td>
+<td>NVIDIA维护</td>
+</tr>
+<tr>
+<td>适用</td>
+<td>通用在线服务</td>
+<td>追求极致性能</td>
+</tr>
+<tr>
+<td>部署</td>
+<td>Docker/裸机</td>
+<td>Docker/裸机</td>
+</tr>
+</tbody>
+</table>
+<p><strong>选择建议</strong>：</p>
+<ul>
+<li>快速上线 → vLLM</li>
+<li>追求极致性能 → TensorRT-LLM</li>
+<li>个人/本地 → Ollama/llama.cpp</li>
+</ul>
+<h3 id="55-部署架构">5.5 部署架构</h3>
+<pre tabindex="0"><code>典型在线服务架构：
+
+用户请求
+   │
+   ↓
+┌──────────┐
+│ 负载均衡  │ (Nginx/HAProxy)
+└────┬─────┘
+     │
+┌────▼─────┐
+│ API网关   │ (FastAPI/vLLM Server)
+└────┬─────┘
+     │
+     ├──→ ┌──────────┐
+     │    │ vLLM实例1 │ GPU 0
+     │    └──────────┘
+     │
+     ├──→ ┌──────────┐
+     │    │ vLLM实例2 │ GPU 1
+     │    └──────────┘
+     │
+     └──→ ┌──────────┐
+          │ vLLM实例3 │ GPU 2
+          └──────────┘
+
+关键指标：
+  - 水平扩展：多实例并行
+  - 请求路由：按模型/负载分发
+  - 健康检查：自动摘除故障实例
+  - 限流保护：防止过载
+</code></pre><h2 id="六其他推理优化技术">六、其他推理优化技术</h2>
+<h3 id="61-投机解码speculative-decoding">6.1 投机解码（Speculative Decoding）</h3>
+<pre tabindex="0"><code>核心思想：用小模型&#34;猜&#34;，大模型&#34;验证&#34;
+
+步骤：
+1. 小模型（Draft Model）快速生成k个候选token
+2. 大模型（Target Model）一次前向传播验证所有候选
+3. 接受正确的token，拒绝错误的token
+4. 从第一个错误位置重新生成
+
+为什么能加速？
+  - 小模型生成速度远快于大模型（5-10x）
+  - 大模型验证k个token和生成1个token耗时相近
+  - 如果小模型准确率高（如70%），总体加速2-3倍
+
+适用场景：
+  - 有合适的小模型（同系列、同tokenizer）
+  - 追求低延迟
+  - 不在乎额外显存开销（要加载两个模型）
+</code></pre><h3 id="62-投机解码变体">6.2 投机解码变体</h3>
+<pre tabindex="0"><code>Medusa:
+  在模型头部添加多个预测头
+  每个头独立预测不同位置的token
+  不需要额外的draft model
+
+Eagle:
+  用特征级（而非token级）的投机
+  利用KV Cache的特征做预测
+  更高的接受率
+
+Self-Speculative:
+  模型自身做draft（跳过某些层）
+  不需要额外模型
+</code></pre><h3 id="63-长上下文优化">6.3 长上下文优化</h3>
+<pre tabindex="0"><code>问题：上下文越长，KV Cache越大，注意力计算越慢
+
+解决方案：
+
+1. 滑动窗口注意力 (Sliding Window Attention)
+   Mistral使用：每个token只关注附近w个token
+   KV Cache大小固定为w
+   效果：O(w)而非O(n)
+
+2. 稀疏注意力
+   只关注部分关键token
+   StreamingLLM: 关注sink tokens + 近期tokens
+
+3. 上下文压缩
+   用小模型压缩长上下文为摘要
+   或用检索增强（RAG）替代长上下文
+
+4. Ring Attention
+   跨多GPU分布计算长序列的注意力
+   序列长度理论上无上限
+</code></pre><h3 id="64-服务端优化">6.4 服务端优化</h3>
+<pre tabindex="0"><code>1. Continuous Batching
+   动态组装batch，最大化GPU利用率
+   相比static batching吞吐量提升2-4倍
+
+2. 请求调度
+   优先级调度：VIP用户优先
+   SJF调度：短请求优先
+   混合调度：平衡延迟和吞吐
+
+3. 多模型服务
+   同一GPU上运行多个模型
+   按需加载/卸载
+   GPU时间片共享
+
+4. 前缀缓存
+   共享相同system prompt的请求复用KV Cache
+   多轮对话场景效果显著
+</code></pre><h2 id="七面试高频问题">七、面试高频问题</h2>
+<h3 id="q1-kv-cache的原理和计算">Q1: KV Cache的原理和计算？</h3>
+<pre tabindex="0"><code>原理：缓存已计算的Key和Value，避免重复计算
+
+显存计算公式：
+KV Cache = 2 × layers × seq_len × hidden_dim × batch × 2bytes(FP16)
+
+7B模型示例(32层, 4096维度, 序列4096, batch=1):
+= 2 × 32 × 4096 × 4096 × 1 × 2 ≈ 2GB
+
+优化方向：GQA减少头数、量化降精度、分页管理防碎片
+</code></pre><h3 id="q2-flash-attention为什么快">Q2: Flash Attention为什么快？</h3>
+<pre tabindex="0"><code>不是减少计算量，而是减少显存IO！
+
+标准注意力：需要将seq_len²的中间矩阵写入HBM
+Flash Attention：分块在SRAM中计算，不写中间矩阵
+
+IO复杂度：
+  标准：O(n²d) HBM读写
+  Flash：O(n²d²/M) HBM读写，M是SRAM大小
+
+实际效果：推理加速2-4倍，训练节省显存5-10x
+</code></pre><h3 id="q3-量化有哪些方法怎么选">Q3: 量化有哪些方法？怎么选？</h3>
+<pre tabindex="0"><code>选择决策树：
+
+需要最高精度？
+  → QAT (训练感知量化)
+  → 或FP16不量化
+
+需要线上服务？
+  → INT8 SmoothQuant (W8A8)
+  → 或AWQ INT4 (精度好、速度快)
+
+显存受限/本地部署？
+  → AWQ/GPTQ INT4
+  → GGUF格式用llama.cpp
+
+CPU推理？
+  → GGUF + llama.cpp
+</code></pre><h3 id="q4-vllm的pagedattention是什么">Q4: vLLM的PagedAttention是什么？</h3>
+<pre tabindex="0"><code>类比操作系统的虚拟内存：
+
+  虚拟内存：进程看到连续地址空间，物理内存按页分配
+  PagedAttention：请求看到连续KV Cache，物理显存按块分配
+
+优点：
+  1. 按需分配，不预分配最大长度
+  2. 物理块不需要连续，无碎片
+  3. 共享前缀可复用物理块（Copy-on-Write）
+  
+实测效果：吞吐量比HuggingFace推理高24x
+</code></pre><h3 id="q5-如何端到端优化大模型推理">Q5: 如何端到端优化大模型推理？</h3>
+<pre tabindex="0"><code>优化层次：
+
+1. 算法层
+   - GQA/MQA减少KV Cache
+   - 投机解码降低延迟
+   - 稀疏注意力减少计算
+
+2. 模型层
+   - 量化（INT8/INT4）
+   - 蒸馏（用小模型替代）
+   - 剪枝（去除冗余参数）
+
+3. 系统层
+   - Continuous Batching
+   - PagedAttention
+   - 前缀缓存
+
+4. 硬件层
+   - Tensor Core加速
+   - 多GPU并行
+   - 高带宽显存(HBM)
+
+实际优化：不需要全部用上，根据瓶颈选择最有效的1-2层
+</code></pre><h2 id="八总结">八、总结</h2>
+<p><strong>本文核心知识</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>关键要点</th>
+<th>面试重点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>推理瓶颈</td>
+<td>Prefill计算密集、Decode内存密集</td>
+<td>两阶段特点</td>
+</tr>
+<tr>
+<td>KV Cache</td>
+<td>缓存K/V避免重复计算</td>
+<td>显存计算公式</td>
+</tr>
+<tr>
+<td>GQA/MQA</td>
+<td>共享K/V减少Cache</td>
+<td>三种注意力对比</td>
+</tr>
+<tr>
+<td>Flash Attention</td>
+<td>分块计算减少IO</td>
+<td>不是减少FLOPS</td>
+</tr>
+<tr>
+<td>量化</td>
+<td>INT8/INT4精度与速度权衡</td>
+<td>AWQ vs GPTQ</td>
+</tr>
+<tr>
+<td>推理引擎</td>
+<td>vLLM高吞吐、TRT-LLM低延迟</td>
+<td>PagedAttention原理</td>
+</tr>
+<tr>
+<td>投机解码</td>
+<td>小模型猜+大模型验证</td>
+<td>加速原理</td>
+</tr>
+</tbody>
+</table>
+<p><strong>核心记忆口诀</strong>：</p>
+<ol>
+<li><strong>推理两阶段</strong>：Prefill算力瓶颈，Decode带宽瓶颈</li>
+<li><strong>KV Cache</strong>：缓存避免重复，GQA减少存储</li>
+<li><strong>Flash Attention</strong>：省IO不省算，分块是关键</li>
+<li><strong>量化三剑客</strong>：GPTQ二阶、AWQ激活感知、GGUF跨平台</li>
+<li><strong>部署选型</strong>：vLLM吞吐王、TRT延迟王、llama.cpp本地王</li>
+</ol>
+<hr>
+<blockquote>
+<p><strong>下期预告</strong>：《AI大模型面试八股文（四）——RAG、Agent与大模型应用开发》— RAG的架构怎么设计？向量数据库怎么选？Agent的规划能力如何实现？从检索增强到智能体，带你掌握大模型应用开发的核心技术，敬请期待！</p>
+</blockquote>
+<hr>
+<p><em>作者：飞哥的 AI 折腾日记</em></p>
+
+    </div>
+</article>
+
+    </main>
+    <footer>
+        <p>&copy; 2026 飞哥的 AI 折腾日记</p>
+    </footer>
+</body>
+</html>
