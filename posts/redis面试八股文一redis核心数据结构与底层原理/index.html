@@ -1,0 +1,351 @@
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Redis面试八股文（一）——Redis核心数据结构与底层原理 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
+<a href=https://raphaell2e.github.io/posts/>文章</a>
+<a href=https://raphaell2e.github.io/categories/>分类</a>
+<a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/wealth/>财富</a>
+<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-06-20 <span>/</span> Redis</div><h1>Redis面试八股文（一）——Redis核心数据结构与底层原理</h1></div><div class=post-content><h1 id=redis面试八股文一redis核心数据结构与底层原理>Redis面试八股文（一）——Redis核心数据结构与底层原理</h1><blockquote><p>🎯 <strong>本文目标</strong>：从面试高频问题出发，深入剖析Redis五种核心数据结构的底层实现原理——SDS、链表、字典、跳表、压缩列表，理解Redis为什么快，以及如何选型。</p></blockquote><hr><h2 id=一redis为什么这么快>一、Redis为什么这么快？</h2><h3 id=11-快的关键因素>1.1 快的关键因素</h3><table><thead><tr><th>因素</th><th>说明</th><th>具体表现</th></tr></thead><tbody><tr><td>内存操作</td><td>所有数据存储在内存</td><td>读写速度达10万+ QPS</td></tr><tr><td>单线程模型</td><td>避免上下文切换和锁竞争</td><td>Redis 6.0前核心网络IO单线程</td></tr><tr><td>IO多路复用</td><td>epoll/kqueue管理并发连接</td><td>单线程处理数万并发连接</td></tr><tr><td>高效数据结构</td><td>为特定场景定制的数据结构</td><td>SDS、压缩列表、跳表</td></tr><tr><td>RESP协议</td><td>简单高效的通信协议</td><td>解析快，实现简单</td></tr></tbody></table><h3 id=12-单线程为什么还这么快>1.2 单线程为什么还这么快？</h3><pre tabindex=0><code>Q: Redis单线程如何支撑高并发？
+
+A: 三板斧：
+  1. 纯内存操作 ── 没有磁盘IO的瓶颈
+  2. IO多路复用 ── 单线程监听多个socket
+  3. 高效数据结构 ── O(1)复杂度的命令占大多数
+
+性能瓶颈不在CPU，在内存和网络带宽。
+
+┌────────────────────────────────────────┐
+│         Redis单线程架构                  │
+│                                        │
+│  ┌──────────────────────────┐          │
+│  │  事件循环 (Event Loop)     │          │
+│  │                          │          │
+│  │   ┌──────┐   ┌────────┐  │          │
+│  │   │ epoll │──►│ 命令   │  │          │
+│  │   │ 监听  │   │ 处理器  │  │          │
+│  │   └──────┘   └────────┘  │          │
+│  │        ▲           │      │          │
+│  │        │           ▼      │          │
+│  │        │     ┌────────┐  │          │
+│  │        └─────│ 响应   │  │          │
+│  │              │ 发送   │  │          │
+│  │              └────────┘  │          │
+│  └──────────────────────────┘          │
+│                                        │
+│  客户端1 ──┬── 客户端2 ──┬── 客户端N    │
+│            └── epoll监听多个连接 ──┘     │
+└────────────────────────────────────────┘
+</code></pre><blockquote><p><strong>注意</strong>：Redis 6.0引入了多线程IO（仅用于网络读写，命令执行仍是单线程）。Redis 7.0进一步优化了多线程IO。</p></blockquote><hr><h2 id=二sdsredis的字符串>二、SDS：Redis的字符串</h2><h3 id=21-为什么不用c字符串>2.1 为什么不用C字符串？</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// C字符串的问题
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>char</span> <span style=color:#f92672>*</span>str <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;hello&#34;</span>;
+</span></span><span style=display:flex><span><span style=color:#75715e>// 1. 获取长度需要O(n)遍历
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 2. 字符串拼接容易缓冲区溢出
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 3. 二进制不安全（\0截断）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 4. 频繁修改导致内存重分配
+</span></span></span></code></pre></div><h3 id=22-sds结构>2.2 SDS结构</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// Redis 3.2前
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>struct</span> sdshdr {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> len;    <span style=color:#75715e>// 已使用长度
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>int</span> free;   <span style=color:#75715e>// 未使用长度
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>char</span> buf[]; <span style=color:#75715e>// 字节数组
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// Redis 3.2+ 根据长度使用不同header
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>struct</span> <span style=color:#a6e22e>__attribute__</span> ((__packed__)) sdshdr8 {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>uint8_t</span> len;   <span style=color:#75715e>// 已使用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>uint8_t</span> alloc; <span style=color:#75715e>// 总容量（不含header和结束符）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>char</span> flags; <span style=color:#75715e>// 低3位标识类型
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>char</span> buf[];
+</span></span><span style=display:flex><span>};
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 长度范围对应类型：
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// sdshdr5  → 0~31    (已废弃)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// sdshdr8  → 0~255
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// sdshdr16 → 256~65535
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// sdshdr32 → 65536~4G-1
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// sdshdr64 → 4G+
+</span></span></span></code></pre></div><h3 id=23-sds的优势>2.3 SDS的优势</h3><p><strong>Q: SDS相比C字符串有哪些优势？</strong></p><table><thead><tr><th>优势</th><th>C字符串</th><th>SDS</th><th>复杂度</th></tr></thead><tbody><tr><td>获取长度</td><td>O(n) 遍历</td><td>O(1) 读取len字段</td><td>O(1)</td></tr><tr><td>缓冲区安全</td><td>手动检查，易溢出</td><td>自动检查并扩容</td><td>安全</td></tr><tr><td>内存重分配</td><td>每次都重分配</td><td>预分配+惰性释放</td><td>减少次数</td></tr><tr><td>二进制安全</td><td>\0截断</td><td>len明确长度</td><td>可存任意二进制</td></tr></tbody></table><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// 空间预分配策略
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 1. 修改后len &lt; 1MB → 分配free = len（2倍）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 2. 修改后len &gt;= 1MB → 分配free = 1MB
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 惰性空间释放
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 缩短字符串时，不立即回收空间，用free记录
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 真正释放用sdsclear()或sdsRemoveFreeSpace()
+</span></span></span></code></pre></div><h3 id=24-面试考点>2.4 面试考点</h3><pre tabindex=0><code>Q: Redis的String最大能存多少？
+A: 512MB
+
+Q: SDS如何保证二进制安全？
+A: 用len字段标记长度，不以\0作为结束判断
+
+Q: Redis用SDS做了哪些优化？
+A: 
+  - 多种header格式节省内存（小字符串用sdshdr8）
+  - 空间预分配减少内存重分配次数
+  - 惰性空间释放避免频繁内存回收
+  - 兼容C函数（buf末尾自动加\0）
+</code></pre><hr><h2 id=三链表list的底层之一>三、链表：List的底层之一</h2><h3 id=31-双向无环链表>3.1 双向无环链表</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// 链表节点
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>typedef</span> <span style=color:#66d9ef>struct</span> listNode {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> listNode <span style=color:#f92672>*</span>prev;   <span style=color:#75715e>// 前驱节点
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>struct</span> listNode <span style=color:#f92672>*</span>next;   <span style=color:#75715e>// 后继节点
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>value;             <span style=color:#75715e>// 节点值
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>} listNode;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 链表结构
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>typedef</span> <span style=color:#66d9ef>struct</span> list {
+</span></span><span style=display:flex><span>    listNode <span style=color:#f92672>*</span>head;          <span style=color:#75715e>// 头节点
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    listNode <span style=color:#f92672>*</span>tail;          <span style=color:#75715e>// 尾节点
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> len;       <span style=color:#75715e>// 节点数量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>(<span style=color:#f92672>*</span>dup)(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>ptr); <span style=color:#75715e>// 复制函数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>void</span> (<span style=color:#f92672>*</span>free)(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>ptr); <span style=color:#75715e>// 释放函数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>int</span> (<span style=color:#f92672>*</span>match)(<span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>ptr, <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>key); <span style=color:#75715e>// 匹配函数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>} list;
+</span></span></code></pre></div><p><strong>链表特点：</strong></p><table><thead><tr><th>特性</th><th>实现</th></tr></thead><tbody><tr><td>结构</td><td>双向无环</td></tr><tr><td>获取头/尾</td><td>O(1)</td></tr><tr><td>获取长度</td><td>O(1)（有len字段）</td></tr><tr><td>查找</td><td>O(n)</td></tr><tr><td>多态</td><td>void*指针 + 函数指针</td></tr></tbody></table><p><strong>Q: Redis List什么时候用链表？</strong></p><pre tabindex=0><code>Redis 3.2之前:
+  List的底层实现：
+  - 元素少且元素小 → ziplist（压缩列表）
+  - 元素多或元素大 → linkedlist（双向链表）
+
+Redis 3.2+:
+  List统一使用 quicklist（链表 + ziplist的混合体）
+  
+  quicklist结构:
+  ┌─────────┐   ┌─────────┐   ┌─────────┐
+  │ ziplist │◄─►│ ziplist │◄─►│ ziplist │
+  │  (节点)  │   │  (节点)  │   │  (节点)  │
+  └─────────┘   └─────────┘   └─────────┘
+  
+  每个quicklist节点包含一个ziplist
+  既保留了链表的灵活性，又减少了内存碎片
+</code></pre><hr><h2 id=四字典hash与全局键空间>四、字典：Hash与全局键空间</h2><h3 id=41-哈希表结构>4.1 哈希表结构</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// 哈希表
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>typedef</span> <span style=color:#66d9ef>struct</span> dictht {
+</span></span><span style=display:flex><span>    dictEntry <span style=color:#f92672>**</span>table;       <span style=color:#75715e>// 哈希表数组
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> size;      <span style=color:#75715e>// 哈希表大小（2^n）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> sizemask;  <span style=color:#75715e>// 掩码（size - 1）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> used;      <span style=color:#75715e>// 已使用节点数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>} dictht;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 哈希表节点（链地址法）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>typedef</span> <span style=color:#66d9ef>struct</span> dictEntry {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>key;               <span style=color:#75715e>// 键
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>union</span> {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>val;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>uint64_t</span> u64;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int64_t</span> s64;
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>double</span> d;
+</span></span><span style=display:flex><span>    } v;                     <span style=color:#75715e>// 值
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>struct</span> dictEntry <span style=color:#f92672>*</span>next;  <span style=color:#75715e>// 下一个节点（链表）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>} dictEntry;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 字典
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>typedef</span> <span style=color:#66d9ef>struct</span> dict {
+</span></span><span style=display:flex><span>    dictType <span style=color:#f92672>*</span>type;          <span style=color:#75715e>// 类型特定函数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>void</span> <span style=color:#f92672>*</span>privdata;          <span style=color:#75715e>// 私有数据
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    dictht ht[<span style=color:#ae81ff>2</span>];            <span style=color:#75715e>// 两个哈希表（rehash用）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>long</span> rehashidx;          <span style=color:#75715e>// rehash进度（-1表示未进行）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>int16_t</span> pauserehash;     <span style=color:#75715e>// rehash暂停标志
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>} dict;
+</span></span></code></pre></div><h3 id=42-渐进式rehash>4.2 渐进式Rehash</h3><p><strong>Q: Redis的rehash过程是怎样的？为什么用渐进式？</strong></p><pre tabindex=0><code>渐进式Rehash流程:
+
+1. 分配空间
+   ht[1] = 分配新哈希表（size = 第一个 &gt;= ht[0].used*2 的 2^n）
+
+2. 设置rehashidx = 0（标记rehash开始）
+
+3. 每次对字典执行增删改查时，顺带迁移一个桶:
+   - 将ht[0]的table[rehashidx]迁移到ht[1]
+   - rehashidx++
+   - 直到ht[0]全部迁移完成
+
+4. 完成：rehashidx = -1，交换ht[0]和ht[1]
+
+为什么渐进式？
+  → 避免一次性rehash阻塞服务
+  → 将迁移分摊到多次操作中
+  → 空闲时也有定时任务(serverCron)协助rehash
+</code></pre><pre tabindex=0><code>┌─────────────────────────────────────────────────┐
+│                渐进式Rehash示意图                  │
+│                                                 │
+│   ht[0] (旧表)          ht[1] (新表)             │
+│  ┌───┬───┬───┬───┐     ┌───┬───┬───┬───┬───┐    │
+│  │ 0 │ 1 │ 2 │ 3 │     │ 0 │ 1 │ 2 │ 3 │ 4 │    │
+│  └─┬─┴─┬─┴───┴───┘     └───┴───┴───┴───┴───┘    │
+│    │   │                                          │
+│    │   └──── rehashidx = 1 已迁移 ────►           │
+│    │                                              │
+│    └──── rehashidx = 0 已迁移 ────►               │
+│                                                   │
+│  查询：先查ht[0]，再查ht[1]                        │
+│  新增：只写ht[1]                                  │
+│  删除：两个表都删                                 │
+└─────────────────────────────────────────────────┘
+</code></pre><p><strong>扩缩容条件：</strong></p><table><thead><tr><th>操作</th><th>触发条件</th><th>新大小</th></tr></thead><tbody><tr><td>扩容</td><td>used/size >= 1 (dict_can_resize=1)</td><td>第一个 >= used*2 的 2^n</td></tr><tr><td>强制扩容</td><td>used/size > 5 (负载因子超5)</td><td>同上</td></tr><tr><td>缩容</td><td>used/size &lt; 0.1</td><td>第一个 >= used 的 2^n</td></tr></tbody></table><h3 id=43-哈希算法与冲突解决>4.3 哈希算法与冲突解决</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// Redis哈希算法：MurmurHash2
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>hash <span style=color:#f92672>=</span> dictType<span style=color:#f92672>-&gt;</span><span style=color:#a6e22e>hashFunction</span>(key);
+</span></span><span style=display:flex><span>index <span style=color:#f92672>=</span> hash <span style=color:#f92672>&amp;</span> dict<span style=color:#f92672>-&gt;</span>ht[<span style=color:#ae81ff>0</span>].sizemask;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 冲突解决：链地址法（头插法）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 新节点插入链表头部（O(1)）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>entry<span style=color:#f92672>-&gt;</span>next <span style=color:#f92672>=</span> ht<span style=color:#f92672>-&gt;</span>table[index];
+</span></span><span style=display:flex><span>ht<span style=color:#f92672>-&gt;</span>table[index] <span style=color:#f92672>=</span> entry;
+</span></span></code></pre></div><hr><h2 id=五跳表zset的核心引擎>五、跳表：ZSet的核心引擎</h2><h3 id=51-为什么用跳表>5.1 为什么用跳表？</h3><pre tabindex=0><code>Q: 为什么ZSet用跳表而不用平衡树（如红黑树）？
+
+A: 四个理由：
+  1. 跳表实现简单（约200行 vs 红黑树500+行）
+  2. 支持范围查询（ZRANGE），红黑树需要中序遍历
+  3. 跳表在概率上性能与平衡树持平（O(log n)）
+  4. 跳表天然适合并发（Redis 6.0+多线程IO）
+</code></pre><h3 id=52-跳表结构>5.2 跳表结构</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// 跳表节点
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>typedef</span> <span style=color:#66d9ef>struct</span> zskiplistNode {
+</span></span><span style=display:flex><span>    sds ele;                     <span style=color:#75715e>// 成员对象（字符串）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>double</span> score;                <span style=color:#75715e>// 分值（排序依据）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>struct</span> zskiplistNode <span style=color:#f92672>*</span>backward; <span style=color:#75715e>// 后退指针
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>struct</span> zskiplistLevel {
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>struct</span> zskiplistNode <span style=color:#f92672>*</span>forward; <span style=color:#75715e>// 前进指针
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> span;           <span style=color:#75715e>// 跨度（两节点间距离）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    } level[];                   <span style=color:#75715e>// 层级数组（柔性数组）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>} zskiplistNode;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 跳表
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>typedef</span> <span style=color:#66d9ef>struct</span> zskiplist {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>struct</span> zskiplistNode <span style=color:#f92672>*</span>header, <span style=color:#f92672>*</span>tail;
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>unsigned</span> <span style=color:#66d9ef>long</span> length;        <span style=color:#75715e>// 节点数量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>int</span> level;                   <span style=color:#75715e>// 当前最大层数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>} zskiplist;
+</span></span></code></pre></div><pre tabindex=0><code>跳表示意图:
+
+Level 3: [HEAD]────────────────────► [node4] ──► NULL
+Level 2: [HEAD]────────► [node2]───► [node4] ──► NULL
+Level 1: [HEAD]──► [node1]──► [node2]──► [node3]──► [node4] ──► NULL
+                  │          │          │          │
+                score:1    score:3    score:5    score:7
+                ele:&#34;a&#34;    ele:&#34;b&#34;    ele:&#34;c&#34;    ele:&#34;d&#34;
+
+查询score=5（查找路径）：
+  从高层开始 → L3: node4(7) 太大 → 回退到L2 → node2(3) 可以 → 
+  L1: node3(5) 找到！
+
+时间: O(log n)
+空间: 平均每个节点 1/(1-p) 层 (p=0.25，约1.33层/节点)
+</code></pre><h3 id=53-跳表层数生成>5.3 跳表层数生成</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// Redis跳表层数生成（幂次定律）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>int</span> <span style=color:#a6e22e>zslRandomLevel</span>(<span style=color:#66d9ef>void</span>) {
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>int</span> level <span style=color:#f92672>=</span> <span style=color:#ae81ff>1</span>;
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// p = 1/4 (ZSKIPLIST_P = 0.25)
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>while</span> ((<span style=color:#a6e22e>random</span>() <span style=color:#f92672>&amp;</span> <span style=color:#ae81ff>0xFFFF</span>) <span style=color:#f92672>&lt;</span> (ZSKIPLIST_P <span style=color:#f92672>*</span> <span style=color:#ae81ff>0xFFFF</span>)) {
+</span></span><span style=display:flex><span>        level<span style=color:#f92672>++</span>;
+</span></span><span style=display:flex><span>    }
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> (level <span style=color:#f92672>&lt;</span> ZSKIPLIST_MAXLEVEL) <span style=color:#f92672>?</span> level : ZSKIPLIST_MAXLEVEL;
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 最大64层
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>}
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 期望层数分布：
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// level=1: 75%     (1-p = 0.75)
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// level=2: 18.75%  (p*(1-p))
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// level=3: 4.69%   (p^2*(1-p))
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// level=4: 1.17%   ...
+</span></span></span></code></pre></div><h3 id=54-zset为什么还用了字典>5.4 ZSet为什么还用了字典？</h3><pre tabindex=0><code>ZSet = 跳表 + 字典的复合结构
+
+  跳表：按score排序，支持范围查询（ZRANGE, ZRANK）
+  字典：O(1)获取元素的score（ZSCORE）
+
+  Q: 为什么两个数据结构？
+  A: 
+    - 按成员查分数 → 字典 O(1)
+    - 按分数范围查 → 跳表 O(log n)
+    - 两者结合覆盖所有操作场景
+
+  内存成本：共享节点，指针开销约2倍，但功能翻倍
+</code></pre><hr><h2 id=六压缩列表小数据的紧凑表示>六、压缩列表：小数据的紧凑表示</h2><h3 id=61-结构>6.1 结构</h3><pre tabindex=0><code>压缩列表（ziplist）结构：
+
+  ┌────────┬────────┬────────┬──────┬───┬──────┬────────┐
+  │zlbytes │zltail  │zllen   │entry1│...│entryN│zlend   │
+  │ 4字节  │ 4字节  │ 2字节  │      │   │      │ 1字节  │
+  └────────┴────────┴────────┴──────┴───┴──────┴────────┘
+
+  zlbytes: 整个ziplist占用内存字节数
+  zltail:  最后一个entry距离起始的偏移量（实现O(1)尾部操作）
+  zllen:   entry数量（&gt;65535时需要遍历计算）
+  zlend:   结束标记（0xFF）
+</code></pre><h3 id=62-节点编码>6.2 节点编码</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-c data-lang=c><span style=display:flex><span><span style=color:#75715e>// 压缩列表节点（entry）编码方式：
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 1. 前一个节点长度（prevlen）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//    - &lt; 254字节：1字节存储
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//    - &gt;= 254字节：5字节存储（0xFE + 4字节长度）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 2. 当前节点编码（encoding）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//    - 字节数组：|00|aaaaaa| → 长度&lt;=63字节
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//              |01|aaaaaa|bbbbbbbb| → 长度&lt;=16383
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//              |10|____|aaaaaaaa|bbbbbbbb|cccccccc|dddddddd|eeeeeeee| → 更大
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//    - 整数：  |11000000| → int16_t
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//              |11010000| → int32_t
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//              |11100000| → int64_t
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//              |11111110| → int8_t
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//              |1111xxxx| → 小整数 (0-12)，xxxx=实际值-1
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 3. 实际数据（content）
+</span></span></span></code></pre></div><h3 id=63-连锁更新问题>6.3 连锁更新问题</h3><pre tabindex=0><code>Q: 压缩列表的连锁更新是什么？
+
+触发条件：ziplist中有多个连续的长度在250~253字节的节点
+
+过程：
+  初始: [entry1:253B] [entry2:253B] [entry3:253B] ...
+  
+  在entry1前插入一个254+字节的节点：
+  → entry1的prevlen从1字节变成5字节
+  → entry1长度变成253+4=257字节
+  → entry2的prevlen也要从1字节变成5字节
+  → entry2长度变成253+4=257
+  → ...连锁反应！
+
+解决方案：
+  1. 控制单个ziplist的节点数量（&lt; 512个）
+  2. 控制单个节点大小（避免在250-253字节边界）
+  3. Redis 7.0引入listpack替代ziplist
+</code></pre><h3 id=64-listpackziplist的继任者>6.4 Listpack：ziplist的继任者</h3><pre tabindex=0><code>Redis 7.0引入listpack，解决连锁更新：
+
+  ziplist: [prevlen] [encoding] [data]
+           ↑ 可变长，引发连锁更新
+
+  listpack: [encoding+data] [backlen]
+            ↑ 编码和数据放一起   ↑ 反向长度（存储本节点长度）
+
+listpack优势：
+  - 每个节点记录自己的长度而非前一个节点的长度
+  - 避免了连锁更新问题
+  - 与ziplist类似的内存紧凑特性
+</code></pre><hr><h2 id=七五种数据结构底层实现总览>七、五种数据结构底层实现总览</h2><h3 id=71-实现对照表>7.1 实现对照表</h3><table><thead><tr><th>数据类型</th><th>Redis 3.2前</th><th>Redis 3.2 ~ 6.x</th><th>Redis 7.0+</th></tr></thead><tbody><tr><td>String</td><td>SDS + int/embstr/raw</td><td>同前</td><td>同前</td></tr><tr><td>List</td><td>ziplist + linkedlist</td><td>quicklist</td><td>quicklist</td></tr><tr><td>Hash</td><td>ziplist + hashtable</td><td>ziplist + hashtable</td><td>listpack + hashtable</td></tr><tr><td>Set</td><td>intset + hashtable</td><td>同前</td><td>listpack + hashtable</td></tr><tr><td>ZSet</td><td>ziplist + skiplist+dict</td><td>同前</td><td>listpack + skiplist+dict</td></tr></tbody></table><h3 id=72-编码转换条件>7.2 编码转换条件</h3><pre tabindex=0><code>String的三种编码：
+  int:     能解析为整数且 &lt;= LONG_MAX
+  embstr:  长度 &lt;= 44字节（一次内存分配，只读）
+  raw:     长度 &gt; 44字节或embstr被修改后
+
+Hash的编码转换（Redis 6.x）：
+  ziplist条件（可配置）：
+    hash-max-ziplist-entries: 512   # 元素数 &lt;= 512
+    hash-max-ziplist-value: 64       # 单个值 &lt;= 64字节
+  不满足任一条件 → hashtable
+
+ZSet的编码转换：
+  ziplist条件：
+    zset-max-ziplist-entries: 128
+    zset-max-ziplist-value: 64
+
+Set的编码转换：
+  intset条件：所有元素都是整数 &amp;&amp; 元素数 &lt;= 512
+  否则 → hashtable
+</code></pre><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 查看编码
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>redis<span style=color:#f92672>&gt;</span> SET key <span style=color:#e6db74>&#34;hello&#34;</span>
+</span></span><span style=display:flex><span>OK
+</span></span><span style=display:flex><span>redis<span style=color:#f92672>&gt;</span> OBJECT ENCODING key
+</span></span><span style=display:flex><span><span style=color:#e6db74>&#34;embstr&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>redis<span style=color:#f92672>&gt;</span> SET key <span style=color:#e6db74>&#34;a very long string that exceeds the embstr limit&#34;</span>
+</span></span><span style=display:flex><span>OK
+</span></span><span style=display:flex><span>redis<span style=color:#f92672>&gt;</span> OBJECT ENCODING key
+</span></span><span style=display:flex><span><span style=color:#e6db74>&#34;raw&#34;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>redis<span style=color:#f92672>&gt;</span> SET key <span style=color:#ae81ff>12345</span>
+</span></span><span style=display:flex><span>OK
+</span></span><span style=display:flex><span>redis<span style=color:#f92672>&gt;</span> OBJECT ENCODING key
+</span></span><span style=display:flex><span><span style=color:#e6db74>&#34;int&#34;</span>
+</span></span></code></pre></div><hr><h2 id=八面试高频问题速答>八、面试高频问题速答</h2><p><strong>Q1: Redis的String是直接用的C字符串吗？</strong>
+A: 不是。Redis封装了SDS（简单动态字符串），解决了C字符串获取长度O(n)、缓冲区溢出、二进制不安全等问题。</p><p><strong>Q2: 字典的rehash是阻塞的吗？</strong>
+A: 不是。Redis采用渐进式rehash，将rehash操作分摊到每次增删改查中，避免一次性阻塞服务。空闲时也有定时任务协助。</p><p><strong>Q3: 跳表查询的复杂度是多少？</strong>
+A: 平均O(log n)。每个节点随机生成层数（期望1.33层），查询时从高层开始跳跃，跳过大量节点。</p><p><strong>Q4: 压缩列表有什么优缺点？</strong>
+A: 优点是内存紧凑（连续存储，无指针开销），适合小数据量。缺点是连锁更新问题和查询/修改需要遍历。Redis 7.0用listpack替代。</p><p><strong>Q5: List的quicklist是什么？</strong>
+A: quicklist是双向链表和ziplist的结合体。每个链表节点包含一个ziplist。既保留了链表的插入/删除灵活性，又通过ziplist减少了内存碎片和指针开销。</p><p><strong>Q6: ZSet的score可以重复吗？如何排序？</strong>
+A: score可以重复。相同score时，按成员字符串的字典序排序。底层跳表在score相同时比较ele（SDS字符串）。</p><p><strong>Q7: Hash什么情况下用ziplist（listpack）？</strong>
+A: 字段数 &lt;= 512 且 所有值的长度 &lt;= 64字节时使用ziplist/listpack。超过阈值自动转为hashtable。ziplist内存紧凑但操作O(n)，hashtable查询O(1)但内存开销大。</p><p><strong>Q8: Redis 7.0为何用listpack替代ziplist？</strong>
+A: 主要解决连锁更新问题。listpack每个节点记录自己的长度而非前一个节点的长度，从根本上消除了连锁更新。同时保持了内存紧凑的特性。</p><hr><h2 id=九总结>九、总结</h2><table><thead><tr><th>底层结构</th><th>用途</th><th>时间复杂度</th><th>内存效率</th><th>核心技巧</th></tr></thead><tbody><tr><td>SDS</td><td>String</td><td>O(1)长度</td><td>高</td><td>多种header、预分配、惰性释放</td></tr><tr><td>字典</td><td>Hash, Set, 全局键空间</td><td>O(1)查询</td><td>中</td><td>渐进式rehash、链地址法</td></tr><tr><td>跳表</td><td>ZSet</td><td>O(log n)</td><td>中</td><td>随机层数、跨度字段</td></tr><tr><td>压缩列表</td><td>小集合/Hash/ZSet</td><td>O(n)</td><td>极高</td><td>连续内存、变长编码</td></tr><tr><td>quicklist</td><td>List</td><td>双向操作O(1)</td><td>高</td><td>ziplist节点 + 链表</td></tr></tbody></table><p><strong>Redis快的内功心法：</strong></p><ol><li><strong>空间换时间</strong>：预分配、冗余存储（跳表+字典）</li><li><strong>编码自适应</strong>：小数据用紧凑编码（ziplist/intset），大数据用高性能结构（hashtable/skiplist）</li><li><strong>内存极致</strong>：变长编码、柔性数组、共享对象</li></ol><blockquote><p>🎯 <strong>Redis面试八股文系列开篇！</strong> 本文从五种核心数据结构的底层原理出发，深入SDS、字典渐进式rehash、跳表、压缩列表等面试高频考点，为后续Redis高级特性（持久化、集群、缓存策略）打下坚实基础。</p></blockquote><blockquote><p>📌 <strong>下期预告</strong>：《Redis面试八股文（二）——持久化、过期策略与内存淘汰》将深入RDB快照与AOF日志的原理对比、混合持久化机制、键的过期删除策略（惰性+定期）、以及八种内存淘汰算法的适用场景与实战选择，敬请期待！</p></blockquote></div></article></main><footer><p>&copy; 2026 飞哥的 AI 折腾日记</p></footer></body></html>
