@@ -1,0 +1,732 @@
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Spring面试八股文（六）——Spring Event事件驱动与异步任务处理实战 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
+<a href=https://raphaell2e.github.io/posts/>文章</a>
+<a href=https://raphaell2e.github.io/categories/>分类</a>
+<a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/wealth/>财富</a>
+<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-07-08 <span>/</span> spring</div><h1>Spring面试八股文（六）——Spring Event事件驱动与异步任务处理实战</h1></div><div class=post-content><h1 id=spring面试八股文六spring-event事件驱动与异步任务处理实战>Spring面试八股文（六）——Spring Event事件驱动与异步任务处理实战</h1><blockquote><p>🎯 <strong>本文目标</strong>：在前五篇的基础上，深入解析Spring框架中的事件驱动编程模型——ApplicationEvent机制、@EventListener注解、事务事件监听、@Async异步执行原理、TaskExecutor线程池体系、@Scheduled定时任务、Spring Retry重试机制，构建完整的Spring异步与事件处理知识体系。</p></blockquote><hr><h2 id=一spring-event事件驱动模型>一、Spring Event事件驱动模型</h2><h3 id=11-面试高频问题>1.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Spring事件机制的原理？</td><td>⭐⭐⭐⭐⭐</td><td>观察者模式 + ApplicationContext事件发布</td></tr><tr><td>2</td><td>@EventListener和ApplicationListener的区别？</td><td>⭐⭐⭐⭐</td><td>@EventListener注解更灵活，支持SpEL、条件化</td></tr><tr><td>3</td><td>@TransactionalEventListener的作用？</td><td>⭐⭐⭐⭐⭐</td><td>事务提交后执行，支持四种绑定阶段</td></tr><tr><td>4</td><td>Spring事件默认是同步还是异步？</td><td>⭐⭐⭐⭐</td><td>默认同步，需配合@Async实现异步事件</td></tr><tr><td>5</td><td>Spring事件机制的应用场景？</td><td>⭐⭐⭐⭐</td><td>业务解耦、日志审计、消息通知、数据同步</td></tr></tbody></table><h3 id=12-事件机制架构>1.2 事件机制架构</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────────┐
+│                    ApplicationContext                             │
+│                                                                   │
+│  ┌──────────────┐    publishEvent()    ┌──────────────────────┐  │
+│  │  Publisher    │ ──────────────────→ │   ApplicationEvent-   │  │
+│  │  (业务代码)    │                      │   Multicaster          │  │
+│  └──────────────┘                      │   (事件广播器)          │  │
+│                                        │                       │  │
+│                                        │  SimpleApplication-   │  │
+│                                        │  EventMulticaster     │  │
+│                                        │        │              │  │
+│                                        │   ┌────┴────┐        │  │
+│                                        │   │ Listener列表 │    │  │
+│                                        │   └────┬────┘        │  │
+│                                        └───────┼──────────────┘  │
+│                                                │                 │
+│                              ┌─────────────────┼─────────────┐   │
+│                              │        │        │              │   │
+│                           Listener1  Listener2  Listener3    │   │
+│                           (@EventListener/@Order控制顺序)      │   │
+└─────────────────────────────────────────────────────────────────┘
+</code></pre><p><strong>核心流程</strong>：</p><ol><li><code>ApplicationContext.publishEvent(event)</code> → 委托给 <code>ApplicationEventMulticaster</code></li><li><code>ApplicationEventMulticaster.multicastEvent()</code> → 遍历所有注册的 Listener</li><li>判断是否异步（通过 <code>Executor</code> 是否为 null）</li><li>同步/异步调用每个 Listener 的 <code>onApplicationEvent()</code> 方法</li></ol><h3 id=13-spring-event基础使用>1.3 Spring Event基础使用</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 1. 定义事件 → 继承 ApplicationEvent
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Getter</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@ToString</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderCreatedEvent</span> <span style=color:#66d9ef>extends</span> ApplicationEvent <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> Long orderId<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> Long userId<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> BigDecimal amount<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> LocalDateTime createdAt<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#a6e22e>OrderCreatedEvent</span><span style=color:#f92672>(</span>Object source<span style=color:#f92672>,</span> Long orderId<span style=color:#f92672>,</span> Long userId<span style=color:#f92672>,</span> 
+</span></span><span style=display:flex><span>                             BigDecimal amount<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>super</span><span style=color:#f92672>(</span>source<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>orderId</span> <span style=color:#f92672>=</span> orderId<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>userId</span> <span style=color:#f92672>=</span> userId<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>amount</span> <span style=color:#f92672>=</span> amount<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>this</span><span style=color:#f92672>.</span><span style=color:#a6e22e>createdAt</span> <span style=color:#f92672>=</span> LocalDateTime<span style=color:#f92672>.</span><span style=color:#a6e22e>now</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 2. 发布事件 → ApplicationEventPublisher
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Slf4j</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> ApplicationEventPublisher publisher<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Transactional</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> Order <span style=color:#a6e22e>createOrder</span><span style=color:#f92672>(</span>CreateOrderRequest request<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 创建订单
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        Order order <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Order<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        order<span style=color:#f92672>.</span><span style=color:#a6e22e>setUserId</span><span style=color:#f92672>(</span>request<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        order<span style=color:#f92672>.</span><span style=color:#a6e22e>setAmount</span><span style=color:#f92672>(</span>request<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        order<span style=color:#f92672>.</span><span style=color:#a6e22e>setStatus</span><span style=color:#f92672>(</span>OrderStatus<span style=color:#f92672>.</span><span style=color:#a6e22e>CREATED</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        orderMapper<span style=color:#f92672>.</span><span style=color:#a6e22e>insert</span><span style=color:#f92672>(</span>order<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 2. 发布事件（事务提交前）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        publisher<span style=color:#f92672>.</span><span style=color:#a6e22e>publishEvent</span><span style=color:#f92672>(</span><span style=color:#66d9ef>new</span> OrderCreatedEvent<span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>this</span><span style=color:#f92672>,</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>));</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> order<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 3. 监听事件 → @EventListener
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Component</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Slf4j</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderEventListener</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@EventListener</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>handleOrderCreated</span><span style=color:#f92672>(</span>OrderCreatedEvent event<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;收到订单创建事件: {}&#34;</span><span style=color:#f92672>,</span> event<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 发送短信通知用户
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        smsService<span style=color:#f92672>.</span><span style=color:#a6e22e>sendOrderCreatedSms</span><span style=color:#f92672>(</span>event<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>(),</span> event<span style=color:#f92672>.</span><span style=color:#a6e22e>getOrderId</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 支持通过条件过滤
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@EventListener</span><span style=color:#f92672>(</span>condition <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;#event.amount &gt;= 1000&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>handleLargeOrder</span><span style=color:#f92672>(</span>OrderCreatedEvent event<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;大额订单创建: {}&#34;</span><span style=color:#f92672>,</span> event<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 触发风控审核
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        riskService<span style=color:#f92672>.</span><span style=color:#a6e22e>audit</span><span style=color:#f92672>(</span>event<span style=color:#f92672>.</span><span style=color:#a6e22e>getOrderId</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=14-transactionaleventlistener事务事件>1.4 @TransactionalEventListener：事务事件</h3><p>这是面试中的<strong>热点考点</strong>，深入解析：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Component</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Slf4j</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>TransactionalOrderEventListener</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// AFTER_COMMIT：事务提交后执行（默认值）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@TransactionalEventListener</span><span style=color:#f92672>(</span>phase <span style=color:#f92672>=</span> TransactionPhase<span style=color:#f92672>.</span><span style=color:#a6e22e>AFTER_COMMIT</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>handleOrderAfterCommit</span><span style=color:#f92672>(</span>OrderCreatedEvent event<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;事务已提交，执行后续操作: {}&#34;</span><span style=color:#f92672>,</span> event<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// ✅ 此时数据库已持久化，可以安全地发送MQ/Kafka/执行外部调用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        mqProducer<span style=color:#f92672>.</span><span style=color:#a6e22e>send</span><span style=color:#f92672>(</span><span style=color:#66d9ef>new</span> OrderMessage<span style=color:#f92672>(</span>event<span style=color:#f92672>.</span><span style=color:#a6e22e>getOrderId</span><span style=color:#f92672>()));</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// AFTER_ROLLBACK：事务回滚后执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@TransactionalEventListener</span><span style=color:#f92672>(</span>phase <span style=color:#f92672>=</span> TransactionPhase<span style=color:#f92672>.</span><span style=color:#a6e22e>AFTER_ROLLBACK</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>handleOrderAfterRollback</span><span style=color:#f92672>(</span>OrderCreatedEvent event<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>warn</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;订单创建失败，事务已回滚: {}&#34;</span><span style=color:#f92672>,</span> event<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// ✅ 记录失败日志、发送告警
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        alertService<span style=color:#f92672>.</span><span style=color:#a6e22e>sendAlert</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;订单创建失败&#34;</span><span style=color:#f92672>,</span> event<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// AFTER_COMPLETION：事务完成（提交或回滚）后执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@TransactionalEventListener</span><span style=color:#f92672>(</span>phase <span style=color:#f92672>=</span> TransactionPhase<span style=color:#f92672>.</span><span style=color:#a6e22e>AFTER_COMPLETION</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>handleOrderAfterCompletion</span><span style=color:#f92672>(</span>OrderCreatedEvent event<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;订单事务处理完成: {}&#34;</span><span style=color:#f92672>,</span> event<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// ✅ 无论成功失败，都清理线程上下文、更新统计
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        metricsService<span style=color:#f92672>.</span><span style=color:#a6e22e>incrementOrderCount</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// BEFORE_COMMIT：事务提交前执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@TransactionalEventListener</span><span style=color:#f92672>(</span>phase <span style=color:#f92672>=</span> TransactionPhase<span style=color:#f92672>.</span><span style=color:#a6e22e>BEFORE_COMMIT</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>handleOrderBeforeCommit</span><span style=color:#f92672>(</span>OrderCreatedEvent event<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;事务即将提交: {}&#34;</span><span style=color:#f92672>,</span> event<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// ✅ 在提交前做最后的检查/补充数据
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#75715e>// ⚠️ 抛出异常会导致事务回滚
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        validateOrder<span style=color:#f92672>(</span>event<span style=color:#f92672>.</span><span style=color:#a6e22e>getOrderId</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// fallbackExecution：无事务时也执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@TransactionalEventListener</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>        phase <span style=color:#f92672>=</span> TransactionPhase<span style=color:#f92672>.</span><span style=color:#a6e22e>AFTER_COMMIT</span><span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>        fallbackExecution <span style=color:#f92672>=</span> <span style=color:#66d9ef>true</span>  <span style=color:#75715e>// 当没有事务上下文时仍然执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>handleOrderWithFallback</span><span style=color:#f92672>(</span>OrderCreatedEvent event<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 处理逻辑
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>四个事务阶段对比</strong>：</p><table><thead><tr><th>阶段</th><th>枚举值</th><th>执行时机</th><th>典型场景</th></tr></thead><tbody><tr><td>BEFORE_COMMIT</td><td>TransactionPhase.BEFORE_COMMIT</td><td>事务提交前</td><td>最后校验、补充数据</td></tr><tr><td>AFTER_COMMIT</td><td>TransactionPhase.AFTER_COMMIT（默认）</td><td>事务提交后</td><td>发送消息、通知、异步任务</td></tr><tr><td>AFTER_ROLLBACK</td><td>TransactionPhase.AFTER_ROLLBACK</td><td>事务回滚后</td><td>失败日志、告警、补偿操作</td></tr><tr><td>AFTER_COMPLETION</td><td>TransactionPhase.AFTER_COMPLETION</td><td>事务完成（无论成功/失败）</td><td>清理资源、更新统计</td></tr></tbody></table><h3 id=15-源码剖析如何实现事务绑定>1.5 源码剖析：如何实现事务绑定？</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// TransactionalEventListener 底层原理（简化）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>ApplicationListenerMethodTransactionalAdapter</span> 
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>extends</span> ApplicationListenerMethodAdapter <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> TransactionPhase transactionPhase<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>onApplicationEvent</span><span style=color:#f92672>(</span>ApplicationEvent event<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 判断是否需要事务绑定
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>TransactionSynchronizationManager<span style=color:#f92672>.</span><span style=color:#a6e22e>isSynchronizationActive</span><span style=color:#f92672>())</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// 注册事务同步回调
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            TransactionSynchronizationManager<span style=color:#f92672>.</span><span style=color:#a6e22e>registerSynchronization</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>new</span> TransactionSynchronizationAdapter<span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>                    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>beforeCommit</span><span style=color:#f92672>(</span><span style=color:#66d9ef>boolean</span> readOnly<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>transactionPhase <span style=color:#f92672>==</span> TransactionPhase<span style=color:#f92672>.</span><span style=color:#a6e22e>BEFORE_COMMIT</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                            invoke<span style=color:#f92672>(</span>event<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>                        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>                    
+</span></span><span style=display:flex><span>                    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>                    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>afterCommit</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>transactionPhase <span style=color:#f92672>==</span> TransactionPhase<span style=color:#f92672>.</span><span style=color:#a6e22e>AFTER_COMMIT</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                            invoke<span style=color:#f92672>(</span>event<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>                        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>                    
+</span></span><span style=display:flex><span>                    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>                    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>afterCompletion</span><span style=color:#f92672>(</span><span style=color:#66d9ef>int</span> status<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>transactionPhase <span style=color:#f92672>==</span> TransactionPhase<span style=color:#f92672>.</span><span style=color:#a6e22e>AFTER_COMPLETION</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                            invoke<span style=color:#f92672>(</span>event<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>                        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span> <span style=color:#66d9ef>else</span> <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>fallbackExecution<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// 无事务时直接执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            invoke<span style=color:#f92672>(</span>event<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>关键点</strong>：</p><ol><li><code>TransactionSynchronizationManager.isSynchronizationActive()</code> 判断是否有活跃事务</li><li>有事务 → 注册 <code>TransactionSynchronization</code> 等待对应阶段触发</li><li>无事务 + <code>fallbackExecution=true</code> → 直接执行</li><li>无事务 + <code>fallbackExecution=false</code>（默认） → 不执行</li></ol><hr><h2 id=二async-异步编程>二、@Async 异步编程</h2><h3 id=21-面试高频问题>2.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>@Async的原理是什么？</td><td>⭐⭐⭐⭐⭐</td><td>AOP代理 + TaskExecutor异步提交</td></tr><tr><td>2</td><td>@Async失效的常见原因？</td><td>⭐⭐⭐⭐⭐</td><td>同类调用、未配置线程池、方法非public、代理问题</td></tr><tr><td>3</td><td>如何自定义线程池？</td><td>⭐⭐⭐⭐</td><td>ThreadPoolTaskExecutor配置、@Async指定线程池名</td></tr><tr><td>4</td><td>@Async的方法返回值有哪些？</td><td>⭐⭐⭐⭐</td><td>void、Future、CompletableFuture</td></tr><tr><td>5</td><td>异步方法中的上下文传递问题？</td><td>⭐⭐⭐⭐</td><td>ThreadLocal丢失、MDC传递、TransmittableThreadLocal</td></tr></tbody></table><h3 id=22-async-核心原理>2.2 @Async 核心原理</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 启用异步支持
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Configuration</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@EnableAsync</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>AsyncConfig</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 自定义线程池
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Bean</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;taskExecutor&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> ThreadPoolTaskExecutor <span style=color:#a6e22e>taskExecutor</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        ThreadPoolTaskExecutor executor <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ThreadPoolTaskExecutor<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setCorePoolSize</span><span style=color:#f92672>(</span><span style=color:#ae81ff>10</span><span style=color:#f92672>);</span>           <span style=color:#75715e>// 核心线程数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setMaxPoolSize</span><span style=color:#f92672>(</span><span style=color:#ae81ff>50</span><span style=color:#f92672>);</span>            <span style=color:#75715e>// 最大线程数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setQueueCapacity</span><span style=color:#f92672>(</span><span style=color:#ae81ff>200</span><span style=color:#f92672>);</span>         <span style=color:#75715e>// 队列容量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setKeepAliveSeconds</span><span style=color:#f92672>(</span><span style=color:#ae81ff>60</span><span style=color:#f92672>);</span>       <span style=color:#75715e>// 空闲线程存活时间
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setThreadNamePrefix</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;async-&#34;</span><span style=color:#f92672>);</span> <span style=color:#75715e>// 线程名前缀
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setRejectedExecutionHandler</span><span style=color:#f92672>(</span>   <span style=color:#75715e>// 拒绝策略
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#66d9ef>new</span> ThreadPoolExecutor<span style=color:#f92672>.</span><span style=color:#a6e22e>CallerRunsPolicy</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>initialize</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> executor<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 专门处理IO密集型的线程池
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Bean</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;ioTaskExecutor&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> ThreadPoolTaskExecutor <span style=color:#a6e22e>ioTaskExecutor</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        ThreadPoolTaskExecutor executor <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ThreadPoolTaskExecutor<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setCorePoolSize</span><span style=color:#f92672>(</span><span style=color:#ae81ff>20</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setMaxPoolSize</span><span style=color:#f92672>(</span><span style=color:#ae81ff>100</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setQueueCapacity</span><span style=color:#f92672>(</span><span style=color:#ae81ff>500</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setThreadNamePrefix</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;io-async-&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setRejectedExecutionHandler</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>new</span> ThreadPoolExecutor<span style=color:#f92672>.</span><span style=color:#a6e22e>AbortPolicy</span><span style=color:#f92672>()</span> <span style=color:#75715e>// 直接拒绝并抛异常
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>initialize</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> executor<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 使用异步
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Slf4j</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>NotificationService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 简单异步
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Async</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>sendSms</span><span style=color:#f92672>(</span>String phone<span style=color:#f92672>,</span> String content<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;异步发送短信: {} -&gt; {}&#34;</span><span style=color:#f92672>,</span> phone<span style=color:#f92672>,</span> content<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// Thread.sleep模拟耗时操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        Thread<span style=color:#f92672>.</span><span style=color:#a6e22e>sleep</span><span style=color:#f92672>(</span><span style=color:#ae81ff>2000</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        smsApi<span style=color:#f92672>.</span><span style=color:#a6e22e>send</span><span style=color:#f92672>(</span>phone<span style=color:#f92672>,</span> content<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 指定线程池的异步
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Async</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;ioTaskExecutor&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> CompletableFuture<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>sendEmail</span><span style=color:#f92672>(</span>String email<span style=color:#f92672>,</span> String content<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;异步发送邮件: {}&#34;</span><span style=color:#f92672>,</span> email<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>boolean</span> success <span style=color:#f92672>=</span> emailApi<span style=color:#f92672>.</span><span style=color:#a6e22e>send</span><span style=color:#f92672>(</span>email<span style=color:#f92672>,</span> content<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> CompletableFuture<span style=color:#f92672>.</span><span style=color:#a6e22e>completedFuture</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            success <span style=color:#f92672>?</span> <span style=color:#e6db74>&#34;邮件发送成功&#34;</span> <span style=color:#f92672>:</span> <span style=color:#e6db74>&#34;邮件发送失败&#34;</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 批量异步处理
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Async</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> CompletableFuture<span style=color:#f92672>&lt;</span>List<span style=color:#f92672>&lt;</span>User<span style=color:#f92672>&gt;&gt;</span> <span style=color:#a6e22e>batchQueryUser</span><span style=color:#f92672>(</span>List<span style=color:#f92672>&lt;</span>Long<span style=color:#f92672>&gt;</span> ids<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        List<span style=color:#f92672>&lt;</span>User<span style=color:#f92672>&gt;</span> users <span style=color:#f92672>=</span> userRepository<span style=color:#f92672>.</span><span style=color:#a6e22e>findByIdIn</span><span style=color:#f92672>(</span>ids<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> CompletableFuture<span style=color:#f92672>.</span><span style=color:#a6e22e>completedFuture</span><span style=color:#f92672>(</span>users<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 使用CompletableFuture编排
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderCompletionService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> NotificationService notificationService<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> InventoryService inventoryService<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>completeOrder</span><span style=color:#f92672>(</span>Order order<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 并行执行多个异步任务
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        CompletableFuture<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> emailFuture <span style=color:#f92672>=</span> 
+</span></span><span style=display:flex><span>            notificationService<span style=color:#f92672>.</span><span style=color:#a6e22e>sendEmail</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getEmail</span><span style=color:#f92672>(),</span> <span style=color:#e6db74>&#34;订单创建成功&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        CompletableFuture<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> smsFuture <span style=color:#f92672>=</span> 
+</span></span><span style=display:flex><span>            CompletableFuture<span style=color:#f92672>.</span><span style=color:#a6e22e>supplyAsync</span><span style=color:#f92672>(()</span> <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                notificationService<span style=color:#f92672>.</span><span style=color:#a6e22e>sendSms</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getPhone</span><span style=color:#f92672>(),</span> <span style=color:#e6db74>&#34;订单创建成功&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>return</span> <span style=color:#e6db74>&#34;短信发送成功&#34;</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>});</span>
+</span></span><span style=display:flex><span>        CompletableFuture<span style=color:#f92672>&lt;</span>Void<span style=color:#f92672>&gt;</span> inventoryFuture <span style=color:#f92672>=</span> 
+</span></span><span style=display:flex><span>            CompletableFuture<span style=color:#f92672>.</span><span style=color:#a6e22e>runAsync</span><span style=color:#f92672>(()</span> <span style=color:#f92672>-&gt;</span> 
+</span></span><span style=display:flex><span>                inventoryService<span style=color:#f92672>.</span><span style=color:#a6e22e>deduct</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getProductId</span><span style=color:#f92672>(),</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getCount</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 等待所有任务完成
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        CompletableFuture<span style=color:#f92672>.</span><span style=color:#a6e22e>allOf</span><span style=color:#f92672>(</span>emailFuture<span style=color:#f92672>,</span> smsFuture<span style=color:#f92672>,</span> inventoryFuture<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>thenRun</span><span style=color:#f92672>(()</span> <span style=color:#f92672>-&gt;</span> log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;所有异步任务完成&#34;</span><span style=color:#f92672>))</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>exceptionally</span><span style=color:#f92672>(</span>e <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                log<span style=color:#f92672>.</span><span style=color:#a6e22e>error</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;异步任务异常: {}&#34;</span><span style=color:#f92672>,</span> e<span style=color:#f92672>.</span><span style=color:#a6e22e>getMessage</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>});</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=23-async-失效的常见场景及解决方案>2.3 @Async 失效的常见场景及解决方案</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>AsyncFailService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// ❌ 场景1：同类方法调用（AOP代理不生效）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>doSomething</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        asyncMethod<span style=color:#f92672>();</span>  <span style=color:#75715e>// 直接调用，不会走代理，异步不生效
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Async</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>asyncMethod</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;这不会异步执行&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// ✅ 解决方案1：注入自身代理调用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> AsyncFailService self<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>doSomethingV2</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        self<span style=color:#f92672>.</span><span style=color:#a6e22e>asyncMethod</span><span style=color:#f92672>();</span>  <span style=color:#75715e>// 通过代理调用，异步生效
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// ✅ 解决方案2：分离到不同Service
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>doSomethingV3</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        otherService<span style=color:#f92672>.</span><span style=color:#a6e22e>asyncMethod</span><span style=color:#f92672>();</span>  <span style=color:#75715e>// 不同Service，代理生效
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ❌ 场景2：未启用 @EnableAsync
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 需要在 @Configuration 类上添加 @EnableAsync
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ❌ 场景3：方法不是 public
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// @Async 基于 AOP 代理，private/protected 方法无效
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// ❌ 场景4：返回值处理错误
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 如果声明为 Future，但忘记 return，会返回 null
+</span></span></span></code></pre></div><h3 id=24-异步上下文传递>2.4 异步上下文传递</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 问题：异步线程中 ThreadLocal/MDC 会丢失
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 解决方案1：自定义 TaskDecorator
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Configuration</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@EnableAsync</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>ContextAwareAsyncConfig</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;contextAwareExecutor&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> ThreadPoolTaskExecutor <span style=color:#a6e22e>contextAwareExecutor</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        ThreadPoolTaskExecutor executor <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ThreadPoolTaskExecutor<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setCorePoolSize</span><span style=color:#f92672>(</span><span style=color:#ae81ff>10</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setMaxPoolSize</span><span style=color:#f92672>(</span><span style=color:#ae81ff>50</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setTaskDecorator</span><span style=color:#f92672>(</span><span style=color:#66d9ef>new</span> ContextAwareTaskDecorator<span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        executor<span style=color:#f92672>.</span><span style=color:#a6e22e>initialize</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> executor<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 自定义TaskDecorator：在任务提交时复制上下文
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>ContextAwareTaskDecorator</span> <span style=color:#66d9ef>implements</span> TaskDecorator <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>public</span> Runnable <span style=color:#a6e22e>decorate</span><span style=color:#f92672>(</span>Runnable runnable<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// 1. 获取当前线程的上下文
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            Map<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>,</span> String<span style=color:#f92672>&gt;</span> mdcContext <span style=color:#f92672>=</span> MDC<span style=color:#f92672>.</span><span style=color:#a6e22e>getCopyOfContextMap</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            RequestAttributes attributes <span style=color:#f92672>=</span> RequestContextHolder<span style=color:#f92672>.</span><span style=color:#a6e22e>getRequestAttributes</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            String userId <span style=color:#f92672>=</span> UserContext<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> <span style=color:#f92672>()</span> <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>try</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                    <span style=color:#75715e>// 2. 将上下文设置到异步线程
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                    <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>mdcContext <span style=color:#f92672>!=</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>)</span> MDC<span style=color:#f92672>.</span><span style=color:#a6e22e>setContextMap</span><span style=color:#f92672>(</span>mdcContext<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>                    <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>attributes <span style=color:#f92672>!=</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                        RequestContextHolder<span style=color:#f92672>.</span><span style=color:#a6e22e>setRequestAttributes</span><span style=color:#f92672>(</span>attributes<span style=color:#f92672>,</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>                    UserContext<span style=color:#f92672>.</span><span style=color:#a6e22e>setUserId</span><span style=color:#f92672>(</span>userId<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>                    
+</span></span><span style=display:flex><span>                    <span style=color:#75715e>// 3. 执行原任务
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                    runnable<span style=color:#f92672>.</span><span style=color:#a6e22e>run</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>}</span> <span style=color:#66d9ef>finally</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                    <span style=color:#75715e>// 4. 清理线程上下文
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                    MDC<span style=color:#f92672>.</span><span style=color:#a6e22e>clear</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>                    RequestContextHolder<span style=color:#f92672>.</span><span style=color:#a6e22e>resetRequestAttributes</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>                    UserContext<span style=color:#f92672>.</span><span style=color:#a6e22e>clear</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>};</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 解决方案2：使用 TransmittableThreadLocal（Alibaba TTL）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// &lt;dependency&gt;
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//     &lt;groupId&gt;com.alibaba&lt;/groupId&gt;
+</span></span></span><span style=display:flex><span><span style=color:#75715e>//     &lt;artifactId&gt;transmittable-thread-local&lt;/artifactId&gt;
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// &lt;/dependency&gt;
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>UserContext</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>final</span> TransmittableThreadLocal<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> USER_ID <span style=color:#f92672>=</span> 
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>new</span> TransmittableThreadLocal<span style=color:#f92672>&lt;&gt;();</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>setUserId</span><span style=color:#f92672>(</span>String userId<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        USER_ID<span style=color:#f92672>.</span><span style=color:#a6e22e>set</span><span style=color:#f92672>(</span>userId<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>static</span> String <span style=color:#a6e22e>getUserId</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> USER_ID<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>static</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>clear</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        USER_ID<span style=color:#f92672>.</span><span style=color:#a6e22e>remove</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 结合线程池使用TTL
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Bean</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;ttlExecutor&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> Executor <span style=color:#a6e22e>ttlExecutor</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    ThreadPoolTaskExecutor executor <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ThreadPoolTaskExecutor<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setCorePoolSize</span><span style=color:#f92672>(</span><span style=color:#ae81ff>10</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setMaxPoolSize</span><span style=color:#f92672>(</span><span style=color:#ae81ff>50</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 使用 TtlExecutors 包装
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>return</span> TtlExecutors<span style=color:#f92672>.</span><span style=color:#a6e22e>getTtlExecutor</span><span style=color:#f92672>(</span>executor<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=三spring-taskexecutor-线程池体系>三、Spring TaskExecutor 线程池体系</h2><h3 id=31-面试高频问题>3.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Spring线程池有哪几种？</td><td>⭐⭐⭐⭐</td><td>SimpleAsyncTaskExecutor、ThreadPoolTaskExecutor、ConcurrentTaskExecutor</td></tr><tr><td>2</td><td>ThreadPoolTaskExecutor的核心参数？</td><td>⭐⭐⭐⭐⭐</td><td>corePoolSize、maxPoolSize、queueCapacity、rejectedExecutionHandler</td></tr><tr><td>3</td><td>如何选择合适的线程池参数？</td><td>⭐⭐⭐⭐</td><td>CPU密集 vs IO密集、QPS预估、任务时长</td></tr><tr><td>4</td><td>拒绝策略有哪些？</td><td>⭐⭐⭐⭐</td><td>AbortPolicy、CallerRunsPolicy、DiscardPolicy、DiscardOldestPolicy</td></tr></tbody></table><h3 id=32-spring线程池类型全景>3.2 Spring线程池类型全景</h3><table><thead><tr><th>类型</th><th>特点</th><th>适用场景</th></tr></thead><tbody><tr><td><strong>ThreadPoolTaskExecutor</strong></td><td>基于ThreadPoolExecutor，配置灵活</td><td><strong>最常用</strong>，生产环境首选</td></tr><tr><td><strong>SimpleAsyncTaskExecutor</strong></td><td>每次新建线程，不复用</td><td><strong>仅用于测试</strong>，生产禁用</td></tr><tr><td><strong>ConcurrentTaskExecutor</strong></td><td>适配器，包装JDK Executor</td><td>需要Spring抽象时使用</td></tr><tr><td><strong>WorkManagerTaskExecutor</strong></td><td>基于JCA WorkManager</td><td>Java EE容器环境</td></tr></tbody></table><h3 id=33-线程池参数调优指南>3.3 线程池参数调优指南</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Bean</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;optimizedExecutor&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> ThreadPoolTaskExecutor <span style=color:#a6e22e>optimizedExecutor</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    ThreadPoolTaskExecutor executor <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ThreadPoolTaskExecutor<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 1. 核心线程数：根据业务类型设置
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>int</span> cpuCores <span style=color:#f92672>=</span> Runtime<span style=color:#f92672>.</span><span style=color:#a6e22e>getRuntime</span><span style=color:#f92672>().</span><span style=color:#a6e22e>availableProcessors</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// CPU密集型：corePoolSize = CPU核心数 + 1
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#75715e>// IO密集型：corePoolSize = CPU核心数 * 2（或更大）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setCorePoolSize</span><span style=color:#f92672>(</span>cpuCores <span style=color:#f92672>*</span> <span style=color:#ae81ff>2</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 2. 最大线程数：考虑系统资源上限
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setMaxPoolSize</span><span style=color:#f92672>(</span>cpuCores <span style=color:#f92672>*</span> <span style=color:#ae81ff>4</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 3. 队列容量：平衡延迟和吞吐
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#75715e>// QPS=1000, 任务耗时=100ms → 并发=100，队列至少200
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setQueueCapacity</span><span style=color:#f92672>(</span><span style=color:#ae81ff>500</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 4. 拒绝策略选择
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#75715e>// AbortPolicy：抛异常（需要人工介入的场景）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#75715e>// CallerRunsPolicy：调用者线程执行（降级场景）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#75715e>// DiscardPolicy：静默丢弃（日志/监控等可丢弃场景）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setRejectedExecutionHandler</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>new</span> ThreadPoolExecutor<span style=color:#f92672>.</span><span style=color:#a6e22e>CallerRunsPolicy</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 5. 优雅关闭
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setWaitForTasksToCompleteOnShutdown</span><span style=color:#f92672>(</span><span style=color:#66d9ef>true</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    executor<span style=color:#f92672>.</span><span style=color:#a6e22e>setAwaitTerminationSeconds</span><span style=color:#f92672>(</span><span style=color:#ae81ff>60</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    executor<span style=color:#f92672>.</span><span style=color:#a6e22e>initialize</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>return</span> executor<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=四scheduled-定时任务>四、@Scheduled 定时任务</h2><h3 id=41-面试高频问题>4.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>@Scheduled支持哪些表达式？</td><td>⭐⭐⭐⭐</td><td>cron、fixedDelay、fixedRate、initialDelay</td></tr><tr><td>2</td><td>fixedDelay和fixedRate的区别？</td><td>⭐⭐⭐⭐⭐</td><td>fixedDelay=任务完成间隔，fixedRate=任务开始间隔</td></tr><tr><td>3</td><td>单机定时任务有什么局限性？</td><td>⭐⭐⭐⭐</td><td>不支持集群、无法动态暂停、单点故障</td></tr><tr><td>4</td><td>如何实现分布式定时任务？</td><td>⭐⭐⭐⭐</td><td>XXL-Job、Elastic-Job、ShedLock</td></tr></tbody></table><h3 id=42-scheduled基础使用>4.2 @Scheduled基础使用</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Component</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Slf4j</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>ScheduledTasks</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 1. CRON表达式（最常用）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Scheduled</span><span style=color:#f92672>(</span>cron <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;0 0 2 * * ?&#34;</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 每天凌晨2点
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>dailyReport</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;生成日报&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 2. fixedDelay：每次执行完固定间隔后执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Scheduled</span><span style=color:#f92672>(</span>fixedDelay <span style=color:#f92672>=</span> <span style=color:#ae81ff>60000</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 每次执行完60秒后下次执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>syncData</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;同步数据&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 任务执行时间不影响间隔
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 3. fixedRate：固定频率执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Scheduled</span><span style=color:#f92672>(</span>fixedRate <span style=color:#f92672>=</span> <span style=color:#ae81ff>60000</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 每60秒执行一次
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>cleanCache</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;清理缓存&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 如果任务耗时超过60秒，会等当前任务完成后立即执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 4. initialDelay：首次延迟
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Scheduled</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>        initialDelay <span style=color:#f92672>=</span> <span style=color:#ae81ff>30000</span><span style=color:#f92672>,</span>      <span style=color:#75715e>// 启动后30秒执行首次
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        fixedDelay <span style=color:#f92672>=</span> <span style=color:#ae81ff>600000</span>         <span style=color:#75715e>// 之后每10分钟执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>startDelayTask</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;延迟启动任务&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 自定义线程池（避免共用默认单线程池）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Configuration</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@EnableScheduling</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>SchedulingConfig</span> <span style=color:#66d9ef>implements</span> SchedulingConfigurer <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Override</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>configureTasks</span><span style=color:#f92672>(</span>ScheduledTaskRegistrar taskRegistrar<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        ThreadPoolTaskScheduler scheduler <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ThreadPoolTaskScheduler<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        scheduler<span style=color:#f92672>.</span><span style=color:#a6e22e>setPoolSize</span><span style=color:#f92672>(</span><span style=color:#ae81ff>5</span><span style=color:#f92672>);</span>    <span style=color:#75715e>// 并发执行线程数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        scheduler<span style=color:#f92672>.</span><span style=color:#a6e22e>setThreadNamePrefix</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;scheduled-&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        scheduler<span style=color:#f92672>.</span><span style=color:#a6e22e>initialize</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        taskRegistrar<span style=color:#f92672>.</span><span style=color:#a6e22e>setTaskScheduler</span><span style=color:#f92672>(</span>scheduler<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=43-fixeddelay-vs-fixedrate-图解>4.3 fixedDelay vs fixedRate 图解</h3><pre tabindex=0><code>fixedDelay = 60s（任务耗时30s）
+|--任务(30s)--|--等待60s--|--任务(30s)--|--等待60s--|--任务(30s)--|
+                    ↑ 每次间隔一致
+
+fixedRate = 60s（任务耗时30s）
+|---任务(30s)---|---任务(30s)---|---任务(30s)---|
+   ↑每个整60s时刻启动                             间隔固定
+
+fixedRate = 60s（任务耗时90s，超过间隔）
+|------任务(90s)------|立即启动|------任务(90s)------|立即启动|
+                       ↑ 任务耗时超过间隔，不会并发，排队执行
+</code></pre><h3 id=44-分布式定时任务方案>4.4 分布式定时任务方案</h3><blockquote><p><strong>注意</strong>：分布式定时任务的完整技术方案（XXL-Job、Elastic-Job、Quartz集群等）请参考《分布式系统面试八股文（七）——分布式定时任务与工作流引擎》。这里补充Spring层面的轻量级分布式锁方案 <strong>ShedLock</strong>：</p></blockquote><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// ShedLock：基于数据库/Redis的分布式锁，保证同一时刻只有一个实例执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// 1. 添加依赖
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>&lt;</span>dependency<span style=color:#f92672>&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;</span>groupId<span style=color:#f92672>&gt;</span>net<span style=color:#f92672>.</span><span style=color:#a6e22e>javacrumbs</span><span style=color:#f92672>.</span><span style=color:#a6e22e>shedlock</span><span style=color:#f92672>&lt;/</span>groupId<span style=color:#f92672>&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;</span>artifactId<span style=color:#f92672>&gt;</span>shedlock<span style=color:#f92672>-</span>spring<span style=color:#f92672>&lt;/</span>artifactId<span style=color:#f92672>&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;</span>version<span style=color:#f92672>&gt;</span><span style=color:#ae81ff>5.10.0</span><span style=color:#f92672>&lt;/</span>version<span style=color:#f92672>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>&lt;/</span>dependency<span style=color:#f92672>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>&lt;</span>dependency<span style=color:#f92672>&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;</span>groupId<span style=color:#f92672>&gt;</span>net<span style=color:#f92672>.</span><span style=color:#a6e22e>javacrumbs</span><span style=color:#f92672>.</span><span style=color:#a6e22e>shedlock</span><span style=color:#f92672>&lt;/</span>groupId<span style=color:#f92672>&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;</span>artifactId<span style=color:#f92672>&gt;</span>shedlock<span style=color:#f92672>-</span>provider<span style=color:#f92672>-</span>jdbc<span style=color:#f92672>-</span>template<span style=color:#f92672>&lt;/</span>artifactId<span style=color:#f92672>&gt;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>&lt;</span>version<span style=color:#f92672>&gt;</span><span style=color:#ae81ff>5.10.0</span><span style=color:#f92672>&lt;/</span>version<span style=color:#f92672>&gt;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>&lt;/</span>dependency<span style=color:#f92672>&gt;</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 2. 配置
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Configuration</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@EnableSchedulerLock</span><span style=color:#f92672>(</span>defaultLockAtMostFor <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;PT5M&#34;</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 锁默认持有5分钟
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>ShedLockConfig</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> LockProvider <span style=color:#a6e22e>lockProvider</span><span style=color:#f92672>(</span>DataSource dataSource<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> JdbcTemplateLockProvider<span style=color:#f92672>(</span>dataSource<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 3. 使用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Component</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>DistributedTasks</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Scheduled</span><span style=color:#f92672>(</span>cron <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;0 0 2 * * ?&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@SchedulerLock</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>        name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;dailyReportTask&#34;</span><span style=color:#f92672>,</span>           <span style=color:#75715e>// 锁名称（唯一）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        lockAtMostFor <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;PT10M&#34;</span><span style=color:#f92672>,</span>            <span style=color:#75715e>// 最长持有时间
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        lockAtLeastFor <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;PT1M&#34;</span>             <span style=color:#75715e>// 最短持有时间
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>dailyReport</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;分布式定时任务：生成日报（只有一个实例执行）&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=五spring-retry-重试机制>五、Spring Retry 重试机制</h2><h3 id=51-面试高频问题>5.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Spring Retry的原理？</td><td>⭐⭐⭐⭐</td><td>AOP + 重试模板（RetryTemplate）</td></tr><tr><td>2</td><td>哪些异常应该重试？</td><td>⭐⭐⭐⭐</td><td>瞬时异常（网络超时、连接池满），非业务异常</td></tr><tr><td>3</td><td>重试策略有哪些？</td><td>⭐⭐⭐</td><td>固定间隔、指数退避、随机间隔</td></tr><tr><td>4</td><td>重试导致幂等性问题怎么处理？</td><td>⭐⭐⭐⭐</td><td>唯一约束、幂等Key、分布式锁</td></tr><tr><td>5</td><td>@Retryable和@Async能一起用吗？</td><td>⭐⭐⭐</td><td>可以，但要注意线程池隔离</td></tr></tbody></table><h3 id=52-核心使用方式>5.2 核心使用方式</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 1. 启用重试支持
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Configuration</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@EnableRetry</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>RetryConfig</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 2. 注解方式使用
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Slf4j</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>PaymentService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Retryable</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>        value <span style=color:#f92672>=</span> <span style=color:#f92672>{</span>RemoteServiceException<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>,</span> TimeoutException<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>},</span>
+</span></span><span style=display:flex><span>        maxAttempts <span style=color:#f92672>=</span> <span style=color:#ae81ff>3</span><span style=color:#f92672>,</span>                          <span style=color:#75715e>// 最大重试次数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        backoff <span style=color:#f92672>=</span> <span style=color:#a6e22e>@Backoff</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            delay <span style=color:#f92672>=</span> <span style=color:#ae81ff>1000</span><span style=color:#f92672>,</span>                         <span style=color:#75715e>// 首次重试延迟1s
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            multiplier <span style=color:#f92672>=</span> <span style=color:#ae81ff>2.0</span><span style=color:#f92672>,</span>                     <span style=color:#75715e>// 每次延迟翻倍
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            maxDelay <span style=color:#f92672>=</span> <span style=color:#ae81ff>10000</span>                      <span style=color:#75715e>// 最大延迟10s
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>        recover <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;paymentRecover&#34;</span>                <span style=color:#75715e>// 降级方法
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> PaymentResult <span style=color:#a6e22e>pay</span><span style=color:#f92672>(</span>PaymentRequest request<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;发起支付请求: {}&#34;</span><span style=color:#f92672>,</span> request<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 调用第三方支付接口
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>return</span> remotePaymentClient<span style=color:#f92672>.</span><span style=color:#a6e22e>pay</span><span style=color:#f92672>(</span>request<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 降级方法（参数必须与重试方法一致，并增加异常参数）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Recover</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> PaymentResult <span style=color:#a6e22e>paymentRecover</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            RemoteServiceException e<span style=color:#f92672>,</span> 
+</span></span><span style=display:flex><span>            PaymentRequest request<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>error</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;支付重试3次后仍失败: {}&#34;</span><span style=color:#f92672>,</span> e<span style=color:#f92672>.</span><span style=color:#a6e22e>getMessage</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> PaymentResult<span style=color:#f92672>.</span><span style=color:#a6e22e>fail</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;支付服务暂时不可用，请稍后重试&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Recover</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> PaymentResult <span style=color:#a6e22e>paymentRecover</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            TimeoutException e<span style=color:#f92672>,</span> 
+</span></span><span style=display:flex><span>            PaymentRequest request<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>error</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;支付超时: {}&#34;</span><span style=color:#f92672>,</span> e<span style=color:#f92672>.</span><span style=color:#a6e22e>getMessage</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> PaymentResult<span style=color:#f92672>.</span><span style=color:#a6e22e>pending</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;支付处理中，请稍后查询结果&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 3. 模板方式使用（更灵活）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>TemplateRetryService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> RetryTemplate retryTemplate<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> String <span style=color:#a6e22e>callThirdParty</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> retryTemplate<span style=color:#f92672>.</span><span style=color:#a6e22e>execute</span><span style=color:#f92672>(</span>context <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;重试次数: {}&#34;</span><span style=color:#f92672>,</span> context<span style=color:#f92672>.</span><span style=color:#a6e22e>getRetryCount</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// 调用第三方接口
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#66d9ef>return</span> httpClient<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;https://api.example.com/data&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>},</span> context <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// 所有重试失败后的回调
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            log<span style=color:#f92672>.</span><span style=color:#a6e22e>error</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;调用第三方接口最终失败&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span> <span style=color:#e6db74>&#34;fallback_value&#34;</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>});</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 4. 自定义RetryTemplate
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Configuration</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>RetryTemplateConfig</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> RetryTemplate <span style=color:#a6e22e>retryTemplate</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        RetryTemplate retryTemplate <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> RetryTemplate<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 重试策略：最多重试3次
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        SimpleRetryPolicy retryPolicy <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> SimpleRetryPolicy<span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            <span style=color:#ae81ff>3</span><span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>            Collections<span style=color:#f92672>.</span><span style=color:#a6e22e>singletonMap</span><span style=color:#f92672>(</span>RemoteServiceException<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>false</span>  <span style=color:#75715e>// retryableClassifier为false表示使用&#34;白名单&#34;模式
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        retryTemplate<span style=color:#f92672>.</span><span style=color:#a6e22e>setRetryPolicy</span><span style=color:#f92672>(</span>retryPolicy<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 退避策略：指数退避（1s, 2s, 4s...）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        ExponentialBackOffPolicy backOffPolicy <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ExponentialBackOffPolicy<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        backOffPolicy<span style=color:#f92672>.</span><span style=color:#a6e22e>setInitialInterval</span><span style=color:#f92672>(</span><span style=color:#ae81ff>1000</span><span style=color:#f92672>);</span>   <span style=color:#75715e>// 初始间隔1s
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        backOffPolicy<span style=color:#f92672>.</span><span style=color:#a6e22e>setMultiplier</span><span style=color:#f92672>(</span><span style=color:#ae81ff>2.0</span><span style=color:#f92672>);</span>         <span style=color:#75715e>// 翻倍因子
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        backOffPolicy<span style=color:#f92672>.</span><span style=color:#a6e22e>setMaxInterval</span><span style=color:#f92672>(</span><span style=color:#ae81ff>10000</span><span style=color:#f92672>);</span>      <span style=color:#75715e>// 最大间隔10s
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        retryTemplate<span style=color:#f92672>.</span><span style=color:#a6e22e>setBackOffPolicy</span><span style=color:#f92672>(</span>backOffPolicy<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> retryTemplate<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=53-重试的幂等性处理>5.3 重试的幂等性处理</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>IdempotentPaymentService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> RedisTemplate<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>,</span> String<span style=color:#f92672>&gt;</span> redisTemplate<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Retryable</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>        value <span style=color:#f92672>=</span> RemoteServiceException<span style=color:#f92672>.</span><span style=color:#a6e22e>class</span><span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>        maxAttempts <span style=color:#f92672>=</span> <span style=color:#ae81ff>3</span><span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>        backoff <span style=color:#f92672>=</span> <span style=color:#a6e22e>@Backoff</span><span style=color:#f92672>(</span>delay <span style=color:#f92672>=</span> <span style=color:#ae81ff>1000</span><span style=color:#f92672>,</span> multiplier <span style=color:#f92672>=</span> <span style=color:#ae81ff>2.0</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>deductBalance</span><span style=color:#f92672>(</span>String bizId<span style=color:#f92672>,</span> Long userId<span style=color:#f92672>,</span> BigDecimal amount<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 幂等性保证：使用唯一业务ID做分布式锁
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        String lockKey <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;payment:deduct:&#34;</span> <span style=color:#f92672>+</span> bizId<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 尝试获取锁（如果已处理过，直接返回）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(!</span>redisTemplate<span style=color:#f92672>.</span><span style=color:#a6e22e>opsForValue</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>setIfAbsent</span><span style=color:#f92672>(</span>lockKey<span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;processing&#34;</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>5</span><span style=color:#f92672>,</span> TimeUnit<span style=color:#f92672>.</span><span style=color:#a6e22e>MINUTES</span><span style=color:#f92672>))</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;该支付请求已处理: {}&#34;</span><span style=color:#f92672>,</span> bizId<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>return</span><span style=color:#f92672>;</span>  <span style=color:#75715e>// 幂等返回，不重复执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>try</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// 执行扣款
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            remotePaymentService<span style=color:#f92672>.</span><span style=color:#a6e22e>deduct</span><span style=color:#f92672>(</span>bizId<span style=color:#f92672>,</span> userId<span style=color:#f92672>,</span> amount<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span> <span style=color:#66d9ef>catch</span> <span style=color:#f92672>(</span>Exception e<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// 失败时释放锁，允许重试
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            redisTemplate<span style=color:#f92672>.</span><span style=color:#a6e22e>delete</span><span style=color:#f92672>(</span>lockKey<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>throw</span> e<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=六实战案例订单创建全链路>六、实战案例：订单创建全链路</h2><p>综合运用事件驱动、异步处理和重试机制：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Slf4j</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderCreateOrchestrator</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> OrderRepository orderRepository<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> ApplicationEventPublisher eventPublisher<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> InventoryService inventoryService<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> CouponService couponService<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Transactional</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> OrderResult <span style=color:#a6e22e>createOrder</span><span style=color:#f92672>(</span>CreateOrderRequest request<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 参数校验 &amp; 业务校验
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        validateRequest<span style=color:#f92672>(</span>request<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 2. 创建订单主记录
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        Order order <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Order<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        order<span style=color:#f92672>.</span><span style=color:#a6e22e>setOrderNo</span><span style=color:#f92672>(</span>generateOrderNo<span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        order<span style=color:#f92672>.</span><span style=color:#a6e22e>setUserId</span><span style=color:#f92672>(</span>request<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        order<span style=color:#f92672>.</span><span style=color:#a6e22e>setStatus</span><span style=color:#f92672>(</span>OrderStatus<span style=color:#f92672>.</span><span style=color:#a6e22e>CREATED</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        order<span style=color:#f92672>.</span><span style=color:#a6e22e>setAmount</span><span style=color:#f92672>(</span>request<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        orderRepository<span style=color:#f92672>.</span><span style=color:#a6e22e>save</span><span style=color:#f92672>(</span>order<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 3. 扣减库存（同步，需要保证一致性）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        inventoryService<span style=color:#f92672>.</span><span style=color:#a6e22e>deduct</span><span style=color:#f92672>(</span>request<span style=color:#f92672>.</span><span style=color:#a6e22e>getItems</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 4. 使用优惠券（同步）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>request<span style=color:#f92672>.</span><span style=color:#a6e22e>getCouponId</span><span style=color:#f92672>()</span> <span style=color:#f92672>!=</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            couponService<span style=color:#f92672>.</span><span style=color:#a6e22e>use</span><span style=color:#f92672>(</span>request<span style=color:#f92672>.</span><span style=color:#a6e22e>getCouponId</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 5. 发布事件 → 后续步骤异步执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        eventPublisher<span style=color:#f92672>.</span><span style=color:#a6e22e>publishEvent</span><span style=color:#f92672>(</span><span style=color:#66d9ef>new</span> OrderCreatedEvent<span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>this</span><span style=color:#f92672>,</span> order<span style=color:#f92672>.</span><span style=color:#a6e22e>getId</span><span style=color:#f92672>(),</span> request<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>(),</span> request<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>));</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> OrderResult<span style=color:#f92672>.</span><span style=color:#a6e22e>success</span><span style=color:#f92672>(</span>order<span style=color:#f92672>.</span><span style=color:#a6e22e>getOrderNo</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 事件处理器 → 异步处理后续步骤
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#a6e22e>@Component</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Slf4j</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>OrderCreatedProcessor</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> PointService pointService<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> NotificationService notificationService<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Autowired</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> RecommendationService recommendationService<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@TransactionalEventListener</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>        phase <span style=color:#f92672>=</span> TransactionPhase<span style=color:#f92672>.</span><span style=color:#a6e22e>AFTER_COMMIT</span><span style=color:#f92672>,</span>  <span style=color:#75715e>// 事务提交后执行
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        fallbackExecution <span style=color:#f92672>=</span> <span style=color:#66d9ef>false</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>handleOrderCreated</span><span style=color:#f92672>(</span>OrderCreatedEvent event<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;订单事务已提交，启动后续处理: orderId={}&#34;</span><span style=color:#f92672>,</span> event<span style=color:#f92672>.</span><span style=color:#a6e22e>getOrderId</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 并行处理多个后续任务
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        CompletableFuture<span style=color:#f92672>&lt;</span>Void<span style=color:#f92672>&gt;</span> pointFuture <span style=color:#f92672>=</span> CompletableFuture<span style=color:#f92672>.</span><span style=color:#a6e22e>runAsync</span><span style=color:#f92672>(()</span> <span style=color:#f92672>-&gt;</span> 
+</span></span><span style=display:flex><span>            pointService<span style=color:#f92672>.</span><span style=color:#a6e22e>grantPoints</span><span style=color:#f92672>(</span>event<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>(),</span> event<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        CompletableFuture<span style=color:#f92672>&lt;</span>Void<span style=color:#f92672>&gt;</span> notifyFuture <span style=color:#f92672>=</span> CompletableFuture<span style=color:#f92672>.</span><span style=color:#a6e22e>runAsync</span><span style=color:#f92672>(()</span> <span style=color:#f92672>-&gt;</span>
+</span></span><span style=display:flex><span>            notificationService<span style=color:#f92672>.</span><span style=color:#a6e22e>sendOrderConfirmAsync</span><span style=color:#f92672>(</span>event<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>(),</span> event<span style=color:#f92672>.</span><span style=color:#a6e22e>getOrderId</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        CompletableFuture<span style=color:#f92672>&lt;</span>Void<span style=color:#f92672>&gt;</span> recommendFuture <span style=color:#f92672>=</span> CompletableFuture<span style=color:#f92672>.</span><span style=color:#a6e22e>runAsync</span><span style=color:#f92672>(()</span> <span style=color:#f92672>-&gt;</span>
+</span></span><span style=display:flex><span>            recommendationService<span style=color:#f92672>.</span><span style=color:#a6e22e>updateUserPreference</span><span style=color:#f92672>(</span>event<span style=color:#f92672>.</span><span style=color:#a6e22e>getUserId</span><span style=color:#f92672>(),</span> event<span style=color:#f92672>.</span><span style=color:#a6e22e>getAmount</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 等待所有任务完成
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        CompletableFuture<span style=color:#f92672>.</span><span style=color:#a6e22e>allOf</span><span style=color:#f92672>(</span>pointFuture<span style=color:#f92672>,</span> notifyFuture<span style=color:#f92672>,</span> recommendFuture<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>orTimeout</span><span style=color:#f92672>(</span><span style=color:#ae81ff>10</span><span style=color:#f92672>,</span> TimeUnit<span style=color:#f92672>.</span><span style=color:#a6e22e>SECONDS</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>exceptionally</span><span style=color:#f92672>(</span>e <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                log<span style=color:#f92672>.</span><span style=color:#a6e22e>error</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;订单后续处理失败: {}&#34;</span><span style=color:#f92672>,</span> e<span style=color:#f92672>.</span><span style=color:#a6e22e>getMessage</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>null</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>});</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=七总结>七、总结</h2><table><thead><tr><th>组件</th><th>核心价值</th><th>关键注意点</th></tr></thead><tbody><tr><td><strong>Spring Event</strong></td><td>业务解耦，模块间松耦合</td><td>默认同步执行，注意性能；@TransactionalEventListener是精髓</td></tr><tr><td><strong>@Async</strong></td><td>异步非阻塞，提升吞吐</td><td>同类调用失效是头号陷阱；注意上下文传递</td></tr><tr><td><strong>TaskExecutor</strong></td><td>统一线程池管理</td><td>避免使用默认线程池；根据业务分池配置</td></tr><tr><td><strong>@Scheduled</strong></td><td>轻量级定时任务</td><td>默认单线程，多任务需自定义线程池</td></tr><tr><td><strong>Spring Retry</strong></td><td>优雅处理瞬时故障</td><td>重试必须保证幂等；降级兜底方案不可少</td></tr></tbody></table><p><strong>面试一句话总结套路</strong>：</p><ul><li><strong>事件驱动</strong>：&ldquo;Spring Event基于观察者模式，通过ApplicationEventMulticaster广播事件。我的项目里用@TransactionalEventListener在订单提交后异步发送消息、赠送积分，实现了核心流程与非核心流程的解耦。&rdquo;</li><li><strong>异步编程</strong>："@Async通过AOP将方法提交到TaskExecutor异步执行。生产上我会为CPU密集和IO密集任务分别配置线程池，并通过TaskDecorator传递MDC/ThreadLocal上下文。"</li><li><strong>重试机制</strong>：&ldquo;Spring Retry是基于AOP的重试框架，我主要用它处理第三方接口的超时问题。关键是要保证幂等，我在业务层用分布式锁+唯一Key来防止重复执行。&rdquo;</li></ul><blockquote><p>🎯 <strong>下期预告</strong>：Spring面试八股文（七）——Spring Cache缓存抽象与Redis集成实战，将深入解析@Cacheable/@CacheEvict注解原理、多级缓存策略（本地Caffeine+远程Redis）、缓存穿透/击穿/雪崩的Spring层解决方案等核心知识。</p></blockquote></div></article></main><footer><p>&copy; 2026 飞哥的 AI 折腾日记</p></footer></body></html>
