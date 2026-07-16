@@ -1,0 +1,807 @@
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Spring AI面试八股文（二）——Embedding模型与向量数据库集成 - Raphael Tech Blog</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel=stylesheet><style>:root{--bg-primary:#0a0a0f;--bg-secondary:#12121a;--bg-tertiary:#1a1a25;--text-primary:#e4e4e7;--text-secondary:#a1a1aa;--text-muted:#71717a;--accent:#3b82f6;--accent-hover:#2563eb;--accent-glow:rgba(59, 130, 246, 0.3);--border:#27272a;--code-bg:#0f0f15}*{margin:0;padding:0;box-sizing:border-box}body{font-family:inter,-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.6;min-height:100vh}header{background:var(--bg-secondary);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}.header-content{max-width:900px;margin:0 auto;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center}header h1{font-size:1.25rem;font-weight:700;letter-spacing:-.02em}header h1 a{color:var(--text-primary);text-decoration:none;display:flex;align-items:center;gap:.5rem}header h1 a::before{content:'◆';color:var(--accent);font-size:.875rem}nav{display:flex;gap:1.5rem}nav a{color:var(--text-secondary);text-decoration:none;font-size:.875rem;font-weight:500;transition:color .2s;position:relative}nav a:hover{color:var(--text-primary)}nav a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:var(--accent);transition:width .2s}nav a:hover::after{width:100%}main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}.page-title{font-size:1.5rem;font-weight:700;margin-bottom:2rem;padding-bottom:1rem;border-bottom:1px solid var(--border)}article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:1.5rem;margin-bottom:1rem;transition:all .2s}article:hover{border-color:var(--accent);box-shadow:0 0 20px var(--accent-glow)}article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem}article h2 a{color:var(--text-primary);text-decoration:none}article h2 a:hover{color:var(--accent)}.meta{color:var(--text-muted);font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.75rem}.meta span{color:var(--accent)}.summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}.summary a{color:var(--accent);text-decoration:none;font-weight:500;margin-left:.5rem}.summary a:hover{text-decoration:underline}.post-header{margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--border)}.post-header h1{font-size:2rem;font-weight:700;line-height:1.3;margin-bottom:1rem}.post-content{font-size:1rem;line-height:1.8}.post-content h2{font-size:1.5rem;font-weight:600;margin:2.5rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}.post-content h3{font-size:1.25rem;font-weight:600;margin:2rem 0 1rem;color:var(--accent)}.post-content h4{font-size:1.125rem;font-weight:600;margin:1.5rem 0 .75rem}.post-content p{margin-bottom:1.25rem;color:var(--text-secondary)}.post-content strong{color:var(--text-primary);font-weight:600}.post-content a{color:var(--accent);text-decoration:none}.post-content a:hover{text-decoration:underline}.post-content ul,.post-content ol{margin:1rem 0 1.5rem 1.5rem;color:var(--text-secondary)}.post-content li{margin-bottom:.5rem}.post-content code{font-family:jetbrains mono,monospace;background:var(--code-bg);color:var(--accent);padding:.2rem .4rem;border-radius:4px;font-size:.875em}.post-content pre{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:1.25rem;overflow-x:auto;margin:1.5rem 0}.post-content pre code{background:0 0;color:var(--text-primary);padding:0}.post-content blockquote{border-left:3px solid var(--accent);background:var(--bg-tertiary);padding:1rem 1.25rem;margin:1.5rem 0;border-radius:0 8px 8px 0}.post-content blockquote p{margin:0;color:var(--text-secondary)}.post-content table{width:100%;border-collapse:collapse;margin:1.5rem 0;font-size:.9375rem}.post-content th{background:var(--bg-tertiary);color:var(--text-primary);font-weight:600;text-align:left;padding:.75rem 1rem;border-bottom:2px solid var(--border)}.post-content td{padding:.75rem 1rem;border-bottom:1px solid var(--border);color:var(--text-secondary)}.post-content tr:hover td{background:var(--bg-tertiary)}footer{max-width:900px;margin:4rem auto 0;padding:2rem 1.5rem;border-top:1px solid var(--border);text-align:center;color:var(--text-muted);font-size:.875rem}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:var(--bg-secondary)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}::selection{background:var(--accent-glow);color:var(--text-primary)}.tags-container{max-width:900px}.tags-grid{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}.tag-card{display:inline-flex;align-items:center;gap:.5rem;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:.625rem 1rem;text-decoration:none;transition:all .2s}.tag-card:hover{border-color:var(--accent);background:var(--bg-tertiary);transform:translateY(-1px)}.tag-card .tag-name{color:var(--text-primary);font-size:.9375rem;font-weight:500}.tag-card .tag-num{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.125rem .5rem;border-radius:4px;line-height:1}.categories-container{max-width:900px}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;font-weight:500}.leaf-more:hover{text-decoration:underline}.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);backdrop-filter:blur(5px);justify-content:center;align-items:center;padding:2rem}.modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:16px;max-width:600px;width:100%;max-height:80vh;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,.5)}.modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%)}.modal-header h2{font-size:1.25rem;font-weight:600;display:flex;align-items:center;gap:.75rem}.modal-count{background:var(--accent);color:#fff;font-size:.75rem;font-weight:700;padding:.25rem .75rem;border-radius:20px}.modal-close{font-size:1.5rem;color:var(--text-muted);cursor:pointer;transition:color .2s;line-height:1}.modal-close:hover{color:var(--text-primary)}.modal-body{padding:1rem;overflow-y:auto;max-height:calc(80vh - 80px)}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem;margin-bottom:.5rem;background:var(--bg-tertiary);border-radius:8px;text-decoration:none;transition:all .2s}.modal-article:hover{background:var(--accent)}.modal-article-title{color:var(--text-primary);font-weight:500}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.tag-card{cursor:pointer}.tag-modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);justify-content:center;align-items:center;padding:2rem}.tag-modal-content{background:var(--bg-secondary);border:1px solid var(--border);border-radius:20px;width:100%;max-width:800px;height:600px;overflow:hidden;box-shadow:0 25px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}.tag-modal-header{display:flex;justify-content:space-between;align-items:center;padding:1.5rem 2rem;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);flex-shrink:0}.tag-modal-header h2{font-size:1.5rem;font-weight:700;display:flex;align-items:center;gap:1rem}.modal-count{background:var(--accent);color:#fff;font-size:.875rem;font-weight:700;padding:.375rem 1rem;border-radius:20px}.tag-modal-close{font-size:2rem;color:var(--text-muted);cursor:pointer;transition:all .2s;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:8px}.tag-modal-close:hover{color:var(--text-primary);background:var(--bg-tertiary)}.tag-modal-body{padding:1.5rem 2rem;overflow-y:auto;flex:1}.modal-article{display:flex;justify-content:space-between;align-items:center;padding:1.25rem 1.5rem;margin-bottom:.75rem;background:var(--bg-tertiary);border-radius:12px;text-decoration:none;transition:all .2s;border:1px solid transparent}.modal-article:hover{background:var(--accent);border-color:var(--accent);transform:translateX(8px)}.modal-article-title{color:var(--text-primary);font-weight:500;font-size:1rem}.modal-article:hover .modal-article-title{color:#fff}.modal-article-date{color:var(--text-muted);font-size:.875rem}.modal-article:hover .modal-article-date{color:rgba(255,255,255,.8)}.category-tree{margin-top:2rem;display:flex;flex-direction:column;gap:1rem}.tree-branch{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.tree-branch:hover{border-color:var(--accent)}.branch-header{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;background:linear-gradient(135deg,var(--bg-tertiary) 0%,var(--bg-secondary) 100%);border-bottom:1px solid var(--border)}.branch-icon{font-size:1.25rem}.branch-name{color:var(--text-primary);font-size:1rem;font-weight:600;text-decoration:none;flex:1}.branch-name:hover{color:var(--accent)}.branch-count{color:var(--text-muted);font-size:.875rem;font-weight:500}.branch-leaves{display:flex;flex-wrap:wrap;gap:.5rem;padding:1rem 1.25rem}.leaf-item{color:var(--text-secondary);font-size:.875rem;text-decoration:none;padding:.375rem .75rem;background:var(--bg-tertiary);border-radius:6px;transition:all .2s}.leaf-item:hover{background:var(--accent);color:#fff}.leaf-more{color:var(--accent);font-size:.875rem;padding:.375rem .75rem;font-weight:500;cursor:pointer;transition:all .2s}.leaf-more:hover{text-decoration:underline}.taxonomy-detail{max-width:900px}.taxonomy-stats{margin-bottom:2rem}.stat-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent);color:#fff;font-size:.875rem;font-weight:600;padding:.5rem 1rem;border-radius:6px}.taxonomy-articles{display:flex;flex-direction:column;gap:1rem}.taxonomy-article{background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:all .2s}.taxonomy-article:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 30px var(--accent-glow)}.article-link{display:block;padding:1.5rem;text-decoration:none;color:inherit}.taxonomy-article h2{font-size:1.125rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)}.article-meta{color:var(--text-muted);font-size:.875rem;margin-bottom:.75rem}.article-summary{color:var(--text-secondary);font-size:.9375rem;line-height:1.7}</style></head><body><header><div class=header-content><h1><a href=https://raphaell2e.github.io/>Raphael Tech Blog</a></h1><nav><a href=https://raphaell2e.github.io/>首页</a>
+<a href=https://raphaell2e.github.io/posts/>文章</a>
+<a href=https://raphaell2e.github.io/categories/>分类</a>
+<a href=https://raphaell2e.github.io/tags/>标签</a>
+<a href=https://raphaell2e.github.io/wealth/>财富</a>
+<a href=https://raphaell2e.github.io/about/>关于</a></nav></div></header><main><article class=post><div class=post-header><div class=meta>2026-07-16 <span>/</span> Spring AI</div><h1>Spring AI面试八股文（二）——Embedding模型与向量数据库集成</h1></div><div class=post-content><h1 id=spring-ai面试八股文二embedding模型与向量数据库集成>Spring AI面试八股文（二）——Embedding模型与向量数据库集成</h1><blockquote><p>面试高频问题：什么是Embedding？Spring AI中如何配置Embedding模型？VectorStore有哪些实现？Milvus和Pgvector怎么选？如何设计向量索引？向量搜索的召回率和精度如何优化？本文带你掌握AI应用的数据基础设施。</p></blockquote><h2 id=引言>引言</h2><p>在 AI 应用中，&ldquo;让AI理解数据"是核心命题。Embedding（向量化）是将文本、图像、音频等非结构化数据转换为稠密向量的技术，而向量数据库则是存储和检索这些向量的基础设施。两者共同构成了 RAG（检索增强生成）的数据层底座。</p><p>本文聚焦 Spring AI 中 <strong>Embedding 模型</strong> 和 <strong>VectorStore</strong> 的使用，包括配置、实现、选型和性能优化。这些是企业级 AI 应用落地的必备知识。</p><p><strong>本文要点</strong>：</p><ol><li>Embedding 模型配置与调用</li><li>VectorStore 抽象与主流实现</li><li>向量数据库对比与选型策略</li><li>相似度搜索与向量索引优化</li><li>企业级文档向量化实战</li></ol><hr><h2 id=一embedding-模型核心原理>一、Embedding 模型核心原理</h2><h3 id=11-什么是-embedding>1.1 什么是 Embedding？</h3><p>Embedding 是将离散的高维数据（如文字）映射到连续的、低维的稠密向量空间的技术。语义相近的内容在向量空间中距离更近。</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// 文字 → 向量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>EmbeddingModel embeddingModel <span style=color:#f92672>=</span> <span style=color:#f92672>...</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// &#34;苹果&#34; 和 &#34;香蕉&#34; 的向量应该很接近
+</span></span></span><span style=display:flex><span><span style=color:#75715e>// &#34;苹果&#34; 和 &#34;手机&#34; 的向量应该较远
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>List<span style=color:#f92672>&lt;</span>Double<span style=color:#f92672>&gt;</span> apple <span style=color:#f92672>=</span> embeddingModel<span style=color:#f92672>.</span><span style=color:#a6e22e>embed</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;苹果&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>List<span style=color:#f92672>&lt;</span>Double<span style=color:#f92672>&gt;</span> banana <span style=color:#f92672>=</span> embeddingModel<span style=color:#f92672>.</span><span style=color:#a6e22e>embed</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;香蕉&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>List<span style=color:#f92672>&lt;</span>Double<span style=color:#f92672>&gt;</span> phone <span style=color:#f92672>=</span> embeddingModel<span style=color:#f92672>.</span><span style=color:#a6e22e>embed</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;手机&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 计算余弦相似度
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>double</span> similarity1 <span style=color:#f92672>=</span> cosineSimilarity<span style=color:#f92672>(</span>apple<span style=color:#f92672>,</span> banana<span style=color:#f92672>);</span>  <span style=color:#75715e>// ≈ 0.85
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>double</span> similarity2 <span style=color:#f92672>=</span> cosineSimilarity<span style=color:#f92672>(</span>apple<span style=color:#f92672>,</span> phone<span style=color:#f92672>);</span>    <span style=color:#75715e>// ≈ 0.30
+</span></span></span></code></pre></div><p><strong>面试高频问题</strong>：</p><p><strong>Q: Embedding 和 One-Hot 编码有什么区别？</strong></p><table><thead><tr><th>维度</th><th>One-Hot编码</th><th>Embedding</th></tr></thead><tbody><tr><td>维度</td><td>高维稀疏（词表大小）</td><td>低维稠密（通常128-4096）</td></tr><tr><td>语义</td><td>无语义信息</td><td>蕴含语义关系</td></tr><tr><td>可学习</td><td>否</td><td>是（通过神经网络训练）</td></tr><tr><td>维度灾难</td><td>严重</td><td>规避</td></tr><tr><td>示例</td><td>[0,1,0,0,0,&mldr;]</td><td>[0.23, -0.45, 0.78, &mldr;]</td></tr></tbody></table><h3 id=12-spring-ai-embedding-配置>1.2 Spring AI Embedding 配置</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>spring</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>ai</span>:
+</span></span><span style=display:flex><span>    <span style=color:#75715e># OpenAI Embedding</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>openai</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>api-key</span>: <span style=color:#ae81ff>${OPENAI_API_KEY}</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>embedding</span>:
+</span></span><span style=display:flex><span>        <span style=color:#f92672>options</span>:
+</span></span><span style=display:flex><span>          <span style=color:#f92672>model</span>: <span style=color:#ae81ff>text-embedding-3-small </span> <span style=color:#75715e># 1536维，性价比高</span>
+</span></span><span style=display:flex><span>          <span style=color:#75715e># text-embedding-3-large: 3072维，更精确但更贵</span>
+</span></span><span style=display:flex><span>          <span style=color:#75715e># text-embedding-ada-002: 1536维，GPT-3时代模型（逐步淘汰）</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># DeepSeek Embedding（国产，高性价比）</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>deepseek</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>api-key</span>: <span style=color:#ae81ff>${DEEPSEEK_API_KEY}</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>embedding</span>:
+</span></span><span style=display:flex><span>        <span style=color:#f92672>options</span>:
+</span></span><span style=display:flex><span>          <span style=color:#f92672>model</span>: <span style=color:#ae81ff>deepseek-text-embedding</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e># 本地 Embedding（数据安全场景）</span>
+</span></span><span style=display:flex><span>    <span style=color:#75715e># 需要下载模型文件，通过 Ollama 或本地部署</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>ollama</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>base-url</span>: <span style=color:#ae81ff>http://localhost:11434</span>
+</span></span><span style=display:flex><span>      <span style=color:#f92672>embedding</span>:
+</span></span><span style=display:flex><span>        <span style=color:#f92672>options</span>:
+</span></span><span style=display:flex><span>          <span style=color:#f92672>model</span>: <span style=color:#ae81ff>nomic-embed-text </span> <span style=color:#75715e># 768维，支持中文</span>
+</span></span></code></pre></div><h3 id=13-embeddingmodel-接口>1.3 EmbeddingModel 接口</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// Spring AI 的 EmbeddingModel 接口
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>interface</span> <span style=color:#a6e22e>EmbeddingModel</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 同步嵌入
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    EmbeddingResponse <span style=color:#a6e22e>embed</span><span style=color:#f92672>(</span>Document document<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 批量嵌入
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    List<span style=color:#f92672>&lt;</span>EmbeddingResponse<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>embed</span><span style=color:#f92672>(</span>List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> documents<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 返回向量维度
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>dimensions</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>使用示例</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@RequiredArgsConstructor</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>EmbeddingService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> EmbeddingModel embeddingModel<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 单条嵌入
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>float</span><span style=color:#f92672>[]</span> <span style=color:#a6e22e>embedText</span><span style=color:#f92672>(</span>String text<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        EmbeddingResponse response <span style=color:#f92672>=</span> embeddingModel<span style=color:#f92672>.</span><span style=color:#a6e22e>embed</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>new</span> org<span style=color:#f92672>.</span><span style=color:#a6e22e>springframework</span><span style=color:#f92672>.</span><span style=color:#a6e22e>ai</span><span style=color:#f92672>.</span><span style=color:#a6e22e>document</span><span style=color:#f92672>.</span><span style=color:#a6e22e>Document</span><span style=color:#f92672>(</span>text<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> response<span style=color:#f92672>.</span><span style=color:#a6e22e>getResult</span><span style=color:#f92672>().</span><span style=color:#a6e22e>getOutput</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 批量嵌入（推荐，提高吞吐量）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> List<span style=color:#f92672>&lt;</span><span style=color:#66d9ef>float</span><span style=color:#f92672>[]&gt;</span> <span style=color:#a6e22e>embedTexts</span><span style=color:#f92672>(</span>List<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> texts<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> documents <span style=color:#f92672>=</span> texts<span style=color:#f92672>.</span><span style=color:#a6e22e>stream</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>map</span><span style=color:#f92672>(</span>Document<span style=color:#f92672>::</span><span style=color:#66d9ef>new</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>toList</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        EmbeddingResponse response <span style=color:#f92672>=</span> embeddingModel<span style=color:#f92672>.</span><span style=color:#a6e22e>embed</span><span style=color:#f92672>(</span>documents<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> response<span style=color:#f92672>.</span><span style=color:#a6e22e>getResults</span><span style=color:#f92672>().</span><span style=color:#a6e22e>stream</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>map</span><span style=color:#f92672>(</span>Embedding<span style=color:#f92672>::</span>getOutput<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>toList</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 带元数据的文档嵌入
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>float</span><span style=color:#f92672>[]</span> <span style=color:#a6e22e>embedDocument</span><span style=color:#f92672>(</span>String content<span style=color:#f92672>,</span> Map<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>,</span> Object<span style=color:#f92672>&gt;</span> metadata<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        Document doc <span style=color:#f92672>=</span> Document<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>content</span><span style=color:#f92672>(</span>content<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>metadata</span><span style=color:#f92672>(</span>metadata<span style=color:#f92672>)</span>  <span style=color:#75715e>// 如：source, page, category等
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>id</span><span style=color:#f92672>(</span>UUID<span style=color:#f92672>.</span><span style=color:#a6e22e>randomUUID</span><span style=color:#f92672>().</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> embeddingModel<span style=color:#f92672>.</span><span style=color:#a6e22e>embed</span><span style=color:#f92672>(</span>doc<span style=color:#f92672>).</span><span style=color:#a6e22e>getResult</span><span style=color:#f92672>().</span><span style=color:#a6e22e>getOutput</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=14-主流-embedding-模型对比>1.4 主流 Embedding 模型对比</h3><table><thead><tr><th>模型</th><th>维度</th><th>特点</th><th>适用场景</th><th>成本</th></tr></thead><tbody><tr><td>text-embedding-3-small</td><td>1536</td><td>高性价比，中英文均衡</td><td>通用场景</td><td>$0.02/1M tokens</td></tr><tr><td>text-embedding-3-large</td><td>3072</td><td>精度最高</td><td>高精度需求</td><td>$0.13/1M tokens</td></tr><tr><td>nomic-embed-text</td><td>768</td><td>开源，支持长文本</td><td>本地部署</td><td>免费</td></tr><tr><td>m3e-large</td><td>1024</td><td>中文优化，开源</td><td>中文场景</td><td>免费</td></tr><tr><td>bge-large-zh</td><td>1024</td><td>中英文，CCNews预训练</td><td>中英双语</td><td>免费</td></tr><tr><td>DeepSeek-Embed</td><td>1024</td><td>国产性价比</td><td>中文+代码</td><td>低</td></tr></tbody></table><hr><h2 id=二vectorstore-抽象与实现>二、VectorStore 抽象与实现</h2><h3 id=21-vectorstore-接口设计>2.1 VectorStore 接口设计</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#75715e>// Spring AI 的 VectorStore 接口
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>interface</span> <span style=color:#a6e22e>VectorStore</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 添加文档
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>add</span><span style=color:#f92672>(</span>List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> documents<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 删除文档
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>delete</span><span style=color:#f92672>(</span>List<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> ids<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 相似度搜索
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>String query<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 带选项的搜索
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>SearchRequest request<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 过滤搜索（支持元数据过滤）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>String query<span style=color:#f92672>,</span> FilterExpression filter<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 返回向量维度（与EmbeddingModel配合）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>default</span> <span style=color:#66d9ef>int</span> <span style=color:#a6e22e>getDimension</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span> <span style=color:#f92672>...</span> <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>// 搜索请求
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>SearchRequest</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> String query<span style=color:#f92672>;</span>              <span style=color:#75715e>// 查询文本
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>int</span> topK <span style=color:#f92672>=</span> <span style=color:#ae81ff>4</span><span style=color:#f92672>;</span>              <span style=color:#75715e>// 返回数量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>double</span> similarityThreshold <span style=color:#f92672>=</span> <span style=color:#ae81ff>0.75</span><span style=color:#f92672>;</span>  <span style=color:#75715e>// 相似度阈值
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>private</span> FilterExpression filter<span style=color:#f92672>;</span>    <span style=color:#75715e>// 元数据过滤
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>private</span> String similarityMetric<span style=color:#f92672>;</span>    <span style=color:#75715e>// COSINE/EUCLIDEAN/DOT_PRODUCT
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=22-过滤器表达式filterexpression>2.2 过滤器表达式（FilterExpression）</h3><p>VectorStore 的强大之处在于支持<strong>元数据过滤</strong>：</p><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@RequiredArgsConstructor</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>FilteredSearchService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> VectorStore vectorStore<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 单条件过滤
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>searchByCategory</span><span style=color:#f92672>(</span>String query<span style=color:#f92672>,</span> String category<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        FilterExpression filter <span style=color:#f92672>=</span> FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>equal</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;category&#34;</span><span style=color:#f92672>,</span> category<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            SearchRequest<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>query</span><span style=color:#f92672>(</span>query<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>topK</span><span style=color:#f92672>(</span><span style=color:#ae81ff>10</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>filterExpression</span><span style=color:#f92672>(</span>filter<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 多条件AND过滤
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>searchByDateRange</span><span style=color:#f92672>(</span>String query<span style=color:#f92672>,</span> String startDate<span style=color:#f92672>,</span> String endDate<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        FilterExpression filter <span style=color:#f92672>=</span> FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>and</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>                FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>gte</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;createdAt&#34;</span><span style=color:#f92672>,</span> startDate<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>lte</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;createdAt&#34;</span><span style=color:#f92672>,</span> endDate<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>(),</span>
+</span></span><span style=display:flex><span>                FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>equal</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;status&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;published&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>query<span style=color:#f92672>,</span> filter<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// OR条件过滤
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>searchMultiCategory</span><span style=color:#f92672>(</span>String query<span style=color:#f92672>,</span> List<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> categories<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        FilterExpression filter <span style=color:#f92672>=</span> FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>in</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;category&#34;</span><span style=color:#f92672>,</span> categories<span style=color:#f92672>.</span><span style=color:#a6e22e>toArray</span><span style=color:#f92672>(</span><span style=color:#66d9ef>new</span> String<span style=color:#f92672>[</span><span style=color:#ae81ff>0</span><span style=color:#f92672>]))</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>query<span style=color:#f92672>,</span> filter<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 复杂嵌套过滤
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>searchComplex</span><span style=color:#f92672>(</span>String query<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        FilterExpression filter <span style=color:#f92672>=</span> FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>and</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>                FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>or</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>                        FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                            <span style=color:#f92672>.</span><span style=color:#a6e22e>equal</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;source&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;manual&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                            <span style=color:#f92672>.</span><span style=color:#a6e22e>equal</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;source&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;auto&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>(),</span>
+</span></span><span style=display:flex><span>                FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>notEqual</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;deleted&#34;</span><span style=color:#f92672>,</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>gte</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;score&#34;</span><span style=color:#f92672>,</span> <span style=color:#ae81ff>0.5</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>query<span style=color:#f92672>,</span> filter<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=23-主流-vectorstore-实现对比>2.3 主流 VectorStore 实现对比</h3><table><thead><tr><th>向量数据库</th><th>特点</th><th>适用场景</th><th>Spring AI支持</th><th>部署方式</th></tr></thead><tbody><tr><td><strong>Milvus</strong></td><td>专为向量设计，性能最强</td><td>大规模生产环境</td><td>✅ 完整支持</td><td>云/K8S/本地</td></tr><tr><td><strong>Pgvector</strong></td><td>PostgreSQL扩展，SQL统一管理</td><td>中小型，SQL优先团队</td><td>✅ 完整支持</td><td>PostgreSQL附加</td></tr><tr><td><strong>Chroma</strong></td><td>轻量，嵌入式首选</td><td>POC/原型/小规模</td><td>✅ 完整支持</td><td>Python/本地</td></tr><tr><td><strong>Weaviate</strong></td><td>原生混合搜索(向量+关键词)</td><td>混合检索场景</td><td>✅ 完整支持</td><td>K8S/云</td></tr><tr><td><strong>Qdrant</strong></td><td>高性能，Rust实现</td><td>低延迟需求</td><td>✅ 完整支持</td><td>Docker/K8S</td></tr><tr><td><strong>Elasticsearch</strong></td><td>企业已有，混合检索</td><td>Elasticsearch用户</td><td>✅ 完整支持</td><td>现有ES集群</td></tr><tr><td><strong>In-Memory</strong></td><td>纯内存，最快</td><td>小规模/测试</td><td>✅ 完整支持</td><td>内存</td></tr></tbody></table><hr><h2 id=三milvus-企业级实战>三、Milvus 企业级实战</h2><h3 id=31-配置与初始化>3.1 配置与初始化</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#75715e># application.yml</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>spring</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>ai</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>vectorstore</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>milvus</span>:
+</span></span><span style=display:flex><span>        <span style=color:#f92672>url</span>: <span style=color:#ae81ff>${MILVUS_URL:http://localhost:19530}</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>database-name</span>: <span style=color:#ae81ff>${MILVUS_DB:default}</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>username</span>: <span style=color:#ae81ff>${MILVUS_USER:root}</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>password</span>: <span style=color:#ae81ff>${MILVUS_PASSWORD:milvus}</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>collection</span>:
+</span></span><span style=display:flex><span>          <span style=color:#f92672>name</span>: <span style=color:#ae81ff>documents</span>
+</span></span><span style=display:flex><span>          <span style=color:#f92672>dimension</span>: <span style=color:#ae81ff>1536</span>  <span style=color:#75715e># 与Embedding模型维度一致</span>
+</span></span><span style=display:flex><span>          <span style=color:#f92672>metric-type</span>: <span style=color:#ae81ff>COSINE </span> <span style=color:#75715e># COSINE/IP/L2</span>
+</span></span><span style=display:flex><span>          <span style=color:#f92672>index-type</span>: <span style=color:#ae81ff>IVF_FLAT </span> <span style=color:#75715e># 索引类型</span>
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Configuration</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>MilvusVectorStoreConfig</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> VectorStore <span style=color:#a6e22e>milvusVectorStore</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            EmbeddingModel embeddingModel<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>            MilvusApi milvusApi<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> MilvusVectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>(</span>embeddingModel<span style=color:#f92672>,</span> milvusApi<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>collectionName</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;tech_articles&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>databaseName</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;ai_app&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>indexType</span><span style=color:#f92672>(</span>IndexType<span style=color:#f92672>.</span><span style=color:#a6e22e>IVF_FLAT</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>metricType</span><span style=color:#f92672>(</span>MetricType<span style=color:#f92672>.</span><span style=color:#a6e22e>COSINE</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>topK</span><span style=color:#f92672>(</span><span style=color:#ae81ff>5</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=32-文档管理与搜索>3.2 文档管理与搜索</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@RequiredArgsConstructor</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Slf4j</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>ArticleVectorService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> VectorStore vectorStore<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> EmbeddingModel embeddingModel<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 批量导入文档
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>importArticles</span><span style=color:#f92672>(</span>List<span style=color:#f92672>&lt;</span>Article<span style=color:#f92672>&gt;</span> articles<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> documents <span style=color:#f92672>=</span> articles<span style=color:#f92672>.</span><span style=color:#a6e22e>stream</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>map</span><span style=color:#f92672>(</span><span style=color:#66d9ef>this</span><span style=color:#f92672>::</span>articleToDocument<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>toList</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;开始向量化导入 {} 篇文章&#34;</span><span style=color:#f92672>,</span> documents<span style=color:#f92672>.</span><span style=color:#a6e22e>size</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>add</span><span style=color:#f92672>(</span>documents<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;导入完成&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 语义搜索
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> List<span style=color:#f92672>&lt;</span>SearchResult<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>semanticSearch</span><span style=color:#f92672>(</span>String query<span style=color:#f92672>,</span> <span style=color:#66d9ef>int</span> limit<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        SearchRequest request <span style=color:#f92672>=</span> SearchRequest<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>query</span><span style=color:#f92672>(</span>query<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>topK</span><span style=color:#f92672>(</span>limit<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>similarityThreshold</span><span style=color:#f92672>(</span><span style=color:#ae81ff>0.75</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>request<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>stream</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>map</span><span style=color:#f92672>(</span><span style=color:#66d9ef>this</span><span style=color:#f92672>::</span>documentToResult<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>toList</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 带过滤的搜索
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> List<span style=color:#f92672>&lt;</span>SearchResult<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>filteredSearch</span><span style=color:#f92672>(</span>String query<span style=color:#f92672>,</span> String category<span style=color:#f92672>,</span> <span style=color:#66d9ef>int</span> limit<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        FilterExpression filter <span style=color:#f92672>=</span> FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>equal</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;category&#34;</span><span style=color:#f92672>,</span> category<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>equal</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;status&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;published&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        SearchRequest request <span style=color:#f92672>=</span> SearchRequest<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>query</span><span style=color:#f92672>(</span>query<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>topK</span><span style=color:#f92672>(</span>limit<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>filterExpression</span><span style=color:#f92672>(</span>filter<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>request<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>stream</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>map</span><span style=color:#f92672>(</span><span style=color:#66d9ef>this</span><span style=color:#f92672>::</span>documentToResult<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>toList</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 删除过期文档
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>deleteOldArticles</span><span style=color:#f92672>(</span>String beforeDate<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        FilterExpression filter <span style=color:#f92672>=</span> FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>lt</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;createdAt&#34;</span><span style=color:#f92672>,</span> beforeDate<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>equal</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;status&#34;</span><span style=color:#f92672>,</span> <span style=color:#e6db74>&#34;archived&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// Milvus 需要先查询再删除
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> toDelete <span style=color:#f92672>=</span> vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            SearchRequest<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>query</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;*&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>topK</span><span style=color:#f92672>(</span><span style=color:#ae81ff>10000</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>filterExpression</span><span style=color:#f92672>(</span>filter<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(!</span>toDelete<span style=color:#f92672>.</span><span style=color:#a6e22e>isEmpty</span><span style=color:#f92672>())</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            List<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> ids <span style=color:#f92672>=</span> toDelete<span style=color:#f92672>.</span><span style=color:#a6e22e>stream</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>map</span><span style=color:#f92672>(</span>Document<span style=color:#f92672>::</span>getId<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>toList</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>delete</span><span style=color:#f92672>(</span>ids<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;删除了 {} 篇过期文档&#34;</span><span style=color:#f92672>,</span> ids<span style=color:#f92672>.</span><span style=color:#a6e22e>size</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> Document <span style=color:#a6e22e>articleToDocument</span><span style=color:#f92672>(</span>Article article<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> Document<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>id</span><span style=color:#f92672>(</span>article<span style=color:#f92672>.</span><span style=color:#a6e22e>getId</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>content</span><span style=color:#f92672>(</span>article<span style=color:#f92672>.</span><span style=color:#a6e22e>getContent</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>metadata</span><span style=color:#f92672>(</span>Map<span style=color:#f92672>.</span><span style=color:#a6e22e>of</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>                <span style=color:#e6db74>&#34;title&#34;</span><span style=color:#f92672>,</span> article<span style=color:#f92672>.</span><span style=color:#a6e22e>getTitle</span><span style=color:#f92672>(),</span>
+</span></span><span style=display:flex><span>                <span style=color:#e6db74>&#34;category&#34;</span><span style=color:#f92672>,</span> article<span style=color:#f92672>.</span><span style=color:#a6e22e>getCategory</span><span style=color:#f92672>(),</span>
+</span></span><span style=display:flex><span>                <span style=color:#e6db74>&#34;author&#34;</span><span style=color:#f92672>,</span> article<span style=color:#f92672>.</span><span style=color:#a6e22e>getAuthor</span><span style=color:#f92672>(),</span>
+</span></span><span style=display:flex><span>                <span style=color:#e6db74>&#34;createdAt&#34;</span><span style=color:#f92672>,</span> article<span style=color:#f92672>.</span><span style=color:#a6e22e>getCreatedAt</span><span style=color:#f92672>().</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>(),</span>
+</span></span><span style=display:flex><span>                <span style=color:#e6db74>&#34;status&#34;</span><span style=color:#f92672>,</span> article<span style=color:#f92672>.</span><span style=color:#a6e22e>getStatus</span><span style=color:#f92672>(),</span>
+</span></span><span style=display:flex><span>                <span style=color:#e6db74>&#34;tags&#34;</span><span style=color:#f92672>,</span> String<span style=color:#f92672>.</span><span style=color:#a6e22e>join</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;,&#34;</span><span style=color:#f92672>,</span> article<span style=color:#f92672>.</span><span style=color:#a6e22e>getTags</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>))</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> SearchResult <span style=color:#a6e22e>documentToResult</span><span style=color:#f92672>(</span>Document doc<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> SearchResult<span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            doc<span style=color:#f92672>.</span><span style=color:#a6e22e>getId</span><span style=color:#f92672>(),</span>
+</span></span><span style=display:flex><span>            doc<span style=color:#f92672>.</span><span style=color:#a6e22e>getMetadata</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;title&#34;</span><span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>            doc<span style=color:#f92672>.</span><span style=color:#a6e22e>getContent</span><span style=color:#f92672>(),</span>
+</span></span><span style=display:flex><span>            doc<span style=color:#f92672>.</span><span style=color:#a6e22e>getMetadata</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;category&#34;</span><span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>            doc<span style=color:#f92672>.</span><span style=color:#a6e22e>getMetadata</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;author&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> record <span style=color:#a6e22e>SearchResult</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>        String id<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>        String title<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>        String content<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>        String category<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>        String author
+</span></span><span style=display:flex><span>    <span style=color:#f92672>)</span> <span style=color:#f92672>{}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=四pgvector-实战sql优先团队首选>四、Pgvector 实战（SQL优先团队首选）</h2><h3 id=41-postgresql-扩展安装>4.1 PostgreSQL 扩展安装</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=display:flex><span><span style=color:#75715e>-- 安装 pgvector 扩展
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>CREATE</span> EXTENSION <span style=color:#66d9ef>IF</span> <span style=color:#66d9ef>NOT</span> <span style=color:#66d9ef>EXISTS</span> vector;
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- 创建文档表
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>CREATE</span> <span style=color:#66d9ef>TABLE</span> documents (
+</span></span><span style=display:flex><span>    id UUID <span style=color:#66d9ef>PRIMARY</span> <span style=color:#66d9ef>KEY</span> <span style=color:#66d9ef>DEFAULT</span> gen_random_uuid(),
+</span></span><span style=display:flex><span>    content TEXT <span style=color:#66d9ef>NOT</span> <span style=color:#66d9ef>NULL</span>,
+</span></span><span style=display:flex><span>    title VARCHAR(<span style=color:#ae81ff>500</span>),
+</span></span><span style=display:flex><span>    category VARCHAR(<span style=color:#ae81ff>100</span>),
+</span></span><span style=display:flex><span>    author VARCHAR(<span style=color:#ae81ff>100</span>),
+</span></span><span style=display:flex><span>    created_at <span style=color:#66d9ef>TIMESTAMP</span> <span style=color:#66d9ef>DEFAULT</span> NOW(),
+</span></span><span style=display:flex><span>    status VARCHAR(<span style=color:#ae81ff>20</span>) <span style=color:#66d9ef>DEFAULT</span> <span style=color:#e6db74>&#39;draft&#39;</span>,
+</span></span><span style=display:flex><span>    embedding VECTOR(<span style=color:#ae81ff>1536</span>)  <span style=color:#75715e>-- 1536维，与text-embedding-3-small一致
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- 创建向量索引（HNSW vs IVF_FLAT）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>-- HNSW: 更高精度，更快查询，但索引构建慢，内存占用大
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span><span style=color:#66d9ef>CREATE</span> <span style=color:#66d9ef>INDEX</span> <span style=color:#66d9ef>ON</span> documents <span style=color:#66d9ef>USING</span> hnsw (embedding vector_cosine_ops);
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#75715e>-- 或使用 IVF_FLAT（适合超大规模数据）
+</span></span></span><span style=display:flex><span><span style=color:#75715e>-- CREATE INDEX ON documents USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+</span></span></span></code></pre></div><h3 id=42-spring-data-jdbc-集成>4.2 Spring Data JDBC 集成</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#75715e># application.yml</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>spring</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>ai</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>vectorstore</span>:
+</span></span><span style=display:flex><span>      <span style=color:#f92672>pgvector</span>:
+</span></span><span style=display:flex><span>        <span style=color:#f92672>initialize-schema</span>: <span style=color:#66d9ef>true</span>  <span style=color:#75715e># 自动建表</span>
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Repository</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>interface</span> <span style=color:#a6e22e>DocumentRepository</span> <span style=color:#66d9ef>extends</span> CrudRepository<span style=color:#f92672>&lt;</span>PgDocument<span style=color:#f92672>,</span> UUID<span style=color:#f92672>&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 全文搜索
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Query</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;&#34;&#34;
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        SELECT * FROM documents 
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        WHERE status = &#39;published&#39;
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        AND to_tsvector(&#39;chinese&#39;, content) @@ plainto_tsquery(&#39;chinese&#39;, :keyword)
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        LIMIT :limit
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        &#34;&#34;&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    List<span style=color:#f92672>&lt;</span>PgDocument<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>fullTextSearch</span><span style=color:#f92672>(</span><span style=color:#a6e22e>@Param</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;keyword&#34;</span><span style=color:#f92672>)</span> String keyword<span style=color:#f92672>,</span> <span style=color:#a6e22e>@Param</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;limit&#34;</span><span style=color:#f92672>)</span> <span style=color:#66d9ef>int</span> limit<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 混合搜索（向量+关键词）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Query</span><span style=color:#f92672>(</span>value <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;&#34;&#34;
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        SELECT *, 1 - (embedding &lt;=&gt; :embedding) as similarity
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        FROM documents
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        WHERE status = &#39;published&#39;
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        AND to_tsvector(&#39;chinese&#39;, content) @@ plainto_tsquery(&#39;chinese&#39;, :keyword)
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        ORDER BY embedding &lt;=&gt; :embedding
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        LIMIT :limit
+</span></span></span><span style=display:flex><span><span style=color:#e6db74>        &#34;&#34;&#34;</span><span style=color:#f92672>,</span> nativeQuery <span style=color:#f92672>=</span> <span style=color:#66d9ef>true</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    List<span style=color:#f92672>&lt;</span>PgDocument<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>hybridSearch</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>@Param</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;embedding&#34;</span><span style=color:#f92672>)</span> <span style=color:#66d9ef>float</span><span style=color:#f92672>[]</span> embedding<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>@Param</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;keyword&#34;</span><span style=color:#f92672>)</span> String keyword<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>        <span style=color:#a6e22e>@Param</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;limit&#34;</span><span style=color:#f92672>)</span> <span style=color:#66d9ef>int</span> limit
+</span></span><span style=display:flex><span>    <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Entity</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Table</span><span style=color:#f92672>(</span>name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;documents&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>PgDocument</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Id</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> UUID id<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Column</span><span style=color:#f92672>(</span>columnDefinition <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;text&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> String content<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> String title<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> String category<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Column</span><span style=color:#f92672>(</span>name <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;embedding&#34;</span><span style=color:#f92672>,</span> columnDefinition <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;vector(1536)&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>float</span><span style=color:#f92672>[]</span> embedding<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> String status<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> Instant createdAt<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=43-混合搜索实现>4.3 混合搜索实现</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@RequiredArgsConstructor</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>HybridSearchService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> VectorStore vectorStore<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> EmbeddingModel embeddingModel<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> DocumentRepository documentRepository<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 混合搜索：向量相似度 + BM25关键词权重
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> List<span style=color:#f92672>&lt;</span>HybridSearchResult<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>hybridSearch</span><span style=color:#f92672>(</span>String query<span style=color:#f92672>,</span> <span style=color:#66d9ef>int</span> limit<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 向量搜索
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> vectorResults <span style=color:#f92672>=</span> vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            SearchRequest<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>query</span><span style=color:#f92672>(</span>query<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>topK</span><span style=color:#f92672>(</span>limit <span style=color:#f92672>*</span> <span style=color:#ae81ff>2</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 多取一些用于融合
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 2. 关键词搜索
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        List<span style=color:#f92672>&lt;</span>PgDocument<span style=color:#f92672>&gt;</span> keywordResults <span style=color:#f92672>=</span> documentRepository<span style=color:#f92672>.</span><span style=color:#a6e22e>fullTextSearch</span><span style=color:#f92672>(</span>query<span style=color:#f92672>,</span> limit <span style=color:#f92672>*</span> <span style=color:#ae81ff>2</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 3. RRF融合算法（Reciprocal Rank Fusion）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        Map<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>,</span> HybridSearchResult<span style=color:#f92672>&gt;</span> fused <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> HashMap<span style=color:#f92672>&lt;&gt;();</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> k <span style=color:#f92672>=</span> <span style=color:#ae81ff>60</span><span style=color:#f92672>;</span>  <span style=color:#75715e>// RRF参数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 向量搜索结果融合
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> i <span style=color:#f92672>&lt;</span> vectorResults<span style=color:#f92672>.</span><span style=color:#a6e22e>size</span><span style=color:#f92672>();</span> i<span style=color:#f92672>++)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            String id <span style=color:#f92672>=</span> vectorResults<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span>i<span style=color:#f92672>).</span><span style=color:#a6e22e>getId</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>double</span> score <span style=color:#f92672>=</span> <span style=color:#ae81ff>1.0</span> <span style=color:#f92672>/</span> <span style=color:#f92672>(</span>k <span style=color:#f92672>+</span> i <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            fused<span style=color:#f92672>.</span><span style=color:#a6e22e>computeIfAbsent</span><span style=color:#f92672>(</span>id<span style=color:#f92672>,</span> id_ <span style=color:#f92672>-&gt;</span> HybridSearchResult<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>document</span><span style=color:#f92672>(</span>vectorResults<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span>i<span style=color:#f92672>))</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>vectorScore</span><span style=color:#f92672>(</span>score<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 关键词搜索结果融合
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>int</span> i <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span> i <span style=color:#f92672>&lt;</span> keywordResults<span style=color:#f92672>.</span><span style=color:#a6e22e>size</span><span style=color:#f92672>();</span> i<span style=color:#f92672>++)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            String id <span style=color:#f92672>=</span> keywordResults<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span>i<span style=color:#f92672>).</span><span style=color:#a6e22e>getId</span><span style=color:#f92672>().</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>double</span> score <span style=color:#f92672>=</span> <span style=color:#ae81ff>1.0</span> <span style=color:#f92672>/</span> <span style=color:#f92672>(</span>k <span style=color:#f92672>+</span> i <span style=color:#f92672>+</span> <span style=color:#ae81ff>1</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            fused<span style=color:#f92672>.</span><span style=color:#a6e22e>computeIfAbsent</span><span style=color:#f92672>(</span>id<span style=color:#f92672>,</span> id_ <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                Document doc <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> Document<span style=color:#f92672>(</span>id<span style=color:#f92672>,</span> keywordResults<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span>i<span style=color:#f92672>).</span><span style=color:#a6e22e>getContent</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>return</span> HybridSearchResult<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>document</span><span style=color:#f92672>(</span>doc<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>keywordScore</span><span style=color:#f92672>(</span>score<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>});</span>
+</span></span><span style=display:flex><span>            fused<span style=color:#f92672>.</span><span style=color:#a6e22e>get</span><span style=color:#f92672>(</span>id<span style=color:#f92672>).</span><span style=color:#a6e22e>setKeywordScore</span><span style=color:#f92672>(</span>score<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 4. 按综合分数排序
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>return</span> fused<span style=color:#f92672>.</span><span style=color:#a6e22e>values</span><span style=color:#f92672>().</span><span style=color:#a6e22e>stream</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>sorted</span><span style=color:#f92672>((</span>a<span style=color:#f92672>,</span> b<span style=color:#f92672>)</span> <span style=color:#f92672>-&gt;</span> Double<span style=color:#f92672>.</span><span style=color:#a6e22e>compare</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>                b<span style=color:#f92672>.</span><span style=color:#a6e22e>getCombinedScore</span><span style=color:#f92672>(),</span> a<span style=color:#f92672>.</span><span style=color:#a6e22e>getCombinedScore</span><span style=color:#f92672>()))</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>limit</span><span style=color:#f92672>(</span>limit<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>toList</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Data</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Builder</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>HybridSearchResult</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> Document document<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>double</span> vectorScore<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>double</span> keywordScore<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>double</span> <span style=color:#a6e22e>getCombinedScore</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 可调权重：alpha=1纯向量，alpha=0纯关键词
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>double</span> alpha <span style=color:#f92672>=</span> <span style=color:#ae81ff>0.7</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> alpha <span style=color:#f92672>*</span> vectorScore <span style=color:#f92672>+</span> <span style=color:#f92672>(</span><span style=color:#ae81ff>1</span> <span style=color:#f92672>-</span> alpha<span style=color:#f92672>)</span> <span style=color:#f92672>*</span> keywordScore<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=五向量索引与性能优化>五、向量索引与性能优化</h2><h3 id=51-索引类型对比>5.1 索引类型对比</h3><table><thead><tr><th>索引类型</th><th>原理</th><th>适用规模</th><th>精度</th><th>构建速度</th><th>查询速度</th><th>内存占用</th></tr></thead><tbody><tr><td><strong>FLAT</strong></td><td>暴力搜索</td><td>&lt;10万</td><td>100%</td><td>无需构建</td><td>慢</td><td>无额外</td></tr><tr><td><strong>IVF_FLAT</strong></td><td>聚类+暴力搜索</td><td>100万-1亿</td><td>高</td><td>快</td><td>中</td><td>中</td></tr><tr><td><strong>IVF_PQ</strong></td><td>聚类+压缩</td><td>亿级+</td><td>中</td><td>快</td><td>快</td><td>低（压缩）</td></tr><tr><td><strong>HNSW</strong></td><td>图索引</td><td>10万-10亿</td><td>最高</td><td>慢</td><td>最快</td><td>高</td></tr><tr><td><strong>DiskANN</strong></td><td>图+磁盘</td><td>十亿级+</td><td>高</td><td>中</td><td>快</td><td>低（磁盘）</td></tr></tbody></table><p><strong>面试高频问题</strong>：</p><p><strong>Q: HNSW 索引的原理是什么？</strong></p><p>A: HNSW（Hierarchical Navigable Small World）是一种基于图的近似最近邻搜索算法：</p><pre tabindex=0><code>核心思想：构建多层图，上层稀疏、下层稠密，搜索时从上层快速定位大致区域，再逐层细化
+
+构建过程：
+1. 初始化多层图（L0 到 L_max）
+2. 每个向量随机分配层数（越高层节点越少）
+3. 高层用于快速导航，低层用于精确定位
+4. 连接同层最近邻节点（通常使用贪心+改进的贪心）
+
+搜索过程：
+1. 从最高层入口节点开始
+2. 贪心搜索找到当前层最近邻
+3. 下降到下一层，从上层的最近邻开始搜索
+4. 重复直到最底层
+5. 返回最终最近邻
+</code></pre><h3 id=52-生产环境索引配置>5.2 生产环境索引配置</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Configuration</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>VectorIndexConfig</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> VectorStore <span style=color:#a6e22e>optimizedVectorStore</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            EmbeddingModel embeddingModel<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>            MilvusApi milvusApi<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 根据数据规模选择配置
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>return</span> MilvusVectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>(</span>embeddingModel<span style=color:#f92672>,</span> milvusApi<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>collectionName</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;production_documents&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>indexType</span><span style=color:#f92672>(</span>IndexType<span style=color:#f92672>.</span><span style=color:#a6e22e>HNSW</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 生产环境推荐 HNSW
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>metricType</span><span style=color:#f92672>(</span>MetricType<span style=color:#f92672>.</span><span style=color:#a6e22e>COSINE</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// HNSW 参数优化
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>indexParameters</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;{\&#34;M\&#34;: 16, \&#34;efConstruction\&#34;: 200}&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// 搜索参数
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>searchParameters</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;{\&#34;ef\&#34;: 128}&#34;</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// ef越大精度越高，但越慢
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>topK</span><span style=color:#f92672>(</span><span style=color:#ae81ff>10</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>HNSW 参数调优建议</strong>：</p><table><thead><tr><th>参数</th><th>取值建议</th><th>说明</th></tr></thead><tbody><tr><td>M</td><td>8-64</td><td>邻居数，内存敏感场景选小值</td></tr><tr><td>efConstruction</td><td>100-400</td><td>构建时动态列表大小，越大越精确但越慢</td></tr><tr><td>ef</td><td>50-1000</td><td>搜索时动态列表大小，实时性要求高用小值</td></tr></tbody></table><h3 id=53-分区partition设计>5.3 分区（Partition）设计</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@RequiredArgsConstructor</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>PartitionedVectorService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> MilvusConnectionFactory connectionFactory<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> EmbeddingModel embeddingModel<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 创建分区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>createPartition</span><span style=color:#f92672>(</span>String category<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// Milvus 支持按分区隔离数据
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#75715e>// 不同类别的文档存储在不同分区
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#75715e>// 搜索时可限定分区，减少搜索范围
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#75715e>// 这部分通过 Milvus SDK 直接操作
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 按分区搜索
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>searchInPartition</span><span style=color:#f92672>(</span>String query<span style=color:#f92672>,</span> String category<span style=color:#f92672>,</span> <span style=color:#66d9ef>int</span> limit<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 通过 filter 模拟分区搜索
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        FilterExpression filter <span style=color:#f92672>=</span> FilterExpressionBuilder<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>equal</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;_partition&#34;</span><span style=color:#f92672>,</span> category<span style=color:#f92672>)</span>  <span style=color:#75715e>// Milvus 分区字段
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        VectorStore vs <span style=color:#f92672>=</span> getOrCreateVectorStore<span style=color:#f92672>(</span>category<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> vs<span style=color:#f92672>.</span><span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            SearchRequest<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>query</span><span style=color:#f92672>(</span>query<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>topK</span><span style=color:#f92672>(</span>limit<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>filterExpression</span><span style=color:#f92672>(</span>filter<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> VectorStore <span style=color:#a6e22e>getOrCreateVectorStore</span><span style=color:#f92672>(</span>String category<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 可按类别创建独立的 VectorStore 实例
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#75715e>// 实现数据隔离和独立配置
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>return</span> MilvusVectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>(</span>embeddingModel<span style=color:#f92672>,</span> connectionFactory<span style=color:#f92672>.</span><span style=color:#a6e22e>getObject</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>collectionName</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;documents_&#34;</span> <span style=color:#f92672>+</span> category<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=六企业级文档向量化实战>六、企业级文档向量化实战</h2><h3 id=61-完整数据管道>6.1 完整数据管道</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@RequiredArgsConstructor</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@Slf4j</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>DocumentVectorPipeline</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> DocumentReader documentReader<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> EmbeddingModel embeddingModel<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> VectorStore vectorStore<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> ApplicationEventPublisher eventPublisher<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 完整数据导入流程
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>ingestDocuments</span><span style=color:#f92672>(</span>Path directory<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;开始文档导入: {}&#34;</span><span style=color:#f92672>,</span> directory<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 文档读取（支持多种格式）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> documents <span style=color:#f92672>=</span> documentReader<span style=color:#f92672>.</span><span style=color:#a6e22e>read</span><span style=color:#f92672>(</span>directory<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;读取到 {} 个文档块&#34;</span><span style=color:#f92672>,</span> documents<span style=color:#f92672>.</span><span style=color:#a6e22e>size</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 2. 去重检查（基于内容hash）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        documents <span style=color:#f92672>=</span> deduplicate<span style=color:#f92672>(</span>documents<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;去重后剩余 {} 个文档块&#34;</span><span style=color:#f92672>,</span> documents<span style=color:#f92672>.</span><span style=color:#a6e22e>size</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 3. 批量向量化
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>int</span> batchSize <span style=color:#f92672>=</span> <span style=color:#ae81ff>100</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        List<span style=color:#f92672>&lt;</span>List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;&gt;</span> batches <span style=color:#f92672>=</span> partition<span style=color:#f92672>(</span>documents<span style=color:#f92672>,</span> batchSize<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> total <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span>List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> batch <span style=color:#f92672>:</span> batches<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>add</span><span style=color:#f92672>(</span>batch<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            total <span style=color:#f92672>+=</span> batch<span style=color:#f92672>.</span><span style=color:#a6e22e>size</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>            log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;已处理 {}/{} 个文档&#34;</span><span style=color:#f92672>,</span> total<span style=color:#f92672>,</span> documents<span style=color:#f92672>.</span><span style=color:#a6e22e>size</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 4. 发布完成事件
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        eventPublisher<span style=color:#f92672>.</span><span style=color:#a6e22e>publishEvent</span><span style=color:#f92672>(</span><span style=color:#66d9ef>new</span> DocumentsIngestedEvent<span style=color:#f92672>(</span><span style=color:#66d9ef>this</span><span style=color:#f92672>,</span> total<span style=color:#f92672>));</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;文档导入完成，共 {} 个文档&#34;</span><span style=color:#f92672>,</span> total<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 支持多种格式的文档读取
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Bean</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>public</span> DocumentReader <span style=color:#a6e22e>documentReader</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> <span style=color:#66d9ef>new</span> SupportedFormatsDocumentReader<span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>new</span> PdfDocumentReader<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;classpath:docs/*.pdf&#34;</span><span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>new</span> TextDocumentReader<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;classpath:docs/*.txt&#34;</span><span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>new</span> WordDocumentReader<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;classpath:docs/*.docx&#34;</span><span style=color:#f92672>),</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>new</span> MarkdownDocumentReader<span style=color:#f92672>(</span><span style=color:#e6db74>&#34;classpath:docs/*.md&#34;</span><span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> <span style=color:#a6e22e>deduplicate</span><span style=color:#f92672>(</span>List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> documents<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        Set<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> seen <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> HashSet<span style=color:#f92672>&lt;&gt;();</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>return</span> documents<span style=color:#f92672>.</span><span style=color:#a6e22e>stream</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>filter</span><span style=color:#f92672>(</span>doc <span style=color:#f92672>-&gt;</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                String hash <span style=color:#f92672>=</span> hashContent<span style=color:#f92672>(</span>doc<span style=color:#f92672>.</span><span style=color:#a6e22e>getContent</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>return</span> seen<span style=color:#f92672>.</span><span style=color:#a6e22e>add</span><span style=color:#f92672>(</span>hash<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>})</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>toList</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> String <span style=color:#a6e22e>hashContent</span><span style=color:#f92672>(</span>String content<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 使用MD5或SHA256计算内容hash
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>return</span> DigestUtils<span style=color:#f92672>.</span><span style=color:#a6e22e>md5Hex</span><span style=color:#f92672>(</span>content<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><h3 id=62-增量更新策略>6.2 增量更新策略</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@RequiredArgsConstructor</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>IncrementalVectorUpdate</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> VectorStore vectorStore<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> EmbeddingModel embeddingModel<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> DocumentRepository documentRepository<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 增量同步：检测变化，只同步新增/修改的文档
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>incrementalSync</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 获取上次同步时间
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        Instant lastSync <span style=color:#f92672>=</span> getLastSyncTime<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 2. 查询变更的文档
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        List<span style=color:#f92672>&lt;</span>Article<span style=color:#f92672>&gt;</span> changedArticles <span style=color:#f92672>=</span> documentRepository
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>findByUpdatedAtAfter</span><span style=color:#f92672>(</span>lastSync<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 3. 分类处理：新增/修改/删除
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span>Article article <span style=color:#f92672>:</span> changedArticles<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>article<span style=color:#f92672>.</span><span style=color:#a6e22e>isDeleted</span><span style=color:#f92672>())</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                <span style=color:#75715e>// 删除
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>delete</span><span style=color:#f92672>(</span>List<span style=color:#f92672>.</span><span style=color:#a6e22e>of</span><span style=color:#f92672>(</span>article<span style=color:#f92672>.</span><span style=color:#a6e22e>getId</span><span style=color:#f92672>().</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>()));</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span> <span style=color:#66d9ef>else</span> <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>article<span style=color:#f92672>.</span><span style=color:#a6e22e>isNew</span><span style=color:#f92672>())</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                <span style=color:#75715e>// 新增
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>add</span><span style=color:#f92672>(</span>List<span style=color:#f92672>.</span><span style=color:#a6e22e>of</span><span style=color:#f92672>(</span>articleToDocument<span style=color:#f92672>(</span>article<span style=color:#f92672>)));</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span> <span style=color:#66d9ef>else</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                <span style=color:#75715e>// 更新：先删后增
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>                vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>delete</span><span style=color:#f92672>(</span>List<span style=color:#f92672>.</span><span style=color:#a6e22e>of</span><span style=color:#f92672>(</span>article<span style=color:#f92672>.</span><span style=color:#a6e22e>getId</span><span style=color:#f92672>().</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>()));</span>
+</span></span><span style=display:flex><span>                vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>add</span><span style=color:#f92672>(</span>List<span style=color:#f92672>.</span><span style=color:#a6e22e>of</span><span style=color:#f92672>(</span>articleToDocument<span style=color:#f92672>(</span>article<span style=color:#f92672>)));</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 4. 更新同步时间
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        updateLastSyncTime<span style=color:#f92672>(</span>Instant<span style=color:#f92672>.</span><span style=color:#a6e22e>now</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 定期全量重建（防止向量漂移）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#a6e22e>@Scheduled</span><span style=color:#f92672>(</span>cron <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;0 0 3 * * ?&#34;</span><span style=color:#f92672>)</span>  <span style=color:#75715e>// 每天凌晨3点
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>rebuildIndex</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;开始全量重建向量索引&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 创建新集合
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        String newCollection <span style=color:#f92672>=</span> <span style=color:#e6db74>&#34;documents_v&#34;</span> <span style=color:#f92672>+</span> System<span style=color:#f92672>.</span><span style=color:#a6e22e>currentTimeMillis</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        VectorStore newStore <span style=color:#f92672>=</span> createNewCollection<span style=color:#f92672>(</span>newCollection<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 2. 全量导入
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        List<span style=color:#f92672>&lt;</span>Article<span style=color:#f92672>&gt;</span> allArticles <span style=color:#f92672>=</span> documentRepository<span style=color:#f92672>.</span><span style=color:#a6e22e>findAll</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span>Article article <span style=color:#f92672>:</span> allArticles<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            newStore<span style=color:#f92672>.</span><span style=color:#a6e22e>add</span><span style=color:#f92672>(</span>List<span style=color:#f92672>.</span><span style=color:#a6e22e>of</span><span style=color:#f92672>(</span>articleToDocument<span style=color:#f92672>(</span>article<span style=color:#f92672>)));</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 3. 原子切换
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        switchCollection<span style=color:#f92672>(</span>newCollection<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 4. 删除旧集合
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        deleteOldCollection<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;全量重建完成&#34;</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=七面试高频问题汇总>七、面试高频问题汇总</h2><h3 id=q1-向量数据库和传统数据库有什么区别>Q1: 向量数据库和传统数据库有什么区别？</h3><table><thead><tr><th>维度</th><th>传统关系型/NoSQL</th><th>向量数据库</th></tr></thead><tbody><tr><td>数据类型</td><td>结构化/半结构化</td><td>高维向量</td></tr><tr><td>检索方式</td><td>精确匹配、关键词</td><td>近似最近邻（ANN）</td></tr><tr><td>相似度度量</td><td>=, >, &lt;</td><td>COSINE/DOT_PRODUCT/EUCLIDEAN</td></tr><tr><td>索引</td><td>B+Tree, Hash</td><td>HNSW, IVF, PQ</td></tr><tr><td>适用场景</td><td>事务处理</td><td>语义搜索、推荐</td></tr></tbody></table><h3 id=q2-如何选择向量数据库>Q2: 如何选择向量数据库？</h3><p><strong>选择决策树</strong>：</p><pre tabindex=0><code>数据规模 &lt; 10万？
+├── 是 → Chroma（轻量，易用）或 Pgvector（已有PostgreSQL）
+└── 否 → 规模预估？
+
+数据规模 100万-1亿？
+├── 已有PostgreSQL？ → Pgvector
+└── 无 → Milvus/Qdrant
+
+数据规模 &gt; 1亿？
+├── 低延迟需求 → Qdrant
+└── 高吞吐量 → Milvus
+
+特殊需求？
+├── 原生混合搜索 → Weaviate
+├── 已有Elasticsearch → ES向量搜索
+└── 完全本地/离线 → Qdrant/Milvus本地部署
+</code></pre><h3 id=q3-向量召回率低怎么排查>Q3: 向量召回率低怎么排查？</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@RequiredArgsConstructor</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>VectorQualityMonitor</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> VectorStore vectorStore<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> EmbeddingModel embeddingModel<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 定期评估向量质量
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>evaluateQuality</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 准确率评估（使用标注数据集）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        List<span style=color:#f92672>&lt;</span>TestCase<span style=color:#f92672>&gt;</span> testCases <span style=color:#f92672>=</span> loadTestCases<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> correct <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span>TestCase tc <span style=color:#f92672>:</span> testCases<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            List<span style=color:#f92672>&lt;</span>Document<span style=color:#f92672>&gt;</span> results <span style=color:#f92672>=</span> vectorStore<span style=color:#f92672>.</span><span style=color:#a6e22e>similaritySearch</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>                SearchRequest<span style=color:#f92672>.</span><span style=color:#a6e22e>builder</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>query</span><span style=color:#f92672>(</span>tc<span style=color:#f92672>.</span><span style=color:#a6e22e>getQuery</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>topK</span><span style=color:#f92672>(</span>tc<span style=color:#f92672>.</span><span style=color:#a6e22e>getExpectedTopK</span><span style=color:#f92672>())</span>
+</span></span><span style=display:flex><span>                    <span style=color:#f92672>.</span><span style=color:#a6e22e>build</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            Set<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> expected <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> HashSet<span style=color:#f92672>&lt;&gt;(</span>tc<span style=color:#f92672>.</span><span style=color:#a6e22e>getExpectedIds</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>            Set<span style=color:#f92672>&lt;</span>String<span style=color:#f92672>&gt;</span> actual <span style=color:#f92672>=</span> results<span style=color:#f92672>.</span><span style=color:#a6e22e>stream</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>map</span><span style=color:#f92672>(</span>Document<span style=color:#f92672>::</span>getId<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>                <span style=color:#f92672>.</span><span style=color:#a6e22e>collect</span><span style=color:#f92672>(</span>Collectors<span style=color:#f92672>.</span><span style=color:#a6e22e>toSet</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>actual<span style=color:#f92672>.</span><span style=color:#a6e22e>containsAll</span><span style=color:#f92672>(</span>expected<span style=color:#f92672>))</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>                correct<span style=color:#f92672>++;</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>double</span> accuracy <span style=color:#f92672>=</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>double</span><span style=color:#f92672>)</span> correct <span style=color:#f92672>/</span> testCases<span style=color:#f92672>.</span><span style=color:#a6e22e>size</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;向量检索准确率: {:.2f}%&#34;</span><span style=color:#f92672>,</span> accuracy <span style=color:#f92672>*</span> <span style=color:#ae81ff>100</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>accuracy <span style=color:#f92672>&lt;</span> <span style=color:#ae81ff>0.8</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            <span style=color:#75715e>// 触发告警和自动修复
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>            alertLowAccuracy<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 常见问题及解决方案
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>troubleshoot</span><span style=color:#f92672>()</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 问题1: 分块策略不合理
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        analyzeChunkSize<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 问题2: Embedding模型不匹配
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        compareEmbeddingModels<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 问题3: 索引参数不合适
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        tuneIndexParameters<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 问题4: 数据质量问题
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        analyzeDataQuality<span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><p><strong>召回率低常见原因及解决方案</strong>：</p><table><thead><tr><th>问题</th><th>原因</th><th>解决方案</th></tr></thead><tbody><tr><td>语义不相关</td><td>分块太小/太大</td><td>调整chunk_size</td></tr><tr><td>类别混淆</td><td>模型不匹配领域</td><td>换用领域微调Embedding</td></tr><tr><td>数值不稳定</td><td>缺少归一化</td><td>检查向量归一化</td></tr><tr><td>索引不合适</td><td>HNSW参数太小</td><td>增大ef/M参数</td></tr></tbody></table><h3 id=q4-如何实现向量数据的备份与恢复>Q4: 如何实现向量数据的备份与恢复？</h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-java data-lang=java><span style=display:flex><span><span style=color:#a6e22e>@Service</span>
+</span></span><span style=display:flex><span><span style=color:#a6e22e>@RequiredArgsConstructor</span>
+</span></span><span style=display:flex><span><span style=color:#66d9ef>public</span> <span style=color:#66d9ef>class</span> <span style=color:#a6e22e>VectorBackupService</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#66d9ef>private</span> <span style=color:#66d9ef>final</span> MilvusApi milvusApi<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 导出向量数据
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>backupCollection</span><span style=color:#f92672>(</span>String collectionName<span style=color:#f92672>,</span> Path backupDir<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 1. 导出元数据
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        String metadata <span style=color:#f92672>=</span> milvusApi<span style=color:#f92672>.</span><span style=color:#a6e22e>exportMetadata</span><span style=color:#f92672>(</span>collectionName<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        Files<span style=color:#f92672>.</span><span style=color:#a6e22e>writeString</span><span style=color:#f92672>(</span>backupDir<span style=color:#f92672>.</span><span style=color:#a6e22e>resolve</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;metadata.json&#34;</span><span style=color:#f92672>),</span> metadata<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 2. 导出向量数据（分批次）
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        <span style=color:#66d9ef>int</span> batchSize <span style=color:#f92672>=</span> <span style=color:#ae81ff>10000</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> offset <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>int</span> part <span style=color:#f92672>=</span> <span style=color:#ae81ff>0</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>while</span> <span style=color:#f92672>(</span><span style=color:#66d9ef>true</span><span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            List<span style=color:#f92672>&lt;</span>Doc<span style=color:#f92672>&gt;</span> docs <span style=color:#f92672>=</span> milvusApi<span style=color:#f92672>.</span><span style=color:#a6e22e>query</span><span style=color:#f92672>(</span>
+</span></span><span style=display:flex><span>                collectionName<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>                offset<span style=color:#f92672>,</span>
+</span></span><span style=display:flex><span>                batchSize
+</span></span><span style=display:flex><span>            <span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            <span style=color:#66d9ef>if</span> <span style=color:#f92672>(</span>docs<span style=color:#f92672>.</span><span style=color:#a6e22e>isEmpty</span><span style=color:#f92672>())</span> <span style=color:#66d9ef>break</span><span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            String json <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ObjectMapper<span style=color:#f92672>().</span><span style=color:#a6e22e>writeValueAsString</span><span style=color:#f92672>(</span>docs<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            Files<span style=color:#f92672>.</span><span style=color:#a6e22e>writeString</span><span style=color:#f92672>(</span>backupDir<span style=color:#f92672>.</span><span style=color:#a6e22e>resolve</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;vectors_part&#34;</span> <span style=color:#f92672>+</span> part <span style=color:#f92672>+</span> <span style=color:#e6db74>&#34;.json&#34;</span><span style=color:#f92672>),</span> json<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            offset <span style=color:#f92672>+=</span> batchSize<span style=color:#f92672>;</span>
+</span></span><span style=display:flex><span>            part<span style=color:#f92672>++;</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;备份完成，共 {} 批次&#34;</span><span style=color:#f92672>,</span> part<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>    
+</span></span><span style=display:flex><span>    <span style=color:#75715e>// 恢复向量数据
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>    <span style=color:#66d9ef>public</span> <span style=color:#66d9ef>void</span> <span style=color:#a6e22e>restoreCollection</span><span style=color:#f92672>(</span>String collectionName<span style=color:#f92672>,</span> Path backupDir<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 创建新集合
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        milvusApi<span style=color:#f92672>.</span><span style=color:#a6e22e>createCollection</span><span style=color:#f92672>(</span>collectionName<span style=color:#f92672>,</span> <span style=color:#ae81ff>1536</span><span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#75715e>// 读取并导入
+</span></span></span><span style=display:flex><span><span style=color:#75715e></span>        List<span style=color:#f92672>&lt;</span>Path<span style=color:#f92672>&gt;</span> parts <span style=color:#f92672>=</span> Files<span style=color:#f92672>.</span><span style=color:#a6e22e>list</span><span style=color:#f92672>(</span>backupDir<span style=color:#f92672>)</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>filter</span><span style=color:#f92672>(</span>p <span style=color:#f92672>-&gt;</span> p<span style=color:#f92672>.</span><span style=color:#a6e22e>getFileName</span><span style=color:#f92672>().</span><span style=color:#a6e22e>toString</span><span style=color:#f92672>().</span><span style=color:#a6e22e>startsWith</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;vectors_part&#34;</span><span style=color:#f92672>))</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>sorted</span><span style=color:#f92672>()</span>
+</span></span><span style=display:flex><span>            <span style=color:#f92672>.</span><span style=color:#a6e22e>toList</span><span style=color:#f92672>();</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        <span style=color:#66d9ef>for</span> <span style=color:#f92672>(</span>Path part <span style=color:#f92672>:</span> parts<span style=color:#f92672>)</span> <span style=color:#f92672>{</span>
+</span></span><span style=display:flex><span>            String json <span style=color:#f92672>=</span> Files<span style=color:#f92672>.</span><span style=color:#a6e22e>readString</span><span style=color:#f92672>(</span>part<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>            List<span style=color:#f92672>&lt;</span>Doc<span style=color:#f92672>&gt;</span> docs <span style=color:#f92672>=</span> <span style=color:#66d9ef>new</span> ObjectMapper<span style=color:#f92672>().</span><span style=color:#a6e22e>readValue</span><span style=color:#f92672>(</span>json<span style=color:#f92672>,</span> 
+</span></span><span style=display:flex><span>                <span style=color:#66d9ef>new</span> TypeReference<span style=color:#f92672>&lt;</span>List<span style=color:#f92672>&lt;</span>Doc<span style=color:#f92672>&gt;&gt;()</span> <span style=color:#f92672>{});</span>
+</span></span><span style=display:flex><span>            
+</span></span><span style=display:flex><span>            milvusApi<span style=color:#f92672>.</span><span style=color:#a6e22e>insert</span><span style=color:#f92672>(</span>collectionName<span style=color:#f92672>,</span> docs<span style=color:#f92672>);</span>
+</span></span><span style=display:flex><span>        <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span>        
+</span></span><span style=display:flex><span>        log<span style=color:#f92672>.</span><span style=color:#a6e22e>info</span><span style=color:#f92672>(</span><span style=color:#e6db74>&#34;恢复完成，共 {} 批次&#34;</span><span style=color:#f92672>,</span> parts<span style=color:#f92672>.</span><span style=color:#a6e22e>size</span><span style=color:#f92672>());</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>}</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>}</span>
+</span></span></code></pre></div><hr><h2 id=总结>总结</h2><p>本文深入解析了 Spring AI 中 Embedding 模型和向量数据库的核心知识：</p><table><thead><tr><th>知识点</th><th>核心要点</th></tr></thead><tbody><tr><td><strong>Embedding</strong></td><td>向量化原理、模型配置、维度选择、主流模型对比</td></tr><tr><td><strong>VectorStore</strong></td><td>统一抽象、FilterExpression、批量操作</td></tr><tr><td><strong>Milvus</strong></td><td>企业级生产配置、索引优化、分区设计</td></tr><tr><td><strong>Pgvector</strong></td><td>SQL统一管理、混合搜索、RRF融合</td></tr><tr><td><strong>索引优化</strong></td><td>HNSW/IVF原理、参数调优、召回率监控</td></tr><tr><td><strong>数据管道</strong></td><td>文档读取、去重、增量同步、全量重建</td></tr></tbody></table><p><strong>下期预告</strong>：《Spring AI面试八股文（三）——Function Calling与工具调用实战》，我们将深入探讨：</p><ul><li>Spring AI @Tool 注解深入原理</li><li>多工具编排与依赖管理</li><li>异步工具调用与并行执行</li><li>复杂业务场景实战（数据库查询、API调用、文件操作）</li><li>Function Calling 安全与权限控制</li></ul><hr><blockquote><p><strong>推荐阅读</strong></p><ul><li><a href=/posts/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%EF%BC%88%E5%9B%9B%EF%BC%89%E2%80%94%E2%80%94%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%BA%94%E7%94%A8%E5%BC%80%E5%8F%91%E4%B8%8EAgent%E6%A1%86%E6%9E%B6/>AI大模型面试八股文（四）——大模型应用开发与Agent框架</a>：RAG、Function Calling基础原理</li><li><a href=/posts/AI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%EF%BC%88%E5%85%AD%EF%BC%89%E2%80%94%E2%80%94%E5%A4%A7%E6%A8%A1%E5%9E%8B%E7%B3%BB%E7%BB%9F%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5/>AI大模型面试八股文（六）——大模型系统设计与工程实践</a>：RAG完整架构设计</li><li><a href=/posts/Spring%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%EF%BC%88%E4%B9%9D%EF%BC%89%E2%80%94%E2%80%94Spring-Boot%E8%87%AA%E5%8A%A8%E9%85%8D%E7%BD%AE%E5%8E%9F%E7%90%86%E4%B8%8E%E8%87%AA%E5%AE%9A%E4%B9%89Starter%E5%BC%80%E5%8F%91/>Spring Boot自动配置原理与自定义Starter开发</a>：Spring AI自动配置机制基于此实现</li></ul></blockquote></div></article></main><footer><p>&copy; 2026 飞哥的 AI 折腾日记</p></footer></body></html>
