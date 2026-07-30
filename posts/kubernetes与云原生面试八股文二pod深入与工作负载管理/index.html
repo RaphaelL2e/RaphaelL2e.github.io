@@ -1,0 +1,518 @@
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Kubernetes与云原生面试八股文（二）——Pod深入与工作负载管理｜Raphael Lab</title><meta name=description content="从面试高频问题出发，系统拆解 Pod 的本质与设计哲学、Pod 生命周期与相位管理、Init Container 与 Sidecar 模式、Deployment/StatefulSet/DaemonSet 三大工作负载的选型与实战、滚动更新与回滚机制，建立生产级 K8s 工作负载认知。"><meta name=author content="李亚飞"><meta name=referrer content="strict-origin-when-cross-origin"><meta http-equiv=content-security-policy content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"><meta name=robots content="index,follow,max-image-preview:large"><link rel=canonical href=https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%8Cpod%E6%B7%B1%E5%85%A5%E4%B8%8E%E5%B7%A5%E4%BD%9C%E8%B4%9F%E8%BD%BD%E7%AE%A1%E7%90%86/><link rel=alternate type=application/rss+xml title="Raphael Lab RSS" href=https://raphaell2e.github.io/index.xml><link rel=icon href=/favicon.svg type=image/svg+xml><link rel=stylesheet href=/css/site.css><meta property="og:locale" content="zh_CN"><meta property="og:site_name" content="Raphael Lab"><meta property="og:title" content="Kubernetes与云原生面试八股文（二）——Pod深入与工作负载管理｜Raphael Lab"><meta property="og:description" content="从面试高频问题出发，系统拆解 Pod 的本质与设计哲学、Pod 生命周期与相位管理、Init Container 与 Sidecar 模式、Deployment/StatefulSet/DaemonSet 三大工作负载的选型与实战、滚动更新与回滚机制，建立生产级 K8s 工作负载认知。"><meta property="og:url" content="https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%8Cpod%E6%B7%B1%E5%85%A5%E4%B8%8E%E5%B7%A5%E4%BD%9C%E8%B4%9F%E8%BD%BD%E7%AE%A1%E7%90%86/"><meta property="og:image" content="https://raphaell2e.github.io/images/og-default.png"><meta property="og:type" content="article"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="Kubernetes与云原生面试八股文（二）——Pod深入与工作负载管理｜Raphael Lab"><meta name=twitter:description content="从面试高频问题出发，系统拆解 Pod 的本质与设计哲学、Pod 生命周期与相位管理、Init Container 与 Sidecar 模式、Deployment/StatefulSet/DaemonSet 三大工作负载的选型与实战、滚动更新与回滚机制，建立生产级 K8s 工作负载认知。"><meta name=twitter:image content="https://raphaell2e.github.io/images/og-default.png"><meta property="article:published_time" content="2026-07-30T10:00:00+08:00"><meta property="article:modified_time" content="2026-07-30T10:00:00+08:00"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"WebSite","alternateName":"飞哥 AI 实验室","description":"记录后端工程、分布式系统与 AI 工程化的真实实践。","inLanguage":"zh-CN","name":"Raphael Lab｜飞哥 AI 实验室","publisher":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"url":"https://raphaell2e.github.io/"},{"@type":"TechArticle","author":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"dateModified":"2026-07-30T10:00:00+08:00","datePublished":"2026-07-30T10:00:00+08:00","description":"从面试高频问题出发，系统拆解 Pod 的本质与设计哲学、Pod 生命周期与相位管理、Init Container 与 Sidecar 模式、Deployment/StatefulSet/DaemonSet 三大工作负载的选型与实战、滚动更新与回滚机制，建立生产级 K8s 工作负载认知。","headline":"Kubernetes与云原生面试八股文（二）——Pod深入与工作负载管理","inLanguage":"zh-CN","mainEntityOfPage":"https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%8Cpod%E6%B7%B1%E5%85%A5%E4%B8%8E%E5%B7%A5%E4%BD%9C%E8%B4%9F%E8%BD%BD%E7%AE%A1%E7%90%86/","publisher":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"url":"https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%8Cpod%E6%B7%B1%E5%85%A5%E4%B8%8E%E5%B7%A5%E4%BD%9C%E8%B4%9F%E8%BD%BD%E7%AE%A1%E7%90%86/"}]}</script></head><body class="page-page section-posts"><a class=skip-link href=#main-content>跳到正文</a><header class=site-header><div class=header-inner><a class=brand href=/><span class=brand-mark aria-hidden=true>R</span>
+<span>Raphael Lab</span></a><nav class=desktop-nav aria-label=主导航><a href=/>首页</a>
+<a href=/series/>专题</a>
+<a href=/posts/>文章库</a>
+<a href=/projects/>项目</a>
+<a href=/about/>关于</a></nav><div class=header-actions><a class=search-trigger href=/search/ aria-label=搜索文章><span aria-hidden=true>⌕</span><span class=search-label>搜索</span><kbd>/</kbd></a>
+<button class=menu-toggle type=button aria-expanded=false aria-controls=mobile-nav aria-label=打开导航><span></span><span></span><span></span></button></div></div><nav class=mobile-nav id=mobile-nav aria-label=移动端导航 hidden><a href=/>首页</a><a href=/series/>专题</a><a href=/posts/>文章库</a><a href=/projects/>项目</a><a href=/about/>关于</a>
+<a href=/search/>搜索</a></nav></header><main id=main-content class=site-main><article class="article-shell shell"><div class=reading-progress aria-hidden=true><span></span></div><div class=article-main><nav class=breadcrumbs aria-label=面包屑><a href=/>首页</a><span>/</span>
+<a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Kubernetes与云原生面试八股文（二）——Pod深入与工作负载管理</h1><p class=article-description>从面试高频问题出发，系统拆解 Pod 的本质与设计哲学、Pod 生命周期与相位管理、Init Container 与 Sidecar 模式、Deployment/StatefulSet/DaemonSet 三大工作负载的选型与实战、滚动更新与回滚机制，建立生产级 K8s 工作负载认知。</p><div class=article-meta><span>发布于 <time datetime=2026-07-30>2026-07-30</time></span>
+<span>最后验证 2026-07</span>
+<span>9 分钟阅读</span>
+<span>1892 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#kubernetes与云-native面试八股文二pod深入与工作负载管理>Kubernetes与云-native面试八股文（二）——Pod深入与工作负载管理</a><ul><li><a href=#-本文目标>🎯 本文目标</a></li></ul></li><li><a href=#一pod-的本质与设计哲学>一、Pod 的本质与设计哲学</a><ul><li><a href=#11-为什么是-pod-而不是容器>1.1 为什么是 Pod 而不是容器？</a></li><li><a href=#12-pod-的组成结构>1.2 Pod 的组成结构</a></li><li><a href=#13-pod-的分类>1.3 Pod 的分类</a></li></ul></li><li><a href=#二pod-生命周期与相位管理>二、Pod 生命周期与相位管理</a><ul><li><a href=#21-pod-的相位phase>2.1 Pod 的相位（Phase）</a></li><li><a href=#22-容器状态机>2.2 容器状态机</a></li><li><a href=#23-pod-的启动流程>2.3 Pod 的启动流程</a></li><li><a href=#24-pod-的终止流程>2.4 Pod 的终止流程</a></li><li><a href=#25-探针probes详解>2.5 探针（Probes）详解</a></li></ul></li><li><a href=#三init-container-与-sidecar-模式>三、Init Container 与 Sidecar 模式</a><ul><li><a href=#31-init-container>3.1 Init Container</a></li><li><a href=#32-sidecar-模式>3.2 Sidecar 模式</a></li><li><a href=#33-native-sidecark8s-128>3.3 Native Sidecar（K8s 1.28+）</a></li></ul></li><li><a href=#四deployment无状态应用的首选>四、Deployment：无状态应用的首选</a><ul><li><a href=#41-deployment-的本质>4.1 Deployment 的本质</a></li><li><a href=#42-关键配置>4.2 关键配置</a></li><li><a href=#43-滚动更新机制>4.3 滚动更新机制</a></li><li><a href=#44-回滚机制>4.4 回滚机制</a></li><li><a href=#45-面试高频问题>4.5 面试高频问题</a></li></ul></li><li><a href=#五statefulset有状态应用的首选>五、StatefulSet：有状态应用的首选</a><ul><li><a href=#51-为什么需要-statefulset>5.1 为什么需要 StatefulSet？</a></li><li><a href=#52-statefulset-核心特性>5.2 StatefulSet 核心特性</a></li><li><a href=#53-headless-service>5.3 Headless Service</a></li><li><a href=#54-有序启动与优雅缩容>5.4 有序启动与优雅缩容</a></li><li><a href=#55-典型适用场景>5.5 典型适用场景</a></li></ul></li><li><a href=#六daemonset每节点一个>六、DaemonSet：每节点一个</a><ul><li><a href=#61-daemonset-的作用>6.1 DaemonSet 的作用</a></li><li><a href=#62-关键配置>6.2 关键配置</a></li><li><a href=#63-daemonset-更新策略>6.3 DaemonSet 更新策略</a></li></ul></li><li><a href=#七三种工作负载对比总结>七、三种工作负载对比总结</a></li><li><a href=#八pod-亲和性与反亲和性>八、Pod 亲和性与反亲和性</a><ul><li><a href=#81-为什么需要亲和性>8.1 为什么需要亲和性？</a></li><li><a href=#82-节点亲和性>8.2 节点亲和性</a></li><li><a href=#83-pod-反亲和性>8.3 Pod 反亲和性</a></li></ul></li><li><a href=#九pod-调度器工作原理>九、Pod 调度器工作原理</a><ul><li><a href=#91-两阶段调度>9.1 两阶段调度</a></li><li><a href=#92-调度器面试要点>9.2 调度器面试要点</a></li></ul></li><li><a href=#十实战配置模板>十、实战配置模板</a><ul><li><a href=#101-生产级-deployment-模板>10.1 生产级 Deployment 模板</a></li><li><a href=#102-生产级-statefulset-模板>10.2 生产级 StatefulSet 模板</a></li></ul></li><li><a href=#本期总结>本期总结</a></li><li><a href=#下期预告>下期预告</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=kubernetes与云-native面试八股文二pod深入与工作负载管理>Kubernetes与云-native面试八股文（二）——Pod深入与工作负载管理</h2><h3 id=-本文目标>🎯 本文目标</h3><p>从面试高频问题出发，系统拆解 Pod 的本质与设计哲学、Pod 生命周期与相位管理、Init Container 与 Sidecar 模式、Deployment/StatefulSet/DaemonSet 三大工作负载的选型与实战、滚动更新与回滚机制，帮助你在面试中清晰回答"为什么 K8s 调度的是 Pod 而不是容器"&ldquo;Pod 的生命周期是怎样的"&ldquo;什么场景用 StatefulSet 而不是 Deployment"&ldquo;滚动更新是如何实现的&rdquo;。</p><hr><h2 id=一pod-的本质与设计哲学>一、Pod 的本质与设计哲学</h2><h3 id=11-为什么是-pod-而不是容器>1.1 为什么是 Pod 而不是容器？</h3><p>这是 K8s 面试中最高频的开场问题之一。</p><p><strong>核心答案</strong>：Pod 是 K8s 的最小调度单元，而不是容器。一个 Pod 可以包含一个或多个容器，这些容器共享网络和存储命名空间。</p><p><strong>设计原因</strong>：</p><table><thead><tr><th>维度</th><th>容器单独调度的问题</th><th>Pod 解决方式</th></tr></thead><tbody><tr><td>网络共享</td><td>多个容器需要网络通信时需额外配置</td><td>Pod 内容器共享 Network Namespace，通过 localhost 通信</td></tr><tr><td>存储共享</td><td>容器间共享数据需要外部方案</td><td>Pod 内容器可挂载相同的 Volume</td></tr><tr><td>生命周期</td><td>容器间没有统一的生命周期管理</td><td>Pod 提供统一的生命周期，容器共生死</td></tr><tr><td>调度原子性</td><td>多容器无法保证调度到同一节点</td><td>Pod 作为整体被调度到同一节点</td></tr></tbody></table><p><strong>面试加分点</strong>：Pod 的设计借鉴了"进程组"的概念。在操作系统层面，一组协作进程共享同一组资源；Pod 就是容器版的"进程组&rdquo;。</p><h3 id=12-pod-的组成结构>1.2 Pod 的组成结构</h3><pre tabindex=0><code>┌─────────────────────────────────────┐
+│              Pod                     │
+│  ┌──────────────────────────────┐   │
+│  │   Network Namespace          │   │
+│  │   IP: 10.244.1.5            │   │
+│  │   Port: 8080                 │   │
+│  └──────────────────────────────┘   │
+│  ┌──────────────────────────────┐   │
+│  │   Volumes (共享)             │   │
+│  │   - configmap-volume         │   │
+│  │   - shared-data              │   │
+│  └──────────────────────────────┘   │
+│  ┌──────────┐  ┌──────────┐        │
+│  │Container A│  │Container B│       │
+│  │ (主容器)  │  │ (Sidecar)│       │
+│  │ Nginx     │  │ Log Agent│       │
+│  └──────────┘  └──────────┘        │
+│  ┌──────────┐                       │
+│  │ Init Ctr │ (启动前执行)          │
+│  │ DB Migrate│                      │
+│  └──────────┘                       │
+└─────────────────────────────────────┘
+</code></pre><p><strong>关键属性</strong>：</p><ul><li><strong>Pod IP</strong>：集群内唯一，Pod 内所有容器共享</li><li><strong>hostname</strong>：Pod 级别的 hostname，容器可通过 <code>hostname</code> 访问</li><li><strong>restartPolicy</strong>：Always（默认）、OnFailure、Never</li><li><strong>terminationGracePeriodSeconds</strong>：默认 30 秒，Pod 终止时的宽限期</li></ul><h3 id=13-pod-的分类>1.3 Pod 的分类</h3><table><thead><tr><th>类型</th><th>说明</th><th>典型场景</th></tr></thead><tbody><tr><td>普通 Pod</td><td>通过 Deployment/StatefulSet 等管理</td><td>业务应用</td></tr><tr><td>静态 Pod</td><td>由 kubelet 直接管理，不经过 API Server</td><td>控制平面组件</td></tr><tr><td>守护 Pod</td><td>通过 DaemonSet 管理</td><td>日志收集、监控 Agent</td></tr><tr><td>Job Pod</td><td>通过 Job/CronJob 管理</td><td>批处理任务</td></tr></tbody></table><p><strong>静态 Pod</strong> 是面试常考点：控制平面组件（API Server、etcd、Scheduler、Controller Manager）通常以静态 Pod 形式运行，配置文件放在 <code>/etc/kubernetes/manifests/</code> 目录下，kubelet 会自动拉起。</p><hr><h2 id=二pod-生命周期与相位管理>二、Pod 生命周期与相位管理</h2><h3 id=21-pod-的相位phase>2.1 Pod 的相位（Phase）</h3><p>Pod 的 <code>status.phase</code> 字段表示其整体状态：</p><table><thead><tr><th>相位</th><th>说明</th><th>典型场景</th></tr></thead><tbody><tr><td>Pending</td><td>Pod 已创建，但容器尚未全部就绪</td><td>调度中、镜像拉取中、Init Container 执行中</td></tr><tr><td>Running</td><td>Pod 已绑定到节点，所有容器已启动</td><td>正常运行</td></tr><tr><td>Succeeded</td><td>所有容器成功终止且不会重启</td><td>Job/CronJob 完成</td></tr><tr><td>Failed</td><td>所有容器终止，至少一个失败</td><td>崩溃退出</td></tr><tr><td>Unknown</td><td>无法确定 Pod 状态</td><td>通常是与 Pod 所在节点通信失败</td></tr></tbody></table><p><strong>面试注意</strong>：Phase 是粗粒度的，不能反映细节。真正的细节看 <code>containerStatuses</code> 中的 <code>state</code> 和 <code>reason</code>。</p><h3 id=22-容器状态机>2.2 容器状态机</h3><p>每个容器有自己的状态，与 Pod Phase 相互关联：</p><pre tabindex=0><code>┌──────────┐
+│  Waiting  │ ← 镜像拉取、依赖等待
+└────┬─────┘
+     │ 启动成功
+     ▼
+┌──────────┐
+│  Running  │ ← 正常运行
+└────┬─────┘
+     │ 退出
+     ▼
+┌──────────┐
+│ Terminated│ ← 退出码 0=成功，非 0=失败
+└──────────┘
+</code></pre><p><strong>Waiting 状态常见 reason</strong>：</p><ul><li><code>ContainerCreating</code>：正在创建</li><li><code>ImagePullBackOff</code>：镜像拉取失败</li><li><code>CrashLoopBackOff</code>：容器反复崩溃重启</li></ul><p><strong>CrashLoopBackOff</strong> 是面试高频问题——常见原因：</p><ol><li>应用启动失败（配置错误、依赖不可用）</li><li>权限不足</li><li>资源限制导致 OOMKilled</li><li>存活探子（livenessProbe）配置过于激进</li></ol><h3 id=23-pod-的启动流程>2.3 Pod 的启动流程</h3><pre tabindex=0><code>用户创建 Pod (kubectl apply)
+    │
+    ▼
+API Server 接收请求 → 写入 etcd
+    │
+    ▼
+Scheduler 监听到 Pod（status.phase=Pending）
+    │ 过滤 + 打分
+    ▼
+选定 Node → 更新 pod.spec.nodeName
+    │
+    ▼
+目标 Node 的 kubelet 监听到新 Pod
+    │
+    ▼
+kubelet 调用 CRI 创建容器
+    │
+    ├─→ 执行 Init Container（串行，全部成功）
+    │
+    ├─→ 创建主容器（并行）
+    │
+    ├─→ 启动 postStart hook
+    │
+    ├─→ 启动探子 → 就绪探子
+    │
+    ▼
+Pod status.phase = Running
+</code></pre><h3 id=24-pod-的终止流程>2.4 Pod 的终止流程</h3><pre tabindex=0><code>用户删除 Pod (kubectl delete)
+    │
+    ▼
+API Server → 更新 Pod 的 deletionTimestamp
+    │
+    ▼
+kubelet 收到终止信号
+    │
+    ├─→ 发送 SIGTERM 给主容器
+    │
+    ├─→ 等待 terminationGracePeriodSeconds（默认 30s）
+    │     超时后发送 SIGKILL
+    │
+    ├─→ preStop hook 在 SIGTERM 之前执行
+    │
+    ▼
+容器退出 → Pod 从 Node 移除
+    │
+    ▼
+Endpoint Controller 从 Service Endpoints 中移除该 Pod
+</code></pre><p><strong>面试关键点</strong>：preStop hook 和 terminationGracePeriodSeconds 的配合使用。如果应用需要在退出前清理资源（如反注册到注册中心、优雅关闭连接），必须配置 preStop hook：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>lifecycle</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>preStop</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>exec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>command</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=l>/bin/sh</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- -<span class=l>c</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=s2>&#34;nginx -s quit; sleep 10&#34;</span><span class=w>
+</span></span></span></code></pre></div><h3 id=25-探针probes详解>2.5 探针（Probes）详解</h3><p>K8s 提供三种探针，这是面试必考题：</p><table><thead><tr><th>探针类型</th><th>作用</th><th>失败后果</th></tr></thead><tbody><tr><td>startupProbe</td><td>判断容器是否已启动</td><td>失败则重启容器</td></tr><tr><td>livenessProbe</td><td>判断容器是否健康</td><td>失败则重启容器</td></tr><tr><td>readinessProbe</td><td>判断容器是否可接流量</td><td>失败则从 Service Endpoints 移除</td></tr></tbody></table><p><strong>三种检测方式</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># HTTP 探测（最常用）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>livenessProbe</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>httpGet</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>/health</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>8080</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>initialDelaySeconds</span><span class=p>:</span><span class=w> </span><span class=m>15</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>periodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>10</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>failureThreshold</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>timeoutSeconds</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># TCP 探测（非 HTTP 服务）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>livenessProbe</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tcpSocket</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>3306</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>initialDelaySeconds</span><span class=p>:</span><span class=w> </span><span class=m>30</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>periodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>10</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 命令探测（灵活但较重）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>livenessProbe</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>exec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>command</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>/bin/sh</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- -<span class=l>c</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=s2>&#34;pgrep nginx&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>initialDelaySeconds</span><span class=p>:</span><span class=w> </span><span class=m>10</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>periodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
+</span></span></span></code></pre></div><p><strong>面试推荐配置策略</strong>：</p><pre tabindex=0><code>慢启动应用 → 配置 startupProbe（避免 liveness 在应用启动前就杀容器）
+                    ↓
+                startup 成功后
+                    ↓
+livenessProbe → 判断是否存活，失败重启
+readinessProbe → 判断是否可接流量，失败摘流
+</code></pre><hr><h2 id=三init-container-与-sidecar-模式>三、Init Container 与 Sidecar 模式</h2><h3 id=31-init-container>3.1 Init Container</h3><p>Init Container 在主容器启动前运行，必须全部成功退出（exit 0）后主容器才会启动。</p><p><strong>核心特性</strong>：</p><ul><li>串行执行（一个完成才执行下一个）</li><li>必须成功退出</li><li>失败则按 restartPolicy 重启</li><li>不支持 lifecycle hooks</li><li>不支持 readiness/liveness probe</li></ul><p><strong>典型场景</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>initContainers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>init-db</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>busybox</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s1>&#39;sh&#39;</span><span class=p>,</span><span class=w> </span><span class=s1>&#39;-c&#39;</span><span class=p>,</span><span class=w> </span><span class=s1>&#39;until nslookup mydb-service; do echo waiting for db; sleep 2; done&#39;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>init-config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>busybox</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s1>&#39;sh&#39;</span><span class=p>,</span><span class=w> </span><span class=s1>&#39;-c&#39;</span><span class=p>,</span><span class=w> </span><span class=s1>&#39;wget -O /config/app.conf http://config-server/app.conf&#39;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>myapp:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/app/config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>volumes</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>emptyDir</span><span class=p>:</span><span class=w> </span>{}<span class=w>
+</span></span></span></code></pre></div><p><strong>面试要点</strong>：Init Container 与主容器<strong>共享 Volume</strong>，这是传递数据的主要方式。Init Container 完成配置拉取、依赖等待、数据迁移等准备性工作。</p><h3 id=32-sidecar-模式>3.2 Sidecar 模式</h3><p>Sidecar 是一种设计模式，而非 K8s 内置资源。它指在同一个 Pod 中运行一个辅助容器，与主容器协同工作。</p><p><strong>经典 Sidecar 场景</strong>：</p><table><thead><tr><th>场景</th><th>Sidecar 职责</th><th>主容器</th></tr></thead><tbody><tr><td>日志收集</td><td>Fluentd/Filebeat 采集日志</td><td>业务应用</td></tr><tr><td>配置同步</td><td>监听配置变更并更新本地文件</td><td>读取配置文件</td></tr><tr><td>代理转发</td><td>Envoy/Nginx 做反向代理</td><td>业务应用</td></tr><tr><td>监控采集</td><td>Prometheus exporter</td><td>业务应用</td></tr><tr><td>TLS 证书</td><td>证书轮换与挂载</td><td>HTTP 服务</td></tr></tbody></table><p><strong>示例：日志 Sidecar</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>myapp:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;/app/server&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>logs</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/var/log/app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>log-agent</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>fluent-bit:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>logs</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/var/log/app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>readOnly</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>env</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>POD_NAME</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>valueFrom</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>fieldRef</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>fieldPath</span><span class=p>:</span><span class=w> </span><span class=l>metadata.name</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>volumes</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>logs</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>emptyDir</span><span class=p>:</span><span class=w> </span>{}<span class=w>
+</span></span></span></code></pre></div><p><strong>面试加分点</strong>：K8s 1.28+ 引入了原生的 Sidecar Container（<code>restartPolicy: Always</code> 的 Init Container），让 Sidecar 的生命周期管理更加规范，不再需要通过普通容器方式"模拟&rdquo;。</p><h3 id=33-native-sidecark8s-128>3.3 Native Sidecar（K8s 1.28+）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>initContainers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>sidecar</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>log-agent:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>restartPolicy</span><span class=p>:</span><span class=w> </span><span class=l>Always   </span><span class=w> </span><span class=c># 关键：声明为 Sidecar</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>logs</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/var/log/app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>myapp:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>logs</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/var/log/app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>volumes</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>logs</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>emptyDir</span><span class=p>:</span><span class=w> </span>{}<span class=w>
+</span></span></span></code></pre></div><p><strong>Native Sidecar 的优势</strong>：</p><ul><li>与主容器并行启动（不需要等它完成）</li><li>在主容器退出后继续运行做清理工作</li><li>生命周期由 Pod 统一管理</li></ul><hr><h2 id=四deployment无状态应用的首选>四、Deployment：无状态应用的首选</h2><h3 id=41-deployment-的本质>4.1 Deployment 的本质</h3><p>Deployment 是对 ReplicaSet 的声明式管理，提供滚动更新和回滚能力。</p><pre tabindex=0><code>Deployment
+    │
+    ├── ReplicaSet (v1) → 3 Pods
+    │
+    └── ReplicaSet (v2) → 3 Pods (更新版本后创建)
+</code></pre><p><strong>层级关系</strong>：Deployment → ReplicaSet → Pod</p><h3 id=42-关键配置>4.2 关键配置</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>web-app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>web-app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>strategy</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>RollingUpdate</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>rollingUpdate</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>maxSurge</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>         </span><span class=c># 滚动更新时最多多出多少个 Pod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>maxUnavailable</span><span class=p>:</span><span class=w> </span><span class=m>0</span><span class=w>   </span><span class=c># 滚动更新时最多不可用多少个 Pod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>web-app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>web</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>myapp:v2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>100m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>128Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>500m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>512Mi</span><span class=w>
+</span></span></span></code></pre></div><h3 id=43-滚动更新机制>4.3 滚动更新机制</h3><pre tabindex=0><code>初始状态: RS-v1 → [Pod1(v1)] [Pod2(v1)] [Pod3(v1)]
+
+Step 1: 创建新 Pod
+        RS-v1 → [Pod1(v1)] [Pod2(v1)] [Pod3(v1)]
+        RS-v2 → [Pod4(v2)]
+        (maxSurge=1: 多出一个)
+
+Step 2: 新 Pod 就绪后，杀旧 Pod
+        RS-v1 → [Pod1(v1)] [Pod2(v1)]
+        RS-v2 → [Pod4(v2)]
+
+Step 3: 继续创建新 Pod
+        RS-v1 → [Pod1(v1)] [Pod2(v1)]
+        RS-v2 → [Pod4(v2)] [Pod5(v2)]
+
+Step 4: 重复，直到全部替换
+        RS-v2 → [Pod4(v2)] [Pod5(v2)] [Pod6(v2)]
+
+最终: RS-v1 (replicas=0, 保留用于回滚)
+</code></pre><p><strong>关键参数解读</strong>：</p><table><thead><tr><th>参数</th><th>默认值</th><th>作用</th></tr></thead><tbody><tr><td>maxSurge</td><td>25%</td><td>滚动期间最多多出的 Pod 数（相对 replicas）</td></tr><tr><td>maxUnavailable</td><td>25%</td><td>滚动期间最多不可用的 Pod 数（相对 replicas）</td></tr><tr><td>minReadySeconds</td><td>0</td><td>Pod 就绪后至少等多久才认为可用</td></tr></tbody></table><p><strong>面试常考配置组合</strong>：</p><pre tabindex=0><code>maxSurge=1, maxUnavailable=0 → 永远多一个，零停机（最安全）
+maxSurge=0, maxUnavailable=1 → 不多创建，先减后增（资源受限时）
+maxSurge=1, maxUnavailable=1 → 快速滚动（有短暂不可用风险）
+</code></pre><h3 id=44-回滚机制>4.4 回滚机制</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 查看发布历史</span>
+</span></span><span class=line><span class=cl>kubectl rollout <span class=nb>history</span> deployment/web-app
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 查看某个版本详情</span>
+</span></span><span class=line><span class=cl>kubectl rollout <span class=nb>history</span> deployment/web-app --revision<span class=o>=</span><span class=m>2</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 回滚到上一版本</span>
+</span></span><span class=line><span class=cl>kubectl rollout undo deployment/web-app
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 回滚到指定版本</span>
+</span></span><span class=line><span class=cl>kubectl rollout undo deployment/web-app --to-revision<span class=o>=</span><span class=m>2</span>
+</span></span></code></pre></div><p><strong>回滚原理</strong>：Deployment 保留了历史 ReplicaSet（默认保留 10 个，由 <code>revisionHistoryLimit</code> 控制）。回滚本质是切换到旧 ReplicaSet 并扩容，同时缩容当前 ReplicaSet。</p><h3 id=45-面试高频问题>4.5 面试高频问题</h3><p><strong>Q: maxSurge=0 且 maxUnavailable=0 会怎样？</strong></p><p>A: 这是无效配置。K8s 会拒绝该 Deployment 的更新——因为既不允许增加 Pod 也不允许减少 Pod，滚动更新无法进行。</p><p><strong>Q: 滚动更新时如何保证不导流量到新/旧 Pod？</strong></p><p>A: 通过 readinessProbe + Service Endpoints 实现。新 Pod 的 readinessProbe 通过后才被加入 Endpoints，旧 Pod 的 readinessProbe 失败后从 Endpoints 摘除。配合 <code>preStop</code> hook 实现优雅退出。</p><hr><h2 id=五statefulset有状态应用的首选>五、StatefulSet：有状态应用的首选</h2><h3 id=51-为什么需要-statefulset>5.1 为什么需要 StatefulSet？</h3><p>Deployment 管理的 Pod 是无序的——Pod 名带随机后缀，重启后 IP 变化，无法保证顺序。但很多有状态应用需要：</p><ul><li><strong>稳定身份</strong>：Pod 名可预测（如 <code>mysql-0</code>, <code>mysql-1</code>）</li><li><strong>稳定存储</strong>：每个 Pod 有独立持久化存储，重启不丢失</li><li><strong>有序部署/扩缩</strong>：按顺序启动和停止</li><li><strong>有序网络标识</strong>：DNS 可解析到具体 Pod</li></ul><h3 id=52-statefulset-核心特性>5.2 StatefulSet 核心特性</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>StatefulSet</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>serviceName</span><span class=p>:</span><span class=w> </span><span class=l>mysql     </span><span class=w> </span><span class=c># 必须指定 Headless Service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>mysql:8.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>volumeClaimTemplates</span><span class=p>:</span><span class=w>    </span><span class=c># 每个 Pod 自动创建独立 PVC</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>data</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>accessModes</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;ReadWriteOnce&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>storage</span><span class=p>:</span><span class=w> </span><span class=l>10Gi</span><span class=w>
+</span></span></span></code></pre></div><p><strong>核心机制对照</strong>：</p><table><thead><tr><th>特性</th><th>Deployment Pod</th><th>StatefulSet Pod</th></tr></thead><tbody><tr><td>Pod 名</td><td><code>web-app-abc123</code></td><td><code>mysql-0</code> → <code>mysql-1</code> → <code>mysql-2</code></td></tr><tr><td>DNS</td><td>无独立 DNS</td><td><code>mysql-0.mysql.default.svc.cluster.local</code></td></tr><tr><td>存储</td><td>共享或无</td><td>每个有独立 PVC，<code>data-mysql-0</code></td></tr><tr><td>启动顺序</td><td>并行</td><td>顺序（0 启动完才启动 1）</td></tr><tr><td>缩容</td><td>随机删</td><td>倒序删（先删 2，再删 1）</td></tr></tbody></table><h3 id=53-headless-service>5.3 Headless Service</h3><p>StatefulSet 必须配合 Headless Service 使用：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>clusterIP</span><span class=p>:</span><span class=w> </span><span class=l>None   </span><span class=w> </span><span class=c># 关键：Headless</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>3306</span><span class=w>
+</span></span></span></code></pre></div><p><strong>Headless Service 的作用</strong>：</p><ul><li><code>clusterIP: None</code> 表示不分配虚拟 IP</li><li>DNS 查询 <code>mysql</code> 返回所有 Pod IP（轮询）</li><li>DNS 查询 <code>mysql-0.mysql</code> 返回具体 Pod IP</li><li>这让有状态应用可被按实例寻址</li></ul><h3 id=54-有序启动与优雅缩容>5.4 有序启动与优雅缩容</h3><pre tabindex=0><code>部署: mysql-0 → 就绪 → mysql-1 → 就绪 → mysql-2 → 就绪
+扩容: 同部署顺序
+缩容: mysql-2 → 终止 → mysql-1 → 终止 → mysql-0
+</code></pre><p><strong>面试关键点</strong>：</p><ul><li><code>podManagementPolicy</code>：默认 <code>OrderedReady</code>，可设为 <code>Parallel</code>（并行管理，K8s 1.7+）</li><li><code>parallelPodManagement</code> 配合 <code>Parallel</code> 可加速启动</li><li>缩容时即使 <code>Parallel</code>，也按倒序删除</li></ul><h3 id=55-典型适用场景>5.5 典型适用场景</h3><table><thead><tr><th>场景</th><th>是否用 StatefulSet</th><th>原因</th></tr></thead><tbody><tr><td>MySQL 主从</td><td>✅</td><td>需稳定身份、稳定存储、有序启动</td></tr><tr><td>Redis Cluster</td><td>✅</td><td>每个 Node 需独立数据</td></tr><tr><td>Kafka</td><td>✅</td><td>Broker ID 需稳定</td></tr><tr><td>ZooKeeper</td><td>✅</td><td>Ensemble 需有序</td></tr><tr><td>Nginx 前端</td><td>❌</td><td>无状态，用 Deployment</td></tr><tr><td>API 服务</td><td>❌</td><td>无状态，用 Deployment</td></tr><tr><td>日志采集 Agent</td><td>❌</td><td>每节点一个，用 DaemonSet</td></tr></tbody></table><hr><h2 id=六daemonset每节点一个>六、DaemonSet：每节点一个</h2><h3 id=61-daemonset-的作用>6.1 DaemonSet 的作用</h3><p>DaemonSet 确保每个节点上运行一个 Pod 副本（可配置仅特定节点）。</p><pre tabindex=0><code>Node1 ──── Pod (Fluentd)
+Node2 ──── Pod (Fluentd)
+Node3 ──── Pod (Fluentd)
+Node4 ──── Pod (Node Exporter)
+</code></pre><p><strong>典型场景</strong>：</p><ul><li>日志收集：Fluentd、Filebeat</li><li>监控代理：Node Exporter、Prometheus Agent</li><li>网络插件：Calico、Flannel</li><li>存储插件：Ceph CSI、Local Volume</li></ul><h3 id=62-关键配置>6.2 关键配置</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>DaemonSet</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>log-agent</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>log-agent</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>log-agent</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>nodeSelector</span><span class=p>:</span><span class=w>           </span><span class=c># 仅部署到特定节点</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>node-role</span><span class=p>:</span><span class=w> </span><span class=l>worker</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>tolerations</span><span class=p>:</span><span class=w>             </span><span class=c># 允许调度到污点节点</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>key</span><span class=p>:</span><span class=w> </span><span class=l>node-role.k8s.io/control-plane</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>effect</span><span class=p>:</span><span class=w> </span><span class=l>NoSchedule</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>fluentd</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>fluentd:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>100m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>128Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>200m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>256Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>varlog</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/var/log</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>readOnly</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>volumes</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>varlog</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>hostPath</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>/var/log</span><span class=w>
+</span></span></span></code></pre></div><h3 id=63-daemonset-更新策略>6.3 DaemonSet 更新策略</h3><table><thead><tr><th>策略</th><th>说明</th></tr></thead><tbody><tr><td>OnDelete</td><td>手动删除 Pod 后才创建新 Pod（默认旧版）</td></tr><tr><td>RollingUpdate</td><td>自动滚动更新（默认）</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>updateStrategy</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>RollingUpdate</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>rollingUpdate</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>maxUnavailable</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>    </span><span class=c># 最多多少个节点同时不可用</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>maxSurge</span><span class=p>:</span><span class=w> </span><span class=m>0</span><span class=w>          </span><span class=c># DaemonSet 不支持 maxSurge &gt; 0</span><span class=w>
+</span></span></span></code></pre></div><p><strong>面试要点</strong>：DaemonSet 不设置 <code>replicas</code>，Pod 数量等于（符合条件的）节点数量。新节点加入集群后，DaemonSet 会自动在该节点创建 Pod。</p><hr><h2 id=七三种工作负载对比总结>七、三种工作负载对比总结</h2><table><thead><tr><th>维度</th><th>Deployment</th><th>StatefulSet</th><th>DaemonSet</th></tr></thead><tbody><tr><td>有状态</td><td>无</td><td>有</td><td>无</td></tr><tr><td>Pod 名</td><td>随机后缀</td><td>有序编号</td><td>随机但每节点一个</td></tr><tr><td>存储</td><td>共享或无</td><td>独立 PVC</td><td>通常用 hostPath</td></tr><tr><td>调度策略</td><td>分散调度</td><td>顺序调度</td><td>每节点一个</td></tr><tr><td>滚动更新</td><td>maxSurge + maxUnavailable</td><td>逆序更新，从最大编号开始</td><td>逐节点更新</td></tr><tr><td>回滚</td><td>支持，保留历史 RS</td><td>支持，保留历史</td><td>支持</td></tr><tr><td>典型应用</td><td>Web/API/微服务</td><td>数据库/MQ/协调服务</td><td>日志/监控/网络</td></tr><tr><td>是否需要 Service</td><td>通常 ClusterIP</td><td>必须 Headless</td><td>通常不需要</td></tr></tbody></table><p><strong>面试口诀</strong>：</p><pre tabindex=0><code>无状态用 Deployment，
+有状态用 StatefulSet，
+每节点一个用 DaemonSet。
+</code></pre><hr><h2 id=八pod-亲和性与反亲和性>八、Pod 亲和性与反亲和性</h2><h3 id=81-为什么需要亲和性>8.1 为什么需要亲和性？</h3><p>默认情况下，Scheduler 会将 Pod 尽量分散到不同节点。但有些场景需要更精细的控制：</p><table><thead><tr><th>需求</th><th>策略</th></tr></thead><tbody><tr><td>同应用的 Pod 尽量分散</td><td>反亲和（Anti-Affinity）</td></tr><tr><td>前端与后端尽量同节点</td><td>亲和（Affinity）</td></tr><tr><td>调度到有 SSD 的节点</td><td>节点亲和</td></tr><tr><td>避免与 GPU 任务同节点</td><td>反亲和</td></tr></tbody></table><h3 id=82-节点亲和性>8.2 节点亲和性</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>affinity</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>nodeAffinity</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>requiredDuringSchedulingIgnoredDuringExecution</span><span class=p>:</span><span class=w>   </span><span class=c># 硬约束</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>nodeSelectorTerms</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>matchExpressions</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span>- <span class=nt>key</span><span class=p>:</span><span class=w> </span><span class=l>disk-type</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>operator</span><span class=p>:</span><span class=w> </span><span class=l>In</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>values</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=l>ssd</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>preferredDuringSchedulingIgnoredDuringExecution</span><span class=p>:</span><span class=w>  </span><span class=c># 软约束</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>weight</span><span class=p>:</span><span class=w> </span><span class=m>80</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>preference</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>matchExpressions</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span>- <span class=nt>key</span><span class=p>:</span><span class=w> </span><span class=l>zone</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>operator</span><span class=p>:</span><span class=w> </span><span class=l>In</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>values</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=l>east</span><span class=w>
+</span></span></span></code></pre></div><h3 id=83-pod-反亲和性>8.3 Pod 反亲和性</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>affinity</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>podAntiAffinity</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>preferredDuringSchedulingIgnoredDuringExecution</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>weight</span><span class=p>:</span><span class=w> </span><span class=m>100</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>podAffinityTerm</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>labelSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>web-app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>topologyKey</span><span class=p>:</span><span class=w> </span><span class=l>kubernetes.io/hostname</span><span class=w>
+</span></span></span></code></pre></div><p><strong>面试要点</strong>：</p><ul><li><code>requiredDuringScheduling</code> = 硬约束，不满足就不调度</li><li><code>preferredDuringScheduling</code> = 软约束，尽量满足</li><li><code>topologyKey: kubernetes.io/hostname</code> = 按节点打散</li><li><code>topologyKey: topology.kubernetes.io/zone</code> = 按可用区打散</li></ul><hr><h2 id=九pod-调度器工作原理>九、Pod 调度器工作原理</h2><h3 id=91-两阶段调度>9.1 两阶段调度</h3><pre tabindex=0><code>待调度 Pod 进入调度队列
+        │
+        ▼
+┌─────────────────┐
+│  Filter（过滤）   │  ← PreFilter + Filter 插件
+│  排除不满足的节点  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Score（打分）    │  ← Score 插件
+│  对候选节点排序    │
+└────────┬────────┘
+         │
+         ▼
+    选定最高分节点
+</code></pre><p><strong>常见过滤条件</strong>：</p><ul><li>资源是否足够（CPU/Memory）</li><li>节点是否污点排斥</li><li>Pod 亲和/反亲和</li><li>Volume 是否可挂载</li><li>NodeSelector 是否匹配</li></ul><p><strong>常见打分策略</strong>：</p><ul><li>LeastRequestedPriority：资源使用率越低分越高</li><li>BalancedResourceAllocation：CPU 和内存使用率越均衡分越高</li><li>NodeAffinityPriority：符合节点亲和加分</li><li>AntiAffinityPriority：符合反亲和加分</li></ul><h3 id=92-调度器面试要点>9.2 调度器面试要点</h3><p><strong>Q: 如果所有节点都不满足过滤条件，Pod 会怎样？</strong></p><p>A: Pod 处于 Pending 状态，事件中会记录 <code>FailedScheduling</code> 原因。调度器会持续重试。</p><p><strong>Q: 调度器如何保证高可用？</strong></p><p>A: 多副本部署，通过 leader election 机制保证只有一个调度器在工作。其他副本作为备胎，主调度器挂了自动切换。</p><hr><h2 id=十实战配置模板>十、实战配置模板</h2><h3 id=101-生产级-deployment-模板>10.1 生产级 Deployment 模板</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>api-service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>api-service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>revisionHistoryLimit</span><span class=p>:</span><span class=w> </span><span class=m>10</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>strategy</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>RollingUpdate</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>rollingUpdate</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>maxSurge</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>maxUnavailable</span><span class=p>:</span><span class=w> </span><span class=m>0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>api-service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>api-service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>terminationGracePeriodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>60</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>api</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>api-service:v2.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>containerPort</span><span class=p>:</span><span class=w> </span><span class=m>8080</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>200m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>256Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>1000m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>1Gi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>startupProbe</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>httpGet</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>/health</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>8080</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>failureThreshold</span><span class=p>:</span><span class=w> </span><span class=m>30</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>periodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>livenessProbe</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>httpGet</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>/health</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>8080</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>periodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>10</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>failureThreshold</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>readinessProbe</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>httpGet</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>/ready</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>8080</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>periodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>failureThreshold</span><span class=p>:</span><span class=w> </span><span class=m>2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>lifecycle</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>preStop</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>exec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>command</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;/bin/sh&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;-c&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;sleep 15&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>env</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>APP_ENV</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>value</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;production&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>affinity</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>podAntiAffinity</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>preferredDuringSchedulingIgnoredDuringExecution</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span>- <span class=nt>weight</span><span class=p>:</span><span class=w> </span><span class=m>100</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>podAffinityTerm</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>labelSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                  </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>api-service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>topologyKey</span><span class=p>:</span><span class=w> </span><span class=l>kubernetes.io/hostname</span><span class=w>
+</span></span></span></code></pre></div><h3 id=102-生产级-statefulset-模板>10.2 生产级 StatefulSet 模板</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>clusterIP</span><span class=p>:</span><span class=w> </span><span class=l>None</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>3306</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>StatefulSet</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>serviceName</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>podManagementPolicy</span><span class=p>:</span><span class=w> </span><span class=l>OrderedReady</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>updateStrategy</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>RollingUpdate</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>terminationGracePeriodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>30</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>mysql:8.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>containerPort</span><span class=p>:</span><span class=w> </span><span class=m>3306</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>env</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>MYSQL_ROOT_PASSWORD</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>valueFrom</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>secretKeyRef</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>mysql-secret</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>key</span><span class=p>:</span><span class=w> </span><span class=l>root-password</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>data</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/var/lib/mysql</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>volumeClaimTemplates</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>data</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>accessModes</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;ReadWriteOnce&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>storageClassName</span><span class=p>:</span><span class=w> </span><span class=l>fast-ssd</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>storage</span><span class=p>:</span><span class=w> </span><span class=l>50Gi</span><span class=w>
+</span></span></span></code></pre></div><hr><h2 id=本期总结>本期总结</h2><table><thead><tr><th>知识点</th><th>核心内容</th></tr></thead><tbody><tr><td>Pod 本质</td><td>最小调度单元，共享网络和存储的容器组</td></tr><tr><td>Pod 生命周期</td><td>Pending → Running → Succeeded/Failed，细看容器状态</td></tr><tr><td>探针</td><td>startup（启动）+ liveness（存活）+ readiness（就绪）</td></tr><tr><td>Init Container</td><td>启动前串行执行，完成准备性工作</td></tr><tr><td>Sidecar 模式</td><td>同 Pod 内辅助容器，Native Sidecar 1.28+</td></tr><tr><td>Deployment</td><td>无状态，滚动更新，maxSurge + maxUnavailable</td></tr><tr><td>StatefulSet</td><td>有状态，稳定身份/存储/有序，Headless Service</td></tr><tr><td>DaemonSet</td><td>每节点一个，日志/监控/网络</td></tr><tr><td>亲和性</td><td>节点亲和（硬/软），Pod 反亲和（分散调度）</td></tr><tr><td>调度器</td><td>Filter + Score 两阶段，leader election 高可用</td></tr></tbody></table><p><strong>学习建议</strong>：</p><ol><li><strong>概念层</strong>：理解 Pod 为什么是最小调度单元，为什么有状态应用需要 StatefulSet</li><li><strong>配置层</strong>：能写完整的 Deployment + Probe + Lifecycle 配置</li><li><strong>原理层</strong>：理解滚动更新的完整链路、回滚机制、调度器两阶段</li><li><strong>面试层</strong>：能流畅回答三种工作负载的选型依据和各自适用场景</li></ol><hr><h2 id=下期预告>下期预告</h2><p>下一篇：<strong>Kubernetes与云原生面试八股文（三）——Service与网络通信</strong> 将深入讲解 Service 的四种类型（ClusterIP/NodePort/LoadBalancer/ExternalName）、kube-proxy 三种模式（userspace/iptables/IPVS）、Ingress 控制器选型、NetworkPolicy 与 CNI 插件、Pod 间通信完整链路解析，敬请期待。</p><hr><p><em>作者：飞哥 · Raphael Lab</em></p><p><em>Kubernetes与云原生面试八股文系列</em></p></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%80kubernetes%E6%9E%B6%E6%9E%84%E6%A0%B8%E5%BF%83%E4%B8%8E%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86/><span>← 上一篇</span><strong>Kubernetes与云原生面试八股文（一）——Kubernetes架构核心与集群管理</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%80kubernetes%E6%9E%B6%E6%9E%84%E6%A0%B8%E5%BF%83%E4%B8%8E%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86/><span>2026-07-29</span><strong>Kubernetes与云原生面试八股文（一）——Kubernetes架构核心与集群管理</strong><p>从面试高频问题出发，系统拆解 Kubernetes 架构核心组件、集群初始化、etcd 选主机制、API Server 请求链路，建立生产级 K8s 架构认知。本系列开篇。</p></a><a href=/posts/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%8D%81%E6%B7%B7%E6%B2%8C%E5%B7%A5%E7%A8%8B%E7%81%B0%E5%BA%A6%E5%8F%91%E5%B8%83%E4%B8%8E%E7%B3%BB%E7%BB%9F%E9%9F%A7%E6%80%A7%E8%AE%BE%E8%AE%A1/><span>2026-07-13</span><strong>微服务面试八股文（十）——混沌工程、灰度发布与系统韧性设计</strong><p>🎯 本文目标：作为微服务面试八股文系列的收官之作，我们聚焦微服务稳定性保障的三大核心能力：混沌工程（主动注入故障、验证系统韧性）、灰度发布（金丝雀/蓝绿/A/B测试/Feature …</p></a><a href=/posts/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B9%9Dkubernetes%E6%B7%B1%E5%85%A5%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E6%9E%B6%E6%9E%84%E5%AE%9E%E8%B7%B5/><span>2026-07-13</span><strong>微服务面试八股文（九）——Kubernetes深入与云原生架构实践</strong><p>承接微服务容器化实践，深入 Pod 调度、StatefulSet、RBAC、NetworkPolicy、Helm 与 12-Factor，建立生产级 Kubernetes 架构能 …</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9AKubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%EF%BC%88%E4%BA%8C%EF%BC%89%E2%80%94%E2%80%94Pod%E6%B7%B1%E5%85%A5%E4%B8%8E%E5%B7%A5%E4%BD%9C%E8%B4%9F%E8%BD%BD%E7%AE%A1%E7%90%86" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#kubernetes与云-native面试八股文二pod深入与工作负载管理>Kubernetes与云-native面试八股文（二）——Pod深入与工作负载管理</a><ul><li><a href=#-本文目标>🎯 本文目标</a></li></ul></li><li><a href=#一pod-的本质与设计哲学>一、Pod 的本质与设计哲学</a><ul><li><a href=#11-为什么是-pod-而不是容器>1.1 为什么是 Pod 而不是容器？</a></li><li><a href=#12-pod-的组成结构>1.2 Pod 的组成结构</a></li><li><a href=#13-pod-的分类>1.3 Pod 的分类</a></li></ul></li><li><a href=#二pod-生命周期与相位管理>二、Pod 生命周期与相位管理</a><ul><li><a href=#21-pod-的相位phase>2.1 Pod 的相位（Phase）</a></li><li><a href=#22-容器状态机>2.2 容器状态机</a></li><li><a href=#23-pod-的启动流程>2.3 Pod 的启动流程</a></li><li><a href=#24-pod-的终止流程>2.4 Pod 的终止流程</a></li><li><a href=#25-探针probes详解>2.5 探针（Probes）详解</a></li></ul></li><li><a href=#三init-container-与-sidecar-模式>三、Init Container 与 Sidecar 模式</a><ul><li><a href=#31-init-container>3.1 Init Container</a></li><li><a href=#32-sidecar-模式>3.2 Sidecar 模式</a></li><li><a href=#33-native-sidecark8s-128>3.3 Native Sidecar（K8s 1.28+）</a></li></ul></li><li><a href=#四deployment无状态应用的首选>四、Deployment：无状态应用的首选</a><ul><li><a href=#41-deployment-的本质>4.1 Deployment 的本质</a></li><li><a href=#42-关键配置>4.2 关键配置</a></li><li><a href=#43-滚动更新机制>4.3 滚动更新机制</a></li><li><a href=#44-回滚机制>4.4 回滚机制</a></li><li><a href=#45-面试高频问题>4.5 面试高频问题</a></li></ul></li><li><a href=#五statefulset有状态应用的首选>五、StatefulSet：有状态应用的首选</a><ul><li><a href=#51-为什么需要-statefulset>5.1 为什么需要 StatefulSet？</a></li><li><a href=#52-statefulset-核心特性>5.2 StatefulSet 核心特性</a></li><li><a href=#53-headless-service>5.3 Headless Service</a></li><li><a href=#54-有序启动与优雅缩容>5.4 有序启动与优雅缩容</a></li><li><a href=#55-典型适用场景>5.5 典型适用场景</a></li></ul></li><li><a href=#六daemonset每节点一个>六、DaemonSet：每节点一个</a><ul><li><a href=#61-daemonset-的作用>6.1 DaemonSet 的作用</a></li><li><a href=#62-关键配置>6.2 关键配置</a></li><li><a href=#63-daemonset-更新策略>6.3 DaemonSet 更新策略</a></li></ul></li><li><a href=#七三种工作负载对比总结>七、三种工作负载对比总结</a></li><li><a href=#八pod-亲和性与反亲和性>八、Pod 亲和性与反亲和性</a><ul><li><a href=#81-为什么需要亲和性>8.1 为什么需要亲和性？</a></li><li><a href=#82-节点亲和性>8.2 节点亲和性</a></li><li><a href=#83-pod-反亲和性>8.3 Pod 反亲和性</a></li></ul></li><li><a href=#九pod-调度器工作原理>九、Pod 调度器工作原理</a><ul><li><a href=#91-两阶段调度>9.1 两阶段调度</a></li><li><a href=#92-调度器面试要点>9.2 调度器面试要点</a></li></ul></li><li><a href=#十实战配置模板>十、实战配置模板</a><ul><li><a href=#101-生产级-deployment-模板>10.1 生产级 Deployment 模板</a></li><li><a href=#102-生产级-statefulset-模板>10.2 生产级 StatefulSet 模板</a></li></ul></li><li><a href=#本期总结>本期总结</a></li><li><a href=#下期预告>下期预告</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
+<a href=mailto:liyafei.work@foxmail.com>邮箱</a>
+<a href=/index.xml>RSS</a></div><p class=copyright>© 2026 李亚飞</p></footer><div class=sr-only id=live-region aria-live=polite></div><script src=/js/site.js defer></script></body></html>
