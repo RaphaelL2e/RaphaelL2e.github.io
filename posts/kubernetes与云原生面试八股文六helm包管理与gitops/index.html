@@ -1,0 +1,947 @@
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps｜Raphael Lab</title><meta name=description content="面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD 的 GitOps 工作流有什么区别？多环境配置怎么管理？渐进式发布怎么做？本文系统讲解 Helm 包管理与 GitOps 的核心知识体系。 Q: Helm 的核心概念有哪些？"><meta name=author content="李亚飞"><meta name=referrer content="strict-origin-when-cross-origin"><meta http-equiv=content-security-policy content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"><meta name=robots content="index,follow,max-image-preview:large"><link rel=canonical href=https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/><link rel=alternate type=application/rss+xml title="Raphael Lab RSS" href=https://raphaell2e.github.io/index.xml><link rel=icon href=/favicon.svg type=image/svg+xml><link rel=stylesheet href=/css/site.css><meta property="og:locale" content="zh_CN"><meta property="og:site_name" content="Raphael Lab"><meta property="og:title" content="Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps｜Raphael Lab"><meta property="og:description" content="面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD 的 GitOps 工作流有什么区别？多环境配置怎么管理？渐进式发布怎么做？本文系统讲解 Helm 包管理与 GitOps 的核心知识体系。 Q: Helm 的核心概念有哪些？"><meta property="og:url" content="https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/"><meta property="og:image" content="https://raphaell2e.github.io/images/og-default.png"><meta property="og:type" content="article"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps｜Raphael Lab"><meta name=twitter:description content="面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD 的 GitOps 工作流有什么区别？多环境配置怎么管理？渐进式发布怎么做？本文系统讲解 Helm 包管理与 GitOps 的核心知识体系。 Q: Helm 的核心概念有哪些？"><meta name=twitter:image content="https://raphaell2e.github.io/images/og-default.png"><meta property="article:published_time" content="2026-08-06T10:00:00+08:00"><meta property="article:modified_time" content="2026-08-06T10:00:00+08:00"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"WebSite","alternateName":"飞哥 AI 实验室","description":"记录后端工程、分布式系统与 AI 工程化的真实实践。","inLanguage":"zh-CN","name":"Raphael Lab｜飞哥 AI 实验室","publisher":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"url":"https://raphaell2e.github.io/"},{"@type":"TechArticle","author":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"dateModified":"2026-08-06T10:00:00+08:00","datePublished":"2026-08-06T10:00:00+08:00","description":"面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD 的 GitOps 工作流有什么区别？多环境配置怎么管理？渐进式发布怎么做？本文系统讲解 Helm 包管理与 GitOps 的核心知识体系。 Q: Helm 的核心概念有哪些？","headline":"Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps","inLanguage":"zh-CN","mainEntityOfPage":"https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/","publisher":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"url":"https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/"}]}</script></head><body class="page-page section-posts"><a class=skip-link href=#main-content>跳到正文</a><header class=site-header><div class=header-inner><a class=brand href=/><span class=brand-mark aria-hidden=true>R</span>
+<span>Raphael Lab</span></a><nav class=desktop-nav aria-label=主导航><a href=/>首页</a>
+<a href=/series/>专题</a>
+<a href=/posts/>文章库</a>
+<a href=/projects/>项目</a>
+<a href=/about/>关于</a></nav><div class=header-actions><a class=search-trigger href=/search/ aria-label=搜索文章><span aria-hidden=true>⌕</span><span class=search-label>搜索</span><kbd>/</kbd></a>
+<button class=menu-toggle type=button aria-expanded=false aria-controls=mobile-nav aria-label=打开导航><span></span><span></span><span></span></button></div></div><nav class=mobile-nav id=mobile-nav aria-label=移动端导航 hidden><a href=/>首页</a><a href=/series/>专题</a><a href=/posts/>文章库</a><a href=/projects/>项目</a><a href=/about/>关于</a>
+<a href=/search/>搜索</a></nav></header><main id=main-content class=site-main><article class="article-shell shell"><div class=reading-progress aria-hidden=true><span></span></div><div class=article-main><nav class=breadcrumbs aria-label=面包屑><a href=/>首页</a><span>/</span>
+<a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps</h1><p class=article-description>面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD 的 GitOps 工作流有什么区别？多环境配置怎么管理？渐进式发布怎么做？本文系统讲解 Helm 包管理与 GitOps 的核心知识体系。 Q: Helm 的核心概念有哪些？</p><div class=article-meta><span>发布于 <time datetime=2026-08-06>2026-08-06</time></span>
+<span>最后验证 2026-08</span>
+<span>18 分钟阅读</span>
+<span>3718 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一helm-核心概念与架构>一、Helm 核心概念与架构</a><ul><li><a href=#11-helm-是什么>1.1 Helm 是什么</a></li><li><a href=#12-helm-3-vs-helm-2>1.2 Helm 3 vs Helm 2</a></li><li><a href=#13-helm-3-release-存储机制>1.3 Helm 3 Release 存储机制</a></li></ul></li><li><a href=#二chart-结构详解>二、Chart 结构详解</a><ul><li><a href=#21-标准-chart-目录结构>2.1 标准 Chart 目录结构</a></li><li><a href=#22-chartyaml-详解>2.2 Chart.yaml 详解</a></li><li><a href=#23-模板辅助函数-_helperstpl>2.3 模板辅助函数 _helpers.tpl</a></li></ul></li><li><a href=#三模板引擎深入>三、模板引擎深入</a><ul><li><a href=#31-values-与模板渲染>3.1 Values 与模板渲染</a></li><li><a href=#32-常用模板函数>3.2 常用模板函数</a></li><li><a href=#33-流程控制>3.3 流程控制</a></li><li><a href=#34-hooks-机制>3.4 Hooks 机制</a></li></ul></li><li><a href=#四oci-registry-集成>四、OCI Registry 集成</a><ul><li><a href=#41-helm-与-oci>4.1 Helm 与 OCI</a></li><li><a href=#42-常见-oci-registry-支持>4.2 常见 OCI Registry 支持</a></li><li><a href=#43-cosign-签名验证>4.3 Cosign 签名验证</a></li></ul></li><li><a href=#五gitops-工作流>五、GitOps 工作流</a><ul><li><a href=#51-gitops-核心理念>5.1 GitOps 核心理念</a></li><li><a href=#52-argocd-深入>5.2 ArgoCD 深入</a></li><li><a href=#53-fluxcd-深入>5.3 FluxCD 深入</a></li><li><a href=#54-argocd-vs-fluxcd>5.4 ArgoCD vs FluxCD</a></li></ul></li><li><a href=#六多环境配置管理>六、多环境配置管理</a><ul><li><a href=#61-git-目录结构策略>6.1 Git 目录结构策略</a></li><li><a href=#62-helm-多环境配置>6.2 Helm 多环境配置</a></li><li><a href=#63-kustomize--helm-组合>6.3 Kustomize + Helm 组合</a></li></ul></li><li><a href=#七渐进式发布与回滚>七、渐进式发布与回滚</a><ul><li><a href=#71-argocd-rollouts>7.1 ArgoCD Rollouts</a></li><li><a href=#72-helm-回滚机制>7.2 Helm 回滚机制</a></li><li><a href=#73-gitops-中的回滚>7.3 GitOps 中的回滚</a></li></ul></li><li><a href=#八生产实战经验>八、生产实战经验</a><ul><li><a href=#81-chart-开发最佳实践>8.1 Chart 开发最佳实践</a></li><li><a href=#82-chart-测试>8.2 Chart 测试</a></li><li><a href=#83-常见生产问题>8.3 常见生产问题</a></li></ul></li><li><a href=#九面试高频综合题>九、面试高频综合题</a><ul><li><a href=#91-综合场景题>9.1 综合场景题</a></li><li><a href=#92-排错题>9.2 排错题</a></li><li><a href=#93-安全题>9.3 安全题</a></li></ul></li><li><a href=#十本系列知识体系总览>十、本系列知识体系总览</a></li><li><a href=#下期预告>下期预告</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD 的 GitOps 工作流有什么区别？多环境配置怎么管理？渐进式发布怎么做？本文系统讲解 Helm 包管理与 GitOps 的核心知识体系。</p></blockquote><hr><h2 id=一helm-核心概念与架构>一、Helm 核心概念与架构</h2><h3 id=11-helm-是什么>1.1 Helm 是什么</h3><p><strong>Q: Helm 的核心概念有哪些？</strong></p><p>Helm 是 Kubernetes 的包管理器，类似于 Ubuntu 的 apt、CentOS 的 yum 或 macOS 的 Homebrew。它将一组 Kubernetes 资源定义为一个可复用的"Chart"，实现一键部署、版本管理和升级回滚。</p><p>三个核心概念：</p><table><thead><tr><th>概念</th><th>类比</th><th>说明</th></tr></thead><tbody><tr><td><strong>Chart</strong></td><td>软件包</td><td>一组 Kubernetes 资源文件的集合，包含模板和配置</td></tr><tr><td><strong>Release</strong></td><td>安装实例</td><td>Chart 的一次运行实例，同一个 Chart 可以安装多次</td></tr><tr><td><strong>Repository</strong></td><td>软件仓库</td><td>存放和共享 Chart 的地方</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Helm 基本操作</span>
+</span></span><span class=line><span class=cl>helm create myapp          <span class=c1># 创建新 Chart</span>
+</span></span><span class=line><span class=cl>helm install myapp ./myapp <span class=c1># 安装 Chart，创建 Release</span>
+</span></span><span class=line><span class=cl>helm upgrade myapp ./myapp <span class=c1># 升级 Release</span>
+</span></span><span class=line><span class=cl>helm rollback myapp <span class=m>2</span>     <span class=c1># 回滚到历史版本</span>
+</span></span><span class=line><span class=cl>helm uninstall myapp      <span class=c1># 卸载 Release</span>
+</span></span><span class=line><span class=cl>helm list                 <span class=c1># 查看所有 Release</span>
+</span></span><span class=line><span class=cl>helm <span class=nb>history</span> myapp        <span class=c1># 查看 Release 历史</span>
+</span></span></code></pre></div><h3 id=12-helm-3-vs-helm-2>1.2 Helm 3 vs Helm 2</h3><p><strong>Q: Helm 3 相比 Helm 2 有哪些重大变化？</strong></p><table><thead><tr><th>特性</th><th>Helm 2</th><th>Helm 3</th></tr></thead><tbody><tr><td>架构</td><td>C/S 架构（Tiller 服务端）</td><td>纯客户端，无 Tiller</td></tr><tr><td>权限</td><td>Tiller 拥有集群权限</td><td>基于kubeconfig的用户权限</td></tr><tr><td>Release 存储</td><td>ConfigMap/Secret（kube-system）</td><td>Secret（Release 所在 Namespace）</td></tr><tr><td>Release 命名</td><td>全局唯一</td><td>Namespace 内唯一</td></tr><tr><td>模板引擎</td><td>Go template + Sprig</td><td>Go template + Sprig（改进）</td></tr><tr><td>Hook 机制</td><td>基本支持</td><td>增强支持</td></tr><tr><td>CRD 处理</td><td>简单安装</td><td>支持 <code>crds/</code> 目录和 <code>crd-install</code> hook</td></tr></tbody></table><p><strong>关键理解</strong>：Helm 3 移除了 Tiller 是最大的架构变化。Tiller 在 Helm 2 中运行在集群内，拥有集群管理员权限，这是安全隐患。Helm 3 通过 kubeconfig 直接与 API Server 交互，权限继承当前用户。</p><h3 id=13-helm-3-release-存储机制>1.3 Helm 3 Release 存储机制</h3><p><strong>Q: Helm 3 的 Release 数据存储在哪里？</strong></p><p>Helm 3 将 Release 信息存储为 Secret，位于 Release 所在的 Namespace：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 查看 Release 存储的 Secret</span>
+</span></span><span class=line><span class=cl>kubectl get secret -n default -l <span class=nv>owner</span><span class=o>=</span>helm
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 输出示例：</span>
+</span></span><span class=line><span class=cl><span class=c1># NAME                            TYPE                 DATA   AGE</span>
+</span></span><span class=line><span class=cl><span class=c1># sh.helm.release.v1.myapp.v1     helm.sh/release.v1   1      10m</span>
+</span></span><span class=line><span class=cl><span class=c1># sh.helm.release.v1.myapp.v2     helm.sh/release.v1   1      5m</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 查看 Release 内容（base64解码）</span>
+</span></span><span class=line><span class=cl>kubectl get secret sh.helm.release.v1.myapp.v1 -n default -o <span class=nv>jsonpath</span><span class=o>=</span><span class=s1>&#39;{.data.release}&#39;</span> <span class=p>|</span> base64 -d <span class=p>|</span> gzip -d <span class=p>|</span> jq .
+</span></span></code></pre></div><p><strong>面试要点</strong>：</p><ul><li>Release 存储格式：<code>sh.helm.release.v1.{release_name}.v{revision}</code></li><li>每次 <code>helm install/upgrade/rollback</code> 都会创建新版本</li><li>默认保留最近 10 个版本（可通过 <code>--history-max</code> 配置）</li><li>Release 数据包含完整的渲染后资源和 Chart 元数据</li></ul><hr><h2 id=二chart-结构详解>二、Chart 结构详解</h2><h3 id=21-标准-chart-目录结构>2.1 标准 Chart 目录结构</h3><p><strong>Q: 一个标准的 Helm Chart 结构是怎样的？</strong></p><pre tabindex=0><code>myapp/
+├── Chart.yaml              # Chart 元信息（名称、版本、描述）
+├── values.yaml             # 默认配置值
+├── values-prod.yaml        # 环境覆盖值（自定义）
+├── charts/                 # 依赖的子 Chart
+│   └── redis/
+│       ├── Chart.yaml
+│       └── values.yaml
+├── templates/              # Kubernetes 资源模板
+│   ├── _helpers.tpl        # 模板辅助函数
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   ├── ingress.yaml
+│   ├── configmap.yaml
+│   ├── hpa.yaml
+│   ├── NOTES.txt           # 安装后提示信息
+│   └── tests/              # 测试模板
+│       └── test-connection.yaml
+├── crds/                   # CustomResourceDefinitions
+│   └── crd.yaml
+├── templates/             # 模板目录
+├── README.md              # Chart 说明
+├── LICENSE                # 许可证
+└── .helmignore            # Helm 打包忽略文件
+</code></pre><h3 id=22-chartyaml-详解>2.2 Chart.yaml 详解</h3><p><strong>Q: Chart.yaml 有哪些关键字段？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v2               </span><span class=w> </span><span class=c># Chart API 版本（v2 = Helm 3）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp                  </span><span class=w> </span><span class=c># Chart 名称</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=l>A Helm chart for MyApp </span><span class=w> </span><span class=c># 描述</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>application            </span><span class=w> </span><span class=c># application 或 library</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>version</span><span class=p>:</span><span class=w> </span><span class=m>0.1.0</span><span class=w>               </span><span class=c># Chart 版本（SemVer）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>appVersion</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;1.16.0&#34;</span><span class=w>         </span><span class=c># 应用版本（不强制 SemVer）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>icon</span><span class=p>:</span><span class=w> </span><span class=l>https://example.com/icon.png</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>keywords</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>web</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>api</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>maintainers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>feige</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>email</span><span class=p>:</span><span class=w> </span><span class=l>feige@example.com</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>https://example.com</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>sources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>https://github.com/example/myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>dependencies</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>redis</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>version</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;15.5.0&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>repository</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;https://charts.bitnami.com/bitnami&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>condition</span><span class=p>:</span><span class=w> </span><span class=l>redis.enabled</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>alias</span><span class=p>:</span><span class=w> </span><span class=l>redis-cache</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>import-values</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>child</span><span class=p>:</span><span class=w> </span><span class=l>master.persistence</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>parent</span><span class=p>:</span><span class=w> </span><span class=l>redisPersistence</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>annotations</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>category</span><span class=p>:</span><span class=w> </span><span class=l>Database</span><span class=w>
+</span></span></span></code></pre></div><p><strong>面试要点</strong>：</p><ul><li><code>version</code> 是 Chart 自身版本，<code>appVersion</code> 是应用版本，两者独立</li><li><code>type: library</code> 表示这是一个库 Chart（只提供模板，不部署资源）</li><li><code>dependencies</code> 中的 <code>condition</code> 控制是否启用子 Chart</li><li><code>import-values</code> 可以从子 Chart 导入值到父 Chart</li></ul><h3 id=23-模板辅助函数-_helperstpl>2.3 模板辅助函数 _helpers.tpl</h3><p><strong>Q: _helpers.tpl 的作用是什么？如何编写可复用的模板？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl>{{<span class=l>/* 生成完整名称：app-name */}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>define &#34;myapp.fullname&#34; -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>if .Values.fullnameOverride -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>.Values.fullnameOverride | trunc 63 | trimSuffix &#34;-&#34; -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>else -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>$name := .Chart.Name -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>if contains $name .Release.Name -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>.Release.Name | trunc 63 | trimSuffix &#34;-&#34; -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>else -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>printf &#34;%s-%s&#34; $name .Release.Name | trunc 63 | trimSuffix &#34;-&#34; -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{<span class=l>/* 标签 */}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>define &#34;myapp.labels&#34; -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>helm.sh/chart</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Chart.Name }}-{{ .Chart.Version | replace &#34;+&#34; &#34;_&#34; }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{<span class=w> </span><span class=l>include &#34;myapp.selectorLabels&#34; . }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>if .Chart.AppVersion }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>app.kubernetes.io/version</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Chart.AppVersion | quote }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>app.kubernetes.io/managed-by</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Release.Service }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{<span class=l>/* 选择器标签 */}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>define &#34;myapp.selectorLabels&#34; -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>app.kubernetes.io/name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>include &#34;myapp.name&#34; . }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>app.kubernetes.io/instance</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Release.Name }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{<span class=l>/* 服务名称 */}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>define &#34;myapp.serviceName&#34; -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>include &#34;myapp.fullname&#34; . -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end -}}</span><span class=w>
+</span></span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 在模板中使用</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>include &#34;myapp.fullname&#34; . }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>{{- <span class=l>include &#34;myapp.labels&#34; . | nindent 4 }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>{{- <span class=l>include &#34;myapp.selectorLabels&#34; . | nindent 6 }}</span><span class=w>
+</span></span></span></code></pre></div><p><strong>面试要点</strong>：</p><ul><li><code>define</code> 定义命名模板，<code>include</code> 引用</li><li><code>nindent 4</code> = 先换行再缩进4空格（比 <code>indent 4</code> 更安全）</li><li><code>trunc 63</code> 限制长度63字符（K8s标签值限制）</li><li><code>trimSuffix "-"</code> 去掉尾部连字符</li></ul><hr><h2 id=三模板引擎深入>三、模板引擎深入</h2><h3 id=31-values-与模板渲染>3.1 Values 与模板渲染</h3><p><strong>Q: Helm 模板的值优先级是怎样的？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># values 优先级从低到高：</span>
+</span></span><span class=line><span class=cl><span class=c1># 1. 父Chart的values.yaml</span>
+</span></span><span class=line><span class=cl><span class=c1># 2. 子Chart的values.yaml</span>
+</span></span><span class=line><span class=cl><span class=c1># 3. 父Chart中通过import-values导入的值</span>
+</span></span><span class=line><span class=cl><span class=c1># 4. -f/--values 指定的文件</span>
+</span></span><span class=line><span class=cl><span class=c1># 5. --set 指定的命令行参数</span>
+</span></span><span class=line><span class=cl><span class=c1># 6. --set-string 指定的字符串</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 示例</span>
+</span></span><span class=line><span class=cl>helm install myapp ./myapp <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  -f values-prod.yaml <span class=se>\ </span>             <span class=c1># 层级4</span>
+</span></span><span class=line><span class=cl>  --set image.tag<span class=o>=</span>1.2.3 <span class=se>\ </span>           <span class=c1># 层级5</span>
+</span></span><span class=line><span class=cl>  --set-string config.debug<span class=o>=</span><span class=s2>&#34;true&#34;</span>   <span class=c1># 层级6</span>
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># values.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>replicaCount</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>image</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>repository</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tag</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;1.0.0&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>pullPolicy</span><span class=p>:</span><span class=w> </span><span class=l>IfNotPresent</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>service</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>ClusterIP</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>80</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>ingress</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>enabled</span><span class=p>:</span><span class=w> </span><span class=kc>false</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>hosts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>host</span><span class=p>:</span><span class=w> </span><span class=l>myapp.example.com</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>paths</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>/</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>pathType</span><span class=p>:</span><span class=w> </span><span class=l>Prefix</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>500m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>512Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>250m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>256Mi</span><span class=w>
+</span></span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># templates/deployment.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>include &#34;myapp.fullname&#34; . }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>{{- <span class=l>include &#34;myapp.labels&#34; . | nindent 4 }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Values.replicaCount }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>{{- <span class=l>include &#34;myapp.selectorLabels&#34; . | nindent 6 }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>{{- <span class=l>include &#34;myapp.selectorLabels&#34; . | nindent 8 }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Chart.Name }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>imagePullPolicy</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Values.image.pullPolicy }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>http</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>containerPort</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Values.service.port }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>{{- <span class=l>toYaml .Values.resources | nindent 12 }}</span><span class=w>
+</span></span></span></code></pre></div><h3 id=32-常用模板函数>3.2 常用模板函数</h3><p><strong>Q: Helm 模板有哪些常用函数？</strong></p><table><thead><tr><th>函数</th><th>用途</th><th>示例</th></tr></thead><tbody><tr><td><code>quote</code></td><td>字符串加引号</td><td><code>{{ .Values.name | quote }}</code></td></tr><tr><td><code>default</code></td><td>默认值</td><td><code>{{ .Values.port | default 80 }}</code></td></tr><tr><td><code>required</code></td><td>必填校验</td><td><code>{{ required "必须提供" .Values.host }}</code></td></tr><tr><td><code>toYaml</code></td><td>转YAML字符串</td><td><code>{{ toYaml .Values.labels | nindent 4 }}</code></td></tr><tr><td><code>nindent</code></td><td>换行缩进</td><td><code>{{ include "labels" . | nindent 4 }}</code></td></tr><tr><td><code>trunc</code></td><td>截断</td><td><code>{{ .Release.Name | trunc 63 }}</code></td></tr><tr><td><code>trimPrefix</code></td><td>去前缀</td><td><code>{{ "v1.0.0" | trimPrefix "v" }}</code></td></tr><tr><td><code>contains</code></td><td>包含判断</td><td><code>{{ if contains "prod" .Values.env }}</code></td></tr><tr><td><code>hasKey</code></td><td>键存在判断</td><td><code>{{ if hasKey .Values "custom" }}</code></td></tr><tr><td><code>range</code></td><td>循环</td><td><code>{{ range .Values.hosts }}</code></td></tr><tr><td><code>with</code></td><td>作用域切换</td><td><code>{{ with .Values.ingress }}</code></td></tr><tr><td><code>b64enc/b64dec</code></td><td>Base64编码解码</td><td><code>{{ .Values.secret | b64enc }}</code></td></tr><tr><td><code>tpl</code></td><td>渲染字符串模板</td><td><code>{{ tpl .Values.template . }}</code></td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># range 循环示例</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>range .Values.hosts }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>- <span class=nt>host</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.host }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>path</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.path }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># with 作用域示例</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>with .Values.ingress }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>ingress</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>enabled</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.enabled }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>host</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.host }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># required 必填校验</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>required &#34;必须提供 database.url&#34; .Values.database.url -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># tpl 渲染字符串</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>$template := &#34;{{ .Release.Name }}-config&#34; -}}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>$rendered := tpl $template . -}}</span><span class=w>
+</span></span></span></code></pre></div><h3 id=33-流程控制>3.3 流程控制</h3><p><strong>Q: Helm 模板中 if-else、with、range 怎么用？有哪些陷阱？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># if-else 条件判断</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>if .Values.ingress.enabled }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.k8s.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Ingress</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>include &#34;myapp.fullname&#34; . }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>else if .Values.route.enabled }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>route.openshift.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Route</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># if NOT 判断</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>if not .Values.ingress.enabled }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 不创建 Ingress</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># if and/or 多条件</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>if and .Values.monitoring.enabled .Values.monitoring.serviceMonitor }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 创建 ServiceMonitor</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># range 遍历列表</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>range $index, $host := .Values.ingress.hosts }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>- <span class=nt>host</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.host }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>http</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>paths</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>path</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.path }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>pathType</span><span class=p>:</span><span class=w> </span><span class=l>Prefix</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># range 遍历字典</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>range $key, $value := .Values.labels }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{<span class=w> </span><span class=nt>$key }}</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>$value | quote }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span></code></pre></div><p><strong>常见陷阱</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># ❌ 错误：空行和缩进问题</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{<span class=w> </span><span class=l>if .Values.enabled }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>key</span><span class=p>:</span><span class=w> </span><span class=l>value</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{<span class=w> </span><span class=l>end }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 渲染结果有多余空行</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># ✅ 正确：使用 {{- }} 去除空白</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>if .Values.enabled }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>key</span><span class=p>:</span><span class=w> </span><span class=l>value</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># ❌ 错误：range 内部作用域变化</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>range .Values.hosts }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>host</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.host }} </span><span class=w> </span><span class=c># ✅ 这里的 . 是当前 range 元素</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Release.Name }} </span><span class=w> </span><span class=c># ❌ 这里 . 已经不是全局对象了！</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># ✅ 正确：使用 $ 引用全局对象</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>range .Values.hosts }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>host</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.host }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>release</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>$.Release.Name }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span></code></pre></div><h3 id=34-hooks-机制>3.4 Hooks 机制</h3><p><strong>Q: Helm Hooks 是什么？有哪些类型？</strong></p><p>Hooks 是在模板渲染和 Kubernetes 资源安装之间的特殊资源，在特定生命周期节点执行。</p><table><thead><tr><th>Hook</th><th>时机</th><th>典型用途</th></tr></thead><tbody><tr><td><code>pre-install</code></td><td>模板渲染后，安装前</td><td>创建数据库、准备密钥</td></tr><tr><td><code>post-install</code></td><td>资源安装后</td><td>通知、健康检查</td></tr><tr><td><code>pre-upgrade</code></td><td>升级前</td><td>数据库备份</td></tr><tr><td><code>post-upgrade</code></td><td>升级后</td><td>数据迁移</td></tr><tr><td><code>pre-delete</code></td><td>删除前</td><td>数据备份</td></tr><tr><td><code>post-delete</code></td><td>删除后</td><td>清理外部资源</td></tr><tr><td><code>pre-rollback</code></td><td>回滚前</td><td>记录当前状态</td></tr><tr><td><code>post-rollback</code></td><td>回滚后</td><td>验证回滚结果</td></tr><tr><td><code>test</code></td><td><code>helm test</code> 时</td><td>连接测试</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># templates/post-install-hook.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>batch/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Job</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>include &#34;myapp.fullname&#34; . }}-post-install</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>annotations</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>&#34;helm.sh/hook&#34;: </span><span class=l>post-install</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>&#34;helm.sh/hook-weight&#34;: </span><span class=s2>&#34;-5&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>&#34;helm.sh/hook-delete-policy&#34;: </span><span class=l>hook-succeeded</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>restartPolicy</span><span class=p>:</span><span class=w> </span><span class=l>Never</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>post-install</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;{{ .Values.image.repository }}:{{ .Values.image.tag }}&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>command</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=l>/bin/sh</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- -<span class=l>c</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=p>|</span><span class=sd>
+</span></span></span><span class=line><span class=cl><span class=sd>              echo &#34;Running post-install tasks...&#34;
+</span></span></span><span class=line><span class=cl><span class=sd>              # 执行数据库迁移等初始化操作</span><span class=w>              
+</span></span></span></code></pre></div><p><strong>面试要点</strong>：</p><ul><li><code>hook-weight</code> 决定同类型 Hook 的执行顺序（从小到大）</li><li><code>hook-delete-policy</code> 控制 Hook 资源何时删除：<code>hook-succeeded</code>、<code>hook-failed</code>、<code>before-hook-creation</code></li><li>Hook 资源不参与正常 Release 资源管理，它们是一次性的</li><li><code>helm test</code> 执行 <code>test</code> Hook，用于验证安装是否正确</li></ul><hr><h2 id=四oci-registry-集成>四、OCI Registry 集成</h2><h3 id=41-helm-与-oci>4.1 Helm 与 OCI</h3><p><strong>Q: Helm 如何集成 OCI Registry？与传统 Chart Repository 有什么区别？</strong></p><p>Helm 3.8+ 正式支持 OCI（Open Container Initiative）Registry 作为 Chart 存储后端。OCI Registry 将 Helm Chart 存储为 OCI 制品（Artifact），与容器镜像统一管理。</p><table><thead><tr><th>特性</th><th>传统 Chart Repository</th><th>OCI Registry</th></tr></thead><tbody><tr><td>协议</td><td>HTTP/HTTPS</td><td>OCI Distribution Spec</td></tr><tr><td>认证</td><td>基本认证/Bearer Token</td><td>与容器镜像共享认证</td></tr><tr><td>存储</td><td>HTTP 静态文件</td><td>Blob/Manifest 存储</td></tr><tr><td>安全</td><td>签名需额外工具</td><td>内置 Cosign 签名支持</td></tr><tr><td>推送</td><td><code>cm-push</code> 或 HTTP 上传</td><td><code>helm push</code></td></tr><tr><td>拉取</td><td><code>helm pull</code> 或 <code>helm repo add</code></td><td><code>helm pull oci://</code></td></tr><tr><td>版本管理</td><td>index.yaml</td><td>Manifest 引用</td></tr><tr><td>多架构</td><td>不支持</td><td>支持 Manifest List</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 登录 OCI Registry</span>
+</span></span><span class=line><span class=cl>helm registry login registry.example.com -u username -p password
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 保存 Chart 为 tar 包</span>
+</span></span><span class=line><span class=cl>helm package ./myapp
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 推送 Chart 到 OCI Registry</span>
+</span></span><span class=line><span class=cl>helm push myapp-0.1.0.tgz oci://registry.example.com/charts
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 从 OCI Registry 拉取</span>
+</span></span><span class=line><span class=cl>helm pull oci://registry.example.com/charts/myapp --version 0.1.0
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 从 OCI Registry 安装</span>
+</span></span><span class=line><span class=cl>helm install myapp oci://registry.example.com/charts/myapp --version 0.1.0
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 从 OCI Registry 依赖</span>
+</span></span><span class=line><span class=cl><span class=c1># Chart.yaml 中：</span>
+</span></span><span class=line><span class=cl><span class=c1># dependencies:</span>
+</span></span><span class=line><span class=cl><span class=c1>#   - name: redis</span>
+</span></span><span class=line><span class=cl><span class=c1>#     version: &#34;15.5.0&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1>#     repository: &#34;oci://registry.example.com/charts&#34;</span>
+</span></span></code></pre></div><h3 id=42-常见-oci-registry-支持>4.2 常见 OCI Registry 支持</h3><p><strong>Q: 哪些 Registry 支持 Helm OCI？</strong></p><table><thead><tr><th>Registry</th><th>支持情况</th><th>说明</th></tr></thead><tbody><tr><td>Harbor</td><td>✅ 完整支持</td><td>企业私有 Registry 首选</td></tr><tr><td>GHCR (GitHub)</td><td>✅ 支持</td><td><code>oci://ghcr.io/org/charts</code></td></tr><tr><td>Docker Hub</td><td>✅ 支持</td><td><code>oci://registry-1.docker.io/user</code></td></tr><tr><td>ACR (阿里云)</td><td>✅ 支持</td><td>国内主流选择</td></tr><tr><td>ECR (AWS)</td><td>✅ 支持</td><td>配合 IAM 认证</td></tr><tr><td>GCR (Google)</td><td>✅ 支持</td><td>GKE 集成</td></tr><tr><td>Nexus</td><td>⚠️ 部分支持</td><td>需要特定版本</td></tr><tr><td>Docker Registry (开源)</td><td>✅ 支持</td><td>distribution 2.7+</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Harbor 示例</span>
+</span></span><span class=line><span class=cl>helm registry login harbor.example.com -u admin -p Harbor12345
+</span></span><span class=line><span class=cl>helm push myapp-0.1.0.tgz oci://harbor.example.com/charts
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 查看仓库中的 Chart</span>
+</span></span><span class=line><span class=cl>helm pull oci://harbor.example.com/charts/myapp --version 0.1.0
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># GHCR 示例</span>
+</span></span><span class=line><span class=cl>helm registry login ghcr.io -u &lt;username&gt; -p &lt;GITHUB_TOKEN&gt;
+</span></span><span class=line><span class=cl>helm push myapp-0.1.0.tgz oci://ghcr.io/&lt;org&gt;/charts
+</span></span></code></pre></div><h3 id=43-cosign-签名验证>4.3 Cosign 签名验证</h3><p><strong>Q: 如何对 OCI Chart 进行签名和验证？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 安装 cosign</span>
+</span></span><span class=line><span class=cl>cosign version
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 生成密钥对</span>
+</span></span><span class=line><span class=cl>cosign generate-key-pair
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 对 Chart 签名</span>
+</span></span><span class=line><span class=cl>cosign sign --key cosign.key registry.example.com/charts/myapp:0.1.0
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 验证签名</span>
+</span></span><span class=line><span class=cl>cosign verify --key cosign.pub registry.example.com/charts/myapp:0.1.0
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 在 Helm 中启用验证（Helm 3.13+）</span>
+</span></span><span class=line><span class=cl><span class=nb>export</span> <span class=nv>HELM_EXPERIMENTAL_OCI</span><span class=o>=</span><span class=m>1</span>
+</span></span><span class=line><span class=cl>helm pull oci://registry.example.com/charts/myapp --version 0.1.0 --verify
+</span></span></code></pre></div><hr><h2 id=五gitops-工作流>五、GitOps 工作流</h2><h3 id=51-gitops-核心理念>5.1 GitOps 核心理念</h3><p><strong>Q: 什么是 GitOps？它和传统 CI/CD 有什么区别？</strong></p><p>GitOps 的核心思想：<strong>Git 仓库是系统期望状态的唯一真实来源</strong>（Single Source of Truth）。</p><table><thead><tr><th>特性</th><th>传统 CI/CD</th><th>GitOps</th></tr></thead><tbody><tr><td>状态来源</td><td>CI 流水线脚本</td><td>Git 仓库</td></tr><tr><td>部署方向</td><td>Push（CI→集群）</td><td>Pull（集群←Git）</td></tr><tr><td>状态审计</td><td>查看CI日志</td><td>Git commit history</td></tr><tr><td>回滚</td><td>重新执行流水线</td><td><code>git revert</code> + 自动同步</td></tr><tr><td>权限</td><td>CI 需要集群凭据</td><td>集群内 Agent 拉取</td></tr><tr><td>多环境</td><td>CI 脚本判断</td><td>Git 分支/目录策略</td></tr><tr><td>漂移检测</td><td>无</td><td>自动检测并告警</td></tr></tbody></table><p><strong>GitOps 四原则</strong>（由 Weaveworks 提出）：</p><ol><li><strong>声明式</strong>：系统状态用声明式描述（YAML）</li><li><strong>版本控制</strong>：所有状态存储在 Git（不可变历史）</li><li><strong>自动拉取</strong>：Agent 自动拉取 Git 变更</li><li><strong>持续协调</strong>：Agent 持续对比实际状态与期望状态</li></ol><h3 id=52-argocd-深入>5.2 ArgoCD 深入</h3><p><strong>Q: ArgoCD 的架构和工作原理是什么？</strong></p><p>ArgoCD 架构组件：</p><pre tabindex=0><code>┌─────────────────────────────────────────────┐
+│                  ArgoCD                      │
+│                                               │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐ │
+│  │ API Server│  │ Controller│  │ Repo     │ │
+│  │ (gRPC/REST)│  │  Manager │  │ Server   │ │
+│  └──────────┘  └──────────┘  └──────────┘ │
+│                      │                       │
+│              ┌──────────────┐                │
+│              │  Application │                │
+│              │  Controller  │                │
+│              └──────────────┘                │
+│                      │                       │
+│              ┌──────────────┐                │
+│              │   State      │                │
+│              │   Sync       │                │
+│              └──────────────┘                │
+│                                               │
+│  ┌──────────────────────────────────────┐   │
+│  │         Redis (缓存/状态)             │   │
+│  └──────────────────────────────────────┘   │
+└─────────────────────────────────────────────┘
+        │                       │
+    ┌────────┐            ┌──────────┐
+    │ Git    │            │ Cluster  │
+    │ Repo   │            │ (K8s)    │
+    └────────┘            └──────────┘
+</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># ArgoCD Application CRD 示例</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>argoproj.io/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Application</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp-prod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>argocd</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>project</span><span class=p>:</span><span class=w> </span><span class=l>default</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>source</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>repoURL</span><span class=p>:</span><span class=w> </span><span class=l>https://github.com/example/k8s-manifests</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>targetRevision</span><span class=p>:</span><span class=w> </span><span class=l>main</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>production/myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c># 如果使用 Helm</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>helm</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>valueFiles</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=l>values-prod.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>parameters</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>image.tag</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>value</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;1.2.3&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>destination</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>server</span><span class=p>:</span><span class=w> </span><span class=l>https://kubernetes.default.svc</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>production</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>syncPolicy</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>automated</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>prune</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>          </span><span class=c># 自动删除 Git 中移除的资源</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>selfHeal</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>       </span><span class=c># 自动修复手动修改</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>allowEmpty</span><span class=p>:</span><span class=w> </span><span class=kc>false</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>syncOptions</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>CreateNamespace=true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>PruneLast=true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=l>ApplyOutOfSyncOnly=true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>retry</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>limit</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>backoff</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>duration</span><span class=p>:</span><span class=w> </span><span class=l>5s</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>factor</span><span class=p>:</span><span class=w> </span><span class=m>2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>maxDuration</span><span class=p>:</span><span class=w> </span><span class=l>3m</span><span class=w>
+</span></span></span></code></pre></div><p><strong>ArgoCD App-of-Apps 模式</strong>（多应用管理）：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># apps/app-of-apps.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>argoproj.io/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Application</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>root-app</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>argocd</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>project</span><span class=p>:</span><span class=w> </span><span class=l>default</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>source</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>repoURL</span><span class=p>:</span><span class=w> </span><span class=l>https://github.com/example/gitops</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>targetRevision</span><span class=p>:</span><span class=w> </span><span class=l>main</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>apps          </span><span class=w> </span><span class=c># 此目录下有多个子 Application</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>destination</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>server</span><span class=p>:</span><span class=w> </span><span class=l>https://kubernetes.default.svc</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>argocd</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>syncPolicy</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>automated</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>prune</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>selfHeal</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span></code></pre></div><h3 id=53-fluxcd-深入>5.3 FluxCD 深入</h3><p><strong>Q: FluxCD 的架构和核心组件有哪些？</strong></p><p>Flux v2（Flux CLI）采用模块化设计：</p><pre tabindex=0><code>┌─────────────────────────────────────────────┐
+│                 Flux v2                       │
+│                                               │
+│  ┌─────────────┐  ┌──────────────┐          │
+│  │ source-      │  │ kustomize-   │          │
+│  │ controller   │  │ controller   │          │
+│  │ (Git/Helm/OCI)│  │ (渲染YAML)    │          │
+│  └─────────────┘  └──────────────┘          │
+│                                               │
+│  ┌─────────────┐  ┌──────────────┐          │
+│  │ helm-       │  │ notification- │          │
+│  │ controller  │  │ controller    │          │
+│  │ (Helm部署)   │  │ (告警通知)    │          │
+│  └─────────────┘  └──────────────┘          │
+│                                               │
+│  ┌─────────────┐  ┌──────────────┐          │
+│  │ image-      │  │ image-reflector│         │
+│  │ automation-  │  │ controller    │          │
+│  │ controller  │  │ (镜像扫描)     │          │
+│  │ (自动更新)   │  │              │          │
+│  └─────────────┘  └──────────────┘          │
+└─────────────────────────────────────────────┘
+</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Flux GitRepository 源</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>source.toolkit.fluxcd.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>GitRepository</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>app-repo</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>flux-system</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>interval</span><span class=p>:</span><span class=w> </span><span class=l>1m0s</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>https://github.com/example/fleet-infra</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ref</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>branch</span><span class=p>:</span><span class=w> </span><span class=l>main</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>secretRef</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>ssh-key</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># Flux HelmRelease</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>helm.toolkit.fluxcd.io/v2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>HelmRelease</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>production</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>interval</span><span class=p>:</span><span class=w> </span><span class=l>5m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>chart</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>chart</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>version</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;&gt;=0.1.0&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>sourceRef</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>HelmRepository</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp-repo</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>flux-system</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>reconcileStrategy</span><span class=p>:</span><span class=w> </span><span class=l>Revision</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>values</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>replicaCount</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>image</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>repository</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>tag</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;1.2.3&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>install</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>remediation</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>retries</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>upgrade</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>remediation</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>retries</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>strategy</span><span class=p>:</span><span class=w> </span><span class=l>rollback</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>rollback</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>timeout</span><span class=p>:</span><span class=w> </span><span class=l>5m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># Flux HelmRepository</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>source.toolkit.fluxcd.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>HelmRepository</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp-repo</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>flux-system</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>interval</span><span class=p>:</span><span class=w> </span><span class=l>1m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>https://charts.example.com</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># OCI Registry</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># type: oci</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># url: oci://registry.example.com/charts</span><span class=w>
+</span></span></span></code></pre></div><h3 id=54-argocd-vs-fluxcd>5.4 ArgoCD vs FluxCD</h3><p><strong>Q: ArgoCD 和 FluxCD 有什么区别？如何选择？</strong></p><table><thead><tr><th>维度</th><th>ArgoCD</th><th>FluxCD</th></tr></thead><tbody><tr><td>部署模型</td><td>集中部署，多集群管理</td><td>每集群一个 Agent</td></tr><tr><td>UI</td><td>✅ 优秀 Web UI</td><td>❌ 纯 CLI（有可选 UI）</td></tr><tr><td>多租户</td><td>Project 隔离</td><td>Namespace 隔离</td></tr><tr><td>集成</td><td>Git/Helm/Kustomize/OCI</td><td>Git/Helm/Kustomize/OCI</td></tr><tr><td>镜像更新</td><td>Image Updater（附加）</td><td>内置 Image Automation</td></tr><tr><td>通知</td><td>内置 + 通知控制器</td><td>内置通知控制器</td></tr><tr><td>状态可见性</td><td>实时同步状态 UI</td><td>CRD 状态字段</td></tr><tr><td>回滚</td><td>UI 一键回滚</td><td>Git revert 自动</td></tr><tr><td>学习曲线</td><td>较低（UI 直观）</td><td>较高（纯声明式）</td></tr><tr><td>成熟度</td><td>CNCF Graduated</td><td>CNCF Graduated</td></tr><tr><td>适用场景</td><td>需要UI、多应用管理</td><td>纯GitOps、自动化优先</td></tr></tbody></table><p><strong>选择建议</strong>：</p><ul><li>团队需要 UI 可视化 → ArgoCD</li><li>纯 GitOps 自动化、镜像自动更新 → FluxCD</li><li>多集群集中管理 → ArgoCD（Application Cluster 模式）</li><li>轻量级、Git原生 → FluxCD</li><li>很多团队两者混用：ArgoCD 管理 UI，FluxCD 做自动化</li></ul><hr><h2 id=六多环境配置管理>六、多环境配置管理</h2><h3 id=61-git-目录结构策略>6.1 Git 目录结构策略</h3><p><strong>Q: 多环境 GitOps 的 Git 仓库结构有哪些方案？</strong></p><p><strong>方案一：单仓库多目录（Kubernetes 风格）</strong></p><pre tabindex=0><code>gitops-repo/
+├── base/                    # 共享基础配置
+│   ├── myapp/
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   └── kustomization.yaml
+│   └── redis/
+│       └── ...
+├── overlays/                # 环境覆盖
+│   ├── dev/
+│   │   ├── myapp/
+│   │   │   ├── patches.yaml
+│   │   │   └── kustomization.yaml
+│   │   └── kustomization.yaml
+│   ├── staging/
+│   │   └── ...
+│   └── prod/
+│       └── ...
+└── apps/                    # ArgoCD Application 定义
+    ├── dev-apps.yaml
+    ├── staging-apps.yaml
+    └── prod-apps.yaml
+</code></pre><p><strong>方案二：单仓库多分支</strong></p><pre tabindex=0><code>main ──────────────── (dev)
+   │
+   └── staging ─────── (staging)
+       │
+       └── production ─ (prod)
+</code></pre><p><strong>方案三：多仓库</strong></p><pre tabindex=0><code>fleet-infra/         # ArgoCD/Flux 配置
+app-manifests/       # 应用清单
+app-charts/          # Helm Charts
+</code></pre><p><strong>方案对比</strong>：</p><table><thead><tr><th>方案</th><th>优点</th><th>缺点</th><th>适用场景</th></tr></thead><tbody><tr><td>单仓库多目录</td><td>环境一致性保证，Kustomize 天然支持</td><td>仓库较大</td><td>中小团队</td></tr><tr><td>单仓库多分支</td><td>分支策略清晰</td><td>合并冲突，状态分散</td><td>Git Flow 团队</td></tr><tr><td>多仓库</td><td>隔离性好，权限清晰</td><td>跨仓库引用复杂</td><td>大团队</td></tr></tbody></table><h3 id=62-helm-多环境配置>6.2 Helm 多环境配置</h3><p><strong>Q: Helm 如何管理多环境配置？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 方案：分层 values 文件</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># values.yaml（默认）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>replicaCount</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>image</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tag</span><span class=p>:</span><span class=w> </span><span class=l>latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>100m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>128Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># values-dev.yaml（开发环境覆盖）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>replicaCount</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>image</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tag</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;dev-latest&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>50m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>64Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># values-staging.yaml（预发环境覆盖）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>replicaCount</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>image</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tag</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;1.2.3-rc.1&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>200m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>256Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># values-prod.yaml（生产环境覆盖）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>replicaCount</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>image</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tag</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;1.2.3&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>500m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>512Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>1000m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>1Gi</span><span class=w>
+</span></span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 部署到不同环境</span>
+</span></span><span class=line><span class=cl>helm install myapp ./myapp -f values-dev.yaml -n dev
+</span></span><span class=line><span class=cl>helm upgrade myapp ./myapp -f values-staging.yaml -n staging
+</span></span><span class=line><span class=cl>helm upgrade myapp ./myapp -f values-prod.yaml -n prod
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 结合 ArgoCD</span>
+</span></span><span class=line><span class=cl><span class=c1># ArgoCD Application 中指定 values 文件</span>
+</span></span><span class=line><span class=cl>spec:
+</span></span><span class=line><span class=cl>  source:
+</span></span><span class=line><span class=cl>    helm:
+</span></span><span class=line><span class=cl>      valueFiles:
+</span></span><span class=line><span class=cl>        - values-prod.yaml
+</span></span></code></pre></div><h3 id=63-kustomize--helm-组合>6.3 Kustomize + Helm 组合</h3><p><strong>Q: Kustomize 和 Helm 如何配合使用？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># ArgoCD Application 同时使用 Helm + Kustomize</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>argoproj.io/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Application</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp-prod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>source</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>repoURL</span><span class=p>:</span><span class=w> </span><span class=l>https://github.com/example/gitops</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>overlays/prod/myapp   </span><span class=w> </span><span class=c># Kustomize 目录</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>plugin</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>helm         </span><span class=w> </span><span class=c># 使用 Helm 插件</span><span class=w>
+</span></span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 更常见的做法：Helm Chart + PostRenderer（Kustomize）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># overlays/prod/myapp/kustomization.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>kustomize.config.k8s.io/v1beta1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Kustomization</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>../../base</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>patches</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>target</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>patch</span><span class=p>:</span><span class=w> </span><span class=p>|-</span><span class=sd>
+</span></span></span><span class=line><span class=cl><span class=sd>      - op: replace
+</span></span></span><span class=line><span class=cl><span class=sd>        path: /spec/replicas
+</span></span></span><span class=line><span class=cl><span class=sd>        value: 5
+</span></span></span><span class=line><span class=cl><span class=sd>      - op: replace
+</span></span></span><span class=line><span class=cl><span class=sd>        path: /spec/template/spec/containers/0/resources/requests/cpu
+</span></span></span><span class=line><span class=cl><span class=sd>        value: 500m</span><span class=w>      
+</span></span></span></code></pre></div><hr><h2 id=七渐进式发布与回滚>七、渐进式发布与回滚</h2><h3 id=71-argocd-rollouts>7.1 ArgoCD Rollouts</h3><p><strong>Q: ArgoCD Rollouts 如何实现渐进式发布？</strong></p><p>ArgoCD Rollouts 是 ArgoCD 生态的渐进式发布控制器，用 <code>Rollout</code> CRD 替代 <code>Deployment</code>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>argoproj.io/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Rollout</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>10</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>strategy</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>canary</span><span class=p>:</span><span class=w>              </span><span class=c># 金丝雀发布</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>canaryService</span><span class=p>:</span><span class=w> </span><span class=l>myapp-canary   </span><span class=w> </span><span class=c># 金丝雀 Service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>stableService</span><span class=p>:</span><span class=w> </span><span class=l>myapp-stable    </span><span class=w> </span><span class=c># 稳定 Service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>trafficRouting</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>nginx</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>stableIngress</span><span class=p>:</span><span class=w> </span><span class=l>myapp-stable-ingress</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>precededIngress</span><span class=p>:</span><span class=w> </span><span class=l>myapp-canary-ingress</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>steps</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>setWeight</span><span class=p>:</span><span class=w> </span><span class=m>10</span><span class=w>          </span><span class=c># 10%流量到新版本</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>pause</span><span class=p>:</span><span class=w> </span>{<span class=w> </span><span class=nt>duration</span><span class=p>:</span><span class=w> </span><span class=l>2m }</span><span class=w> </span><span class=c># 等待2分钟</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>setWeight</span><span class=p>:</span><span class=w> </span><span class=m>30</span><span class=w>          </span><span class=c># 30%流量</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>pause</span><span class=p>:</span><span class=w> </span>{<span class=w> </span><span class=nt>duration</span><span class=p>:</span><span class=w> </span><span class=l>5m }</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>setWeight</span><span class=p>:</span><span class=w> </span><span class=m>50</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>pause</span><span class=p>:</span><span class=w> </span>{<span class=w> </span><span class=nt>duration</span><span class=p>:</span><span class=w> </span><span class=l>5m }</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>setWeight</span><span class=p>:</span><span class=w> </span><span class=m>100</span><span class=w>         </span><span class=c># 全量切换</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>myapp:1.2.3</span><span class=w>
+</span></span></span></code></pre></div><p><strong>蓝绿发布</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>argoproj.io/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Rollout</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>strategy</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>blueGreen</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>activeService</span><span class=p>:</span><span class=w> </span><span class=l>myapp-active     </span><span class=w> </span><span class=c># 当前活跃 Service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>previewService</span><span class=p>:</span><span class=w> </span><span class=l>myapp-preview   </span><span class=w> </span><span class=c># 预览 Service</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>autoPromotionEnabled</span><span class=p>:</span><span class=w> </span><span class=kc>false</span><span class=w>       </span><span class=c># 手动确认切换</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>autoPromotionSeconds</span><span class=p>:</span><span class=w> </span><span class=m>30</span><span class=w>          </span><span class=c># 或自动切换（30秒后）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>scaleDownDelaySeconds</span><span class=p>:</span><span class=w> </span><span class=m>30</span><span class=w>         </span><span class=c># 旧版本延迟缩容</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>previewReplicaCount</span><span class=p>:</span><span class=w> </span><span class=m>2</span><span class=w>           </span><span class=c># 预览副本数</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>myapp:1.2.3</span><span class=w>
+</span></span></span></code></pre></div><h3 id=72-helm-回滚机制>7.2 Helm 回滚机制</h3><p><strong>Q: Helm 的回滚机制是怎样的？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 查看历史版本</span>
+</span></span><span class=line><span class=cl>helm <span class=nb>history</span> myapp -n production
+</span></span><span class=line><span class=cl><span class=c1># REVISION	UPDATED                 	STATUS    	CHART       	APP VER	DESC</span>
+</span></span><span class=line><span class=cl><span class=c1># 1       	Thu Aug  6 10:00:00 2026	superseded	myapp-0.1.0 	1.0.0 	Install complete</span>
+</span></span><span class=line><span class=cl><span class=c1># 2       	Thu Aug  6 11:00:00 2026	superseded	myapp-0.1.1 	1.1.0 	Upgrade complete</span>
+</span></span><span class=line><span class=cl><span class=c1># 3       	Thu Aug  6 12:00:00 2026	deployed  	myapp-0.1.2 	1.2.0 	Upgrade complete</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 回滚到上一版本</span>
+</span></span><span class=line><span class=cl>helm rollback myapp -n production
+</span></span><span class=line><span class=cl><span class=c1># Rolled back myapp to revision 2</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 回滚到指定版本</span>
+</span></span><span class=line><span class=cl>helm rollback myapp <span class=m>1</span> -n production
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 查看回滚后的状态</span>
+</span></span><span class=line><span class=cl>helm status myapp -n production
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 回滚时保留历史</span>
+</span></span><span class=line><span class=cl>helm upgrade myapp ./myapp --atomic --cleanup-on-fail --history-max <span class=m>10</span>
+</span></span></code></pre></div><p><strong><code>--atomic</code> 参数</strong>：如果升级失败，自动回滚到之前的状态。这在生产环境中非常重要：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 生产环境升级最佳实践</span>
+</span></span><span class=line><span class=cl>helm upgrade myapp ./myapp <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  -f values-prod.yaml <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --atomic <span class=se>\ </span>             <span class=c1># 失败自动回滚</span>
+</span></span><span class=line><span class=cl>  --cleanup-on-fail <span class=se>\ </span>    <span class=c1># 清理失败资源</span>
+</span></span><span class=line><span class=cl>  --timeout 5m <span class=se>\ </span>         <span class=c1># 超时时间</span>
+</span></span><span class=line><span class=cl>  --wait <span class=se>\ </span>               <span class=c1># 等待所有资源就绪</span>
+</span></span><span class=line><span class=cl>  --history-max <span class=m>10</span> <span class=se>\ </span>     <span class=c1># 保留历史版本数</span>
+</span></span><span class=line><span class=cl>  -n production
+</span></span></code></pre></div><h3 id=73-gitops-中的回滚>7.3 GitOps 中的回滚</h3><p><strong>Q: GitOps 场景下如何回滚？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># GitOps 回滚 = Git revert</span>
+</span></span><span class=line><span class=cl>git log --oneline -5
+</span></span><span class=line><span class=cl><span class=c1># a1b2c3d feat: upgrade myapp to 1.2.3</span>
+</span></span><span class=line><span class=cl><span class=c1># e4f5g6h fix: adjust resource limits</span>
+</span></span><span class=line><span class=cl><span class=c1># i7j8k9l feat: add monitoring</span>
+</span></span><span class=line><span class=cl><span class=c1># m0n1o2p feat: initial myapp deployment</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 回滚到之前版本</span>
+</span></span><span class=line><span class=cl>git revert a1b2c3d
+</span></span><span class=line><span class=cl>git push origin main
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># ArgoCD/FluxCD 自动检测到 Git 变更</span>
+</span></span><span class=line><span class=cl><span class=c1># 自动同步到回滚后的状态</span>
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># FluxCD 镜像自动回滚策略</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>image.toolkit.fluxcd.io/v1beta1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ImagePolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp-policy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>flux-system</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>imageRepositoryRef</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp-registry</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>policy</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>semver</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>range</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;&gt;=1.0.0 &lt;2.0.0&#34;</span><span class=w>    </span><span class=c># 只允许1.x版本</span><span class=w>
+</span></span></span></code></pre></div><hr><h2 id=八生产实战经验>八、生产实战经验</h2><h3 id=81-chart-开发最佳实践>8.1 Chart 开发最佳实践</h3><p><strong>Q: 生产级 Helm Chart 有哪些最佳实践？</strong></p><p><strong>1. 资源限制必填</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># ❌ 不设定资源限制</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>resources</span><span class=p>:</span><span class=w> </span>{}<span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># ✅ 设置默认资源限制，并允许覆盖</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>100m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>128Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>500m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>512Mi</span><span class=w>
+</span></span></span></code></pre></div><p><strong>2. 健康检查必填</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>livenessProbe</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>httpGet</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>/health</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=l>http</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>initialDelaySeconds</span><span class=p>:</span><span class=w> </span><span class=m>30</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>periodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>10</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>readinessProbe</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>httpGet</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>/ready</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=l>http</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>initialDelaySeconds</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>periodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>5</span><span class=w>
+</span></span></span></code></pre></div><p><strong>3. PodDisruptionBudget</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl>{{- <span class=l>if .Values.podDisruptionBudget.enabled }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>policy/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>PodDisruptionBudget</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>include &#34;myapp.fullname&#34; . }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>minAvailable</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Values.podDisruptionBudget.minAvailable }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>{{- <span class=l>include &#34;myapp.selectorLabels&#34; . | nindent 6 }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span></code></pre></div><p><strong>4. HorizontalPodAutoscaler</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl>{{- <span class=l>if .Values.hpa.enabled }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>autoscaling/v2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>HorizontalPodAutoscaler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>include &#34;myapp.fullname&#34; . }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>scaleTargetRef</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>include &#34;myapp.fullname&#34; . }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>minReplicas</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Values.hpa.minReplicas }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>maxReplicas</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Values.hpa.maxReplicas }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>metrics</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>Resource</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>resource</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>cpu</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>target</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>Utilization</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>averageUtilization</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Values.hpa.targetCPUUtilizationPercentage }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span></code></pre></div><p><strong>5. NetworkPolicy</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl>{{- <span class=l>if .Values.networkPolicy.enabled }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.k8s.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>NetworkPolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>include &#34;myapp.fullname&#34; . }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>podSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>{{- <span class=l>include &#34;myapp.selectorLabels&#34; . | nindent 6 }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>policyTypes</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>Ingress</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=l>Egress</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ingress</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>from</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>podSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>nginx</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>port</span><span class=p>:</span><span class=w> </span>{{<span class=w> </span><span class=l>.Values.service.port }}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>egress</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>to</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>podSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>database</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>5432</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span>{{- <span class=l>end }}</span><span class=w>
+</span></span></span></code></pre></div><h3 id=82-chart-测试>8.2 Chart 测试</h3><p><strong>Q: 如何编写 Helm Chart 测试？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># templates/tests/test-connection.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Pod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;{{ include &#34;</span><span class=l>myapp.fullname&#34; . }}-test&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>annotations</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>&#34;helm.sh/hook&#34;: </span><span class=l>test</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>&#34;helm.sh/hook-delete-policy&#34;: </span><span class=s2>&#34;hook-succeeded&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>restartPolicy</span><span class=p>:</span><span class=w> </span><span class=l>Never</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>wget</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>busybox:latest</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>command</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=l>/bin/sh</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- -<span class=l>c</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=p>|</span><span class=sd>
+</span></span></span><span class=line><span class=cl><span class=sd>          echo &#34;Testing connection to {{ include &#34;myapp.fullname&#34; . }}:{{ .Values.service.port }}&#34;
+</span></span></span><span class=line><span class=cl><span class=sd>          wget --spider --timeout=10 http://{{ include &#34;myapp.fullname&#34; . }}:{{ .Values.service.port }}/health || exit 1
+</span></span></span><span class=line><span class=cl><span class=sd>          echo &#34;✅ Connection test passed!&#34;</span><span class=w>          
+</span></span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 运行测试</span>
+</span></span><span class=line><span class=cl>helm <span class=nb>test</span> myapp -n production
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># lint 检查</span>
+</span></span><span class=line><span class=cl>helm lint ./myapp
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 模板渲染检查</span>
+</span></span><span class=line><span class=cl>helm template myapp ./myapp -f values-prod.yaml
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 模板差异比较</span>
+</span></span><span class=line><span class=cl>helm diff upgrade myapp ./myapp -f values-prod.yaml --detailed-exitcode
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 使用 ct（Chart Testing）进行更完整的测试</span>
+</span></span><span class=line><span class=cl>ct lint --all --chart-dirs ./myapp
+</span></span><span class=line><span class=cl>ct install --all --chart-dirs ./myapp
+</span></span></code></pre></div><h3 id=83-常见生产问题>8.3 常见生产问题</h3><p><strong>Q: Helm 在生产环境中有哪些常见问题？</strong></p><p><strong>问题一：大 Release 导致存储膨胀</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># Release Secret 过大（超过 1MB）</span>
+</span></span><span class=line><span class=cl>kubectl get secret -n production -l <span class=nv>owner</span><span class=o>=</span>helm -o <span class=nv>jsonpath</span><span class=o>=</span><span class=s1>&#39;{range .items[*]}{.metadata.name}{&#34;\t&#34;}{.data.release}{&#34;\n&#34;}{end}&#39;</span> <span class=p>|</span> awk <span class=s1>&#39;{print $1, length($2)}&#39;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 限制历史版本数</span>
+</span></span><span class=line><span class=cl>helm upgrade myapp ./myapp --history-max <span class=m>5</span> -n production
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 清理旧版本 Secret（手动）</span>
+</span></span><span class=line><span class=cl>kubectl delete secret -n production -l <span class=nv>owner</span><span class=o>=</span>helm --field-selector metadata.name!<span class=o>=</span>sh.helm.release.v1.myapp.v<span class=k>$(</span>helm <span class=nb>history</span> myapp -n production -o json <span class=p>|</span> jq -r <span class=s1>&#39;.[-1].revision&#39;</span><span class=k>)</span>
+</span></span></code></pre></div><p><strong>问题二：模板渲染顺序不确定导致依赖问题</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># ❌ 错误：依赖其他资源先创建</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 如果 ConfigMap 和 Deployment 在同一 Chart，渲染顺序不确定</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># ✅ 正确：使用 Helm Hook 确保顺序</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>annotations</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>&#34;helm.sh/hook&#34;: </span><span class=l>pre-install</span><span class=w>
+</span></span></span></code></pre></div><p><strong>问题三：命名冲突</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 同一 Chart 不同 Release 命名冲突</span>
+</span></span><span class=line><span class=cl>helm install app1 ./myapp    <span class=c1># Release: app1</span>
+</span></span><span class=line><span class=cl>helm install app2 ./myapp    <span class=c1># Release: app2</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 使用 fullnameOverride 避免冲突</span>
+</span></span><span class=line><span class=cl>helm install app1 ./myapp --set <span class=nv>fullnameOverride</span><span class=o>=</span>app1
+</span></span></code></pre></div><hr><h2 id=九面试高频综合题>九、面试高频综合题</h2><h3 id=91-综合场景题>9.1 综合场景题</h3><p><strong>Q: 你的团队需要管理 3 个环境（dev/staging/prod）的 10 个微服务，如何设计 GitOps 方案？</strong></p><p><strong>推荐方案：单仓库多目录 + ArgoCD App-of-Apps + Kustomize</strong></p><pre tabindex=0><code>gitops-repo/
+├── base/                         # 10个微服务的基础配置
+│   ├── service-a/
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   └── kustomization.yaml
+│   ├── service-b/
+│   └── ...
+├── overlays/
+│   ├── dev/
+│   │   ├── service-a/           # 覆盖副本数、镜像tag
+│   │   │   ├── patch.yaml
+│   │   │   └── kustomization.yaml
+│   │   └── kustomization.yaml
+│   ├── staging/
+│   └── prod/
+├── apps/
+│   ├── dev/                      # ArgoCD Application
+│   │   ├── service-a.yaml
+│   │   ├── service-b.yaml
+│   │   └── app-of-apps.yaml
+│   ├── staging/
+│   └── prod/
+└── argocd/
+    └── projects/                 # ArgoCD AppProject
+        ├── dev.yaml
+        ├── staging.yaml
+        └── prod.yaml
+</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># apps/dev/app-of-apps.yaml - 管理dev环境所有应用</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>argoproj.io/v1alpha1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Application</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>dev-apps</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>argocd</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>project</span><span class=p>:</span><span class=w> </span><span class=l>dev</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>source</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>repoURL</span><span class=p>:</span><span class=w> </span><span class=l>https://github.com/example/gitops</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>apps/dev</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>destination</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>server</span><span class=p>:</span><span class=w> </span><span class=l>https://kubernetes.default.svc</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>argocd</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>syncPolicy</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>automated</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>prune</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>selfHeal</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span></code></pre></div><p><strong>关键设计原则</strong>：</p><ol><li>基础配置在 <code>base/</code> 中共享，减少重复</li><li>环境差异在 <code>overlays/</code> 中覆盖</li><li>App-of-Apps 管理多应用</li><li>AppProject 实现多租户隔离</li><li>同步策略：dev 自动同步，prod 手动确认</li></ol><h3 id=92-排错题>9.2 排错题</h3><p><strong>Q: Helm upgrade 失败 &ldquo;UPGRADE FAILED: another operation in progress&rdquo; 怎么处理？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 原因：上一次操作未完成（可能是超时中断）</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 方案一：回滚到稳定版本</span>
+</span></span><span class=line><span class=cl>helm rollback myapp &lt;last-good-revision&gt; -n production
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 方二：等待锁释放</span>
+</span></span><span class=line><span class=cl>kubectl get secret -n production -l <span class=nv>owner</span><span class=o>=</span>helm <span class=p>|</span> grep pending
+</span></span><span class=line><span class=cl><span class=c1># 删除 pending 状态的 Secret</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 方案三：查看 Helm 状态</span>
+</span></span><span class=line><span class=cl>helm status myapp -n production --show-resources
+</span></span><span class=line><span class=cl><span class=c1># 如果状态是 pending-install/pending-upgrade，说明操作被中断</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 方案四：强制释放锁（谨慎！）</span>
+</span></span><span class=line><span class=cl><span class=c1># 这会移除 Helm 的 pending 状态，可能导致状态不一致</span>
+</span></span><span class=line><span class=cl>helm <span class=nb>history</span> myapp -n production
+</span></span><span class=line><span class=cl><span class=c1># 找到最后一个 deployed 版本</span>
+</span></span><span class=line><span class=cl>helm rollback myapp &lt;deployed-revision&gt; -n production
+</span></span></code></pre></div><h3 id=93-安全题>9.3 安全题</h3><p><strong>Q: GitOps 场景下如何管理 Secret？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 方案一：Sealed Secrets（Bitnami）</span>
+</span></span><span class=line><span class=cl><span class=c1># 加密后的 Secret 可以安全提交到 Git</span>
+</span></span><span class=line><span class=cl>kubeseal --format<span class=o>=</span>yaml &lt; secret.yaml &gt; sealed-secret.yaml
+</span></span><span class=line><span class=cl><span class=c1># 提交 sealed-secret.yaml 到 Git</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 方案二：SOPS + Age/PGP</span>
+</span></span><span class=line><span class=cl>sops --encrypt --age age1xxx --in-place secret.yaml
+</span></span><span class=line><span class=cl><span class=c1># 提交加密后的文件到 Git</span>
+</span></span><span class=line><span class=cl><span class=c1># FluxCD 内置 SOPS 解密支持</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 方案三：External Secrets Operator</span>
+</span></span><span class=line><span class=cl><span class=c1># 从外部密钥管理系统（AWS Secrets Manager、Vault）拉取</span>
+</span></span><span class=line><span class=cl>apiVersion: external-secrets.io/v1beta1
+</span></span><span class=line><span class=cl>kind: ExternalSecret
+</span></span><span class=line><span class=cl>metadata:
+</span></span><span class=line><span class=cl>  name: myapp-secret
+</span></span><span class=line><span class=cl>spec:
+</span></span><span class=line><span class=cl>  refreshInterval: 1h
+</span></span><span class=line><span class=cl>  secretStoreRef:
+</span></span><span class=line><span class=cl>    name: vault-backend
+</span></span><span class=line><span class=cl>    kind: SecretStore
+</span></span><span class=line><span class=cl>  target:
+</span></span><span class=line><span class=cl>    name: myapp-secret
+</span></span><span class=line><span class=cl>    template:
+</span></span><span class=line><span class=cl>      data:
+</span></span><span class=line><span class=cl>        DB_PASSWORD: <span class=s2>&#34;{{ .db_password }}&#34;</span>
+</span></span><span class=line><span class=cl>  data:
+</span></span><span class=line><span class=cl>    - secretKey: db_password
+</span></span><span class=line><span class=cl>      remoteRef:
+</span></span><span class=line><span class=cl>        key: myapp/db/password
+</span></span><span class=line><span class=cl>        property: password
+</span></span></code></pre></div><hr><h2 id=十本系列知识体系总览>十、本系列知识体系总览</h2><table><thead><tr><th>期数</th><th>主题</th><th>核心要点</th></tr></thead><tbody><tr><td>第一期</td><td>K8s 架构核心与集群管理</td><td>控制平面/数据平面、etcd、kubelet、kubectl 原理</td></tr><tr><td>第二期</td><td>Pod 深入与工作负载管理</td><td>Pod 生命周期、Deployment/StatefulSet/DaemonSet、调度器</td></tr><tr><td>第三期</td><td>Service 与网络通信</td><td>Service 类型、kube-proxy、Ingress、CNI、NetworkPolicy</td></tr><tr><td>第四期</td><td>存储卷与数据持久化</td><td>Volume 类型、PV/PVC、StorageClass、CSI、StatefulSet 存储</td></tr><tr><td>第五期</td><td>配置管理与安全</td><td>ConfigMap/Secret、RBAC、Pod Security、SA Token、NetworkPolicy、证书轮转</td></tr><tr><td><strong>第六期</strong></td><td><strong>Helm 包管理与 GitOps</strong></td><td><strong>Chart 结构、模板引擎、OCI Registry、ArgoCD/FluxCD、多环境配置、渐进式发布</strong></td></tr><tr><td>第七期</td><td>可观测性与故障排查（预告）</td><td>Prometheus、Grafana、Loki、Jaeger、诊断工作流</td></tr></tbody></table><hr><h2 id=下期预告>下期预告</h2><p>下一篇：<strong>Kubernetes与云原生面试八股文（七）——可观测性与故障排查</strong> 将深入讲解 Prometheus 监控体系、Grafana 可视化、Loki 日志聚合、Jaeger 链路追踪、Kubernetes 诊断工作流、Pod 故障排查方法论，以及分布式系统中的可观测性三支柱（Metrics、Logging、Tracing）在生产环境的落地实践，敬请期待。</p><hr><p><em>作者：飞哥 · Raphael Lab</em></p><p><em>Kubernetes与云原生面试八股文系列</em></p></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86%E4%B8%8E%E5%AE%89%E5%85%A8/><span>← 上一篇</span><strong>Kubernetes与云原生面试八股文（五）——配置管理与安全</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86%E4%B8%8E%E5%AE%89%E5%85%A8/><span>2026-08-04</span><strong>Kubernetes与云原生面试八股文（五）——配置管理与安全</strong><p>从面试高频问题出发，系统拆解 ConfigMap/Secret 的高级用法、RBAC 权限模型、Pod Security Standards、Service Account …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%9B%9B%E5%AD%98%E5%82%A8%E5%8D%B7%E4%B8%8E%E6%95%B0%E6%8D%AE%E6%8C%81%E4%B9%85%E5%8C%96/><span>2026-08-01</span><strong>Kubernetes与云原生面试八股文（四）——存储卷与数据持久化</strong><p>从面试高频问题出发，系统拆解 K8s Volume 类型体系（emptyDir/hostPath/configMap/secret）、PV 与 PVC 生命周期与绑定机 …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%89service%E4%B8%8E%E7%BD%91%E7%BB%9C%E9%80%9A%E4%BF%A1/><span>2026-07-31</span><strong>Kubernetes与云原生面试八股文（三）——Service与网络通信</strong><p>从面试高频问题出发，系统拆解 Service 四种类型与工作原理、kube-proxy 三种模式（userspace/iptables/IPVS）、Endpoints …</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9AKubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%EF%BC%88%E5%85%AD%EF%BC%89%E2%80%94%E2%80%94Helm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8EGitOps" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一helm-核心概念与架构>一、Helm 核心概念与架构</a><ul><li><a href=#11-helm-是什么>1.1 Helm 是什么</a></li><li><a href=#12-helm-3-vs-helm-2>1.2 Helm 3 vs Helm 2</a></li><li><a href=#13-helm-3-release-存储机制>1.3 Helm 3 Release 存储机制</a></li></ul></li><li><a href=#二chart-结构详解>二、Chart 结构详解</a><ul><li><a href=#21-标准-chart-目录结构>2.1 标准 Chart 目录结构</a></li><li><a href=#22-chartyaml-详解>2.2 Chart.yaml 详解</a></li><li><a href=#23-模板辅助函数-_helperstpl>2.3 模板辅助函数 _helpers.tpl</a></li></ul></li><li><a href=#三模板引擎深入>三、模板引擎深入</a><ul><li><a href=#31-values-与模板渲染>3.1 Values 与模板渲染</a></li><li><a href=#32-常用模板函数>3.2 常用模板函数</a></li><li><a href=#33-流程控制>3.3 流程控制</a></li><li><a href=#34-hooks-机制>3.4 Hooks 机制</a></li></ul></li><li><a href=#四oci-registry-集成>四、OCI Registry 集成</a><ul><li><a href=#41-helm-与-oci>4.1 Helm 与 OCI</a></li><li><a href=#42-常见-oci-registry-支持>4.2 常见 OCI Registry 支持</a></li><li><a href=#43-cosign-签名验证>4.3 Cosign 签名验证</a></li></ul></li><li><a href=#五gitops-工作流>五、GitOps 工作流</a><ul><li><a href=#51-gitops-核心理念>5.1 GitOps 核心理念</a></li><li><a href=#52-argocd-深入>5.2 ArgoCD 深入</a></li><li><a href=#53-fluxcd-深入>5.3 FluxCD 深入</a></li><li><a href=#54-argocd-vs-fluxcd>5.4 ArgoCD vs FluxCD</a></li></ul></li><li><a href=#六多环境配置管理>六、多环境配置管理</a><ul><li><a href=#61-git-目录结构策略>6.1 Git 目录结构策略</a></li><li><a href=#62-helm-多环境配置>6.2 Helm 多环境配置</a></li><li><a href=#63-kustomize--helm-组合>6.3 Kustomize + Helm 组合</a></li></ul></li><li><a href=#七渐进式发布与回滚>七、渐进式发布与回滚</a><ul><li><a href=#71-argocd-rollouts>7.1 ArgoCD Rollouts</a></li><li><a href=#72-helm-回滚机制>7.2 Helm 回滚机制</a></li><li><a href=#73-gitops-中的回滚>7.3 GitOps 中的回滚</a></li></ul></li><li><a href=#八生产实战经验>八、生产实战经验</a><ul><li><a href=#81-chart-开发最佳实践>8.1 Chart 开发最佳实践</a></li><li><a href=#82-chart-测试>8.2 Chart 测试</a></li><li><a href=#83-常见生产问题>8.3 常见生产问题</a></li></ul></li><li><a href=#九面试高频综合题>九、面试高频综合题</a><ul><li><a href=#91-综合场景题>9.1 综合场景题</a></li><li><a href=#92-排错题>9.2 排错题</a></li><li><a href=#93-安全题>9.3 安全题</a></li></ul></li><li><a href=#十本系列知识体系总览>十、本系列知识体系总览</a></li><li><a href=#下期预告>下期预告</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
+<a href=mailto:liyafei.work@foxmail.com>邮箱</a>
+<a href=/index.xml>RSS</a></div><p class=copyright>© 2026 李亚飞</p></footer><div class=sr-only id=live-region aria-live=polite></div><script src=/js/site.js defer></script></body></html>
