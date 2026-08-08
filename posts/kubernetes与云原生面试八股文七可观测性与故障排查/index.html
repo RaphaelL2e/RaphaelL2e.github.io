@@ -1,0 +1,475 @@
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Kubernetes与云原生面试八股文（七）——可观测性与故障排查｜Raphael Lab</title><meta name=description content="面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s 故障排查的标准流程是什么？本文系统讲解 Kubernetes 可观测性体系与生产级故障排查实战。 Q: 可观测性三支柱是什么？"><meta name=author content="李亚飞"><meta name=referrer content="strict-origin-when-cross-origin"><meta http-equiv=content-security-policy content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"><meta name=robots content="index,follow,max-image-preview:large"><link rel=canonical href=https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/><link rel=alternate type=application/rss+xml title="Raphael Lab RSS" href=https://raphaell2e.github.io/index.xml><link rel=icon href=/favicon.svg type=image/svg+xml><link rel=stylesheet href=/css/site.css><meta property="og:locale" content="zh_CN"><meta property="og:site_name" content="Raphael Lab"><meta property="og:title" content="Kubernetes与云原生面试八股文（七）——可观测性与故障排查｜Raphael Lab"><meta property="og:description" content="面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s 故障排查的标准流程是什么？本文系统讲解 Kubernetes 可观测性体系与生产级故障排查实战。 Q: 可观测性三支柱是什么？"><meta property="og:url" content="https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/"><meta property="og:image" content="https://raphaell2e.github.io/images/og-default.png"><meta property="og:type" content="article"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="Kubernetes与云原生面试八股文（七）——可观测性与故障排查｜Raphael Lab"><meta name=twitter:description content="面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s 故障排查的标准流程是什么？本文系统讲解 Kubernetes 可观测性体系与生产级故障排查实战。 Q: 可观测性三支柱是什么？"><meta name=twitter:image content="https://raphaell2e.github.io/images/og-default.png"><meta property="article:published_time" content="2026-08-08T10:00:00+08:00"><meta property="article:modified_time" content="2026-08-08T10:00:00+08:00"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"WebSite","alternateName":"飞哥 AI 实验室","description":"记录后端工程、分布式系统与 AI 工程化的真实实践。","inLanguage":"zh-CN","name":"Raphael Lab｜飞哥 AI 实验室","publisher":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"url":"https://raphaell2e.github.io/"},{"@type":"TechArticle","author":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"dateModified":"2026-08-08T10:00:00+08:00","datePublished":"2026-08-08T10:00:00+08:00","description":"面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s 故障排查的标准流程是什么？本文系统讲解 Kubernetes 可观测性体系与生产级故障排查实战。 Q: 可观测性三支柱是什么？","headline":"Kubernetes与云原生面试八股文（七）——可观测性与故障排查","inLanguage":"zh-CN","mainEntityOfPage":"https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/","publisher":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"url":"https://raphaell2e.github.io/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/"}]}</script></head><body class="page-page section-posts"><a class=skip-link href=#main-content>跳到正文</a><header class=site-header><div class=header-inner><a class=brand href=/><span class=brand-mark aria-hidden=true>R</span>
+<span>Raphael Lab</span></a><nav class=desktop-nav aria-label=主导航><a href=/>首页</a>
+<a href=/series/>专题</a>
+<a href=/posts/>文章库</a>
+<a href=/projects/>项目</a>
+<a href=/about/>关于</a></nav><div class=header-actions><a class=search-trigger href=/search/ aria-label=搜索文章><span aria-hidden=true>⌕</span><span class=search-label>搜索</span><kbd>/</kbd></a>
+<button class=menu-toggle type=button aria-expanded=false aria-controls=mobile-nav aria-label=打开导航><span></span><span></span><span></span></button></div></div><nav class=mobile-nav id=mobile-nav aria-label=移动端导航 hidden><a href=/>首页</a><a href=/series/>专题</a><a href=/posts/>文章库</a><a href=/projects/>项目</a><a href=/about/>关于</a>
+<a href=/search/>搜索</a></nav></header><main id=main-content class=site-main><article class="article-shell shell"><div class=reading-progress aria-hidden=true><span></span></div><div class=article-main><nav class=breadcrumbs aria-label=面包屑><a href=/>首页</a><span>/</span>
+<a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Kubernetes与云原生面试八股文（七）——可观测性与故障排查</h1><p class=article-description>面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s 故障排查的标准流程是什么？本文系统讲解 Kubernetes 可观测性体系与生产级故障排查实战。 Q: 可观测性三支柱是什么？</p><div class=article-meta><span>发布于 <time datetime=2026-08-08>2026-08-08</time></span>
+<span>最后验证 2026-08</span>
+<span>9 分钟阅读</span>
+<span>1817 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#系列导航>系列导航</a></li><li><a href=#一可观测性理论基础>一、可观测性理论基础</a><ul><li><a href=#11-什么是可观测性>1.1 什么是可观测性</a></li><li><a href=#12-kubernetes-可观测性的特殊性>1.2 Kubernetes 可观测性的特殊性</a></li></ul></li><li><a href=#二prometheus-监控体系>二、Prometheus 监控体系</a><ul><li><a href=#21-prometheus-核心原理>2.1 Prometheus 核心原理</a></li><li><a href=#22-kubernetes-服务发现机制>2.2 Kubernetes 服务发现机制</a></li><li><a href=#23-常用-exporter-介绍>2.3 常用 Exporter 介绍</a></li><li><a href=#24-核心-promql-查询>2.4 核心 PromQL 查询</a></li></ul></li><li><a href=#三grafana-可视化实战>三、Grafana 可视化实战</a><ul><li><a href=#31-grafana--prometheus-集成>3.1 Grafana + Prometheus 集成</a></li><li><a href=#32-常用监控面板-json>3.2 常用监控面板 JSON</a></li><li><a href=#33-告警规则配置>3.3 告警规则配置</a></li></ul></li><li><a href=#四loki-日志聚合系统>四、Loki 日志聚合系统</a><ul><li><a href=#41-loki-架构设计>4.1 Loki 架构设计</a></li><li><a href=#42-promtail-采集配置>4.2 Promtail 采集配置</a></li><li><a href=#43-logql-查询语法>4.3 LogQL 查询语法</a></li></ul></li><li><a href=#五jaeger-分布式追踪>五、Jaeger 分布式追踪</a><ul><li><a href=#51-opentelemetry-架构>5.1 OpenTelemetry 架构</a></li><li><a href=#52-jaeger-部署与采集>5.2 Jaeger 部署与采集</a></li><li><a href=#53-常见-trace-查询模式>5.3 常见 Trace 查询模式</a></li></ul></li><li><a href=#六kubernetes-故障排查方法论>六、Kubernetes 故障排查方法论</a><ul><li><a href=#61-诊断工作流>6.1 诊断工作流</a></li><li><a href=#62-pod-状态诊断>6.2 Pod 状态诊断</a></li><li><a href=#63-网络问题诊断>6.3 网络问题诊断</a></li><li><a href=#64-生产故障案例>6.4 生产故障案例</a></li></ul></li><li><a href=#七可观测性最佳实践>七、可观测性最佳实践</a><ul><li><a href=#71-建设路线图>7.1 建设路线图</a></li><li><a href=#72-采样策略>7.2 采样策略</a></li><li><a href=#73-成本优化>7.3 成本优化</a></li></ul></li><li><a href=#总结>总结</a></li><li><a href=#下期预告>下期预告</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s 故障排查的标准流程是什么？本文系统讲解 Kubernetes 可观测性体系与生产级故障排查实战。</p><p>Q: 可观测性三支柱是什么？</p></blockquote><h2 id=系列导航>系列导航</h2><table><thead><tr><th>期数</th><th>主题</th><th>核心内容</th></tr></thead><tbody><tr><td>第一期</td><td>K8s 架构核心与集群管理</td><td>控制平面/数据平面、etcd、kubelet、kubectl 原理</td></tr><tr><td>第二期</td><td>Pod 深入与工作负载管理</td><td>Pod 生命周期、Deployment/StatefulSet/DaemonSet、调度器</td></tr><tr><td>第三期</td><td>Service 与网络通信</td><td>Service 类型、kube-proxy、Ingress、CNI、NetworkPolicy</td></tr><tr><td>第四期</td><td>存储卷与数据持久化</td><td>Volume 类型、PV/PVC、StorageClass、CSI、StatefulSet 存储</td></tr><tr><td>第五期</td><td>配置管理与安全</td><td>ConfigMap/Secret、RBAC、Pod Security、SA Token、NetworkPolicy、证书轮转</td></tr><tr><td>第六期</td><td>Helm 包管理与 GitOps</td><td>Chart 结构、模板引擎、OCI Registry、ArgoCD/FluxCD、多环境配置、渐进式发布</td></tr><tr><td><strong>第七期</strong></td><td><strong>可观测性与故障排查</strong></td><td><strong>Prometheus、Grafana、Loki、Jaeger、诊断工作流</strong></td></tr><tr><td>第八期</td><td>生产级高可用与灾备（预告）</td><td>多集群联邦、DR 策略、备份恢复、成本优化</td></tr></tbody></table><hr><h2 id=一可观测性理论基础>一、可观测性理论基础</h2><h3 id=11-什么是可观测性>1.1 什么是可观测性</h3><p>可观测性（Observability）源自控制理论，最早由匈牙利裔美国工程师鲁道夫·卡尔曼提出。在云原生领域，可观测性是指<strong>通过系统外部输出的数据来推断其内部状态的能力</strong>。与传统监控不同，可观测性更强调对未知问题的发现能力——系统能够告诉我们它不知道什么，而不是只告诉我们它知道什么。</p><p><strong>可观测性三支柱</strong>（Three Pillars）包括：</p><ul><li><strong>Metrics（指标）</strong>：数值型的聚合数据，如 CPU 使用率、请求 QPS、错误率等，支持时间序列查询和告警。</li><li><strong>Logs（日志）</strong>：离散的事件记录，包含时间戳、级别、消息内容等，用于追溯问题根因。</li><li><strong>Traces（追踪）</strong>：贯穿分布式请求路径的完整调用链，记录每个服务的耗时和调用关系。</li></ul><blockquote><p><strong>面试高频问题</strong>：三支柱的取舍问题</p><p>很多人认为可观测性必须同时具备三个支柱，实际上这取决于业务场景。Google 的 SRE 团队提出"监控的四个黄金信号"——<strong>延迟、流量、错误和饱和度</strong>，这是更实用的可观测性建设方向。很多中小型团队从 Metrics 入手，逐步引入 Logs 和 Traces，是更务实的路径。</p></blockquote><h3 id=12-kubernetes-可观测性的特殊性>1.2 Kubernetes 可观测性的特殊性</h3><p>在 Kubernetes 环境中，可观测性面临独特的挑战：</p><ol><li><strong>高度动态的 Pod 生命周期</strong>：Pod 随时可能被调度、重启、驱逐，传统基于 IP 的监控方案无法持久。</li><li><strong>多租户与命名空间隔离</strong>：不同团队的应用部署在不同命名空间，需要细粒度的权限和视图控制。</li><li><strong>服务网格带来的复杂性</strong>：Sidecar 代理（如 Envoy、Istio）使得网络追踪变得更加重要，同时也增加了数据量。</li><li><strong>基础设施与应用层边界模糊</strong>：K8s 本身、容器运行时、网络插件、存储系统都产生大量指标，需要统一采集和关联。</li></ol><hr><h2 id=二prometheus-监控体系>二、Prometheus 监控体系</h2><h3 id=21-prometheus-核心原理>2.1 Prometheus 核心原理</h3><p>Prometheus 是 CNCF 毕业项目，专为云原生环境设计的时序数据库和监控系统。其核心架构如下：</p><pre tabindex=0><code>┌─────────────────────────────────────────────────┐
+│                  Prometheus Server              │
+│  ┌──────────────┐    ┌──────────────────────┐  │
+│  │ ServiceDiscov│───▶│    TSDB (本地存储)    │  │
+│  │ (K8s/SD/File)│    │  时序数据库，2H保留   │  │
+│  └──────────────┘    └──────────────────────┘  │
+│         │                     │                 │
+│         ▼                     ▼                 │
+│  ┌──────────────┐    ┌──────────────────────┐  │
+│  │  Retriever   │    │   Alertmanager       │  │
+│  │  拉取指标    │    │   触发告警规则       │  │
+│  └──────────────┘    └──────────────────────┘  │
+└─────────────────────────────────────────────────┘
+         │                     │
+         ▼                     ▼
+┌────────────────┐     ┌─────────────────┐
+│  exporters     │     │   Alertmanager  │
+│  暴露指标端点  │     │   聚合去重告警  │
+└────────────────┘     └─────────────────┘
+</code></pre><p>Prometheus 采用<strong>拉模式</strong>（Pull-based）采集指标，通过 HTTP 接口定期从各个目标拉取数据。这种设计有以下优势：</p><ul><li><strong>无代理模式</strong>：应用只需暴露 HTTP 端点，无需安装额外 agent，减少资源占用。</li><li><strong>动态发现</strong>：通过 Kubernetes SD（Service Discovery）自动发现集群中的 Pod 和 Service。</li><li><strong>去中心化</strong>：无需在每个节点部署收集器，网络故障不影响采集。</li></ul><h3 id=22-kubernetes-服务发现机制>2.2 Kubernetes 服务发现机制</h3><p>Prometheus 通过 <code>kubernetes_sd_configs</code> 自动发现集群资源。以下是完整的配置示例：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># prometheus-config.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>scrape_configs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 自动发现 Node 级别指标</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>job_name</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;kubernetes-nodes&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>kubernetes_sd_configs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>role</span><span class=p>:</span><span class=w> </span><span class=l>node</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>relabel_configs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>source_labels</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=l>__address__]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>regex</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;(.*):10250&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>replacement</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;${1}:9100&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>target_label</span><span class=p>:</span><span class=w> </span><span class=l>__param_target</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>source_labels</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=l>__param_target]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>target_label</span><span class=p>:</span><span class=w> </span><span class=l>instance</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>action</span><span class=p>:</span><span class=w> </span><span class=l>labelmap</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>regex</span><span class=p>:</span><span class=w> </span><span class=l>__meta_kubernetes_node_label_(.+)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 自动发现 Pod 指标</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>job_name</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;kubernetes-pods&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>kubernetes_sd_configs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>role</span><span class=p>:</span><span class=w> </span><span class=l>pod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>relabel_configs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># 只采集标注了 prometheus.io/scrape=true 的 Pod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>source_labels</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=l>__meta_kubernetes_pod_annotation_prometheus_io_scrape]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>action</span><span class=p>:</span><span class=w> </span><span class=l>keep</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>regex</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># 从 annotation 获取路径和端口</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>source_labels</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=l>__meta_kubernetes_pod_annotation_prometheus_io_path]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>action</span><span class=p>:</span><span class=w> </span><span class=l>replace</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>target_label</span><span class=p>:</span><span class=w> </span><span class=l>__metrics_path__</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>regex</span><span class=p>:</span><span class=w> </span><span class=l>(.+)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>replacement</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;${1}&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>source_labels</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=l>__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>action</span><span class=p>:</span><span class=w> </span><span class=l>replace</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>regex</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;([^:]+):(\d+)&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>replacement</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;${1}:${2}&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>target_label</span><span class=p>:</span><span class=w> </span><span class=l>__address__</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># 保留 namespace 和 pod 标签</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>action</span><span class=p>:</span><span class=w> </span><span class=l>labelmap</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>regex</span><span class=p>:</span><span class=w> </span><span class=l>__meta_kubernetes_pod_label_(.+)</span><span class=w>
+</span></span></span></code></pre></div><p><strong>面试高频问题</strong>：为什么 Prometheus 选择拉模式而非推模式？</p><p>拉模式的优势包括：更容易实现跨集群采集（只需一个 Prometheus 端点）、更容易进行目标健康检查（超时则跳过）、方便在本地进行聚合（减少网络传输）、便于调试（可以直接 curl 目标端点）。但拉模式的缺点是：高 cardinality 指标时性能压力大，此时可以考虑 PushGateway 作为中转。</p><h3 id=23-常用-exporter-介绍>2.3 常用 Exporter 介绍</h3><p>Prometheus 生态中有大量现成的 Exporter 用于采集各类指标：</p><table><thead><tr><th>Exporter</th><th>采集内容</th><th>端口</th></tr></thead><tbody><tr><td>node-exporter</td><td>主机 CPU、内存、磁盘、网络</td><td>9100</td></tr><tr><td>kube-state-metrics</td><td>K8s 对象状态（Deployment、Pod、Service）</td><td>8080</td></tr><tr><td>cadvisor</td><td>容器级别资源使用（CPU、内存、文件系统）</td><td>8080</td></tr><tr><td>blackbox-exporter</td><td>HTTP/TCP/ICMP 探活检测</td><td>9115</td></tr><tr><td>redis-exporter</td><td>Redis 内存、命令、连接数</td><td>9121</td></tr><tr><td>mysql-exporter</td><td>MySQL 查询、连接、InnoDB 状态</td><td>9104</td></tr><tr><td>nginx-ingress-controller</td><td>Ingress 请求量、延迟、错误率</td><td>10254</td></tr></tbody></table><p>部署 node-exporter 的标准方式：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># DaemonSet 方式部署，确保每个节点都运行</span>
+</span></span><span class=line><span class=cl>kubectl apply -f - <span class=s>&lt;&lt;&#39;EOF&#39;
+</span></span></span><span class=line><span class=cl><span class=s>apiVersion: apps/v1
+</span></span></span><span class=line><span class=cl><span class=s>kind: DaemonSet
+</span></span></span><span class=line><span class=cl><span class=s>metadata:
+</span></span></span><span class=line><span class=cl><span class=s>  name: node-exporter
+</span></span></span><span class=line><span class=cl><span class=s>  namespace: monitoring
+</span></span></span><span class=line><span class=cl><span class=s>spec:
+</span></span></span><span class=line><span class=cl><span class=s>  selector:
+</span></span></span><span class=line><span class=cl><span class=s>    matchLabels:
+</span></span></span><span class=line><span class=cl><span class=s>      app: node-exporter
+</span></span></span><span class=line><span class=cl><span class=s>  template:
+</span></span></span><span class=line><span class=cl><span class=s>    metadata:
+</span></span></span><span class=line><span class=cl><span class=s>      labels:
+</span></span></span><span class=line><span class=cl><span class=s>        app: node-exporter
+</span></span></span><span class=line><span class=cl><span class=s>    spec:
+</span></span></span><span class=line><span class=cl><span class=s>      hostPID: true
+</span></span></span><span class=line><span class=cl><span class=s>      hostNetwork: true
+</span></span></span><span class=line><span class=cl><span class=s>      containers:
+</span></span></span><span class=line><span class=cl><span class=s>        - name: node-exporter
+</span></span></span><span class=line><span class=cl><span class=s>          image: prom/node-exporter:v1.7.0
+</span></span></span><span class=line><span class=cl><span class=s>          args:
+</span></span></span><span class=line><span class=cl><span class=s>            - &#39;--path.procfs=/host/proc&#39;
+</span></span></span><span class=line><span class=cl><span class=s>            - &#39;--path.sysfs=/host/sys&#39;
+</span></span></span><span class=line><span class=cl><span class=s>            - &#39;--path.rootfs=/host&#39;
+</span></span></span><span class=line><span class=cl><span class=s>          ports:
+</span></span></span><span class=line><span class=cl><span class=s>            - containerPort: 9100
+</span></span></span><span class=line><span class=cl><span class=s>              hostPort: 9100
+</span></span></span><span class=line><span class=cl><span class=s>          volumeMounts:
+</span></span></span><span class=line><span class=cl><span class=s>            - name: proc
+</span></span></span><span class=line><span class=cl><span class=s>              mountPath: /host/proc
+</span></span></span><span class=line><span class=cl><span class=s>            - name: sys
+</span></span></span><span class=line><span class=cl><span class=s>              mountPath: /host/sys
+</span></span></span><span class=line><span class=cl><span class=s>            - name: root
+</span></span></span><span class=line><span class=cl><span class=s>              mountPath: /host/root
+</span></span></span><span class=line><span class=cl><span class=s>          resources:
+</span></span></span><span class=line><span class=cl><span class=s>            requests:
+</span></span></span><span class=line><span class=cl><span class=s>              cpu: 100m
+</span></span></span><span class=line><span class=cl><span class=s>              memory: 50Mi
+</span></span></span><span class=line><span class=cl><span class=s>            limits:
+</span></span></span><span class=line><span class=cl><span class=s>              cpu: 200m
+</span></span></span><span class=line><span class=cl><span class=s>              memory: 100Mi
+</span></span></span><span class=line><span class=cl><span class=s>      volumes:
+</span></span></span><span class=line><span class=cl><span class=s>        - name: proc
+</span></span></span><span class=line><span class=cl><span class=s>          hostPath:
+</span></span></span><span class=line><span class=cl><span class=s>            path: /proc
+</span></span></span><span class=line><span class=cl><span class=s>        - name: sys
+</span></span></span><span class=line><span class=cl><span class=s>          hostPath:
+</span></span></span><span class=line><span class=cl><span class=s>            path: /sys
+</span></span></span><span class=line><span class=cl><span class=s>        - name: root
+</span></span></span><span class=line><span class=cl><span class=s>          hostPath:
+</span></span></span><span class=line><span class=cl><span class=s>            path: /
+</span></span></span><span class=line><span class=cl><span class=s>EOF</span>
+</span></span></code></pre></div><h3 id=24-核心-promql-查询>2.4 核心 PromQL 查询</h3><p>面试中经常考察的 PromQL 查询：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-promql data-lang=promql><span class=line><span class=cl><span class=c1># 1. Pod CPU 使用率（核心数百分比）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>sum</span><span class=o>(</span><span class=kr>rate</span><span class=o>(</span><span class=nv>container_cpu_usage_seconds_total</span><span class=p>{</span><span class=nl>container</span><span class=o>!=</span><span class=p>&#34;&#34;}[</span><span class=s>5m</span><span class=p>]</span><span class=o>))</span><span class=w> </span><span class=k>by</span><span class=w> </span><span class=o>(</span><span class=nv>pod</span><span class=p>,</span><span class=w> </span><span class=nv>namespace</span><span class=o>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=o>/</span><span class=w> </span><span class=k>sum</span><span class=o>(</span><span class=nv>container_spec_cpu_quota</span><span class=p>{</span><span class=nl>container</span><span class=o>!=</span><span class=p>&#34;&#34;}</span><span class=o>/</span><span class=nv>container_spec_cpu_period</span><span class=p>{</span><span class=nl>container</span><span class=o>!=</span><span class=p>&#34;&#34;}</span><span class=o>)</span><span class=w> </span><span class=k>by</span><span class=w> </span><span class=o>(</span><span class=nv>pod</span><span class=p>,</span><span class=w> </span><span class=nv>namespace</span><span class=o>)</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=mi>100</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1># 2. 内存使用率</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>sum</span><span class=o>(</span><span class=nv>container_memory_working_set_bytes</span><span class=p>{</span><span class=nl>container</span><span class=o>!=</span><span class=p>&#34;&#34;}</span><span class=o>)</span><span class=w> </span><span class=k>by</span><span class=w> </span><span class=o>(</span><span class=nv>pod</span><span class=p>,</span><span class=w> </span><span class=nv>namespace</span><span class=o>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=o>/</span><span class=w> </span><span class=k>sum</span><span class=o>(</span><span class=nv>container_spec_memory_limit_bytes</span><span class=p>{</span><span class=nl>container</span><span class=o>!=</span><span class=p>&#34;&#34;}</span><span class=o>)</span><span class=w> </span><span class=k>by</span><span class=w> </span><span class=o>(</span><span class=nv>pod</span><span class=p>,</span><span class=w> </span><span class=nv>namespace</span><span class=o>)</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=mi>100</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1># 3. Pod 重启次数（最近 1 小时）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kr>increase</span><span class=o>(</span><span class=nv>kube_pod_container_status_restarts_total</span><span class=p>[</span><span class=s>1h</span><span class=p>]</span><span class=o>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1># 4. Deployment 就绪率</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nv>kube_deployment_status_replicas_ready</span><span class=p>{</span><span class=nl>deployment</span><span class=o>=</span><span class=p>&#34;</span><span class=s>your-app</span><span class=p>&#34;}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=o>/</span><span class=w> </span><span class=nv>kube_deployment_spec_replicas</span><span class=p>{</span><span class=nl>deployment</span><span class=o>=</span><span class=p>&#34;</span><span class=s>your-app</span><span class=p>&#34;}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1># 5. 命名空间级别 QPS</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=k>sum</span><span class=o>(</span><span class=kr>rate</span><span class=o>(</span><span class=nv>http_requests_total</span><span class=p>[</span><span class=s>5m</span><span class=p>]</span><span class=o>))</span><span class=w> </span><span class=k>by</span><span class=w> </span><span class=o>(</span><span class=nv>namespace</span><span class=p>,</span><span class=w> </span><span class=nv>service</span><span class=p>,</span><span class=w> </span><span class=nv>status_code</span><span class=o>)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c1># 6. P99 延迟（需要 Histogram）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=kr>histogram_quantile</span><span class=o>(</span><span class=mf>0.99</span><span class=p>,</span><span class=w> </span><span class=k>sum</span><span class=o>(</span><span class=kr>rate</span><span class=o>(</span><span class=nv>http_request_duration_seconds_bucket</span><span class=p>[</span><span class=s>5m</span><span class=p>]</span><span class=o>))</span><span class=w> </span><span class=k>by</span><span class=w> </span><span class=o>(</span><span class=nv>le</span><span class=p>,</span><span class=w> </span><span class=nv>service</span><span class=o>))</span><span class=w>
+</span></span></span></code></pre></div><blockquote><p><strong>面试高频问题</strong>：Histogram 和 Summary 的区别是什么？</p><p>两者都用于记录分位数，但实现方式不同。Histogram 在客户端只记录 bucket 计数器，百分位数在服务端通过 <code>histogram_quantile()</code> 计算，优点是服务端可聚合、灵活调整分位数，缺点是精度依赖 bucket 划分。Summary 在客户端计算并直接上报百分位数，精度高但不可聚合。<strong>生产环境推荐使用 Histogram</strong>，因为可以跨实例聚合计算全局 P99。</p></blockquote><hr><h2 id=三grafana-可视化实战>三、Grafana 可视化实战</h2><h3 id=31-grafana--prometheus-集成>3.1 Grafana + Prometheus 集成</h3><p>Grafana 是最流行的可视化平台，与 Prometheus 深度集成。标准安装通过 Helm Chart：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>helm repo add grafana https://grafana.github.io/helm-charts
+</span></span><span class=line><span class=cl>helm install grafana grafana/grafana <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --namespace monitoring <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set <span class=nv>adminPassword</span><span class=o>=</span><span class=s1>&#39;your-secure-password&#39;</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set persistence.enabled<span class=o>=</span><span class=nb>true</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set persistence.size<span class=o>=</span>10Gi <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set datasources.datasources.prometheus.type<span class=o>=</span>prometheus <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set datasources.datasources.prometheus.url<span class=o>=</span>http://prometheus-server:80
+</span></span></code></pre></div><h3 id=32-常用监控面板-json>3.2 常用监控面板 JSON</h3><p><strong>Pod 资源使用面板</strong>（简化版 JSON Panel）：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;title&#34;</span><span class=p>:</span> <span class=s2>&#34;Pod CPU &amp; Memory Usage&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;type&#34;</span><span class=p>:</span> <span class=s2>&#34;timeseries&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;gridPos&#34;</span><span class=p>:</span> <span class=p>{</span> <span class=nt>&#34;x&#34;</span><span class=p>:</span> <span class=mi>0</span><span class=p>,</span> <span class=nt>&#34;y&#34;</span><span class=p>:</span> <span class=mi>0</span><span class=p>,</span> <span class=nt>&#34;w&#34;</span><span class=p>:</span> <span class=mi>24</span><span class=p>,</span> <span class=nt>&#34;h&#34;</span><span class=p>:</span> <span class=mi>8</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;targets&#34;</span><span class=p>:</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;expr&#34;</span><span class=p>:</span> <span class=s2>&#34;sum(rate(container_cpu_usage_seconds_total{namespace=\&#34;$namespace\&#34;, pod=\&#34;$pod\&#34;}[5m])) by (pod)&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;legendFormat&#34;</span><span class=p>:</span> <span class=s2>&#34;CPU Cores&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;refId&#34;</span><span class=p>:</span> <span class=s2>&#34;A&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;expr&#34;</span><span class=p>:</span> <span class=s2>&#34;sum(container_memory_working_set_bytes{namespace=\&#34;$namespace\&#34;, pod=\&#34;$pod\&#34;}) by (pod) / 1024 / 1024&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;legendFormat&#34;</span><span class=p>:</span> <span class=s2>&#34;Memory MB&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;refId&#34;</span><span class=p>:</span> <span class=s2>&#34;B&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>],</span>
+</span></span><span class=line><span class=cl>  <span class=nt>&#34;fieldConfig&#34;</span><span class=p>:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nt>&#34;defaults&#34;</span><span class=p>:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;unit&#34;</span><span class=p>:</span> <span class=s2>&#34;short&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>      <span class=nt>&#34;thresholds&#34;</span><span class=p>:</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nt>&#34;mode&#34;</span><span class=p>:</span> <span class=s2>&#34;absolute&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nt>&#34;steps&#34;</span><span class=p>:</span> <span class=p>[</span>
+</span></span><span class=line><span class=cl>          <span class=p>{</span> <span class=nt>&#34;color&#34;</span><span class=p>:</span> <span class=s2>&#34;green&#34;</span><span class=p>,</span> <span class=nt>&#34;value&#34;</span><span class=p>:</span> <span class=kc>null</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>          <span class=p>{</span> <span class=nt>&#34;color&#34;</span><span class=p>:</span> <span class=s2>&#34;yellow&#34;</span><span class=p>,</span> <span class=nt>&#34;value&#34;</span><span class=p>:</span> <span class=mi>70</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>          <span class=p>{</span> <span class=nt>&#34;color&#34;</span><span class=p>:</span> <span class=s2>&#34;red&#34;</span><span class=p>,</span> <span class=nt>&#34;value&#34;</span><span class=p>:</span> <span class=mi>90</span> <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>]</span>
+</span></span><span class=line><span class=cl>      <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>  <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><h3 id=33-告警规则配置>3.3 告警规则配置</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># prometheus-alerts.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>monitoring.coreos.com/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>PrometheusRule</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>k8s-alerts</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>monitoring</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>groups</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>k8s-pod-alerts</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>rules</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c># Pod CPU 使用率超过 80% 持续 5 分钟</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>alert</span><span class=p>:</span><span class=w> </span><span class=l>PodHighCPU</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>expr</span><span class=p>:</span><span class=w> </span><span class=p>|</span><span class=sd>
+</span></span></span><span class=line><span class=cl><span class=sd>            sum(rate(container_cpu_usage_seconds_total{container!=&#34;&#34;}[5m])) by (namespace, pod)
+</span></span></span><span class=line><span class=cl><span class=sd>              / sum(container_spec_cpu_quota{container!=&#34;&#34;}/container_spec_cpu_period{container!=&#34;&#34;}) by (namespace, pod) * 100 &gt; 80</span><span class=w>            
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>for</span><span class=p>:</span><span class=w> </span><span class=l>5m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>severity</span><span class=p>:</span><span class=w> </span><span class=l>warning</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>annotations</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>summary</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;Pod {{ $labels.pod }} CPU 使用率过高&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;CPU 使用率 {{ $value | printf \&#34;%.2f\&#34; }}% 超过 80%，持续 5 分钟&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c># Pod 连续重启</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>alert</span><span class=p>:</span><span class=w> </span><span class=l>PodRestartingFrequently</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>expr</span><span class=p>:</span><span class=w> </span><span class=l>increase(kube_pod_container_status_restarts_total[1h]) &gt; 3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>for</span><span class=p>:</span><span class=w> </span><span class=l>1m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>severity</span><span class=p>:</span><span class=w> </span><span class=l>warning</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>annotations</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>summary</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;Pod {{ $labels.pod }} 重启过于频繁&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;过去 1 小时重启 {{ $value }} 次&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=c># Deployment 副本数不足</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>alert</span><span class=p>:</span><span class=w> </span><span class=l>DeploymentReplicasUnavailable</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>expr</span><span class=p>:</span><span class=w> </span><span class=p>|</span><span class=sd>
+</span></span></span><span class=line><span class=cl><span class=sd>            kube_deployment_spec_replicas{namespace=~&#34;.+&#34;}
+</span></span></span><span class=line><span class=cl><span class=sd>              - kube_deployment_status_replicas_available{namespace=~&#34;.+&#34;} &gt; 0</span><span class=w>            
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>for</span><span class=p>:</span><span class=w> </span><span class=l>5m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>severity</span><span class=p>:</span><span class=w> </span><span class=l>critical</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>annotations</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>summary</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;Deployment {{ $labels.namespace }}/{{ $labels.deployment }} 副本不可用&#34;</span><span class=w>
+</span></span></span></code></pre></div><hr><h2 id=四loki-日志聚合系统>四、Loki 日志聚合系统</h2><h3 id=41-loki-架构设计>4.1 Loki 架构设计</h3><p>Loki 是 Grafana Labs 开发的日志聚合系统，与 Prometheus 设计理念一脉相承——<strong>只索引日志元数据，不索引日志内容</strong>，因此资源消耗远低于 ELK 栈。</p><pre tabindex=0><code>┌──────────────────────────────────────────────────────────┐
+│                        Grafana                           │
+│              日志查询与可视化界面                        │
+└──────────────────────┬───────────────────────────────────┘
+                       │ 查询
+┌──────────────────────▼───────────────────────────────────┐
+│                   QueryFrontend                          │
+│         查询拆分、缓存、结果聚合                         │
+└──────┬───────────────────────────────────────┬───────────┘
+       │                                       │
+┌──────▼──────┐                      ┌─────────▼──────────┐
+│   Querier   │                      │      Querier       │
+│  (查询实例) │                      │    (查询实例)      │
+└──────┬──────┘                      └─────────┬──────────┘
+       │                                       │
+┌──────▼───────────────────────────────────────▼───────────┐
+│                        Distributor                         │
+│              日志分片、压缩、写 入                        │
+└──────┬───────────────────────────────────────┬───────────┘
+       │                                       │
+┌──────▼──────┐                      ┌─────────▼──────────┐
+│  Ingester   │  ──WAL──▶            │      Compactor     │
+│  (写入实例) │                       │   日志压缩去重     │
+└──────┬──────┘                       └─────────┬──────────┘
+       │                                       │
+┌──────▼───────────────────────────────────────▼───────────┐
+│                   Object Store (S3/MinIO)                  │
+│              Chunk 数据 + 索引 (按标签分片)               │
+└───────────────────────────────────────────────────────────┘
+</code></pre><h3 id=42-promtail-采集配置>4.2 Promtail 采集配置</h3><p>Promtail 是 Loki 的日志采集代理，支持 Kubernetes SD：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># promtail-config.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>server</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>http_listen_port</span><span class=p>:</span><span class=w> </span><span class=m>9080</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>grpc_listen_port</span><span class=p>:</span><span class=w> </span><span class=m>0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>positions</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>filename</span><span class=p>:</span><span class=w> </span><span class=l>/run/promtail/positions.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>clients</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>http://loki-gateway:3100/loki/api/v1/push</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>scrape_configs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 采集 Pod 日志（标准输出）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>job_name</span><span class=p>:</span><span class=w> </span><span class=l>kubernetes-pods</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>kubernetes_sd_configs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>role</span><span class=p>:</span><span class=w> </span><span class=l>pod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>relabel_configs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># 从 Pod annotation 获取标签</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>action</span><span class=p>:</span><span class=w> </span><span class=l>replace</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>source_labels</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=l>__meta_kubernetes_pod_annotation_monitor]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>target_label</span><span class=p>:</span><span class=w> </span><span class=l>monitor</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># 保留命名空间和 Pod 名称作为标签</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>action</span><span class=p>:</span><span class=w> </span><span class=l>labelmap</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>regex</span><span class=p>:</span><span class=w> </span><span class=l>__meta_kubernetes_pod_label_(.+)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>replacement</span><span class=p>:</span><span class=w> </span><span class=l>${1}</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># 提取日志路径</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>action</span><span class=p>:</span><span class=w> </span><span class=l>replace</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>source_labels</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=l>__meta_kubernetes_pod_annotation_prometheus_io_path]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>target_label</span><span class=p>:</span><span class=w> </span><span class=l>__path__</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>regex</span><span class=p>:</span><span class=w> </span><span class=l>(.+)</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>replacement</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;${1}&#39;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># 默认日志路径</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>action</span><span class=p>:</span><span class=w> </span><span class=l>replace</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>target_label</span><span class=p>:</span><span class=w> </span><span class=l>__path__</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>replacement</span><span class=p>:</span><span class=w> </span><span class=l>/var/log/pods/*/${CONTAINER_NAME}/*.log</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>pipeline_stages</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>docker</span><span class=p>:</span><span class=w> </span>{}<span class=w>  </span><span class=c># 解析 Docker JSON 日志格式</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span>{}<span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>pod</span><span class=p>:</span><span class=w> </span>{}<span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>container</span><span class=p>:</span><span class=w> </span>{}<span class=w>
+</span></span></span></code></pre></div><blockquote><p><strong>面试高频问题</strong>：Loki 的标签设计原则</p><p>Loki 使用标签索引而非全文索引，标签设计直接影响查询性能和存储效率。<strong>高 cardinality 标签是性能杀手</strong>——如 <code>pod_ip</code>、<code>user_id</code>、<code>request_id</code> 这类唯一值，不应作为标签，否则会导致索引爆炸。正确的做法是将这类信息放在日志内容中，通过 LogQL 的 <code>line_format</code> 过滤。推荐标签：<strong>namespace、pod、container、host、level、service</strong>。</p></blockquote><h3 id=43-logql-查询语法>4.3 LogQL 查询语法</h3><pre tabindex=0><code class=language-logql data-lang=logql># 1. 查询某个 Pod 的所有日志
+{service=&#34;payment-service&#34;, namespace=&#34;default&#34;} |= &#34;ERROR&#34;
+
+# 2. 查询最近 5 分钟的错误日志，排除某类无关错误
+{service=&#34;order-service&#34;} |= &#34;ERROR&#34; != &#34;timeout&#34; | json | level=&#34;error&#34;
+
+# 3. 统计 QPS（按分钟）
+sum(rate({service=&#34;api-gateway&#34;}[1m])) by (namespace)
+
+# 4. 计算平均延迟（需要 JSON 解析）
+{service=&#34;user-service&#34;} | json | latency_ms &gt; 1000 | line_format &#34;{{.timestamp}} {{.method}} {{.path}} took {{.latency_ms}}ms&#34;
+
+# 5. 关联追踪 ID 查找跨服务日志
+{service=~&#34;.+&#34;} |= &#34;trace_id=4bf92f3577b34da6&#34;
+</code></pre><hr><h2 id=五jaeger-分布式追踪>五、Jaeger 分布式追踪</h2><h3 id=51-opentelemetry-架构>5.1 OpenTelemetry 架构</h3><p>现代分布式追踪的事实标准是 <strong>OpenTelemetry（OTel）</strong>，它统一了 Traces、Metrics、Logs 的采集规范：</p><pre tabindex=0><code>┌─────────────────────────────────────────────────────────┐
+│                    Instrumentation                       │
+│           (应用代码 / SDK / 自动注入)                   │
+└──────────────────────────┬──────────────────────────────┘
+                           │ OTLP 协议
+┌──────────────────────────▼──────────────────────────────┐
+│                    OTel Collector                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │ Receivers   │  │ Processors  │  │ Exporters       │  │
+│  │ (OTLP/Agent)│─▶│ (批处理/采样)│─▶│ (Jaeger/Zipkin) │  │
+│  └─────────────┘  └─────────────┘  └─────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+</code></pre><h3 id=52-jaeger-部署与采集>5.2 Jaeger 部署与采集</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># jaeger-operator 方式部署</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>jaegertracing.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Jaeger</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>production-jaeger</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>observability</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>strategy</span><span class=p>:</span><span class=w> </span><span class=l>production</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>collector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>maxReplicas</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=l>500m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=l>512Mi</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>query</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>storage</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>elasticsearch</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>elasticsearch</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>nodeCount</span><span class=p>:</span><span class=w> </span><span class=m>3</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>redundancyPolicy</span><span class=p>:</span><span class=w> </span><span class=l>SingleRedundancy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ingress</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>enabled</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>className</span><span class=p>:</span><span class=w> </span><span class=l>nginx</span><span class=w>
+</span></span></span></code></pre></div><p>应用端集成 OpenTelemetry Go SDK：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// main.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kn>package</span> <span class=nx>main</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;go.opentelemetry.io/otel&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;go.opentelemetry.io/otel/sdk/trace&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>semconv</span> <span class=s>&#34;go.opentelemetry.io/otel/semconv/v1.24.0&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>initTracer</span><span class=p>()</span> <span class=p>(</span><span class=o>*</span><span class=nx>trace</span><span class=p>.</span><span class=nx>TracerProvider</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>exporter</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>otlptracegrpc</span><span class=p>.</span><span class=nf>New</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nf>Background</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>        <span class=nx>otlptracegrpc</span><span class=p>.</span><span class=nf>WithEndpoint</span><span class=p>(</span><span class=s>&#34;jaeger-collector:4317&#34;</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=nx>otlptracegrpc</span><span class=p>.</span><span class=nf>WithInsecure</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>    <span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>tp</span> <span class=o>:=</span> <span class=nx>trace</span><span class=p>.</span><span class=nf>NewTracerProvider</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>        <span class=nx>trace</span><span class=p>.</span><span class=nf>WithBatcher</span><span class=p>(</span><span class=nx>exporter</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=nx>trace</span><span class=p>.</span><span class=nf>WithResource</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>            <span class=nx>resource</span><span class=p>.</span><span class=nf>NewWithAttributes</span><span class=p>(</span>
+</span></span><span class=line><span class=cl>                <span class=nx>semconv</span><span class=p>.</span><span class=nx>SchemaURL</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                <span class=nx>semconv</span><span class=p>.</span><span class=nf>ServiceName</span><span class=p>(</span><span class=s>&#34;payment-service&#34;</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>                <span class=nx>semconv</span><span class=p>.</span><span class=nf>ServiceVersion</span><span class=p>(</span><span class=s>&#34;v1.2.3&#34;</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>                <span class=nx>semconv</span><span class=p>.</span><span class=nf>DeploymentEnvironment</span><span class=p>(</span><span class=s>&#34;production&#34;</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>            <span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=p>),</span>
+</span></span><span class=line><span class=cl>        <span class=nx>trace</span><span class=p>.</span><span class=nf>WithSampler</span><span class=p>(</span><span class=nx>trace</span><span class=p>.</span><span class=nf>ParentBased</span><span class=p>(</span><span class=nx>trace</span><span class=p>.</span><span class=nf>TraceIDRatioBased</span><span class=p>(</span><span class=mf>0.1</span><span class=p>))),</span> <span class=c1>// 10% 采样率
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>otel</span><span class=p>.</span><span class=nf>SetTracerProvider</span><span class=p>(</span><span class=nx>tp</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>tp</span><span class=p>,</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><h3 id=53-常见-trace-查询模式>5.3 常见 Trace 查询模式</h3><p>在 Jaeger UI 或 LogQL 中关联追踪：</p><pre tabindex=0><code class=language-logql data-lang=logql># 从 Loki 日志中提取 trace_id 并跳转 Jaeger
+{service=&#34;order-service&#34;} |= &#34;trace_id&#34; | logfmt | trace_id != &#34;&#34;
+</code></pre><p><strong>面试高频问题</strong>：如何用 Trace 排查慢请求？</p><p>标准排查步骤：① 在 Jaeger 中搜索目标 Trace ID；② 从瀑布图中找到耗时最长的 Span；③ 确认是自身处理耗时还是下游调用耗时；④ 如果是下游调用，进一步查看下游服务 Span；⑤ 确认是数据库查询慢（查看 Span 标签中的 <code>db.statement</code>）还是网络延迟（查看 <code>net.peer.name</code> 和延迟）；⑥ 结合 Logs 关联到具体代码行。</p><hr><h2 id=六kubernetes-故障排查方法论>六、Kubernetes 故障排查方法论</h2><h3 id=61-诊断工作流>6.1 诊断工作流</h3><p>K8s 故障排查遵循标准化的四层诊断模型：</p><pre tabindex=0><code>┌────────────────────────────────────────────────────┐
+│  Layer 1: 基础设施层                               │
+│  Node 状态、CNI 连接、存储挂载                     │
+│  命令: kubectl get nodes / kubectl describe node  │
+├────────────────────────────────────────────────────┤
+│  Layer 2: 控制平面层                               │
+│  API Server、etcd、Controller、Scheduler 健康      │
+│  命令: kubectl get componentstatuses              │
+├────────────────────────────────────────────────────┤
+│  Layer 3: 工作负载层                               │
+│  Pod、Deployment、Service、Ingress 配置正确性      │
+│  命令: kubectl get pods -n xxx / kubectl logs    │
+├────────────────────────────────────────────────────┤
+│  Layer 4: 应用层                                   │
+│  应用日志、探针状态、资源使用、配置注入            │
+│  命令: kubectl exec / kubectl top pod            │
+└────────────────────────────────────────────────────┘
+</code></pre><h3 id=62-pod-状态诊断>6.2 Pod 状态诊断</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. 查看 Pod 当前状态和事件</span>
+</span></span><span class=line><span class=cl>kubectl get pod -n &lt;namespace&gt; &lt;pod-name&gt; -o wide
+</span></span><span class=line><span class=cl>kubectl describe pod -n &lt;namespace&gt; &lt;pod-name&gt;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 2. 常见状态与可能原因</span>
+</span></span><span class=line><span class=cl><span class=c1># Pending      → 调度失败（资源不足/亲和性/污点）</span>
+</span></span><span class=line><span class=cl><span class=c1># CrashLoopBackOff → 应用启动失败（配置错误/依赖不可用）</span>
+</span></span><span class=line><span class=cl><span class=c1># ImagePullBackOff → 镜像拉取失败（权限/镜像不存在/网络）</span>
+</span></span><span class=line><span class=cl><span class=c1># Terminating  → 删除卡住（Finalizer 阻塞/GC 僵死）</span>
+</span></span><span class=line><span class=cl><span class=c1># Error        → 主进程异常退出</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 3. 排查 CrashLoopBackOff 的标准流程</span>
+</span></span><span class=line><span class=cl>kubectl logs -n &lt;namespace&gt; &lt;pod-name&gt; --previous  <span class=c1># 查看上次崩溃日志</span>
+</span></span><span class=line><span class=cl>kubectl <span class=nb>exec</span> -it -n &lt;namespace&gt; &lt;pod-name&gt; -- /bin/sh  <span class=c1># 进入容器调试</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 4. 资源不足导致 Pending</span>
+</span></span><span class=line><span class=cl>kubectl describe node &lt;node-name&gt; <span class=p>|</span> grep -A <span class=m>5</span> <span class=s2>&#34;Allocated resources&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1># 查看实际资源分配</span>
+</span></span><span class=line><span class=cl>kubectl top pod -n &lt;namespace&gt;  <span class=c1># 实时资源使用</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 5. 镜像拉取失败</span>
+</span></span><span class=line><span class=cl>kubectl get events -n &lt;namespace&gt; --field-selector involvedObject.name<span class=o>=</span>&lt;pod-name&gt;
+</span></span><span class=line><span class=cl>kubectl describe secret &lt;image-pull-secret&gt; -n &lt;namespace&gt;
+</span></span></code></pre></div><h3 id=63-网络问题诊断>6.3 网络问题诊断</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. Service 端点是否就绪</span>
+</span></span><span class=line><span class=cl>kubectl get endpoints -n &lt;namespace&gt; &lt;service-name&gt;
+</span></span><span class=line><span class=cl><span class=c1># 结果为空说明 Selector 没有匹配到 Pod</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 2. DNS 解析测试（进入临时 Pod）</span>
+</span></span><span class=line><span class=cl>kubectl run dnsutils --image<span class=o>=</span>tutum/dnsutils -n &lt;namespace&gt; --restart<span class=o>=</span>Never -it --rm -- <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  nslookup &lt;service-name&gt;.&lt;namespace&gt;.svc.cluster.local
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 3. 网络连通性测试</span>
+</span></span><span class=line><span class=cl>kubectl run curl --image<span class=o>=</span>curlimages/curl -n &lt;namespace&gt; --restart<span class=o>=</span>Never -it --rm -- <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  curl -v http://&lt;service-name&gt;.&lt;namespace&gt;.svc.cluster.local:&lt;port&gt;/health
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 4. 查看 Ingress 状态</span>
+</span></span><span class=line><span class=cl>kubectl describe ingress -n &lt;namespace&gt; &lt;ingress-name&gt;
+</span></span><span class=line><span class=cl>kubectl get ingress -n &lt;namespace&gt; &lt;ingress-name&gt; -o <span class=nv>jsonpath</span><span class=o>=</span><span class=s1>&#39;{.status.loadBalancer}&#39;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 5. 常见网络问题快速定位表</span>
+</span></span><span class=line><span class=cl><span class=c1># Service 无法访问 → 检查 endpoints 是否为空、Pod 是否就绪、探针是否通过</span>
+</span></span><span class=line><span class=cl><span class=c1># Ingress 404 → 检查 path、backend service、rewrite 规则</span>
+</span></span><span class=line><span class=cl><span class=c1># 外网无法访问 → 检查 LoadBalancer/NodePort 配置、云厂商安全组、Ingress class</span>
+</span></span></code></pre></div><h3 id=64-生产故障案例>6.4 生产故障案例</h3><p><strong>案例：Pod 内存 OOMKilled</strong></p><pre tabindex=0><code>问题现象：Pod 被 Kubernetes 强制终止（OOMKilled），重启后反复出现
+</code></pre><p>排查步骤：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. 确认 OOMKilled 状态</span>
+</span></span><span class=line><span class=cl>kubectl get pod &lt;pod-name&gt; -n &lt;namespace&gt;
+</span></span><span class=line><span class=cl><span class=c1># Status: OOMKilled, RestartCount: 持续增加</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 2. 查看资源限制</span>
+</span></span><span class=line><span class=cl>kubectl describe pod &lt;pod-name&gt; -n &lt;namespace&gt; <span class=p>|</span> grep -A <span class=m>5</span> <span class=s2>&#34;Limits&#34;</span>
+</span></span><span class=line><span class=cl><span class=c1># Limits: memory: 512Mi</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 3. 查看实际内存使用趋势（历史数据）</span>
+</span></span><span class=line><span class=cl><span class=c1># 在 Grafana 中查询：</span>
+</span></span><span class=line><span class=cl><span class=c1># sum(container_memory_working_set_bytes{pod=&#34;&lt;pod-name&gt;&#34;}) by (pod)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 4. 查看 OOM 前一刻的日志</span>
+</span></span><span class=line><span class=cl>kubectl logs &lt;pod-name&gt; -n &lt;namespace&gt; --previous <span class=p>|</span> tail -50
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 5. 解决方案</span>
+</span></span><span class=line><span class=cl><span class=c1># 短期：增加 memory limit</span>
+</span></span><span class=line><span class=cl><span class=c1># 长期：分析内存泄漏（添加 pprof 端点）或优化 JVM heap/GC 参数</span>
+</span></span></code></pre></div><hr><h2 id=七可观测性最佳实践>七、可观测性最佳实践</h2><h3 id=71-建设路线图>7.1 建设路线图</h3><p>一个典型的 K8s 可观测性建设路径：</p><table><thead><tr><th>阶段</th><th>目标</th><th>工具</th><th>验收标准</th></tr></thead><tbody><tr><td>L1</td><td>基础设施可见</td><td>node-exporter + Prometheus + Grafana</td><td>节点 CPU/内存可查</td></tr><tr><td>L2</td><td>应用健康可见</td><td>kube-state-metrics + 应用 Exporter</td><td>Pod 状态、Deployment 副本数可查</td></tr><tr><td>L3</td><td>日志可追溯</td><td>Loki + Promtail</td><td>按 namespace/pod/service 查日志</td></tr><tr><td>L4</td><td>链路可追踪</td><td>Jaeger + OpenTelemetry</td><td>Trace ID 贯穿全链路</td></tr><tr><td>L5</td><td>告警自动化</td><td>Alertmanager + 钉钉/飞书</td><td>告警 5 分钟内触达</td></tr><tr><td>L6</td><td>SLA/SLO 量化</td><td>Sloth + Blackbox Exporter</td><td>核心服务可用性可量化</td></tr></tbody></table><h3 id=72-采样策略>7.2 采样策略</h3><p>在生产环境中，全量采集所有 Trace 会带来巨大的资源压力。推荐的分层采样策略：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># OpenTelemetry 采样配置</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>sampler</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 1. 根请求（外部入口）100% 采样</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>parent_based</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>root</span><span class=p>:</span><span class=w> </span><span class=l>traceidratio </span><span class=w> </span><span class=c># 1.0 = 100%</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=c># 2. 有父Span的请求按比例采样（减少重复数据）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>remote_parent_sampled</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>value</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>probability</span><span class=p>:</span><span class=w> </span><span class=m>0.1</span><span class=w>  </span><span class=c># 10% 采样</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>remote_parent_not_sampled</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>value</span><span class=p>:</span><span class=w> </span><span class=kc>false</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 错误请求 100% 采样（通过 Span 过滤实现）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 在 Exporter 的 batch processor 中配置</span><span class=w>
+</span></span></span></code></pre></div><h3 id=73-成本优化>7.3 成本优化</h3><p>可观测性系统的成本主要来自存储和计算，以下是优化实践：</p><ul><li><strong>Loki 标签精简</strong>：避免高 cardinality 标签，减少索引存储。</li><li><strong>Prometheus 分片</strong>：使用 Thanos 或 Cortex 实现全局视图和长期存储。</li><li><strong>日志保留期分级</strong>：热数据 7 天、温数据 30 天、冷数据 90 天。</li><li><strong>Trace 下采样</strong>：错误请求全量采样，成功请求按比例采样。</li></ul><hr><h2 id=总结>总结</h2><p>本文系统讲解了 Kubernetes 可观测性体系的四大核心组件：</p><ol><li><strong>Prometheus</strong>：拉模式时序监控，Kubernetes SD 自动发现，核心是理解标签 relabeling 和 PromQL 聚合。</li><li><strong>Grafana</strong>：统一可视化平台，通过 Panel 和 AlertRule 实现监控和告警，熟练使用变量模板。</li><li><strong>Loki</strong>：标签索引型日志系统，标签设计决定查询性能，LogQL 是核心技能。</li><li><strong>Jaeger</strong>：OpenTelemetry 标准分布式追踪，Span 瀑布图是排查慢请求的利器。</li></ol><p>故障排查的核心是<strong>分层诊断</strong>——从基础设施到控制平面，再到工作负载，最后到应用层，每一层都有对应的诊断工具和命令。养成系统化的排查习惯，比死记硬背命令更重要。</p><hr><h2 id=下期预告>下期预告</h2><p>下一篇：<strong>Kubernetes与云原生面试八股文（八）——生产级高可用与灾备</strong> 将深入讲解 Kubernetes 多集群联邦设计、etcd 备份与恢复、PodDisruptionBudget 与 disruptions 预算控制、Pod 高可用调度策略、备份与灾难恢复（DR）方案设计，以及云原生时代的成本优化与资源治理，敬请期待。</p><hr><p><em>作者：飞哥 · Raphael Lab</em></p><p><em>Kubernetes与云原生面试八股文系列</em></p></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/><span>← 上一篇</span><strong>Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/><span>2026-08-06</span><strong>Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps</strong><p>面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94%E9%85%8D%E7%BD%AE%E7%AE%A1%E7%90%86%E4%B8%8E%E5%AE%89%E5%85%A8/><span>2026-08-04</span><strong>Kubernetes与云原生面试八股文（五）——配置管理与安全</strong><p>从面试高频问题出发，系统拆解 ConfigMap/Secret 的高级用法、RBAC 权限模型、Pod Security Standards、Service Account …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%9B%9B%E5%AD%98%E5%82%A8%E5%8D%B7%E4%B8%8E%E6%95%B0%E6%8D%AE%E6%8C%81%E4%B9%85%E5%8C%96/><span>2026-08-01</span><strong>Kubernetes与云原生面试八股文（四）——存储卷与数据持久化</strong><p>从面试高频问题出发，系统拆解 K8s Volume 类型体系（emptyDir/hostPath/configMap/secret）、PV 与 PVC 生命周期与绑定机 …</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9AKubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%EF%BC%88%E4%B8%83%EF%BC%89%E2%80%94%E2%80%94%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#系列导航>系列导航</a></li><li><a href=#一可观测性理论基础>一、可观测性理论基础</a><ul><li><a href=#11-什么是可观测性>1.1 什么是可观测性</a></li><li><a href=#12-kubernetes-可观测性的特殊性>1.2 Kubernetes 可观测性的特殊性</a></li></ul></li><li><a href=#二prometheus-监控体系>二、Prometheus 监控体系</a><ul><li><a href=#21-prometheus-核心原理>2.1 Prometheus 核心原理</a></li><li><a href=#22-kubernetes-服务发现机制>2.2 Kubernetes 服务发现机制</a></li><li><a href=#23-常用-exporter-介绍>2.3 常用 Exporter 介绍</a></li><li><a href=#24-核心-promql-查询>2.4 核心 PromQL 查询</a></li></ul></li><li><a href=#三grafana-可视化实战>三、Grafana 可视化实战</a><ul><li><a href=#31-grafana--prometheus-集成>3.1 Grafana + Prometheus 集成</a></li><li><a href=#32-常用监控面板-json>3.2 常用监控面板 JSON</a></li><li><a href=#33-告警规则配置>3.3 告警规则配置</a></li></ul></li><li><a href=#四loki-日志聚合系统>四、Loki 日志聚合系统</a><ul><li><a href=#41-loki-架构设计>4.1 Loki 架构设计</a></li><li><a href=#42-promtail-采集配置>4.2 Promtail 采集配置</a></li><li><a href=#43-logql-查询语法>4.3 LogQL 查询语法</a></li></ul></li><li><a href=#五jaeger-分布式追踪>五、Jaeger 分布式追踪</a><ul><li><a href=#51-opentelemetry-架构>5.1 OpenTelemetry 架构</a></li><li><a href=#52-jaeger-部署与采集>5.2 Jaeger 部署与采集</a></li><li><a href=#53-常见-trace-查询模式>5.3 常见 Trace 查询模式</a></li></ul></li><li><a href=#六kubernetes-故障排查方法论>六、Kubernetes 故障排查方法论</a><ul><li><a href=#61-诊断工作流>6.1 诊断工作流</a></li><li><a href=#62-pod-状态诊断>6.2 Pod 状态诊断</a></li><li><a href=#63-网络问题诊断>6.3 网络问题诊断</a></li><li><a href=#64-生产故障案例>6.4 生产故障案例</a></li></ul></li><li><a href=#七可观测性最佳实践>七、可观测性最佳实践</a><ul><li><a href=#71-建设路线图>7.1 建设路线图</a></li><li><a href=#72-采样策略>7.2 采样策略</a></li><li><a href=#73-成本优化>7.3 成本优化</a></li></ul></li><li><a href=#总结>总结</a></li><li><a href=#下期预告>下期预告</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
+<a href=mailto:liyafei.work@foxmail.com>邮箱</a>
+<a href=/index.xml>RSS</a></div><p class=copyright>© 2026 李亚飞</p></footer><div class=sr-only id=live-region aria-live=polite></div><script src=/js/site.js defer></script></body></html>
