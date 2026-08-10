@@ -9,54 +9,54 @@
 <a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Spring MVC 深度解析</h1><p class=article-description>面试高频问题：Spring MVC 的请求流程？@RequestParam 和 @RequestBody 的区别？拦截器和过滤器的区别？ Spring MVC 是 Spring 框架的 Web 模块，用于构建 Web 应用。理解 Spring MVC 的请求流程，是掌握 Spring Web 开发的。</p><div class=article-meta><span>发布于 <time datetime=2026-05-11>2026-05-11</time></span>
 <span>最后验证 2026-05</span>
 <span>6 分钟阅读</span>
-<span>1199 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#引言>引言</a></li><li><a href=#一spring-mvc-架构>一、Spring MVC 架构</a><ul><li><a href=#11-mvc-模式>1.1 MVC 模式</a></li><li><a href=#12-spring-mvc-核心组件>1.2 Spring MVC 核心组件</a></li></ul></li><li><a href=#二spring-mvc-请求流程>二、Spring MVC 请求流程</a><ul><li><a href=#21-完整流程>2.1 完整流程</a></li><li><a href=#22-源码流程简化>2.2 源码流程（简化）</a></li></ul></li><li><a href=#三注解驱动开发>三、注解驱动开发</a><ul><li><a href=#31-controller-和-restcontroller>3.1 @Controller 和 @RestController</a></li><li><a href=#32-请求映射注解>3.2 请求映射注解</a></li></ul></li><li><a href=#四参数绑定>四、参数绑定</a><ul><li><a href=#41-常用参数注解>4.1 常用参数注解</a></li><li><a href=#42-requestparam-vs-requestbody>4.2 @RequestParam vs @RequestBody</a></li><li><a href=#43-参数绑定原理>4.3 参数绑定原理</a></li></ul></li><li><a href=#五视图解析>五、视图解析</a><ul><li><a href=#51-视图解析器>5.1 视图解析器</a></li><li><a href=#52-常用视图技术>5.2 常用视图技术</a></li></ul></li><li><a href=#六拦截器interceptor>六、拦截器（Interceptor）</a><ul><li><a href=#61-拦截器接口>6.1 拦截器接口</a></li><li><a href=#62-拦截器配置>6.2 拦截器配置</a></li><li><a href=#63-拦截器执行顺序>6.3 拦截器执行顺序</a></li></ul></li><li><a href=#七拦截器-vs-过滤器>七、拦截器 vs 过滤器</a><ul><li><a href=#71-区别对比>7.1 区别对比</a></li><li><a href=#72-使用场景>7.2 使用场景</a></li></ul></li><li><a href=#八全局异常处理>八、全局异常处理</a><ul><li><a href=#81-controlleradvice>8.1 @ControllerAdvice</a></li><li><a href=#82-响应状态>8.2 响应状态</a></li></ul></li><li><a href=#九文件上传>九、文件上传</a><ul><li><a href=#91-配置文件上传>9.1 配置文件上传</a></li><li><a href=#92-处理文件上传>9.2 处理文件上传</a></li></ul></li><li><a href=#十面试高频问题>十、面试高频问题</a><ul><li><a href=#q1spring-mvc-的请求流程>Q1：Spring MVC 的请求流程？</a></li><li><a href=#q2requestparam-和-requestbody-的区别>Q2：@RequestParam 和 @RequestBody 的区别？</a></li><li><a href=#q3拦截器和过滤器的区别>Q3：拦截器和过滤器的区别？</a></li><li><a href=#q4spring-mvc-的返回值处理>Q4：Spring MVC 的返回值处理？</a></li><li><a href=#q5如何统一处理异常>Q5：如何统一处理异常？</a></li></ul></li><li><a href=#十一总结>十一、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：Spring MVC 的请求流程？@RequestParam 和 @RequestBody 的区别？拦截器和过滤器的区别？</p></blockquote><h2 id=引言>引言</h2><p>Spring MVC 是 Spring 框架的 Web 模块，用于构建 Web 应用。理解 Spring MVC 的请求流程，是掌握 Spring Web 开发的关键。本文将从请求流程到参数绑定，全面解析 Spring MVC。</p><h2 id=一spring-mvc-架构>一、Spring MVC 架构</h2><h3 id=11-mvc-模式>1.1 MVC 模式</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────┐
-│                   MVC 模式                            │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│  ┌─────────┐    ┌─────────┐    ┌─────────┐       │
-│  │  Model  │◄───│Controller│───►│  View  │       │
-│  │ (数据)  │    │ (控制器) │    │ (视图) │       │
-│  └─────────┘    └─────────┘    └─────────┘       │
-│       ▲               │               ▲              │
-│       │               │               │              │
-│       └───────────────┴───────────────┘              │
-│                 请求 / 响应                           │
-└─────────────────────────────────────────────────────┘
-</code></pre><h3 id=12-spring-mvc-核心组件>1.2 Spring MVC 核心组件</h3><table><thead><tr><th>组件</th><th>作用</th></tr></thead><tbody><tr><td><code>DispatcherServlet</code></td><td>前端控制器，统一处理请求</td></tr><tr><td><code>HandlerMapping</code></td><td>映射请求到处理器</td></tr><tr><td><code>HandlerAdapter</code></td><td>适配不同类型的处理器</td></tr><tr><td><code>Handler</code></td><td>处理器（Controller 方法）</td></tr><tr><td><code>ViewResolver</code></td><td>解析视图名称到视图</td></tr><tr><td><code>View</code></td><td>视图（JSP、Thymeleaf 等）</td></tr></tbody></table><h2 id=二spring-mvc-请求流程>二、Spring MVC 请求流程</h2><h3 id=21-完整流程>2.1 完整流程</h3><pre tabindex=0><code>浏览器发送请求
-    │
-    ▼
-┌─────────────────┐
-│DispatcherServlet │  ← 前端控制器（统一入口）
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│HandlerMapping   │  ← 查找 Handler（根据 URL）
-└────────┬────────┘
-         │ 返回 HandlerExecutionChain
-         ▼
-┌─────────────────┐
-│HandlerAdapter   │  ← 适配调用 Handler
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Handler       │  ← Controller 方法（执行业务逻辑）
-└────────┬────────┘
-         │ 返回 ModelAndView
-         ▼
-┌─────────────────┐
-│ViewResolver     │  ← 解析视图名称
-└────────┬────────┘
-         │ 返回 View 对象
-         ▼
-┌─────────────────┐
-│     View       │  ← 渲染视图
-└────────┬────────┘
-         │
-         ▼
-    响应浏览器
-</code></pre><h3 id=22-源码流程简化>2.2 源码流程（简化）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// DispatcherServlet.doDispatch()
+<span>1199 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#引言>引言</a></li><li><a href=#一spring-mvc-架构>一、Spring MVC 架构</a><ul><li><a href=#11-mvc-模式>1.1 MVC 模式</a></li><li><a href=#12-spring-mvc-核心组件>1.2 Spring MVC 核心组件</a></li></ul></li><li><a href=#二spring-mvc-请求流程>二、Spring MVC 请求流程</a><ul><li><a href=#21-完整流程>2.1 完整流程</a></li><li><a href=#22-源码流程简化>2.2 源码流程（简化）</a></li></ul></li><li><a href=#三注解驱动开发>三、注解驱动开发</a><ul><li><a href=#31-controller-和-restcontroller>3.1 @Controller 和 @RestController</a></li><li><a href=#32-请求映射注解>3.2 请求映射注解</a></li></ul></li><li><a href=#四参数绑定>四、参数绑定</a><ul><li><a href=#41-常用参数注解>4.1 常用参数注解</a></li><li><a href=#42-requestparam-vs-requestbody>4.2 @RequestParam vs @RequestBody</a></li><li><a href=#43-参数绑定原理>4.3 参数绑定原理</a></li></ul></li><li><a href=#五视图解析>五、视图解析</a><ul><li><a href=#51-视图解析器>5.1 视图解析器</a></li><li><a href=#52-常用视图技术>5.2 常用视图技术</a></li></ul></li><li><a href=#六拦截器interceptor>六、拦截器（Interceptor）</a><ul><li><a href=#61-拦截器接口>6.1 拦截器接口</a></li><li><a href=#62-拦截器配置>6.2 拦截器配置</a></li><li><a href=#63-拦截器执行顺序>6.3 拦截器执行顺序</a></li></ul></li><li><a href=#七拦截器-vs-过滤器>七、拦截器 vs 过滤器</a><ul><li><a href=#71-区别对比>7.1 区别对比</a></li><li><a href=#72-使用场景>7.2 使用场景</a></li></ul></li><li><a href=#八全局异常处理>八、全局异常处理</a><ul><li><a href=#81-controlleradvice>8.1 @ControllerAdvice</a></li><li><a href=#82-响应状态>8.2 响应状态</a></li></ul></li><li><a href=#九文件上传>九、文件上传</a><ul><li><a href=#91-配置文件上传>9.1 配置文件上传</a></li><li><a href=#92-处理文件上传>9.2 处理文件上传</a></li></ul></li><li><a href=#十面试高频问题>十、面试高频问题</a><ul><li><a href=#q1spring-mvc-的请求流程>Q1：Spring MVC 的请求流程？</a></li><li><a href=#q2requestparam-和-requestbody-的区别>Q2：@RequestParam 和 @RequestBody 的区别？</a></li><li><a href=#q3拦截器和过滤器的区别>Q3：拦截器和过滤器的区别？</a></li><li><a href=#q4spring-mvc-的返回值处理>Q4：Spring MVC 的返回值处理？</a></li><li><a href=#q5如何统一处理异常>Q5：如何统一处理异常？</a></li></ul></li><li><a href=#十一总结>十一、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：Spring MVC 的请求流程？@RequestParam 和 @RequestBody 的区别？拦截器和过滤器的区别？</p></blockquote><h2 id=引言>引言</h2><p>Spring MVC 是 Spring 框架的 Web 模块，用于构建 Web 应用。理解 Spring MVC 的请求流程，是掌握 Spring Web 开发的关键。本文将从请求流程到参数绑定，全面解析 Spring MVC。</p><h2 id=一spring-mvc-架构>一、Spring MVC 架构</h2><h3 id=11-mvc-模式>1.1 MVC 模式</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                   MVC 模式                            │
+</span></span><span class=line><span class=cl>├─────────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│                                                      │
+</span></span><span class=line><span class=cl>│  ┌─────────┐    ┌─────────┐    ┌─────────┐       │
+</span></span><span class=line><span class=cl>│  │  Model  │◄───│Controller│───►│  View  │       │
+</span></span><span class=line><span class=cl>│  │ (数据)  │    │ (控制器) │    │ (视图) │       │
+</span></span><span class=line><span class=cl>│  └─────────┘    └─────────┘    └─────────┘       │
+</span></span><span class=line><span class=cl>│       ▲               │               ▲              │
+</span></span><span class=line><span class=cl>│       │               │               │              │
+</span></span><span class=line><span class=cl>│       └───────────────┴───────────────┘              │
+</span></span><span class=line><span class=cl>│                 请求 / 响应                           │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=12-spring-mvc-核心组件>1.2 Spring MVC 核心组件</h3><table><thead><tr><th>组件</th><th>作用</th></tr></thead><tbody><tr><td><code>DispatcherServlet</code></td><td>前端控制器，统一处理请求</td></tr><tr><td><code>HandlerMapping</code></td><td>映射请求到处理器</td></tr><tr><td><code>HandlerAdapter</code></td><td>适配不同类型的处理器</td></tr><tr><td><code>Handler</code></td><td>处理器（Controller 方法）</td></tr><tr><td><code>ViewResolver</code></td><td>解析视图名称到视图</td></tr><tr><td><code>View</code></td><td>视图（JSP、Thymeleaf 等）</td></tr></tbody></table><h2 id=二spring-mvc-请求流程>二、Spring MVC 请求流程</h2><h3 id=21-完整流程>2.1 完整流程</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>浏览器发送请求
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>┌─────────────────┐
+</span></span><span class=line><span class=cl>│DispatcherServlet │  ← 前端控制器（统一入口）
+</span></span><span class=line><span class=cl>└────────┬────────┘
+</span></span><span class=line><span class=cl>         │
+</span></span><span class=line><span class=cl>         ▼
+</span></span><span class=line><span class=cl>┌─────────────────┐
+</span></span><span class=line><span class=cl>│HandlerMapping   │  ← 查找 Handler（根据 URL）
+</span></span><span class=line><span class=cl>└────────┬────────┘
+</span></span><span class=line><span class=cl>         │ 返回 HandlerExecutionChain
+</span></span><span class=line><span class=cl>         ▼
+</span></span><span class=line><span class=cl>┌─────────────────┐
+</span></span><span class=line><span class=cl>│HandlerAdapter   │  ← 适配调用 Handler
+</span></span><span class=line><span class=cl>└────────┬────────┘
+</span></span><span class=line><span class=cl>         │
+</span></span><span class=line><span class=cl>         ▼
+</span></span><span class=line><span class=cl>┌─────────────────┐
+</span></span><span class=line><span class=cl>│  Handler       │  ← Controller 方法（执行业务逻辑）
+</span></span><span class=line><span class=cl>└────────┬────────┘
+</span></span><span class=line><span class=cl>         │ 返回 ModelAndView
+</span></span><span class=line><span class=cl>         ▼
+</span></span><span class=line><span class=cl>┌─────────────────┐
+</span></span><span class=line><span class=cl>│ViewResolver     │  ← 解析视图名称
+</span></span><span class=line><span class=cl>└────────┬────────┘
+</span></span><span class=line><span class=cl>         │ 返回 View 对象
+</span></span><span class=line><span class=cl>         ▼
+</span></span><span class=line><span class=cl>┌─────────────────┐
+</span></span><span class=line><span class=cl>│     View       │  ← 渲染视图
+</span></span><span class=line><span class=cl>└────────┬────────┘
+</span></span><span class=line><span class=cl>         │
+</span></span><span class=line><span class=cl>         ▼
+</span></span><span class=line><span class=cl>    响应浏览器
+</span></span></code></pre></div><h3 id=22-源码流程简化>2.2 源码流程（简化）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// DispatcherServlet.doDispatch()
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>protected</span> <span class=kt>void</span> <span class=nf>doDispatch</span><span class=o>(</span><span class=n>HttpServletRequest</span> <span class=n>request</span><span class=o>,</span> <span class=n>HttpServletResponse</span> <span class=n>response</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 1. 获取 Handler
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>HandlerExecutionChain</span> <span class=n>mappedHandler</span> <span class=o>=</span> <span class=n>getHandler</span><span class=o>(</span><span class=n>request</span><span class=o>);</span>
@@ -238,8 +238,8 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span>                <span class=o>.</span><span class=na>excludePathPatterns</span><span class=o>(</span><span class=s>&#34;/api/public/**&#34;</span><span class=o>);</span>  <span class=c1>// 排除路径
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=63-拦截器执行顺序>6.3 拦截器执行顺序</h3><pre tabindex=0><code>请求 → preHandle 1 → preHandle 2 → Handler → postHandle 2 → postHandle 1 → afterCompletion 2 → afterCompletion 1 → 响应
-</code></pre><p><strong>多个拦截器</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=n>registry</span><span class=o>.</span><span class=na>addInterceptor</span><span class=o>(</span><span class=n>interceptor1</span><span class=o>).</span><span class=na>order</span><span class=o>(</span><span class=mi>1</span><span class=o>);</span>
+</span></span></code></pre></div><h3 id=63-拦截器执行顺序>6.3 拦截器执行顺序</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>请求 → preHandle 1 → preHandle 2 → Handler → postHandle 2 → postHandle 1 → afterCompletion 2 → afterCompletion 1 → 响应
+</span></span></code></pre></div><p><strong>多个拦截器</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=n>registry</span><span class=o>.</span><span class=na>addInterceptor</span><span class=o>(</span><span class=n>interceptor1</span><span class=o>).</span><span class=na>order</span><span class=o>(</span><span class=mi>1</span><span class=o>);</span>
 </span></span><span class=line><span class=cl><span class=n>registry</span><span class=o>.</span><span class=na>addInterceptor</span><span class=o>(</span><span class=n>interceptor2</span><span class=o>).</span><span class=na>order</span><span class=o>(</span><span class=mi>2</span><span class=o>);</span>
 </span></span><span class=line><span class=cl><span class=c1>// 执行顺序：preHandle 1 → preHandle 2 → Handler → postHandle 2 → postHandle 1
 </span></span></span></code></pre></div><h2 id=七拦截器-vs-过滤器>七、拦截器 vs 过滤器</h2><h3 id=71-区别对比>7.1 区别对比</h3><table><thead><tr><th>特性</th><th>过滤器（Filter）</th><th>拦截器（Interceptor）</th></tr></thead><tbody><tr><td><strong>规范</strong></td><td>Servlet 规范</td><td>Spring MVC 规范</td></tr><tr><td><strong>作用范围</strong></td><td>所有请求（包括静态资源）</td><td>只拦截 MVC 请求</td></tr><tr><td><strong>依赖</strong></td><td>不依赖 Spring</td><td>依赖 Spring</td></tr><tr><td><strong>执行时机</strong></td><td>DispatcherServlet 前</td><td>DispatcherServlet 后</td></tr><tr><td><strong>访问上下文</strong></td><td>只能访问 Servlet API</td><td>可访问 Spring 上下文</td></tr></tbody></table><h3 id=72-使用场景>7.2 使用场景</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 过滤器：全局处理（字符编码、CORS、XSS 防护）

@@ -10,92 +10,92 @@
 <span>/</span><a href=/series/microservices-interview/>微服务面试</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>微服务面试八股文（九）——Kubernetes深入与云原生架构实践</h1><p class=article-description>承接微服务容器化实践，深入 Pod 调度、StatefulSet、RBAC、NetworkPolicy、Helm 与 12-Factor，建立生产级 Kubernetes 架构能力。</p><div class=article-meta><span>发布于 <time datetime=2026-07-13>2026-07-13</time></span>
 <span>最后验证 2026-07</span>
 <span>11 分钟阅读</span>
-<span>2193 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一kubernetes-架构全景从节点到集群>一、Kubernetes 架构全景：从节点到集群</a><ul><li><a href=#11-集群核心组件>1.1 集群核心组件</a></li><li><a href=#12-核心概念关系图>1.2 核心概念关系图</a></li></ul></li><li><a href=#二pod-深度解析生命周期与调度机制>二、Pod 深度解析：生命周期与调度机制</a><ul><li><a href=#21-pod-生命周期状态机>2.1 Pod 生命周期状态机</a></li><li><a href=#22-探针类型与健康检查>2.2 探针类型与健康检查</a></li><li><a href=#23-pod-调度策略>2.3 Pod 调度策略</a></li></ul></li><li><a href=#三statefulset有状态应用的正确打开方式>三、StatefulSet：有状态应用的正确打开方式</a><ul><li><a href=#31-statefulset-vs-deployment-的本质区别>3.1 StatefulSet vs Deployment 的本质区别</a></li><li><a href=#32-statefulset-实战部署-mysql-主从集群>3.2 StatefulSet 实战：部署 MySQL 主从集群</a></li></ul></li><li><a href=#四configmap-与-secret配置管理最佳实践>四、ConfigMap 与 Secret：配置管理最佳实践</a><ul><li><a href=#41-configmap-的四种创建方式>4.1 ConfigMap 的四种创建方式</a></li><li><a href=#42-configmap-的三种挂载方式对比>4.2 ConfigMap 的三种挂载方式对比</a></li><li><a href=#43-secret-类型与安全最佳实践>4.3 Secret 类型与安全最佳实践</a></li></ul></li><li><a href=#五rbac-与-networkpolicy安全加固>五、RBAC 与 NetworkPolicy：安全加固</a><ul><li><a href=#51-rbac-权限模型>5.1 RBAC 权限模型</a></li><li><a href=#52-networkpolicy微服务网络隔离>5.2 NetworkPolicy：微服务网络隔离</a></li></ul></li><li><a href=#六helmkubernetes-包管理器>六、Helm：Kubernetes 包管理器</a><ul><li><a href=#61-helm-核心概念>6.1 Helm 核心概念</a></li><li><a href=#62-helm-模板实战>6.2 Helm 模板实战</a></li><li><a href=#63-helm-release-管理>6.3 Helm Release 管理</a></li></ul></li><li><a href=#七12-factor云原生应用设计原则>七、12-Factor：云原生应用设计原则</a><ul><li><a href=#71-十二要素详解>7.1 十二要素详解</a></li><li><a href=#72-12-factor-在微服务中的实践映射>7.2 12-Factor 在微服务中的实践映射</a></li></ul></li><li><a href=#八面试高频问题汇总>八、面试高频问题汇总</a></li><li><a href=#九下期预告>九、下期预告</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接微服务容器化与部署实战，深入解析 Kubernetes 核心概念与进阶用法——Pod 生命周期与调度、StatefulSet 有状态部署、RBAC 权限模型、NetworkPolicy 网络策略、Helm 包管理，以及云原生 12-Factor 设计原则，构建生产级 Kubernetes 运维能力。</p></blockquote><hr><h2 id=一kubernetes-架构全景从节点到集群>一、Kubernetes 架构全景：从节点到集群</h2><h3 id=11-集群核心组件>1.1 集群核心组件</h3><pre tabindex=0><code>┌──────────────────────────────────────────────────────────────┐
-│                        Control Plane                         │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌─────┐ │
-│  │ API Server │  │ Scheduler  │  │Controller  │  │ etcd│ │
-│  │ (统一入口)  │  │ (调度Pod)  │  │Manager(控制)│  │(状态)│ │
-│  └────────────┘  └────────────┘  └────────────┘  └─────┘ │
-└──────────────────────────────────────────────────────────────┘
-                              │
-              ┌───────────────┼───────────────┐
-              ▼               ▼               ▼
-         ┌────────┐      ┌────────┐      ┌────────┐
-         │Worker 1│      │Worker 2│      │Worker 3│
-         │  kubelet│      │  kubelet│      │  kubelet│
-         │ kube-proxy│    │ kube-proxy│    │ kube-proxy│
-         │  Docker │      │  Docker │      │  Docker │
-         │  Pod A  │      │  Pod C  │      │  Pod E  │
-         │  Pod B  │      │  Pod D  │      │  Pod F  │
-         └────────┘      └────────┘      └────────┘
-
-核心组件职责：
-• API Server：集群统一入口，处理所有 REST 请求，是唯一与 etcd 通信的组件
-• Scheduler：监听未调度 Pod，为其分配合适的 Worker 节点（考虑资源、亲和性等）
-• Controller Manager：运行各种控制器（Deployment/ReplicaSet/StatefulSet...），
-  确保期望状态与实际状态一致
-• kubelet：运行在每个 Worker 节点，负责创建/销毁 Pod、管理容器
-• kube-proxy：维护网络规则，实现 Service 的负载均衡
-• etcd：分布式一致性 KV 存储，保存集群所有状态数据（Raft 协议保证一致性）
-</code></pre><h3 id=12-核心概念关系图>1.2 核心概念关系图</h3><pre tabindex=0><code>Namespace（命名空间）← 逻辑隔离，不同团队/环境
-    │
-    └── Deployment（无状态应用）→ 管理 ReplicaSet → 管理 Pod
-    │   └── 滚动更新、回滚、扩缩容
-    │
-    └── StatefulSet（有状态应用）→ 管理 Pod（有序号）
-    │   └── 稳定的网络标识、稳定的存储、有序部署/扩缩容
-    │
-    └── DaemonSet（每个节点一个 Pod）→ 日志收集、监控 Agent
-    │
-    └── Job / CronJob（批处理任务）
-    │
-    └── Service（服务发现与负载均衡）
-    │   ├── ClusterIP（集群内部访问）
-    │   ├── NodePort（节点端口映射）
-    │   ├── LoadBalancer（云厂商负载均衡器）
-    │   └── ExternalName（DNS 别名）
-    │
-    └── Ingress（HTTP/HTTPS 七层路由）
-    │
-    └── ConfigMap / Secret（配置管理）
-    │
-    └── Volume（持久化存储）
-</code></pre><hr><h2 id=二pod-深度解析生命周期与调度机制>二、Pod 深度解析：生命周期与调度机制</h2><h3 id=21-pod-生命周期状态机>2.1 Pod 生命周期状态机</h3><pre tabindex=0><code>                    ┌────────────┐
-                    │   Pending  │
-                    │  (Pod被API Server接收，
-                    │   容器镜像可能还在下载)
-                    └─────┬──────┘
-                          │ Scheduler 分配到 Node
-                          ▼
-              ┌──────────────────────────────┐
-              │ ContainerCreating            │
-              │ (Init Container 执行中...)   │
-              └──────────────┬───────────────┘
-                             │ Init Container 全部成功
-                             ▼
-              ┌──────────────────────────────┐
-              │         Running               │
-              │ (至少一个容器已启动，可接收流量)│
-              │ ┌──────────────────────────┐ │
-              │ │ PostStart Hook 执行中... │ │
-              │ │ 主容器 Running           │ │
-              │ │ PreStop Hook 待执行...  │ │
-              │ └──────────────────────────┘ │
-              └──────────────┬───────────────┘
-                             │ 容器进程退出 / liveness 探针失败
-                             ▼
-              ┌──────────────────────────────┐
-              │        Succeeded / Failed     │
-              │ Succeeded：正常退出（Job等）  │
-              │ Failed：异常退出（OOMKilled等）│
-              └──────────────────────────────┘
-
-Init Container vs Main Container 的关键区别：
-1. Init Container 必须全部成功，主容器才能启动（串行执行）
-2. Init Container 总是先于主容器执行
-3. Init Container 不支持探针（liveness/readiness/startup）
-4. 典型用途：注册到服务发现、等待数据库就绪、初始化配置、预热缓存
-</code></pre><h3 id=22-探针类型与健康检查>2.2 探针类型与健康检查</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
+<span>2193 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一kubernetes-架构全景从节点到集群>一、Kubernetes 架构全景：从节点到集群</a><ul><li><a href=#11-集群核心组件>1.1 集群核心组件</a></li><li><a href=#12-核心概念关系图>1.2 核心概念关系图</a></li></ul></li><li><a href=#二pod-深度解析生命周期与调度机制>二、Pod 深度解析：生命周期与调度机制</a><ul><li><a href=#21-pod-生命周期状态机>2.1 Pod 生命周期状态机</a></li><li><a href=#22-探针类型与健康检查>2.2 探针类型与健康检查</a></li><li><a href=#23-pod-调度策略>2.3 Pod 调度策略</a></li></ul></li><li><a href=#三statefulset有状态应用的正确打开方式>三、StatefulSet：有状态应用的正确打开方式</a><ul><li><a href=#31-statefulset-vs-deployment-的本质区别>3.1 StatefulSet vs Deployment 的本质区别</a></li><li><a href=#32-statefulset-实战部署-mysql-主从集群>3.2 StatefulSet 实战：部署 MySQL 主从集群</a></li></ul></li><li><a href=#四configmap-与-secret配置管理最佳实践>四、ConfigMap 与 Secret：配置管理最佳实践</a><ul><li><a href=#41-configmap-的四种创建方式>4.1 ConfigMap 的四种创建方式</a></li><li><a href=#42-configmap-的三种挂载方式对比>4.2 ConfigMap 的三种挂载方式对比</a></li><li><a href=#43-secret-类型与安全最佳实践>4.3 Secret 类型与安全最佳实践</a></li></ul></li><li><a href=#五rbac-与-networkpolicy安全加固>五、RBAC 与 NetworkPolicy：安全加固</a><ul><li><a href=#51-rbac-权限模型>5.1 RBAC 权限模型</a></li><li><a href=#52-networkpolicy微服务网络隔离>5.2 NetworkPolicy：微服务网络隔离</a></li></ul></li><li><a href=#六helmkubernetes-包管理器>六、Helm：Kubernetes 包管理器</a><ul><li><a href=#61-helm-核心概念>6.1 Helm 核心概念</a></li><li><a href=#62-helm-模板实战>6.2 Helm 模板实战</a></li><li><a href=#63-helm-release-管理>6.3 Helm Release 管理</a></li></ul></li><li><a href=#七12-factor云原生应用设计原则>七、12-Factor：云原生应用设计原则</a><ul><li><a href=#71-十二要素详解>7.1 十二要素详解</a></li><li><a href=#72-12-factor-在微服务中的实践映射>7.2 12-Factor 在微服务中的实践映射</a></li></ul></li><li><a href=#八面试高频问题汇总>八、面试高频问题汇总</a></li><li><a href=#九下期预告>九、下期预告</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接微服务容器化与部署实战，深入解析 Kubernetes 核心概念与进阶用法——Pod 生命周期与调度、StatefulSet 有状态部署、RBAC 权限模型、NetworkPolicy 网络策略、Helm 包管理，以及云原生 12-Factor 设计原则，构建生产级 Kubernetes 运维能力。</p></blockquote><hr><h2 id=一kubernetes-架构全景从节点到集群>一、Kubernetes 架构全景：从节点到集群</h2><h3 id=11-集群核心组件>1.1 集群核心组件</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌──────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                        Control Plane                         │
+</span></span><span class=line><span class=cl>│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌─────┐ │
+</span></span><span class=line><span class=cl>│  │ API Server │  │ Scheduler  │  │Controller  │  │ etcd│ │
+</span></span><span class=line><span class=cl>│  │ (统一入口)  │  │ (调度Pod)  │  │Manager(控制)│  │(状态)│ │
+</span></span><span class=line><span class=cl>│  └────────────┘  └────────────┘  └────────────┘  └─────┘ │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>                              │
+</span></span><span class=line><span class=cl>              ┌───────────────┼───────────────┐
+</span></span><span class=line><span class=cl>              ▼               ▼               ▼
+</span></span><span class=line><span class=cl>         ┌────────┐      ┌────────┐      ┌────────┐
+</span></span><span class=line><span class=cl>         │Worker 1│      │Worker 2│      │Worker 3│
+</span></span><span class=line><span class=cl>         │  kubelet│      │  kubelet│      │  kubelet│
+</span></span><span class=line><span class=cl>         │ kube-proxy│    │ kube-proxy│    │ kube-proxy│
+</span></span><span class=line><span class=cl>         │  Docker │      │  Docker │      │  Docker │
+</span></span><span class=line><span class=cl>         │  Pod A  │      │  Pod C  │      │  Pod E  │
+</span></span><span class=line><span class=cl>         │  Pod B  │      │  Pod D  │      │  Pod F  │
+</span></span><span class=line><span class=cl>         └────────┘      └────────┘      └────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>核心组件职责：
+</span></span><span class=line><span class=cl>• API Server：集群统一入口，处理所有 REST 请求，是唯一与 etcd 通信的组件
+</span></span><span class=line><span class=cl>• Scheduler：监听未调度 Pod，为其分配合适的 Worker 节点（考虑资源、亲和性等）
+</span></span><span class=line><span class=cl>• Controller Manager：运行各种控制器（Deployment/ReplicaSet/StatefulSet...），
+</span></span><span class=line><span class=cl>  确保期望状态与实际状态一致
+</span></span><span class=line><span class=cl>• kubelet：运行在每个 Worker 节点，负责创建/销毁 Pod、管理容器
+</span></span><span class=line><span class=cl>• kube-proxy：维护网络规则，实现 Service 的负载均衡
+</span></span><span class=line><span class=cl>• etcd：分布式一致性 KV 存储，保存集群所有状态数据（Raft 协议保证一致性）
+</span></span></code></pre></div><h3 id=12-核心概念关系图>1.2 核心概念关系图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Namespace（命名空间）← 逻辑隔离，不同团队/环境
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └── Deployment（无状态应用）→ 管理 ReplicaSet → 管理 Pod
+</span></span><span class=line><span class=cl>    │   └── 滚动更新、回滚、扩缩容
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └── StatefulSet（有状态应用）→ 管理 Pod（有序号）
+</span></span><span class=line><span class=cl>    │   └── 稳定的网络标识、稳定的存储、有序部署/扩缩容
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └── DaemonSet（每个节点一个 Pod）→ 日志收集、监控 Agent
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └── Job / CronJob（批处理任务）
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └── Service（服务发现与负载均衡）
+</span></span><span class=line><span class=cl>    │   ├── ClusterIP（集群内部访问）
+</span></span><span class=line><span class=cl>    │   ├── NodePort（节点端口映射）
+</span></span><span class=line><span class=cl>    │   ├── LoadBalancer（云厂商负载均衡器）
+</span></span><span class=line><span class=cl>    │   └── ExternalName（DNS 别名）
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └── Ingress（HTTP/HTTPS 七层路由）
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └── ConfigMap / Secret（配置管理）
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └── Volume（持久化存储）
+</span></span></code></pre></div><hr><h2 id=二pod-深度解析生命周期与调度机制>二、Pod 深度解析：生命周期与调度机制</h2><h3 id=21-pod-生命周期状态机>2.1 Pod 生命周期状态机</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                    ┌────────────┐
+</span></span><span class=line><span class=cl>                    │   Pending  │
+</span></span><span class=line><span class=cl>                    │  (Pod被API Server接收，
+</span></span><span class=line><span class=cl>                    │   容器镜像可能还在下载)
+</span></span><span class=line><span class=cl>                    └─────┬──────┘
+</span></span><span class=line><span class=cl>                          │ Scheduler 分配到 Node
+</span></span><span class=line><span class=cl>                          ▼
+</span></span><span class=line><span class=cl>              ┌──────────────────────────────┐
+</span></span><span class=line><span class=cl>              │ ContainerCreating            │
+</span></span><span class=line><span class=cl>              │ (Init Container 执行中...)   │
+</span></span><span class=line><span class=cl>              └──────────────┬───────────────┘
+</span></span><span class=line><span class=cl>                             │ Init Container 全部成功
+</span></span><span class=line><span class=cl>                             ▼
+</span></span><span class=line><span class=cl>              ┌──────────────────────────────┐
+</span></span><span class=line><span class=cl>              │         Running               │
+</span></span><span class=line><span class=cl>              │ (至少一个容器已启动，可接收流量)│
+</span></span><span class=line><span class=cl>              │ ┌──────────────────────────┐ │
+</span></span><span class=line><span class=cl>              │ │ PostStart Hook 执行中... │ │
+</span></span><span class=line><span class=cl>              │ │ 主容器 Running           │ │
+</span></span><span class=line><span class=cl>              │ │ PreStop Hook 待执行...  │ │
+</span></span><span class=line><span class=cl>              │ └──────────────────────────┘ │
+</span></span><span class=line><span class=cl>              └──────────────┬───────────────┘
+</span></span><span class=line><span class=cl>                             │ 容器进程退出 / liveness 探针失败
+</span></span><span class=line><span class=cl>                             ▼
+</span></span><span class=line><span class=cl>              ┌──────────────────────────────┐
+</span></span><span class=line><span class=cl>              │        Succeeded / Failed     │
+</span></span><span class=line><span class=cl>              │ Succeeded：正常退出（Job等）  │
+</span></span><span class=line><span class=cl>              │ Failed：异常退出（OOMKilled等）│
+</span></span><span class=line><span class=cl>              └──────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Init Container vs Main Container 的关键区别：
+</span></span><span class=line><span class=cl>1. Init Container 必须全部成功，主容器才能启动（串行执行）
+</span></span><span class=line><span class=cl>2. Init Container 总是先于主容器执行
+</span></span><span class=line><span class=cl>3. Init Container 不支持探针（liveness/readiness/startup）
+</span></span><span class=line><span class=cl>4. 典型用途：注册到服务发现、等待数据库就绪、初始化配置、预热缓存
+</span></span></code></pre></div><h3 id=22-探针类型与健康检查>2.2 探针类型与健康检查</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Pod</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>order-service</span><span class=w>
@@ -195,38 +195,38 @@ Init Container vs Main Container 的关键区别：
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>limits</span><span class=p>:</span><span class=w>            </span><span class=c># 硬限制：超过即 OOMKill 或限流</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;1Gi&#34;</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;2000m&#34;</span><span class=w>
-</span></span></span></code></pre></div><hr><h2 id=三statefulset有状态应用的正确打开方式>三、StatefulSet：有状态应用的正确打开方式</h2><h3 id=31-statefulset-vs-deployment-的本质区别>3.1 StatefulSet vs Deployment 的本质区别</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────┐
-│                    Deployment（无状态）                       │
-├─────────────────────────────────────────────────────────────┤
-│ Pod 名称：无序，随机生成                                     │
-│ pod-6d8fb7c5-xk4mp                                          │
-│                                                              │
-│ 存储：共享存储（emptyDir）或 PVC（无绑定关系）               │
-│                                                              │
-│ 扩缩容：随机创建/销毁，任意顺序                              │
-│                                                              │
-│ 网络标识：不稳定，IP 会变                                   │
-│                                                              │
-│ 适用：无状态服务（Web 服务、API 服务）                       │
-└─────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────┐
-│                   StatefulSet（有状态）                       │
-├─────────────────────────────────────────────────────────────┤
-│ Pod 名称：有序，固定命名                                     │
-│ mysql-0（主）、mysql-1（从）、mysql-2（从）                   │
-│                                                              │
-│ 存储：每个 Pod 有独立 PVC，序号与 Pod 绑定                   │
-│ mysql-pvc-mysql-0 / mysql-pvc-mysql-1 / mysql-pvc-mysql-2   │
-│                                                              │
-│ 扩缩容：严格按序号顺序创建/销毁（0→1→2 创建，2→1→0 销毁）  │
-│                                                              │
-│ 网络标识：稳定的 Headless Service DNS，永久固定              │
-│ mysql-0.mysql-headless.default.svc.cluster.local            │
-│                                                              │
-│ 适用：数据库、消息队列、分布式存储、需要有序启停的服务        │
-└─────────────────────────────────────────────────────────────┘
-</code></pre><h3 id=32-statefulset-实战部署-mysql-主从集群>3.2 StatefulSet 实战：部署 MySQL 主从集群</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Headless Service：为 StatefulSet 提供稳定的网络标识</span><span class=w>
+</span></span></span></code></pre></div><hr><h2 id=三statefulset有状态应用的正确打开方式>三、StatefulSet：有状态应用的正确打开方式</h2><h3 id=31-statefulset-vs-deployment-的本质区别>3.1 StatefulSet vs Deployment 的本质区别</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                    Deployment（无状态）                       │
+</span></span><span class=line><span class=cl>├─────────────────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│ Pod 名称：无序，随机生成                                     │
+</span></span><span class=line><span class=cl>│ pod-6d8fb7c5-xk4mp                                          │
+</span></span><span class=line><span class=cl>│                                                              │
+</span></span><span class=line><span class=cl>│ 存储：共享存储（emptyDir）或 PVC（无绑定关系）               │
+</span></span><span class=line><span class=cl>│                                                              │
+</span></span><span class=line><span class=cl>│ 扩缩容：随机创建/销毁，任意顺序                              │
+</span></span><span class=line><span class=cl>│                                                              │
+</span></span><span class=line><span class=cl>│ 网络标识：不稳定，IP 会变                                   │
+</span></span><span class=line><span class=cl>│                                                              │
+</span></span><span class=line><span class=cl>│ 适用：无状态服务（Web 服务、API 服务）                       │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                   StatefulSet（有状态）                       │
+</span></span><span class=line><span class=cl>├─────────────────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│ Pod 名称：有序，固定命名                                     │
+</span></span><span class=line><span class=cl>│ mysql-0（主）、mysql-1（从）、mysql-2（从）                   │
+</span></span><span class=line><span class=cl>│                                                              │
+</span></span><span class=line><span class=cl>│ 存储：每个 Pod 有独立 PVC，序号与 Pod 绑定                   │
+</span></span><span class=line><span class=cl>│ mysql-pvc-mysql-0 / mysql-pvc-mysql-1 / mysql-pvc-mysql-2   │
+</span></span><span class=line><span class=cl>│                                                              │
+</span></span><span class=line><span class=cl>│ 扩缩容：严格按序号顺序创建/销毁（0→1→2 创建，2→1→0 销毁）  │
+</span></span><span class=line><span class=cl>│                                                              │
+</span></span><span class=line><span class=cl>│ 网络标识：稳定的 Headless Service DNS，永久固定              │
+</span></span><span class=line><span class=cl>│ mysql-0.mysql-headless.default.svc.cluster.local            │
+</span></span><span class=line><span class=cl>│                                                              │
+</span></span><span class=line><span class=cl>│ 适用：数据库、消息队列、分布式存储、需要有序启停的服务        │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=32-statefulset-实战部署-mysql-主从集群>3.2 StatefulSet 实战：部署 MySQL 主从集群</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Headless Service：为 StatefulSet 提供稳定的网络标识</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Service</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
@@ -367,23 +367,23 @@ Init Container vs Main Container 的关键区别：
 </span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>key</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;application.yml&#34;</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;application.yml&#34;</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>defaultMode</span><span class=p>:</span><span class=w> </span><span class=m>0644</span><span class=w>
-</span></span></span></code></pre></div><h3 id=43-secret-类型与安全最佳实践>4.3 Secret 类型与安全最佳实践</h3><pre tabindex=0><code>Secret 四种类型：
-
-┌────────────┬────────────────────────────┐
-│ Opaque     │ 通用 Secret（base64 编码）  │ ← 最常用
-├────────────┼────────────────────────────┤
-│ kubernetes.io/tls │ TLS 证书/私钥    │
-├────────────┼────────────────────────────┤
-│ kubernetes.io/dockerconfigjson │ Docker仓库认证│
-├────────────┼────────────────────────────┤
-│ kubernetes.io/basic-auth │ 用户名密码认证│
-└────────────┴────────────────────────────┘
-
-⚠️ 安全警告：
-1. Secret 只是 base64 编码（不是加密），在 etcd 中默认明文存储
-2. 生产环境必须启用 EncryptionConfiguration 对 Secret 加密存储
-3. 或者使用 Vault / AWS Secrets Manager / Azure Key Vault 等外部密钥管理
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 启用 Secret 加密配置示例（kube-apiserver 配置）</span><span class=w>
+</span></span></span></code></pre></div><h3 id=43-secret-类型与安全最佳实践>4.3 Secret 类型与安全最佳实践</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Secret 四种类型：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌────────────┬────────────────────────────┐
+</span></span><span class=line><span class=cl>│ Opaque     │ 通用 Secret（base64 编码）  │ ← 最常用
+</span></span><span class=line><span class=cl>├────────────┼────────────────────────────┤
+</span></span><span class=line><span class=cl>│ kubernetes.io/tls │ TLS 证书/私钥    │
+</span></span><span class=line><span class=cl>├────────────┼────────────────────────────┤
+</span></span><span class=line><span class=cl>│ kubernetes.io/dockerconfigjson │ Docker仓库认证│
+</span></span><span class=line><span class=cl>├────────────┼────────────────────────────┤
+</span></span><span class=line><span class=cl>│ kubernetes.io/basic-auth │ 用户名密码认证│
+</span></span><span class=line><span class=cl>└────────────┴────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>⚠️ 安全警告：
+</span></span><span class=line><span class=cl>1. Secret 只是 base64 编码（不是加密），在 etcd 中默认明文存储
+</span></span><span class=line><span class=cl>2. 生产环境必须启用 EncryptionConfiguration 对 Secret 加密存储
+</span></span><span class=line><span class=cl>3. 或者使用 Vault / AWS Secrets Manager / Azure Key Vault 等外部密钥管理
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 启用 Secret 加密配置示例（kube-apiserver 配置）</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apiserver.config.k8s.io/v1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>EncryptionConfiguration</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>resources</span><span class=p>:</span><span class=w>
@@ -414,27 +414,27 @@ Init Container vs Main Container 的关键区别：
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>remoteRef</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>key</span><span class=p>:</span><span class=w> </span><span class=l>secret/data/mysql</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>property</span><span class=p>:</span><span class=w> </span><span class=l>password</span><span class=w>
-</span></span></span></code></pre></div><hr><h2 id=五rbac-与-networkpolicy安全加固>五、RBAC 与 NetworkPolicy：安全加固</h2><h3 id=51-rbac-权限模型>5.1 RBAC 权限模型</h3><pre tabindex=0><code>RBAC 三大核心概念：
-
-Role / ClusterRole（定义权限）
-    │
-    ├── Role（Namespace 级别）：只管理当前 Namespace 内的资源
-    └── ClusterRole（集群级别）：可管理集群级资源（Nodes、PV 等）
-
-RoleBinding / ClusterRoleBinding（绑定权限到主体）
-    │
-    ├── RoleBinding：将 Role 绑定到用户/组/SA（当前 Namespace）
-    └── ClusterRoleBinding：将 ClusterRole 绑定到用户/组/SA（全集群）
-
-主体（Subjects）：
-    ├── User（用户）：通过证书认证
-    ├── Group（用户组）：与 User 配合使用
-    └── ServiceAccount（服务账号）：Pod 中进程的身份
-
-权限（Verbs）= HTTP 方法对应关系：
-    get / list / watch / create / update / patch / delete / deletecollection
-    =  GET    LIST  WATCH   CREATE  UPDATE  PATCH  DELETE  DELETECOLLECTION
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 示例：给某个团队只读某个 Namespace 的权限</span><span class=w>
+</span></span></span></code></pre></div><hr><h2 id=五rbac-与-networkpolicy安全加固>五、RBAC 与 NetworkPolicy：安全加固</h2><h3 id=51-rbac-权限模型>5.1 RBAC 权限模型</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>RBAC 三大核心概念：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Role / ClusterRole（定义权限）
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ├── Role（Namespace 级别）：只管理当前 Namespace 内的资源
+</span></span><span class=line><span class=cl>    └── ClusterRole（集群级别）：可管理集群级资源（Nodes、PV 等）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>RoleBinding / ClusterRoleBinding（绑定权限到主体）
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ├── RoleBinding：将 Role 绑定到用户/组/SA（当前 Namespace）
+</span></span><span class=line><span class=cl>    └── ClusterRoleBinding：将 ClusterRole 绑定到用户/组/SA（全集群）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>主体（Subjects）：
+</span></span><span class=line><span class=cl>    ├── User（用户）：通过证书认证
+</span></span><span class=line><span class=cl>    ├── Group（用户组）：与 User 配合使用
+</span></span><span class=line><span class=cl>    └── ServiceAccount（服务账号）：Pod 中进程的身份
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>权限（Verbs）= HTTP 方法对应关系：
+</span></span><span class=line><span class=cl>    get / list / watch / create / update / patch / delete / deletecollection
+</span></span><span class=line><span class=cl>    =  GET    LIST  WATCH   CREATE  UPDATE  PATCH  DELETE  DELETECOLLECTION
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 示例：给某个团队只读某个 Namespace 的权限</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 1. 定义只读 Role</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>rbac.authorization.k8s.io/v1</span><span class=w>
@@ -520,36 +520,36 @@ RoleBinding / ClusterRoleBinding（绑定权限到主体）
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 2. 按需放行：order-service 只允许来自 gateway 的流量</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 3. DNS 劫持：Kubernetes DNS 可以基于 NetworkPolicy 实现 L7 过滤</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 4. 配合 Service Mesh（Istio）可实现更细粒度的 mTLS 通信策略</span><span class=w>
-</span></span></span></code></pre></div><hr><h2 id=六helmkubernetes-包管理器>六、Helm：Kubernetes 包管理器</h2><h3 id=61-helm-核心概念>6.1 Helm 核心概念</h3><pre tabindex=0><code>Helm 三组件：
-┌──────────────────────────────────────────────────────┐
-│  Helm CLI（客户端）                                   │
-│  • 创建 Chart（Chart = Kubernetes 应用的打包格式）   │
-│  • 与 Tiller/Chart Museum 交互                       │
-│  • 管理 Release 生命周期                             │
-└──────────────────────────────────────────────────────┘
-
-Helm v3 架构（移除了 Tiller）：
-┌──────────────────────────────────────────────────────┐
-│  Helm CLI (v3)                                        │
-│  • 直接通过 kubectl 与 Kubernetes API 交互           │
-│  • Release 信息存在 ConfigMap 中（而非 Tiller）       │
-│  • 支持 Library Chart（共享工具 Chart）               │
-└──────────────────────────────────────────────────────┘
-
-Chart 目录结构：
-mychart/
-├── Chart.yaml          # 元数据：名称、版本、依赖
-├── values.yaml         # 默认配置值
-├── values.schema.json  # values.json 校验规则
-├── templates/         # K8s 资源模板（Go template 语法）
-│   ├── NOTES.txt       # 安装后显示的说明
-│   ├── _helpers.tpl    # 共享模板函数
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   ├── ingress.yaml
-│   └── hpa.yaml
-└── charts/             # 子 Chart 依赖（v3 已废弃，用 Chart.yaml dependencies）
-</code></pre><h3 id=62-helm-模板实战>6.2 Helm 模板实战</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Chart.yaml</span><span class=w>
+</span></span></span></code></pre></div><hr><h2 id=六helmkubernetes-包管理器>六、Helm：Kubernetes 包管理器</h2><h3 id=61-helm-核心概念>6.1 Helm 核心概念</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Helm 三组件：
+</span></span><span class=line><span class=cl>┌──────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  Helm CLI（客户端）                                   │
+</span></span><span class=line><span class=cl>│  • 创建 Chart（Chart = Kubernetes 应用的打包格式）   │
+</span></span><span class=line><span class=cl>│  • 与 Tiller/Chart Museum 交互                       │
+</span></span><span class=line><span class=cl>│  • 管理 Release 生命周期                             │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Helm v3 架构（移除了 Tiller）：
+</span></span><span class=line><span class=cl>┌──────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  Helm CLI (v3)                                        │
+</span></span><span class=line><span class=cl>│  • 直接通过 kubectl 与 Kubernetes API 交互           │
+</span></span><span class=line><span class=cl>│  • Release 信息存在 ConfigMap 中（而非 Tiller）       │
+</span></span><span class=line><span class=cl>│  • 支持 Library Chart（共享工具 Chart）               │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Chart 目录结构：
+</span></span><span class=line><span class=cl>mychart/
+</span></span><span class=line><span class=cl>├── Chart.yaml          # 元数据：名称、版本、依赖
+</span></span><span class=line><span class=cl>├── values.yaml         # 默认配置值
+</span></span><span class=line><span class=cl>├── values.schema.json  # values.json 校验规则
+</span></span><span class=line><span class=cl>├── templates/         # K8s 资源模板（Go template 语法）
+</span></span><span class=line><span class=cl>│   ├── NOTES.txt       # 安装后显示的说明
+</span></span><span class=line><span class=cl>│   ├── _helpers.tpl    # 共享模板函数
+</span></span><span class=line><span class=cl>│   ├── deployment.yaml
+</span></span><span class=line><span class=cl>│   ├── service.yaml
+</span></span><span class=line><span class=cl>│   ├── ingress.yaml
+</span></span><span class=line><span class=cl>│   └── hpa.yaml
+</span></span><span class=line><span class=cl>└── charts/             # 子 Chart 依赖（v3 已废弃，用 Chart.yaml dependencies）
+</span></span></code></pre></div><h3 id=62-helm-模板实战>6.2 Helm 模板实战</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Chart.yaml</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v2</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>order-service</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>version</span><span class=p>:</span><span class=w> </span><span class=m>1.0.0</span><span class=w>        </span><span class=c># Chart 版本（Semantic Versioning）</span><span class=w>
@@ -656,84 +656,84 @@ mychart/
 </span></span><span class=line><span class=cl>helm search repo mysql
 </span></span><span class=line><span class=cl>helm dependency build            <span class=c1># 更新 Chart 依赖</span>
 </span></span><span class=line><span class=cl>helm template ./mychart          <span class=c1># 本地渲染模板（无需安装）</span>
-</span></span></code></pre></div><hr><h2 id=七12-factor云原生应用设计原则>七、12-Factor：云原生应用设计原则</h2><h3 id=71-十二要素详解>7.1 十二要素详解</h3><pre tabindex=0><code>12-Factor（云原生应用设计圣经，由 Heroku 提出）：
-
-I.   代码基准（Codebase）
-     一套代码，多处部署（每个环境一个 Git 分支）
-
-II.  依赖声明（Dependencies）
-     显式声明所有依赖（Python: requirements.txt，Java: pom.xml）
-
-III. 配置分离（Config）
-     配置随环境变化，不写入代码 → 使用环境变量或配置中心
-     ❌  BAD: DATABASE_HOST = &#34;localhost&#34;  (硬编码)
-     ✅  GOOD: DATABASE_HOST = os.getenv(&#34;DATABASE_HOST&#34;)
-
-IV.  后端服务（Backing Services）
-     数据库/缓存/消息队列 视为可替换资源（连接字符串配置化）
-
-V.   构建、发布、运行（Build, Release, Run）
-     严格分离构建阶段和运行阶段（CI/CD Pipeline）
-
-VI.  无状态进程（Processes）
-     应用无状态，状态存储在后端服务（Redis/DB）→ 便于水平扩展
-     ❌  BAD: 将 Session 存储在本地内存
-     ✅  GOOD: 使用 Redis 集中存储 Session
-
-VII. 端口绑定（Port Binding）
-     Web 应用自包含，端口绑定由运行环境管理（而不是代码监听）
-
-VIII. 并发（Concurrency）
-     通过进程模型扩展（而非线程/多进程），无共享状态
-
-IX.  易处置（Disposability）
-     快速启动（warmup 时间短）+ 优雅停止（处理完当前请求再退出）
-     → SIGTERM → 停止接收新请求 → 处理完在途请求 → 退出
-
-X.   开发/生产对等（Dev/Prod Parity）
-     开发、预发布、生产环境尽量保持一致（容器化是关键推动力）
-     &#34;The twelve-factor app is designed for continuous deployment&#34;
-
-XI.  日志（Logs）
-     日志作为事件流（stdout）→ 由执行环境收集（不写入文件）
-     → ELK / Loki / CloudWatch Logs 等统一收集
-
-XII. 管理进程（Admin Processes）
-     管理/维护任务作为一次性进程运行（数据库迁移、批处理脚本）
-</code></pre><h3 id=72-12-factor-在微服务中的实践映射>7.2 12-Factor 在微服务中的实践映射</h3><pre tabindex=0><code>传统 Spring Boot 应用 → 12-Factor 改造：
-
-┌────────────────────────────────────────────────────────────┐
-│ III. Config（最常见的问题）                                  │
-│ 原方案：application-prod.yml 写在代码仓库                  │
-│ 改造方案：                                                  │
-│   1. 使用 Spring Cloud Config / Apollo / Nacos 集中配置   │
-│   2. 使用 Kubernetes ConfigMap/Secret（K8s 优先）        │
-│   3. 配置加密：敏感信息用 Sealed Secret 或 Vault          │
-├────────────────────────────────────────────────────────────┤
-│ VI. 无状态进程 + IX. 易处置                                 │
-│ 原方案：Spring Session 存储在本地 JVM Heap                  │
-│ 改造方案：                                                  │
-│   1. 使用 Spring Session + Redis（共享 Session）          │
-│   2. Application Shutdown Hook：@PreDestroy 处理优雅退出   │
-│   3. 设置 terminationGracePeriodSeconds（K8s）             │
-├────────────────────────────────────────────────────────────┤
-│ XI. 日志作为事件流                                          │
-│ 原方案：Logback 写入本地文件                                │
-│ 改造方案：                                                  │
-│   1. Spring Boot 默认 stdout → Logback JSON 格式          │
-│   2. Docker: docker-compose stdout/log driver → Fluentd   │
-│   3. K8s: DaemonSet Fluentd/Bit方式收集                    │
-│   4. Service Mesh: Envoy 自动收集(access log)            │
-└────────────────────────────────────────────────────────────┘
-</code></pre><hr><h2 id=八面试高频问题汇总>八、面试高频问题汇总</h2><p><strong>Q1：K8s 中 Pod 驱逐策略是什么？何时会触发驱逐？</strong></p><p>Pod 驱逐由 Kubelet 触发，主要场景：</p><ol><li><strong>资源压力驱逐</strong>：节点内存/CPU 不足时，优先驱逐 <code>BestEffort</code> 和 <code>Burstable</code> QoS Pod</li><li><strong>OOMKilled</strong>：容器内存超 limit，被 Linux OOM Killer 杀掉</li><li><strong>节点压力驱逐</strong>：磁盘不足、节点 NotReady、镜像拉取失败</li><li><strong>Pod 拓扑分布约束</strong>：Evicted（被抢占）</li></ol><p>QoS 等级（决定驱逐优先级）：</p><pre tabindex=0><code>Guaranteed（最高优先级，不轻易驱逐）
-  → memory.limit = memory.request，且两者均已设置
-  
-Burstable（中等优先级）
-  → 不满足 Guaranteed 条件，但有设置 resource request
-  
-BestEffort（最低优先级，资源不足时首批被驱逐）
-  → 未设置任何 resource request/limit
-</code></pre><p><strong>Q2：Kubernetes Service 如何实现负载均衡？</strong></p><ol><li><strong>userspace 模式</strong>：Kube-proxy 监听 Service 变化，在 Node 本地启动 Proxy 进程，转发请求（早期模式，已弃用）</li><li><strong>iptables 模式</strong>（默认）：Kube-proxy 为每个 Service 生成 iptables 规则，随机选择后端 Pod（N ≤ 256 时效率好）</li><li><strong>IPVS 模式</strong>（推荐）：使用 Linux IP Virtual Server，支持更多负载均衡算法（rr/wrr/lc/sh/lblc 等），性能优于 iptables</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 查看 kube-proxy 使用哪种模式</span>
+</span></span></code></pre></div><hr><h2 id=七12-factor云原生应用设计原则>七、12-Factor：云原生应用设计原则</h2><h3 id=71-十二要素详解>7.1 十二要素详解</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>12-Factor（云原生应用设计圣经，由 Heroku 提出）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>I.   代码基准（Codebase）
+</span></span><span class=line><span class=cl>     一套代码，多处部署（每个环境一个 Git 分支）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>II.  依赖声明（Dependencies）
+</span></span><span class=line><span class=cl>     显式声明所有依赖（Python: requirements.txt，Java: pom.xml）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>III. 配置分离（Config）
+</span></span><span class=line><span class=cl>     配置随环境变化，不写入代码 → 使用环境变量或配置中心
+</span></span><span class=line><span class=cl>     ❌  BAD: DATABASE_HOST = &#34;localhost&#34;  (硬编码)
+</span></span><span class=line><span class=cl>     ✅  GOOD: DATABASE_HOST = os.getenv(&#34;DATABASE_HOST&#34;)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>IV.  后端服务（Backing Services）
+</span></span><span class=line><span class=cl>     数据库/缓存/消息队列 视为可替换资源（连接字符串配置化）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>V.   构建、发布、运行（Build, Release, Run）
+</span></span><span class=line><span class=cl>     严格分离构建阶段和运行阶段（CI/CD Pipeline）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>VI.  无状态进程（Processes）
+</span></span><span class=line><span class=cl>     应用无状态，状态存储在后端服务（Redis/DB）→ 便于水平扩展
+</span></span><span class=line><span class=cl>     ❌  BAD: 将 Session 存储在本地内存
+</span></span><span class=line><span class=cl>     ✅  GOOD: 使用 Redis 集中存储 Session
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>VII. 端口绑定（Port Binding）
+</span></span><span class=line><span class=cl>     Web 应用自包含，端口绑定由运行环境管理（而不是代码监听）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>VIII. 并发（Concurrency）
+</span></span><span class=line><span class=cl>     通过进程模型扩展（而非线程/多进程），无共享状态
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>IX.  易处置（Disposability）
+</span></span><span class=line><span class=cl>     快速启动（warmup 时间短）+ 优雅停止（处理完当前请求再退出）
+</span></span><span class=line><span class=cl>     → SIGTERM → 停止接收新请求 → 处理完在途请求 → 退出
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>X.   开发/生产对等（Dev/Prod Parity）
+</span></span><span class=line><span class=cl>     开发、预发布、生产环境尽量保持一致（容器化是关键推动力）
+</span></span><span class=line><span class=cl>     &#34;The twelve-factor app is designed for continuous deployment&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>XI.  日志（Logs）
+</span></span><span class=line><span class=cl>     日志作为事件流（stdout）→ 由执行环境收集（不写入文件）
+</span></span><span class=line><span class=cl>     → ELK / Loki / CloudWatch Logs 等统一收集
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>XII. 管理进程（Admin Processes）
+</span></span><span class=line><span class=cl>     管理/维护任务作为一次性进程运行（数据库迁移、批处理脚本）
+</span></span></code></pre></div><h3 id=72-12-factor-在微服务中的实践映射>7.2 12-Factor 在微服务中的实践映射</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>传统 Spring Boot 应用 → 12-Factor 改造：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│ III. Config（最常见的问题）                                  │
+</span></span><span class=line><span class=cl>│ 原方案：application-prod.yml 写在代码仓库                  │
+</span></span><span class=line><span class=cl>│ 改造方案：                                                  │
+</span></span><span class=line><span class=cl>│   1. 使用 Spring Cloud Config / Apollo / Nacos 集中配置   │
+</span></span><span class=line><span class=cl>│   2. 使用 Kubernetes ConfigMap/Secret（K8s 优先）        │
+</span></span><span class=line><span class=cl>│   3. 配置加密：敏感信息用 Sealed Secret 或 Vault          │
+</span></span><span class=line><span class=cl>├────────────────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│ VI. 无状态进程 + IX. 易处置                                 │
+</span></span><span class=line><span class=cl>│ 原方案：Spring Session 存储在本地 JVM Heap                  │
+</span></span><span class=line><span class=cl>│ 改造方案：                                                  │
+</span></span><span class=line><span class=cl>│   1. 使用 Spring Session + Redis（共享 Session）          │
+</span></span><span class=line><span class=cl>│   2. Application Shutdown Hook：@PreDestroy 处理优雅退出   │
+</span></span><span class=line><span class=cl>│   3. 设置 terminationGracePeriodSeconds（K8s）             │
+</span></span><span class=line><span class=cl>├────────────────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│ XI. 日志作为事件流                                          │
+</span></span><span class=line><span class=cl>│ 原方案：Logback 写入本地文件                                │
+</span></span><span class=line><span class=cl>│ 改造方案：                                                  │
+</span></span><span class=line><span class=cl>│   1. Spring Boot 默认 stdout → Logback JSON 格式          │
+</span></span><span class=line><span class=cl>│   2. Docker: docker-compose stdout/log driver → Fluentd   │
+</span></span><span class=line><span class=cl>│   3. K8s: DaemonSet Fluentd/Bit方式收集                    │
+</span></span><span class=line><span class=cl>│   4. Service Mesh: Envoy 自动收集(access log)            │
+</span></span><span class=line><span class=cl>└────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><hr><h2 id=八面试高频问题汇总>八、面试高频问题汇总</h2><p><strong>Q1：K8s 中 Pod 驱逐策略是什么？何时会触发驱逐？</strong></p><p>Pod 驱逐由 Kubelet 触发，主要场景：</p><ol><li><strong>资源压力驱逐</strong>：节点内存/CPU 不足时，优先驱逐 <code>BestEffort</code> 和 <code>Burstable</code> QoS Pod</li><li><strong>OOMKilled</strong>：容器内存超 limit，被 Linux OOM Killer 杀掉</li><li><strong>节点压力驱逐</strong>：磁盘不足、节点 NotReady、镜像拉取失败</li><li><strong>Pod 拓扑分布约束</strong>：Evicted（被抢占）</li></ol><p>QoS 等级（决定驱逐优先级）：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Guaranteed（最高优先级，不轻易驱逐）
+</span></span><span class=line><span class=cl>  → memory.limit = memory.request，且两者均已设置
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>Burstable（中等优先级）
+</span></span><span class=line><span class=cl>  → 不满足 Guaranteed 条件，但有设置 resource request
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>BestEffort（最低优先级，资源不足时首批被驱逐）
+</span></span><span class=line><span class=cl>  → 未设置任何 resource request/limit
+</span></span></code></pre></div><p><strong>Q2：Kubernetes Service 如何实现负载均衡？</strong></p><ol><li><strong>userspace 模式</strong>：Kube-proxy 监听 Service 变化，在 Node 本地启动 Proxy 进程，转发请求（早期模式，已弃用）</li><li><strong>iptables 模式</strong>（默认）：Kube-proxy 为每个 Service 生成 iptables 规则，随机选择后端 Pod（N ≤ 256 时效率好）</li><li><strong>IPVS 模式</strong>（推荐）：使用 Linux IP Virtual Server，支持更多负载均衡算法（rr/wrr/lc/sh/lblc 等），性能优于 iptables</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 查看 kube-proxy 使用哪种模式</span>
 </span></span><span class=line><span class=cl>kubectl get configmap kube-proxy -n kube-system -o yaml <span class=p>|</span> grep mode
 </span></span></code></pre></div><p><strong>Q3：如何实现不停机发布（Zero-Downtime Deployment）？</strong></p><p>核心要点：</p><ol><li><strong>readinessProbe</strong>：Kubelet 只向 Ready 的 Pod 发送流量，新 Pod Ready 后才开始销毁旧 Pod</li><li><strong>preStop Hook</strong>：收到 SIGTERM 后等待 N 秒（如 5s），让 iptables 规则更新完成</li><li><strong>terminationGracePeriodSeconds</strong>：足够长的优雅退出时间，确保请求处理完毕</li><li><strong>Pod Disruption Budget（PDB）</strong>：限制同时不可用的 Pod 数量</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>spec</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>terminationGracePeriodSeconds</span><span class=p>:</span><span class=w> </span><span class=m>60</span><span class=w>

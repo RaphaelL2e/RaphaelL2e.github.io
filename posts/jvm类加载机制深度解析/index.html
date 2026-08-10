@@ -9,38 +9,38 @@
 <a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>JVM 类加载机制深度解析</h1><p class=article-description>面试高频问题：类加载过程是什么？什么是双亲委派模型？为什么要打破双亲委派？ 在 Java 面试中，JVM 类加载机制是考察候选人底层理解能力的经典题目。从「类加载过程」到「双亲委派模型」，再到「如何打破双亲委派」，这些问题不仅考察理论知识，还涉及实际应用场景如 Tomcat 类加载、OSGi 模块化。</p><div class=article-meta><span>发布于 <time datetime=2026-05-08>2026-05-08</time></span>
 <span>最后验证 2026-05</span>
 <span>6 分钟阅读</span>
-<span>1205 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#引言>引言</a></li><li><a href=#一类加载全过程>一、类加载全过程</a><ul><li><a href=#11-加载loading>1.1 加载（Loading）</a></li><li><a href=#12-连接linking>1.2 连接（Linking）</a></li><li><a href=#13-初始化initialization>1.3 初始化（Initialization）</a></li><li><a href=#14-类初始化时机>1.4 类初始化时机</a></li></ul></li><li><a href=#二类加载器>二、类加载器</a><ul><li><a href=#21-类加载器层次>2.1 类加载器层次</a></li><li><a href=#22-启动类加载器bootstrap-classloader>2.2 启动类加载器（Bootstrap ClassLoader）</a></li><li><a href=#23-扩展类加载器extension-classloader>2.3 扩展类加载器（Extension ClassLoader）</a></li><li><a href=#24-应用类加载器application-classloader>2.4 应用类加载器（Application ClassLoader）</a></li><li><a href=#25-类加载器代码示例>2.5 类加载器代码示例</a></li></ul></li><li><a href=#三双亲委派模型>三、双亲委派模型</a><ul><li><a href=#31-什么是双亲委派>3.1 什么是双亲委派？</a></li><li><a href=#32-源码分析>3.2 源码分析</a></li><li><a href=#33-双亲委派的好处>3.3 双亲委派的好处</a></li><li><a href=#34-双亲委派的问题>3.4 双亲委派的问题</a></li></ul></li><li><a href=#四打破双亲委派>四、打破双亲委派</a><ul><li><a href=#41-jdbc-spi--线程上下文类加载器>4.1 JDBC SPI —— 线程上下文类加载器</a></li><li><a href=#42-tomcat-类加载器>4.2 Tomcat 类加载器</a></li><li><a href=#43-自定义类加载器>4.3 自定义类加载器</a></li></ul></li><li><a href=#五面试高频问题>五、面试高频问题</a><ul><li><a href=#q1类加载过程是什么>Q1：类加载过程是什么？</a></li><li><a href=#q2什么是双亲委派模型>Q2：什么是双亲委派模型？</a></li><li><a href=#q3为什么要打破双亲委派>Q3：为什么要打破双亲委派？</a></li><li><a href=#q4如何打破双亲委派>Q4：如何打破双亲委派？</a></li><li><a href=#q5哪些情况会触发类初始化>Q5：哪些情况会触发类初始化？</a></li><li><a href=#q6类加载器有哪些>Q6：类加载器有哪些？</a></li></ul></li><li><a href=#六总结>六、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：类加载过程是什么？什么是双亲委派模型？为什么要打破双亲委派？</p></blockquote><h2 id=引言>引言</h2><p>在 Java 面试中，JVM 类加载机制是考察候选人底层理解能力的经典题目。从「类加载过程」到「双亲委派模型」，再到「如何打破双亲委派」，这些问题不仅考察理论知识，还涉及实际应用场景如 Tomcat 类加载、OSGi 模块化等。本文将全面解析 JVM 类加载机制。</p><h2 id=一类加载全过程>一、类加载全过程</h2><p>Java 文件从源码到执行，经历完整的生命周期：</p><pre tabindex=0><code>.java ──编译──→ .class ──类加载──→ JVM运行时
-                    │
-    ┌───────────────┼───────────────┐
-    │               │               │
-  加载           连接           初始化
-    │               │               │
-    │      ┌────────┼────────┐      │
-    │      │        │        │      │
-    │    验证     准备     解析    │
-    └───────────────┴───────────────┘
-                    │
-                 使用
-                    │
-                 卸载
-</code></pre><h3 id=11-加载loading>1.1 加载（Loading）</h3><p><strong>加载阶段做什么？</strong></p><ol><li><strong>获取二进制流</strong>：通过类的全限定名获取 .class 文件的二进制字节流</li><li><strong>转换为运行时结构</strong>：将字节流代表的静态存储结构转换为方法区的运行时数据结构</li><li><strong>生成 Class 对象</strong>：在堆中生成一个代表这个类的 <code>java.lang.Class</code> 对象</li></ol><p><strong>谁来加载？</strong></p><ul><li>类加载器（ClassLoader）</li><li>可以是系统提供的，也可以是自定义的</li></ul><p><strong>什么时候加载？</strong></p><ul><li>首次主动使用类时（延迟加载）</li><li>创建对象、访问静态变量、调用静态方法、反射等</li></ul><h3 id=12-连接linking>1.2 连接（Linking）</h3><p>连接阶段分为三个子阶段：验证、准备、解析。</p><h4 id=验证verification>验证（Verification）</h4><p>确保 .class 文件字节流符合 JVM 规范，不会危害虚拟机安全。</p><pre tabindex=0><code>验证内容：
-├── 文件格式验证：魔数 0xCAFEBABE、版本号
-├── 元数据验证：是否有父类、是否继承 final 类
-├── 字节码验证：跳转指令是否指向合法位置
-└── 符号引用验证：引用的类是否存在
-</code></pre><blockquote><p>💡 <strong>面试题</strong>：验证阶段可以关闭吗？</p><p>答：可以，使用 <code>-Xverify:none</code> 参数跳过验证，加快启动速度（生产环境不推荐）</p></blockquote><h4 id=准备preparation>准备（Preparation）</h4><p>为类的静态变量分配内存，并设置初始值。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>PrepareDemo</span> <span class=o>{</span>
+<span>1205 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#引言>引言</a></li><li><a href=#一类加载全过程>一、类加载全过程</a><ul><li><a href=#11-加载loading>1.1 加载（Loading）</a></li><li><a href=#12-连接linking>1.2 连接（Linking）</a></li><li><a href=#13-初始化initialization>1.3 初始化（Initialization）</a></li><li><a href=#14-类初始化时机>1.4 类初始化时机</a></li></ul></li><li><a href=#二类加载器>二、类加载器</a><ul><li><a href=#21-类加载器层次>2.1 类加载器层次</a></li><li><a href=#22-启动类加载器bootstrap-classloader>2.2 启动类加载器（Bootstrap ClassLoader）</a></li><li><a href=#23-扩展类加载器extension-classloader>2.3 扩展类加载器（Extension ClassLoader）</a></li><li><a href=#24-应用类加载器application-classloader>2.4 应用类加载器（Application ClassLoader）</a></li><li><a href=#25-类加载器代码示例>2.5 类加载器代码示例</a></li></ul></li><li><a href=#三双亲委派模型>三、双亲委派模型</a><ul><li><a href=#31-什么是双亲委派>3.1 什么是双亲委派？</a></li><li><a href=#32-源码分析>3.2 源码分析</a></li><li><a href=#33-双亲委派的好处>3.3 双亲委派的好处</a></li><li><a href=#34-双亲委派的问题>3.4 双亲委派的问题</a></li></ul></li><li><a href=#四打破双亲委派>四、打破双亲委派</a><ul><li><a href=#41-jdbc-spi--线程上下文类加载器>4.1 JDBC SPI —— 线程上下文类加载器</a></li><li><a href=#42-tomcat-类加载器>4.2 Tomcat 类加载器</a></li><li><a href=#43-自定义类加载器>4.3 自定义类加载器</a></li></ul></li><li><a href=#五面试高频问题>五、面试高频问题</a><ul><li><a href=#q1类加载过程是什么>Q1：类加载过程是什么？</a></li><li><a href=#q2什么是双亲委派模型>Q2：什么是双亲委派模型？</a></li><li><a href=#q3为什么要打破双亲委派>Q3：为什么要打破双亲委派？</a></li><li><a href=#q4如何打破双亲委派>Q4：如何打破双亲委派？</a></li><li><a href=#q5哪些情况会触发类初始化>Q5：哪些情况会触发类初始化？</a></li><li><a href=#q6类加载器有哪些>Q6：类加载器有哪些？</a></li></ul></li><li><a href=#六总结>六、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：类加载过程是什么？什么是双亲委派模型？为什么要打破双亲委派？</p></blockquote><h2 id=引言>引言</h2><p>在 Java 面试中，JVM 类加载机制是考察候选人底层理解能力的经典题目。从「类加载过程」到「双亲委派模型」，再到「如何打破双亲委派」，这些问题不仅考察理论知识，还涉及实际应用场景如 Tomcat 类加载、OSGi 模块化等。本文将全面解析 JVM 类加载机制。</p><h2 id=一类加载全过程>一、类加载全过程</h2><p>Java 文件从源码到执行，经历完整的生命周期：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>.java ──编译──→ .class ──类加载──→ JVM运行时
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>    ┌───────────────┼───────────────┐
+</span></span><span class=line><span class=cl>    │               │               │
+</span></span><span class=line><span class=cl>  加载           连接           初始化
+</span></span><span class=line><span class=cl>    │               │               │
+</span></span><span class=line><span class=cl>    │      ┌────────┼────────┐      │
+</span></span><span class=line><span class=cl>    │      │        │        │      │
+</span></span><span class=line><span class=cl>    │    验证     准备     解析    │
+</span></span><span class=line><span class=cl>    └───────────────┴───────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                 使用
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                 卸载
+</span></span></code></pre></div><h3 id=11-加载loading>1.1 加载（Loading）</h3><p><strong>加载阶段做什么？</strong></p><ol><li><strong>获取二进制流</strong>：通过类的全限定名获取 .class 文件的二进制字节流</li><li><strong>转换为运行时结构</strong>：将字节流代表的静态存储结构转换为方法区的运行时数据结构</li><li><strong>生成 Class 对象</strong>：在堆中生成一个代表这个类的 <code>java.lang.Class</code> 对象</li></ol><p><strong>谁来加载？</strong></p><ul><li>类加载器（ClassLoader）</li><li>可以是系统提供的，也可以是自定义的</li></ul><p><strong>什么时候加载？</strong></p><ul><li>首次主动使用类时（延迟加载）</li><li>创建对象、访问静态变量、调用静态方法、反射等</li></ul><h3 id=12-连接linking>1.2 连接（Linking）</h3><p>连接阶段分为三个子阶段：验证、准备、解析。</p><h4 id=验证verification>验证（Verification）</h4><p>确保 .class 文件字节流符合 JVM 规范，不会危害虚拟机安全。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>验证内容：
+</span></span><span class=line><span class=cl>├── 文件格式验证：魔数 0xCAFEBABE、版本号
+</span></span><span class=line><span class=cl>├── 元数据验证：是否有父类、是否继承 final 类
+</span></span><span class=line><span class=cl>├── 字节码验证：跳转指令是否指向合法位置
+</span></span><span class=line><span class=cl>└── 符号引用验证：引用的类是否存在
+</span></span></code></pre></div><blockquote><p>💡 <strong>面试题</strong>：验证阶段可以关闭吗？</p><p>答：可以，使用 <code>-Xverify:none</code> 参数跳过验证，加快启动速度（生产环境不推荐）</p></blockquote><h4 id=准备preparation>准备（Preparation）</h4><p>为类的静态变量分配内存，并设置初始值。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>PrepareDemo</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>static</span> <span class=kt>int</span> <span class=n>value</span> <span class=o>=</span> <span class=mi>123</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>CONSTANT</span> <span class=o>=</span> <span class=mi>456</span><span class=o>;</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>准备阶段后</strong>：</p><ul><li><code>value = 0</code>（初始值，不是 123）</li><li><code>CONSTANT = 456</code>（final 常量在准备阶段就赋值）</li></ul><table><thead><tr><th>类型</th><th>初始值</th></tr></thead><tbody><tr><td>int</td><td>0</td></tr><tr><td>long</td><td>0L</td></tr><tr><td>float</td><td>0.0f</td></tr><tr><td>double</td><td>0.0d</td></tr><tr><td>boolean</td><td>false</td></tr><tr><td>char</td><td>&lsquo;\u0000&rsquo;</td></tr><tr><td>reference</td><td>null</td></tr></tbody></table><blockquote><p>💡 <strong>关键点</strong>：<code>static final</code> 常量在准备阶段就赋值，普通静态变量在初始化阶段赋值</p></blockquote><h4 id=解析resolution>解析（Resolution）</h4><p>将常量池中的符号引用替换为直接引用。</p><pre tabindex=0><code>符号引用：用字符串描述的目标（如 &#34;java/lang/Object&#34;）
-直接引用：指向目标的指针、偏移量或句柄
-
-解析内容：
-├── 类或接口解析
-├── 字段解析
-├── 方法解析
-└── 接口方法解析
-</code></pre><h3 id=13-初始化initialization>1.3 初始化（Initialization）</h3><p>执行类构造器 <code>&lt;clinit>()</code> 方法，为静态变量赋值，执行静态代码块。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>InitDemo</span> <span class=o>{</span>
+</span></span></code></pre></div><p><strong>准备阶段后</strong>：</p><ul><li><code>value = 0</code>（初始值，不是 123）</li><li><code>CONSTANT = 456</code>（final 常量在准备阶段就赋值）</li></ul><table><thead><tr><th>类型</th><th>初始值</th></tr></thead><tbody><tr><td>int</td><td>0</td></tr><tr><td>long</td><td>0L</td></tr><tr><td>float</td><td>0.0f</td></tr><tr><td>double</td><td>0.0d</td></tr><tr><td>boolean</td><td>false</td></tr><tr><td>char</td><td>&lsquo;\u0000&rsquo;</td></tr><tr><td>reference</td><td>null</td></tr></tbody></table><blockquote><p>💡 <strong>关键点</strong>：<code>static final</code> 常量在准备阶段就赋值，普通静态变量在初始化阶段赋值</p></blockquote><h4 id=解析resolution>解析（Resolution）</h4><p>将常量池中的符号引用替换为直接引用。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>符号引用：用字符串描述的目标（如 &#34;java/lang/Object&#34;）
+</span></span><span class=line><span class=cl>直接引用：指向目标的指针、偏移量或句柄
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>解析内容：
+</span></span><span class=line><span class=cl>├── 类或接口解析
+</span></span><span class=line><span class=cl>├── 字段解析
+</span></span><span class=line><span class=cl>├── 方法解析
+</span></span><span class=line><span class=cl>└── 接口方法解析
+</span></span></code></pre></div><h3 id=13-初始化initialization>1.3 初始化（Initialization）</h3><p>执行类构造器 <code>&lt;clinit>()</code> 方法，为静态变量赋值，执行静态代码块。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>InitDemo</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>static</span> <span class=kt>int</span> <span class=n>value</span> <span class=o>=</span> <span class=mi>123</span><span class=o>;</span>           <span class=c1>// 在 &lt;clinit&gt; 中赋值
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kd>static</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>        <span class=n>System</span><span class=o>.</span><span class=na>out</span><span class=o>.</span><span class=na>println</span><span class=o>(</span><span class=s>&#34;静态块&#34;</span><span class=o>);</span>  <span class=c1>// 在 &lt;clinit&gt; 中执行
@@ -97,26 +97,26 @@
 </span></span><span class=line><span class=cl><span class=kd>class</span> <span class=nc>Child</span> <span class=kd>extends</span> <span class=n>Parent</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>static</span> <span class=o>{</span> <span class=n>System</span><span class=o>.</span><span class=na>out</span><span class=o>.</span><span class=na>println</span><span class=o>(</span><span class=s>&#34;Child init&#34;</span><span class=o>);</span> <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>答案</strong>：只输出 &ldquo;Parent init&rdquo; 和 100，Child 不会初始化</p></blockquote><h2 id=二类加载器>二、类加载器</h2><p>JVM 提供了三层类加载器架构。</p><h3 id=21-类加载器层次>2.1 类加载器层次</h3><pre tabindex=0><code>┌─────────────────────────────────────┐
-│         Bootstrap ClassLoader        │  ← C++ 实现，加载核心类库
-│     (启动类加载器/根加载器)            │    java.*、rt.jar
-└─────────────────┬───────────────────┘
-                  │
-┌─────────────────▼───────────────────┐
-│        Extension ClassLoader         │  ← Java 实现，加载扩展类库
-│         (扩展类加载器)                │    ext/*.jar
-└─────────────────┬───────────────────┘
-                  │
-┌─────────────────▼───────────────────┐
-│        Application ClassLoader       │  ← 加载应用类路径
-│        (应用类加载器)                 │    classpath
-└─────────────────┬───────────────────┘
-                  │
-┌─────────────────▼───────────────────┐
-│        Custom ClassLoader            │  ← 用户自定义
-│        (自定义类加载器)               │
-└─────────────────────────────────────┘
-</code></pre><h3 id=22-启动类加载器bootstrap-classloader>2.2 启动类加载器（Bootstrap ClassLoader）</h3><ul><li><strong>实现</strong>：C++（JVM 的一部分）</li><li><strong>加载路径</strong>：<code>JAVA_HOME/lib/rt.jar</code>、<code>resources.jar</code> 等核心类库</li><li><strong>无法被 Java 程序直接访问</strong></li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 查看 Bootstrap 加载的路径
+</span></span></code></pre></div><p><strong>答案</strong>：只输出 &ldquo;Parent init&rdquo; 和 100，Child 不会初始化</p></blockquote><h2 id=二类加载器>二、类加载器</h2><p>JVM 提供了三层类加载器架构。</p><h3 id=21-类加载器层次>2.1 类加载器层次</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│         Bootstrap ClassLoader        │  ← C++ 实现，加载核心类库
+</span></span><span class=line><span class=cl>│     (启动类加载器/根加载器)            │    java.*、rt.jar
+</span></span><span class=line><span class=cl>└─────────────────┬───────────────────┘
+</span></span><span class=line><span class=cl>                  │
+</span></span><span class=line><span class=cl>┌─────────────────▼───────────────────┐
+</span></span><span class=line><span class=cl>│        Extension ClassLoader         │  ← Java 实现，加载扩展类库
+</span></span><span class=line><span class=cl>│         (扩展类加载器)                │    ext/*.jar
+</span></span><span class=line><span class=cl>└─────────────────┬───────────────────┘
+</span></span><span class=line><span class=cl>                  │
+</span></span><span class=line><span class=cl>┌─────────────────▼───────────────────┐
+</span></span><span class=line><span class=cl>│        Application ClassLoader       │  ← 加载应用类路径
+</span></span><span class=line><span class=cl>│        (应用类加载器)                 │    classpath
+</span></span><span class=line><span class=cl>└─────────────────┬───────────────────┘
+</span></span><span class=line><span class=cl>                  │
+</span></span><span class=line><span class=cl>┌─────────────────▼───────────────────┐
+</span></span><span class=line><span class=cl>│        Custom ClassLoader            │  ← 用户自定义
+</span></span><span class=line><span class=cl>│        (自定义类加载器)               │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=22-启动类加载器bootstrap-classloader>2.2 启动类加载器（Bootstrap ClassLoader）</h3><ul><li><strong>实现</strong>：C++（JVM 的一部分）</li><li><strong>加载路径</strong>：<code>JAVA_HOME/lib/rt.jar</code>、<code>resources.jar</code> 等核心类库</li><li><strong>无法被 Java 程序直接访问</strong></li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 查看 Bootstrap 加载的路径
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>System</span><span class=o>.</span><span class=na>out</span><span class=o>.</span><span class=na>println</span><span class=o>(</span><span class=n>System</span><span class=o>.</span><span class=na>getProperty</span><span class=o>(</span><span class=s>&#34;sun.boot.class.path&#34;</span><span class=o>));</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=n>String</span><span class=o>.</span><span class=na>class</span><span class=o>.</span><span class=na>getClassLoader</span><span class=o>();</span>  <span class=c1>// 返回 null（Bootstrap 加载）
@@ -141,22 +141,22 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=c1>// 祖父加载器: null（Bootstrap）
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h2 id=三双亲委派模型>三、双亲委派模型</h2><h3 id=31-什么是双亲委派>3.1 什么是双亲委派？</h3><p>当一个类加载器收到类加载请求时，它首先把这个请求委托给父加载器处理，只有当父加载器无法完成加载时，才自己尝试加载。</p><pre tabindex=0><code>加载请求
-    │
-    ▼
-Application ClassLoader
-    │
-    │ 委派给父加载器
-    ▼
-Extension ClassLoader
-    │
-    │ 委派给父加载器
-    ▼
-Bootstrap ClassLoader
-    │
-    ├── 找到了 → 加载成功
-    └── 没找到 → 返回给子加载器尝试
-</code></pre><h3 id=32-源码分析>3.2 源码分析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ClassLoader.loadClass() 源码（简化版）
+</span></span></code></pre></div><h2 id=三双亲委派模型>三、双亲委派模型</h2><h3 id=31-什么是双亲委派>3.1 什么是双亲委派？</h3><p>当一个类加载器收到类加载请求时，它首先把这个请求委托给父加载器处理，只有当父加载器无法完成加载时，才自己尝试加载。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>加载请求
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>Application ClassLoader
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    │ 委派给父加载器
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>Extension ClassLoader
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    │ 委派给父加载器
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>Bootstrap ClassLoader
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ├── 找到了 → 加载成功
+</span></span><span class=line><span class=cl>    └── 没找到 → 返回给子加载器尝试
+</span></span></code></pre></div><h3 id=32-源码分析>3.2 源码分析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ClassLoader.loadClass() 源码（简化版）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>protected</span> <span class=n>Class</span><span class=o>&lt;?&gt;</span> <span class=n>loadClass</span><span class=o>(</span><span class=n>String</span> <span class=n>name</span><span class=o>,</span> <span class=kt>boolean</span> <span class=n>resolve</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>synchronized</span> <span class=o>(</span><span class=n>getClassLoadingLock</span><span class=o>(</span><span class=n>name</span><span class=o>))</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>        <span class=c1>// 1. 检查是否已加载
@@ -227,34 +227,34 @@ Bootstrap ClassLoader
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1>// 获取
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>ClassLoader</span> <span class=n>loader</span> <span class=o>=</span> <span class=n>Thread</span><span class=o>.</span><span class=na>currentThread</span><span class=o>().</span><span class=na>getContextClassLoader</span><span class=o>();</span>
-</span></span></code></pre></div><h3 id=42-tomcat-类加载器>4.2 Tomcat 类加载器</h3><p><strong>问题</strong>：</p><ul><li>多个 WebApp 需要隔离，各自使用不同版本的类库</li><li>WebApp 优先加载自己的类，而不是父加载器的类</li></ul><p><strong>解决方案</strong>：自定义类加载器，打破双亲委派</p><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────┐
-│                      Bootstrap                               │
-│                  (JRE 核心)                                   │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────┐
-│                       System                                 │
-│                  (Tomcat 核心)                               │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────┐
-│                   CommonClassLoader                          │
-│                  (Tomcat 公共类)                              │
-└────────────────────────────┬────────────────────────────────┘
-              ┌──────────────┴──────────────┐
-              │                             │
-┌─────────────▼────────────┐   ┌────────────▼─────────────┐
-│   CatalinaClassLoader    │   │   SharedClassLoader      │
-│   (Tomcat 内部类)         │   │   (WebApp 共享类)         │
-└──────────────────────────┘   └────────────┬──────────────┘
-                                            │
-                              ┌─────────────┴─────────────┐
-                              │                           │
-                 ┌────────────▼──────────┐  ┌────────────▼──────────┐
-                 │  WebAppClassLoader    │  │  WebAppClassLoader    │
-                 │    (/webapp1)          │  │    (/webapp2)          │
-                 └───────────────────────┘  └───────────────────────┘
-</code></pre><p><strong>WebAppClassLoader 打破双亲委派</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Tomcat WebAppClassLoader.loadClass() 简化逻辑
+</span></span></code></pre></div><h3 id=42-tomcat-类加载器>4.2 Tomcat 类加载器</h3><p><strong>问题</strong>：</p><ul><li>多个 WebApp 需要隔离，各自使用不同版本的类库</li><li>WebApp 优先加载自己的类，而不是父加载器的类</li></ul><p><strong>解决方案</strong>：自定义类加载器，打破双亲委派</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                      Bootstrap                               │
+</span></span><span class=line><span class=cl>│                  (JRE 核心)                                   │
+</span></span><span class=line><span class=cl>└────────────────────────────┬────────────────────────────────┘
+</span></span><span class=line><span class=cl>                             │
+</span></span><span class=line><span class=cl>┌────────────────────────────▼────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                       System                                 │
+</span></span><span class=line><span class=cl>│                  (Tomcat 核心)                               │
+</span></span><span class=line><span class=cl>└────────────────────────────┬────────────────────────────────┘
+</span></span><span class=line><span class=cl>                             │
+</span></span><span class=line><span class=cl>┌────────────────────────────▼────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                   CommonClassLoader                          │
+</span></span><span class=line><span class=cl>│                  (Tomcat 公共类)                              │
+</span></span><span class=line><span class=cl>└────────────────────────────┬────────────────────────────────┘
+</span></span><span class=line><span class=cl>              ┌──────────────┴──────────────┐
+</span></span><span class=line><span class=cl>              │                             │
+</span></span><span class=line><span class=cl>┌─────────────▼────────────┐   ┌────────────▼─────────────┐
+</span></span><span class=line><span class=cl>│   CatalinaClassLoader    │   │   SharedClassLoader      │
+</span></span><span class=line><span class=cl>│   (Tomcat 内部类)         │   │   (WebApp 共享类)         │
+</span></span><span class=line><span class=cl>└──────────────────────────┘   └────────────┬──────────────┘
+</span></span><span class=line><span class=cl>                                            │
+</span></span><span class=line><span class=cl>                              ┌─────────────┴─────────────┐
+</span></span><span class=line><span class=cl>                              │                           │
+</span></span><span class=line><span class=cl>                 ┌────────────▼──────────┐  ┌────────────▼──────────┐
+</span></span><span class=line><span class=cl>                 │  WebAppClassLoader    │  │  WebAppClassLoader    │
+</span></span><span class=line><span class=cl>                 │    (/webapp1)          │  │    (/webapp2)          │
+</span></span><span class=line><span class=cl>                 └───────────────────────┘  └───────────────────────┘
+</span></span></code></pre></div><p><strong>WebAppClassLoader 打破双亲委派</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Tomcat WebAppClassLoader.loadClass() 简化逻辑
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=n>Class</span><span class=o>&lt;?&gt;</span> <span class=n>loadClass</span><span class=o>(</span><span class=n>String</span> <span class=n>name</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 1. 先检查是否已加载
 </span></span></span><span class=line><span class=cl><span class=c1></span>    

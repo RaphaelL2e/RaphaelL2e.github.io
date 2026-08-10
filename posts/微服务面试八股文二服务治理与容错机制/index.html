@@ -10,55 +10,55 @@
 <span>/</span><a href=/series/microservices-interview/>微服务面试</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>微服务面试八股文（二）——服务治理与容错机制</h1><p class=article-description>🎯 本文目标：承接上一篇的微服务架构基础与设计原则，深入微服务治理的核心战场——服务容错的三道防线（限流→熔断→降级）、Sentinel的流量控制算法与熔断策略、负载均衡的六种算法及其在Ribbon/LoadBalancer中的实现、分布式链路追踪的原理与Sleuth+Zipkin/SkyWalki。</p><div class=article-meta><span>发布于 <time datetime=2026-06-24>2026-06-24</time></span>
 <span>最后验证 2026-06</span>
 <span>10 分钟阅读</span>
-<span>2003 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一服务容错分布式系统的安全带>一、服务容错——分布式系统的安全带</a><ul><li><a href=#11-什么是雪崩效应>1.1 什么是雪崩效应？</a></li><li><a href=#12-容错的三道防线>1.2 容错的三道防线</a></li></ul></li><li><a href=#二sentinel流量控制的王牌>二、Sentinel——流量控制的王牌</a><ul><li><a href=#21-sentinel-vs-hystrix>2.1 Sentinel vs Hystrix</a></li><li><a href=#22-sentinel限流算法>2.2 Sentinel限流算法</a></li><li><a href=#23-sentinel熔断策略>2.3 Sentinel熔断策略</a></li><li><a href=#24-sentinel核心源码原理>2.4 Sentinel核心源码原理</a></li></ul></li><li><a href=#三负载均衡智慧分流>三、负载均衡——智慧分流</a><ul><li><a href=#31-ribbon-vs-spring-cloud-loadbalancer>3.1 Ribbon vs Spring Cloud LoadBalancer</a></li><li><a href=#32-六大负载均衡算法>3.2 六大负载均衡算法</a></li><li><a href=#33-负载均衡实战配置>3.3 负载均衡实战配置</a></li></ul></li><li><a href=#四分布式链路追踪>四、分布式链路追踪</a><ul><li><a href=#41-为什么需要链路追踪>4.1 为什么需要链路追踪？</a></li><li><a href=#42-链路追踪核心概念>4.2 链路追踪核心概念</a></li><li><a href=#43-sleuth--zipkin>4.3 Sleuth + Zipkin</a></li><li><a href=#44-skywalking-vs-zipkin>4.4 SkyWalking vs Zipkin</a></li><li><a href=#45-链路追踪最佳实践>4.5 链路追踪最佳实践</a></li></ul></li><li><a href=#五灰度发布与金丝雀部署>五、灰度发布与金丝雀部署</a><ul><li><a href=#51-发布策略演进>5.1 发布策略演进</a></li><li><a href=#52-金丝雀发布原理>5.2 金丝雀发布原理</a></li><li><a href=#53-spring-cloud灰度实现>5.3 Spring Cloud灰度实现</a></li><li><a href=#54-全链路灰度方案>5.4 全链路灰度方案</a></li></ul></li><li><a href=#六面试高频真题>六、面试高频真题</a><ul><li><a href=#q1-熔断和降级的区别>Q1: 熔断和降级的区别？</a></li><li><a href=#q2-限流算法如何选型>Q2: 限流算法如何选型？</a></li><li><a href=#q3-如何实现分布式限流>Q3: 如何实现分布式限流？</a></li><li><a href=#q4-如何设计一个高可用的注册中心>Q4: 如何设计一个高可用的注册中心？</a></li><li><a href=#q5-链路追踪的采样策略如何设计>Q5: 链路追踪的采样策略如何设计？</a></li></ul></li><li><a href=#七下期预告>七、下期预告</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接上一篇的微服务架构基础与设计原则，深入微服务治理的核心战场——服务容错的三道防线（限流→熔断→降级）、Sentinel的流量控制算法与熔断策略、负载均衡的六种算法及其在Ribbon/LoadBalancer中的实现、分布式链路追踪的原理与Sleuth+Zipkin/SkyWalking的实战对比、以及灰度发布与金丝雀部署的全链路方案，构建微服务治理的完整能力矩阵。</p></blockquote><hr><h2 id=一服务容错分布式系统的安全带>一、服务容错——分布式系统的安全带</h2><h3 id=11-什么是雪崩效应>1.1 什么是雪崩效应？</h3><p><strong>Q: 什么是服务雪崩？为什么会发生？</strong></p><pre tabindex=0><code>服务雪崩的传播链：
-
-    用户请求
-        ↓
-  ┌──────────────────────────────────────────────────────┐
-  │  API Gateway (正常)                                   │
-  └──────────────────────────────────────────────────────┘
-        ↓
-  ┌──────────────────────────────────────────────────────┐
-  │  Order Service (正常)                                 │
-  └──────────────────────────────────────────────────────┘
-        ↓                                ↓
-  ┌─────────────┐              ┌───────────────┐
-  │ User Service│              │ Payment       │
-  │   正常      │              │ Service       │
-  └─────────────┘              │ ❌ 响应超时！   │
-                               │ (下游银行接口  │
-                               │  挂了)        │
-                               └───────┬───────┘
-                                       ↓ 线程堆积
-                              Order Service 的线程池被耗尽
-                                       ↓
-                              Order Service 也开始超时
-                                       ↓
-                              API Gateway 线程池也耗尽
-                                       ↓
-                              💥 整个系统不可用！
-</code></pre><p><strong>雪崩的三阶段：</strong></p><table><thead><tr><th>阶段</th><th>现象</th><th>根因</th></tr></thead><tbody><tr><td><strong>第一阶段：单点故障</strong></td><td>某个服务出现延迟或不可用</td><td>依赖服务故障、网络抖动、突发流量</td></tr><tr><td><strong>第二阶段：级联传播</strong></td><td>上游服务的线程/连接被耗尽</td><td>同步调用没有超时控制、线程池无界</td></tr><tr><td><strong>第三阶段：全系统崩溃</strong></td><td>整个调用链路全部不可用</td><td>雪崩效应扩散到所有依赖链</td></tr></tbody></table><h3 id=12-容错的三道防线>1.2 容错的三道防线</h3><p><strong>Q: 微服务如何防止雪崩？</strong></p><pre tabindex=0><code>容错的三道防线（纵深防御）：
-
-第一道防线：限流（Rate Limiting）
-  ┌─────────────────────────────────────────────┐
-  │  &#34;对不起，系统繁忙，请稍后再试&#34;                  │
-  │  在入口处控制流量，超过阈值的请求直接拒绝          │
-  └─────────────────────────────────────────────┘
-              ↓ 流量还是进来了
-
-第二道防线：熔断（Circuit Breaker）
-  ┌─────────────────────────────────────────────┐
-  │  &#34;这个服务暂时不可用，我们先用备用方案&#34;            │
-  │  当错误率达到阈值时，快速失败不再调用             │
-  └─────────────────────────────────────────────┘
-              ↓ 熔断后仍有请求需要处理
-
-第三道防线：降级（Fallback）
-  ┌─────────────────────────────────────────────┐
-  │  &#34;核心功能正常，非核心功能暂时关闭&#34;               │
-  │  返回兜底数据，保证核心链路可用                  │
-  └─────────────────────────────────────────────┘
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 三道防线实战示例
+<span>2003 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一服务容错分布式系统的安全带>一、服务容错——分布式系统的安全带</a><ul><li><a href=#11-什么是雪崩效应>1.1 什么是雪崩效应？</a></li><li><a href=#12-容错的三道防线>1.2 容错的三道防线</a></li></ul></li><li><a href=#二sentinel流量控制的王牌>二、Sentinel——流量控制的王牌</a><ul><li><a href=#21-sentinel-vs-hystrix>2.1 Sentinel vs Hystrix</a></li><li><a href=#22-sentinel限流算法>2.2 Sentinel限流算法</a></li><li><a href=#23-sentinel熔断策略>2.3 Sentinel熔断策略</a></li><li><a href=#24-sentinel核心源码原理>2.4 Sentinel核心源码原理</a></li></ul></li><li><a href=#三负载均衡智慧分流>三、负载均衡——智慧分流</a><ul><li><a href=#31-ribbon-vs-spring-cloud-loadbalancer>3.1 Ribbon vs Spring Cloud LoadBalancer</a></li><li><a href=#32-六大负载均衡算法>3.2 六大负载均衡算法</a></li><li><a href=#33-负载均衡实战配置>3.3 负载均衡实战配置</a></li></ul></li><li><a href=#四分布式链路追踪>四、分布式链路追踪</a><ul><li><a href=#41-为什么需要链路追踪>4.1 为什么需要链路追踪？</a></li><li><a href=#42-链路追踪核心概念>4.2 链路追踪核心概念</a></li><li><a href=#43-sleuth--zipkin>4.3 Sleuth + Zipkin</a></li><li><a href=#44-skywalking-vs-zipkin>4.4 SkyWalking vs Zipkin</a></li><li><a href=#45-链路追踪最佳实践>4.5 链路追踪最佳实践</a></li></ul></li><li><a href=#五灰度发布与金丝雀部署>五、灰度发布与金丝雀部署</a><ul><li><a href=#51-发布策略演进>5.1 发布策略演进</a></li><li><a href=#52-金丝雀发布原理>5.2 金丝雀发布原理</a></li><li><a href=#53-spring-cloud灰度实现>5.3 Spring Cloud灰度实现</a></li><li><a href=#54-全链路灰度方案>5.4 全链路灰度方案</a></li></ul></li><li><a href=#六面试高频真题>六、面试高频真题</a><ul><li><a href=#q1-熔断和降级的区别>Q1: 熔断和降级的区别？</a></li><li><a href=#q2-限流算法如何选型>Q2: 限流算法如何选型？</a></li><li><a href=#q3-如何实现分布式限流>Q3: 如何实现分布式限流？</a></li><li><a href=#q4-如何设计一个高可用的注册中心>Q4: 如何设计一个高可用的注册中心？</a></li><li><a href=#q5-链路追踪的采样策略如何设计>Q5: 链路追踪的采样策略如何设计？</a></li></ul></li><li><a href=#七下期预告>七、下期预告</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接上一篇的微服务架构基础与设计原则，深入微服务治理的核心战场——服务容错的三道防线（限流→熔断→降级）、Sentinel的流量控制算法与熔断策略、负载均衡的六种算法及其在Ribbon/LoadBalancer中的实现、分布式链路追踪的原理与Sleuth+Zipkin/SkyWalking的实战对比、以及灰度发布与金丝雀部署的全链路方案，构建微服务治理的完整能力矩阵。</p></blockquote><hr><h2 id=一服务容错分布式系统的安全带>一、服务容错——分布式系统的安全带</h2><h3 id=11-什么是雪崩效应>1.1 什么是雪崩效应？</h3><p><strong>Q: 什么是服务雪崩？为什么会发生？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>服务雪崩的传播链：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    用户请求
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>  ┌──────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>  │  API Gateway (正常)                                   │
+</span></span><span class=line><span class=cl>  └──────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>        ↓
+</span></span><span class=line><span class=cl>  ┌──────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>  │  Order Service (正常)                                 │
+</span></span><span class=line><span class=cl>  └──────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>        ↓                                ↓
+</span></span><span class=line><span class=cl>  ┌─────────────┐              ┌───────────────┐
+</span></span><span class=line><span class=cl>  │ User Service│              │ Payment       │
+</span></span><span class=line><span class=cl>  │   正常      │              │ Service       │
+</span></span><span class=line><span class=cl>  └─────────────┘              │ ❌ 响应超时！   │
+</span></span><span class=line><span class=cl>                               │ (下游银行接口  │
+</span></span><span class=line><span class=cl>                               │  挂了)        │
+</span></span><span class=line><span class=cl>                               └───────┬───────┘
+</span></span><span class=line><span class=cl>                                       ↓ 线程堆积
+</span></span><span class=line><span class=cl>                              Order Service 的线程池被耗尽
+</span></span><span class=line><span class=cl>                                       ↓
+</span></span><span class=line><span class=cl>                              Order Service 也开始超时
+</span></span><span class=line><span class=cl>                                       ↓
+</span></span><span class=line><span class=cl>                              API Gateway 线程池也耗尽
+</span></span><span class=line><span class=cl>                                       ↓
+</span></span><span class=line><span class=cl>                              💥 整个系统不可用！
+</span></span></code></pre></div><p><strong>雪崩的三阶段：</strong></p><table><thead><tr><th>阶段</th><th>现象</th><th>根因</th></tr></thead><tbody><tr><td><strong>第一阶段：单点故障</strong></td><td>某个服务出现延迟或不可用</td><td>依赖服务故障、网络抖动、突发流量</td></tr><tr><td><strong>第二阶段：级联传播</strong></td><td>上游服务的线程/连接被耗尽</td><td>同步调用没有超时控制、线程池无界</td></tr><tr><td><strong>第三阶段：全系统崩溃</strong></td><td>整个调用链路全部不可用</td><td>雪崩效应扩散到所有依赖链</td></tr></tbody></table><h3 id=12-容错的三道防线>1.2 容错的三道防线</h3><p><strong>Q: 微服务如何防止雪崩？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>容错的三道防线（纵深防御）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>第一道防线：限流（Rate Limiting）
+</span></span><span class=line><span class=cl>  ┌─────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>  │  &#34;对不起，系统繁忙，请稍后再试&#34;                  │
+</span></span><span class=line><span class=cl>  │  在入口处控制流量，超过阈值的请求直接拒绝          │
+</span></span><span class=line><span class=cl>  └─────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>              ↓ 流量还是进来了
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>第二道防线：熔断（Circuit Breaker）
+</span></span><span class=line><span class=cl>  ┌─────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>  │  &#34;这个服务暂时不可用，我们先用备用方案&#34;            │
+</span></span><span class=line><span class=cl>  │  当错误率达到阈值时，快速失败不再调用             │
+</span></span><span class=line><span class=cl>  └─────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>              ↓ 熔断后仍有请求需要处理
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>第三道防线：降级（Fallback）
+</span></span><span class=line><span class=cl>  ┌─────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>  │  &#34;核心功能正常，非核心功能暂时关闭&#34;               │
+</span></span><span class=line><span class=cl>  │  返回兜底数据，保证核心链路可用                  │
+</span></span><span class=line><span class=cl>  └─────────────────────────────────────────────┘
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 三道防线实战示例
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Service</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>RecommendationService</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
@@ -101,37 +101,37 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@SentinelResource</span><span class=o>(</span><span class=n>value</span> <span class=o>=</span> <span class=s>&#34;hello&#34;</span><span class=o>,</span> <span class=n>blockHandler</span> <span class=o>=</span> <span class=s>&#34;blockHandler&#34;</span><span class=o>)</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=n>String</span> <span class=nf>hello</span><span class=o>()</span> <span class=o>{</span> <span class=o>...</span> <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=c1>// ✅ 在控制台秒级修改限流/熔断规则，无需重启
-</span></span></span></code></pre></div><h3 id=22-sentinel限流算法>2.2 Sentinel限流算法</h3><p><strong>Q: Sentinel支持哪些限流算法？各自适用什么场景？</strong></p><h4 id=算法1计数器固定窗口qps限流>算法1：计数器固定窗口（QPS限流）</h4><pre tabindex=0><code>原理：统计单位时间窗口内的请求数，超过阈值则限流
-
-时间窗口（1秒）
-┌──────────────────┐
-│ ← 100个请求 →    │
-└──────────────────┘
-     ↑ 第101个请求 → 拒绝！
-
-缺点：临界问题
-  窗口1: [0.5s~1.5s] 来了100个
-  窗口2: [1.0s~2.0s] 来了100个
-  1.0~1.5s 瞬间涌入200个请求！
-</code></pre><h4 id=算法2滑动窗口sentinel默认>算法2：滑动窗口（Sentinel默认）</h4><pre tabindex=0><code>原理：将时间窗口细分为多个小窗口，随时间滑动
-
-┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
-│ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │  ← 10个小窗口，每个100ms
-└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
-  ←─────────── 滑动窗口(1s) ──────────→
-
-随时间推移，窗口向前滑动，精确统计最近1s的请求数
-解决了固定窗口的临界问题！
-</code></pre><h4 id=算法3漏桶匀速排队>算法3：漏桶（匀速排队）</h4><pre tabindex=0><code>原理：请求先进桶，以固定速率流出
-
-    请求 → ╔═══════════╗
-    请求 → ║  漏      桶 ║ → 匀速流出(100 QPS)
-    请求 → ╚═══════════╝
-              ↑
-         桶满了 → 拒绝！
-
-适用场景：需要严格平滑流量的场景（如访问第三方API）
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Sentinel 漏桶模式配置
+</span></span></span></code></pre></div><h3 id=22-sentinel限流算法>2.2 Sentinel限流算法</h3><p><strong>Q: Sentinel支持哪些限流算法？各自适用什么场景？</strong></p><h4 id=算法1计数器固定窗口qps限流>算法1：计数器固定窗口（QPS限流）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>原理：统计单位时间窗口内的请求数，超过阈值则限流
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>时间窗口（1秒）
+</span></span><span class=line><span class=cl>┌──────────────────┐
+</span></span><span class=line><span class=cl>│ ← 100个请求 →    │
+</span></span><span class=line><span class=cl>└──────────────────┘
+</span></span><span class=line><span class=cl>     ↑ 第101个请求 → 拒绝！
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>缺点：临界问题
+</span></span><span class=line><span class=cl>  窗口1: [0.5s~1.5s] 来了100个
+</span></span><span class=line><span class=cl>  窗口2: [1.0s~2.0s] 来了100个
+</span></span><span class=line><span class=cl>  1.0~1.5s 瞬间涌入200个请求！
+</span></span></code></pre></div><h4 id=算法2滑动窗口sentinel默认>算法2：滑动窗口（Sentinel默认）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>原理：将时间窗口细分为多个小窗口，随时间滑动
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐
+</span></span><span class=line><span class=cl>│ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │  ← 10个小窗口，每个100ms
+</span></span><span class=line><span class=cl>└───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘
+</span></span><span class=line><span class=cl>  ←─────────── 滑动窗口(1s) ──────────→
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>随时间推移，窗口向前滑动，精确统计最近1s的请求数
+</span></span><span class=line><span class=cl>解决了固定窗口的临界问题！
+</span></span></code></pre></div><h4 id=算法3漏桶匀速排队>算法3：漏桶（匀速排队）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>原理：请求先进桶，以固定速率流出
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    请求 → ╔═══════════╗
+</span></span><span class=line><span class=cl>    请求 → ║  漏      桶 ║ → 匀速流出(100 QPS)
+</span></span><span class=line><span class=cl>    请求 → ╚═══════════╝
+</span></span><span class=line><span class=cl>              ↑
+</span></span><span class=line><span class=cl>         桶满了 → 拒绝！
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>适用场景：需要严格平滑流量的场景（如访问第三方API）
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Sentinel 漏桶模式配置
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@SentinelResource</span><span class=o>(</span><span class=n>value</span> <span class=o>=</span> <span class=s>&#34;slowApi&#34;</span><span class=o>)</span>
 </span></span><span class=line><span class=cl><span class=nd>@GetMapping</span><span class=o>(</span><span class=s>&#34;/api/slow&#34;</span><span class=o>)</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=n>String</span> <span class=nf>slowApi</span><span class=o>()</span> <span class=o>{</span>
@@ -143,49 +143,49 @@
 </span></span></span><span class=line><span class=cl><span class=c1>// 流控模式：排队等待
 </span></span></span><span class=line><span class=cl><span class=c1>// 超时时间：500ms
 </span></span></span><span class=line><span class=cl><span class=c1>// → 请求以匀速通过，超过500ms排队时间则拒绝
-</span></span></span></code></pre></div><h4 id=算法4令牌桶预热冷启动>算法4：令牌桶（预热/冷启动）</h4><pre tabindex=0><code>原理：以固定速率向桶中放入令牌，请求需要获取令牌才能通过
-
-    ┌──────────┐
-    │ 令牌生成器 │ → 每秒放 100 个令牌
-    └────┬─────┘
-         ↓
-    ╔═══════════╗
-    ║  令  牌  桶 ║  (容量 200)
-    ╚═══════════╝
-         ↓
-    请求获取令牌 → 有 → 通过
-                → 无 → 拒绝
-
-可以应对突发流量（桶里有积攒的令牌）
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Sentinel 预热模式（系统刚启动时缓慢增加阈值）
+</span></span></span></code></pre></div><h4 id=算法4令牌桶预热冷启动>算法4：令牌桶（预热/冷启动）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>原理：以固定速率向桶中放入令牌，请求需要获取令牌才能通过
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    ┌──────────┐
+</span></span><span class=line><span class=cl>    │ 令牌生成器 │ → 每秒放 100 个令牌
+</span></span><span class=line><span class=cl>    └────┬─────┘
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>    ╔═══════════╗
+</span></span><span class=line><span class=cl>    ║  令  牌  桶 ║  (容量 200)
+</span></span><span class=line><span class=cl>    ╚═══════════╝
+</span></span><span class=line><span class=cl>         ↓
+</span></span><span class=line><span class=cl>    请求获取令牌 → 有 → 通过
+</span></span><span class=line><span class=cl>                → 无 → 拒绝
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>可以应对突发流量（桶里有积攒的令牌）
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Sentinel 预热模式（系统刚启动时缓慢增加阈值）
 </span></span></span><span class=line><span class=cl><span class=c1>// 配置：阈值 100 QPS，预热时长 10s
 </span></span></span><span class=line><span class=cl><span class=c1>// 0s:   100/3 = 33 QPS
 </span></span></span><span class=line><span class=cl><span class=c1>// 5s:   100/1.5 = 67 QPS
 </span></span></span><span class=line><span class=cl><span class=c1>// 10s+: 100 QPS
 </span></span></span><span class=line><span class=cl><span class=c1>// → 防止冷系统被瞬间流量打崩
-</span></span></span></code></pre></div><h3 id=23-sentinel熔断策略>2.3 Sentinel熔断策略</h3><p><strong>Q: Sentinel的熔断策略有哪些？和Hystrix的区别是什么？</strong></p><table><thead><tr><th>熔断策略</th><th>说明</th><th>典型配置</th><th>适用场景</th></tr></thead><tbody><tr><td><strong>慢调用比例</strong></td><td>慢调用（响应时间>阈值）占比超过设定比例→熔断</td><td>最大RT=200ms, 比例阈值=0.5, 熔断时长=10s</td><td>依赖服务变慢（Sentinel独有）</td></tr><tr><td><strong>异常比例</strong></td><td>异常数/总调用数 > 阈值 → 熔断</td><td>比例阈值=0.5, 熔断时长=10s</td><td>依赖服务出错率高</td></tr><tr><td><strong>异常数</strong></td><td>1分钟内异常数 > 阈值 → 熔断</td><td>异常数=20, 熔断时长=10s</td><td>依赖服务不稳定</td></tr></tbody></table><pre tabindex=0><code>熔断器的三种状态（三态机）：
-
-        ┌──────────────────┐
-        │     CLOSED       │  ← 正常状态，所有请求通过
-        │    (熔断器关闭)    │
-        └──────┬───────────┘
-               │ 错误率达到阈值
-               ↓
-        ┌──────────────────┐
-        │      OPEN        │  ← 熔断状态，快速失败
-        │    (熔断器打开)    │
-        └──────┬───────────┘
-               │ 经过熔断时长后
-               ↓
-        ┌──────────────────┐
-        │   HALF-OPEN      │  ← 半开状态，放行少量请求探测
-        │   (熔断器半开)     │
-        └──────┬───────────┘
-               │
-      ┌────────┴────────┐
-      │ 探测成功 → CLOSED│    探测失败 → OPEN
-      └─────────────────┘
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Sentinel熔断规则配置示例
+</span></span></span></code></pre></div><h3 id=23-sentinel熔断策略>2.3 Sentinel熔断策略</h3><p><strong>Q: Sentinel的熔断策略有哪些？和Hystrix的区别是什么？</strong></p><table><thead><tr><th>熔断策略</th><th>说明</th><th>典型配置</th><th>适用场景</th></tr></thead><tbody><tr><td><strong>慢调用比例</strong></td><td>慢调用（响应时间>阈值）占比超过设定比例→熔断</td><td>最大RT=200ms, 比例阈值=0.5, 熔断时长=10s</td><td>依赖服务变慢（Sentinel独有）</td></tr><tr><td><strong>异常比例</strong></td><td>异常数/总调用数 > 阈值 → 熔断</td><td>比例阈值=0.5, 熔断时长=10s</td><td>依赖服务出错率高</td></tr><tr><td><strong>异常数</strong></td><td>1分钟内异常数 > 阈值 → 熔断</td><td>异常数=20, 熔断时长=10s</td><td>依赖服务不稳定</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>熔断器的三种状态（三态机）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        ┌──────────────────┐
+</span></span><span class=line><span class=cl>        │     CLOSED       │  ← 正常状态，所有请求通过
+</span></span><span class=line><span class=cl>        │    (熔断器关闭)    │
+</span></span><span class=line><span class=cl>        └──────┬───────────┘
+</span></span><span class=line><span class=cl>               │ 错误率达到阈值
+</span></span><span class=line><span class=cl>               ↓
+</span></span><span class=line><span class=cl>        ┌──────────────────┐
+</span></span><span class=line><span class=cl>        │      OPEN        │  ← 熔断状态，快速失败
+</span></span><span class=line><span class=cl>        │    (熔断器打开)    │
+</span></span><span class=line><span class=cl>        └──────┬───────────┘
+</span></span><span class=line><span class=cl>               │ 经过熔断时长后
+</span></span><span class=line><span class=cl>               ↓
+</span></span><span class=line><span class=cl>        ┌──────────────────┐
+</span></span><span class=line><span class=cl>        │   HALF-OPEN      │  ← 半开状态，放行少量请求探测
+</span></span><span class=line><span class=cl>        │   (熔断器半开)     │
+</span></span><span class=line><span class=cl>        └──────┬───────────┘
+</span></span><span class=line><span class=cl>               │
+</span></span><span class=line><span class=cl>      ┌────────┴────────┐
+</span></span><span class=line><span class=cl>      │ 探测成功 → CLOSED│    探测失败 → OPEN
+</span></span><span class=line><span class=cl>      └─────────────────┘
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Sentinel熔断规则配置示例
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Bean</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kt>void</span> <span class=nf>initFlowRules</span><span class=o>()</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=n>List</span><span class=o>&lt;</span><span class=n>DegradeRule</span><span class=o>&gt;</span> <span class=n>rules</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ArrayList</span><span class=o>&lt;&gt;();</span>
@@ -201,59 +201,59 @@
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=n>DegradeRuleManager</span><span class=o>.</span><span class=na>loadRules</span><span class=o>(</span><span class=n>rules</span><span class=o>);</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=24-sentinel核心源码原理>2.4 Sentinel核心源码原理</h3><p><strong>Q: Sentinel如何实现高效的限流统计？</strong></p><pre tabindex=0><code>Sentinel的核心数据结构——滑动窗口（LeapArray）：
-
-┌─────────┬─────────┬─────────┬─────────┬─────────┐
-│ Window 0│ Window 1│ Window 2│ Window 3│ Window 4│  ← 5个窗口，每个200ms
-│ count:15│ count:22│ count:18│ count:20│ count:25│
-│ time:T0 │ time:T1 │ time:T2 │ time:T3 │ time:T4 │
-└─────────┴─────────┴─────────┴─────────┴─────────┘
-  ←────── 滑动窗口总量 = 15+22+18+20+25 = 100 ────→
-
-每个窗口（WindowWrap）无锁设计：
-  - 使用 LongAdder 替代 AtomicLong（更低竞争）
-  - 时间窗口过期后复用，循环覆盖
-  
-责任链模式处理流量：
-  Request → NodeSelectorSlot → ClusterBuilderSlot 
-          → StatisticSlot → AuthoritySlot → ParamFlowSlot 
-          → FlowSlot → DegradeSlot → 业务方法
-</code></pre><hr><h2 id=三负载均衡智慧分流>三、负载均衡——智慧分流</h2><h3 id=31-ribbon-vs-spring-cloud-loadbalancer>3.1 Ribbon vs Spring Cloud LoadBalancer</h3><p><strong>Q: Ribbon和Spring Cloud LoadBalancer的关系？</strong></p><pre tabindex=0><code>历史演进：
-
-Spring Cloud Netflix Ribbon
-    │  2019年 Netflix宣布进入维护模式
-    │
-    ▼
-Spring Cloud LoadBalancer (SCL)
-    │  官方推荐替代方案
-    │  更轻量，支持响应式
-    │  Spring Cloud 2020.0 开始默认使用 SCL
-    │
-    ▼
-Spring Cloud Alibaba 集成
-    配合 Nacos 实现服务发现+负载均衡
-</code></pre><h3 id=32-六大负载均衡算法>3.2 六大负载均衡算法</h3><p><strong>Q: 负载均衡有哪些算法？各自什么原理？</strong></p><h4 id=1-轮询round-robin>1. 轮询（Round Robin）</h4><pre tabindex=0><code>请求序列：1  2  3  4  5  6  7  8  9  ...
-服务节点：
-  Server-A: ✓     ✓     ✓      → 均匀分配
-  Server-B:    ✓     ✓     ✓
-  Server-C:       ✓     ✓     ✓
-</code></pre><h4 id=2-加权轮询weighted-round-robin>2. 加权轮询（Weighted Round Robin）</h4><pre tabindex=0><code>Server-A: 权重5（性能强）
-Server-B: 权重3（性能中）
-Server-C: 权重2（性能弱）
-
-请求分配：A-A-A-A-A-B-B-B-C-C-A-A-A-A-A-B-B-B-C-C...
-         └──5个──┘└─3个─┘└2个┘└───又一轮────┘
-</code></pre><h4 id=3-随机random>3. 随机（Random）</h4><pre tabindex=0><code>从可用服务列表中随机选择一个
-适用场景：服务性能相近，需要简单实现
-</code></pre><h4 id=4-加权随机weighted-random>4. 加权随机（Weighted Random）</h4><pre tabindex=0><code>Server-A: 权重5 → 50%概率
-Server-B: 权重3 → 30%概率
-Server-C: 权重2 → 20%概率
-</code></pre><h4 id=5-最小连接数least-connections>5. 最小连接数（Least Connections）</h4><pre tabindex=0><code>实时统计每个服务器当前的活跃连接数，选择连接最少的服务器
-
-Server-A: 当前12个连接 → ❌
-Server-B: 当前5个连接  → ❌
-Server-C: 当前3个连接  → ✅ 选它！
-</code></pre><h4 id=6-一致性哈希consistent-hash>6. 一致性哈希（Consistent Hash）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 一致性哈希：相同参数的请求永远路由到同一台服务器
+</span></span></code></pre></div><h3 id=24-sentinel核心源码原理>2.4 Sentinel核心源码原理</h3><p><strong>Q: Sentinel如何实现高效的限流统计？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Sentinel的核心数据结构——滑动窗口（LeapArray）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌─────────┬─────────┬─────────┬─────────┬─────────┐
+</span></span><span class=line><span class=cl>│ Window 0│ Window 1│ Window 2│ Window 3│ Window 4│  ← 5个窗口，每个200ms
+</span></span><span class=line><span class=cl>│ count:15│ count:22│ count:18│ count:20│ count:25│
+</span></span><span class=line><span class=cl>│ time:T0 │ time:T1 │ time:T2 │ time:T3 │ time:T4 │
+</span></span><span class=line><span class=cl>└─────────┴─────────┴─────────┴─────────┴─────────┘
+</span></span><span class=line><span class=cl>  ←────── 滑动窗口总量 = 15+22+18+20+25 = 100 ────→
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>每个窗口（WindowWrap）无锁设计：
+</span></span><span class=line><span class=cl>  - 使用 LongAdder 替代 AtomicLong（更低竞争）
+</span></span><span class=line><span class=cl>  - 时间窗口过期后复用，循环覆盖
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>责任链模式处理流量：
+</span></span><span class=line><span class=cl>  Request → NodeSelectorSlot → ClusterBuilderSlot 
+</span></span><span class=line><span class=cl>          → StatisticSlot → AuthoritySlot → ParamFlowSlot 
+</span></span><span class=line><span class=cl>          → FlowSlot → DegradeSlot → 业务方法
+</span></span></code></pre></div><hr><h2 id=三负载均衡智慧分流>三、负载均衡——智慧分流</h2><h3 id=31-ribbon-vs-spring-cloud-loadbalancer>3.1 Ribbon vs Spring Cloud LoadBalancer</h3><p><strong>Q: Ribbon和Spring Cloud LoadBalancer的关系？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>历史演进：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Spring Cloud Netflix Ribbon
+</span></span><span class=line><span class=cl>    │  2019年 Netflix宣布进入维护模式
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>Spring Cloud LoadBalancer (SCL)
+</span></span><span class=line><span class=cl>    │  官方推荐替代方案
+</span></span><span class=line><span class=cl>    │  更轻量，支持响应式
+</span></span><span class=line><span class=cl>    │  Spring Cloud 2020.0 开始默认使用 SCL
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ▼
+</span></span><span class=line><span class=cl>Spring Cloud Alibaba 集成
+</span></span><span class=line><span class=cl>    配合 Nacos 实现服务发现+负载均衡
+</span></span></code></pre></div><h3 id=32-六大负载均衡算法>3.2 六大负载均衡算法</h3><p><strong>Q: 负载均衡有哪些算法？各自什么原理？</strong></p><h4 id=1-轮询round-robin>1. 轮询（Round Robin）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>请求序列：1  2  3  4  5  6  7  8  9  ...
+</span></span><span class=line><span class=cl>服务节点：
+</span></span><span class=line><span class=cl>  Server-A: ✓     ✓     ✓      → 均匀分配
+</span></span><span class=line><span class=cl>  Server-B:    ✓     ✓     ✓
+</span></span><span class=line><span class=cl>  Server-C:       ✓     ✓     ✓
+</span></span></code></pre></div><h4 id=2-加权轮询weighted-round-robin>2. 加权轮询（Weighted Round Robin）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Server-A: 权重5（性能强）
+</span></span><span class=line><span class=cl>Server-B: 权重3（性能中）
+</span></span><span class=line><span class=cl>Server-C: 权重2（性能弱）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>请求分配：A-A-A-A-A-B-B-B-C-C-A-A-A-A-A-B-B-B-C-C...
+</span></span><span class=line><span class=cl>         └──5个──┘└─3个─┘└2个┘└───又一轮────┘
+</span></span></code></pre></div><h4 id=3-随机random>3. 随机（Random）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>从可用服务列表中随机选择一个
+</span></span><span class=line><span class=cl>适用场景：服务性能相近，需要简单实现
+</span></span></code></pre></div><h4 id=4-加权随机weighted-random>4. 加权随机（Weighted Random）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Server-A: 权重5 → 50%概率
+</span></span><span class=line><span class=cl>Server-B: 权重3 → 30%概率
+</span></span><span class=line><span class=cl>Server-C: 权重2 → 20%概率
+</span></span></code></pre></div><h4 id=5-最小连接数least-connections>5. 最小连接数（Least Connections）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>实时统计每个服务器当前的活跃连接数，选择连接最少的服务器
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Server-A: 当前12个连接 → ❌
+</span></span><span class=line><span class=cl>Server-B: 当前5个连接  → ❌
+</span></span><span class=line><span class=cl>Server-C: 当前3个连接  → ✅ 选它！
+</span></span></code></pre></div><h4 id=6-一致性哈希consistent-hash>6. 一致性哈希（Consistent Hash）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 一致性哈希：相同参数的请求永远路由到同一台服务器
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Bean</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=n>ReactorLoadBalancer</span><span class=o>&lt;</span><span class=n>ServiceInstance</span><span class=o>&gt;</span> <span class=nf>loadBalancer</span><span class=o>(</span>
 </span></span><span class=line><span class=cl>        <span class=n>Environment</span> <span class=n>env</span><span class=o>,</span> <span class=n>LoadBalancerClientFactory</span> <span class=n>factory</span><span class=o>)</span> <span class=o>{</span>
@@ -295,21 +295,21 @@ Server-C: 当前3个连接  → ✅ 选它！
 </span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>return</span> <span class=n>key</span><span class=o>.</span><span class=na>hashCode</span><span class=o>()</span> <span class=o>&amp;</span> <span class=mh>0x7fffffff</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>一致性哈希的优势：</strong></p><pre tabindex=0><code>传统哈希取模法：                     一致性哈希法：
-                                    
-节点数=3, hash(key)%3                虚拟节点分布在哈希环上
-添加节点后：hash(key)%4              ┌──────── 0 ────────┐
-  → 大部分key的映射都变了！            │                   │
-  → 缓存大量失效！😱                  │    Server-A       │
-                                   │   ┌──────────┐    │
-                                  │   │  虚拟节点  │    │
-                                  │   └──────────┘    │
-添加节点后：                      │                   │
-  → 只有少部分key映射改变           │    Server-C       │
-  → 缓存的命中率更高！✅            └───────────────────┘
-                                    添加Server-D后：
-                                    只有环上 Server-D 附近的一小段区间受到影响
-</code></pre><h3 id=33-负载均衡实战配置>3.3 负载均衡实战配置</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># application.yml</span><span class=w>
+</span></span></code></pre></div><p><strong>一致性哈希的优势：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>传统哈希取模法：                     一致性哈希法：
+</span></span><span class=line><span class=cl>                                    
+</span></span><span class=line><span class=cl>节点数=3, hash(key)%3                虚拟节点分布在哈希环上
+</span></span><span class=line><span class=cl>添加节点后：hash(key)%4              ┌──────── 0 ────────┐
+</span></span><span class=line><span class=cl>  → 大部分key的映射都变了！            │                   │
+</span></span><span class=line><span class=cl>  → 缓存大量失效！😱                  │    Server-A       │
+</span></span><span class=line><span class=cl>                                   │   ┌──────────┐    │
+</span></span><span class=line><span class=cl>                                  │   │  虚拟节点  │    │
+</span></span><span class=line><span class=cl>                                  │   └──────────┘    │
+</span></span><span class=line><span class=cl>添加节点后：                      │                   │
+</span></span><span class=line><span class=cl>  → 只有少部分key映射改变           │    Server-C       │
+</span></span><span class=line><span class=cl>  → 缓存的命中率更高！✅            └───────────────────┘
+</span></span><span class=line><span class=cl>                                    添加Server-D后：
+</span></span><span class=line><span class=cl>                                    只有环上 Server-D 附近的一小段区间受到影响
+</span></span></code></pre></div><h3 id=33-负载均衡实战配置>3.3 负载均衡实战配置</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># application.yml</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spring</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>cloud</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>loadbalancer</span><span class=p>:</span><span class=w>
@@ -352,59 +352,59 @@ Server-C: 当前3个连接  → ✅ 选它！
 </span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=o>.</span><span class=na>build</span><span class=o>(</span><span class=n>context</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><hr><h2 id=四分布式链路追踪>四、分布式链路追踪</h2><h3 id=41-为什么需要链路追踪>4.1 为什么需要链路追踪？</h3><p><strong>Q: 微服务下如何快速定位问题？</strong></p><pre tabindex=0><code>没有链路追踪的困境：
-
-用户反馈：&#34;下单失败了&#34;
-开发者需要排查：
-  1. 查 Gateway 日志 📄
-  2. 查 Order Service 日志 📄
-  3. 查 Payment Service 日志 📄
-  4. 查 Inventory Service 日志 📄
-  5. 查 User Service 日志 📄
-  6. 尝试关联各服务日志的时间戳 🔍
-  → 半天过去了...😫
-
-有了链路追踪：
-  输入 TraceId: &#34;abc123-def456&#34;
-  ┌──────────────────────────────────────────────┐
-  │  TraceId: abc123-def456                      │
-  │  ┌─────────────────────────────────────┐     │
-  │  │ Gateway        200ms                │     │
-  │  │  └─ Order Service   180ms           │     │
-  │  │      ├─ User Service    20ms  ✅    │     │
-  │  │      ├─ Payment Service 800ms ❌    │ ← 慢在这里！ │
-  │  │      └─ Inventory Service 15ms ✅   │     │
-  │  └─────────────────────────────────────┘     │
-  │  结论：Payment Service 调用超时，耗时 800ms     │
-  └──────────────────────────────────────────────┘
-  → 1分钟定位问题！✅
-</code></pre><h3 id=42-链路追踪核心概念>4.2 链路追踪核心概念</h3><pre tabindex=0><code>一次完整的Trace调用链：
-
-TraceId: &#34;trace-001&#34;  ← 全局唯一，贯穿整个调用链
-│
-├── Span-A: [API Gateway]
-│   SpanId: &#34;span-gateway&#34;
-│   ParentSpanId: null  ← 根Span
-│   Timestamp: 1000ms, Duration: 500ms
-│
-├── Span-B: [Order Service] 
-│   SpanId: &#34;span-order&#34;
-│   ParentSpanId: &#34;span-gateway&#34;  ← 父Span是Gateway
-│   Timestamp: 1010ms, Duration: 480ms
-│   Tags: {http.method=POST, http.url=/orders, http.status_code=200}
-│
-├── Span-C: [Payment Service]
-│   SpanId: &#34;span-payment&#34;
-│   ParentSpanId: &#34;span-order&#34;
-│   Timestamp: 1020ms, Duration: 400ms  ← 耗时大户
-│   Tags: {error=true}
-│   Logs: [{timestamp:1020, event:&#34;payment_channel_timeout&#34;}]
-│
-└── Span-D: [Inventory Service]
-    SpanId: &#34;span-inventory&#34;
-    ParentSpanId: &#34;span-order&#34;
-    Timestamp: 1030ms, Duration: 50ms
-</code></pre><h3 id=43-sleuth--zipkin>4.3 Sleuth + Zipkin</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-xml data-lang=xml><span class=line><span class=cl><span class=c>&lt;!-- pom.xml --&gt;</span>
+</span></span></code></pre></div><hr><h2 id=四分布式链路追踪>四、分布式链路追踪</h2><h3 id=41-为什么需要链路追踪>4.1 为什么需要链路追踪？</h3><p><strong>Q: 微服务下如何快速定位问题？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>没有链路追踪的困境：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>用户反馈：&#34;下单失败了&#34;
+</span></span><span class=line><span class=cl>开发者需要排查：
+</span></span><span class=line><span class=cl>  1. 查 Gateway 日志 📄
+</span></span><span class=line><span class=cl>  2. 查 Order Service 日志 📄
+</span></span><span class=line><span class=cl>  3. 查 Payment Service 日志 📄
+</span></span><span class=line><span class=cl>  4. 查 Inventory Service 日志 📄
+</span></span><span class=line><span class=cl>  5. 查 User Service 日志 📄
+</span></span><span class=line><span class=cl>  6. 尝试关联各服务日志的时间戳 🔍
+</span></span><span class=line><span class=cl>  → 半天过去了...😫
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>有了链路追踪：
+</span></span><span class=line><span class=cl>  输入 TraceId: &#34;abc123-def456&#34;
+</span></span><span class=line><span class=cl>  ┌──────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>  │  TraceId: abc123-def456                      │
+</span></span><span class=line><span class=cl>  │  ┌─────────────────────────────────────┐     │
+</span></span><span class=line><span class=cl>  │  │ Gateway        200ms                │     │
+</span></span><span class=line><span class=cl>  │  │  └─ Order Service   180ms           │     │
+</span></span><span class=line><span class=cl>  │  │      ├─ User Service    20ms  ✅    │     │
+</span></span><span class=line><span class=cl>  │  │      ├─ Payment Service 800ms ❌    │ ← 慢在这里！ │
+</span></span><span class=line><span class=cl>  │  │      └─ Inventory Service 15ms ✅   │     │
+</span></span><span class=line><span class=cl>  │  └─────────────────────────────────────┘     │
+</span></span><span class=line><span class=cl>  │  结论：Payment Service 调用超时，耗时 800ms     │
+</span></span><span class=line><span class=cl>  └──────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>  → 1分钟定位问题！✅
+</span></span></code></pre></div><h3 id=42-链路追踪核心概念>4.2 链路追踪核心概念</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>一次完整的Trace调用链：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>TraceId: &#34;trace-001&#34;  ← 全局唯一，贯穿整个调用链
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Span-A: [API Gateway]
+</span></span><span class=line><span class=cl>│   SpanId: &#34;span-gateway&#34;
+</span></span><span class=line><span class=cl>│   ParentSpanId: null  ← 根Span
+</span></span><span class=line><span class=cl>│   Timestamp: 1000ms, Duration: 500ms
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Span-B: [Order Service] 
+</span></span><span class=line><span class=cl>│   SpanId: &#34;span-order&#34;
+</span></span><span class=line><span class=cl>│   ParentSpanId: &#34;span-gateway&#34;  ← 父Span是Gateway
+</span></span><span class=line><span class=cl>│   Timestamp: 1010ms, Duration: 480ms
+</span></span><span class=line><span class=cl>│   Tags: {http.method=POST, http.url=/orders, http.status_code=200}
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── Span-C: [Payment Service]
+</span></span><span class=line><span class=cl>│   SpanId: &#34;span-payment&#34;
+</span></span><span class=line><span class=cl>│   ParentSpanId: &#34;span-order&#34;
+</span></span><span class=line><span class=cl>│   Timestamp: 1020ms, Duration: 400ms  ← 耗时大户
+</span></span><span class=line><span class=cl>│   Tags: {error=true}
+</span></span><span class=line><span class=cl>│   Logs: [{timestamp:1020, event:&#34;payment_channel_timeout&#34;}]
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>└── Span-D: [Inventory Service]
+</span></span><span class=line><span class=cl>    SpanId: &#34;span-inventory&#34;
+</span></span><span class=line><span class=cl>    ParentSpanId: &#34;span-order&#34;
+</span></span><span class=line><span class=cl>    Timestamp: 1030ms, Duration: 50ms
+</span></span></code></pre></div><h3 id=43-sleuth--zipkin>4.3 Sleuth + Zipkin</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-xml data-lang=xml><span class=line><span class=cl><span class=c>&lt;!-- pom.xml --&gt;</span>
 </span></span><span class=line><span class=cl><span class=nt>&lt;dependency&gt;</span>
 </span></span><span class=line><span class=cl>    <span class=nt>&lt;groupId&gt;</span>org.springframework.cloud<span class=nt>&lt;/groupId&gt;</span>
 </span></span><span class=line><span class=cl>    <span class=nt>&lt;artifactId&gt;</span>spring-cloud-starter-sleuth<span class=nt>&lt;/artifactId&gt;</span>
@@ -486,23 +486,23 @@ TraceId: &#34;trace-001&#34;  ← 全局唯一，贯穿整个调用链
 </span></span><span class=line><span class=cl>        <span class=o>}</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><hr><h2 id=五灰度发布与金丝雀部署>五、灰度发布与金丝雀部署</h2><h3 id=51-发布策略演进>5.1 发布策略演进</h3><table><thead><tr><th>策略</th><th>过程</th><th>风险</th><th>回滚速度</th></tr></thead><tbody><tr><td><strong>全量发布</strong></td><td>所有节点一次性更新</td><td>最高 💀</td><td>最慢</td></tr><tr><td><strong>滚动发布</strong></td><td>逐台更新，分批替换</td><td>中</td><td>较快</td></tr><tr><td><strong>蓝绿部署</strong></td><td>两套完整环境，切换流量</td><td>低</td><td>秒级</td></tr><tr><td><strong>金丝雀发布（灰度）</strong></td><td>小部分用户先体验新版本</td><td>最低 ✅</td><td>即时</td></tr></tbody></table><h3 id=52-金丝雀发布原理>5.2 金丝雀发布原理</h3><pre tabindex=0><code>金丝雀（灰度）发布流程：
-
-步骤1：部署新版本到少量实例
-  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-  │ v1.0    │  │ v1.0    │  │ v1.0    │  │ v2.0 🐤 │ ← 金丝雀
-  └──────────┘  └──────────┘  └──────────┘  └──────────┘
-     90%流量      90%流量      90%流量        10%流量
-
-步骤2：监控金丝雀的健康指标
-  - 错误率是否上升？
-  - 响应时间是否恶化？
-  - 业务指标是否异常？
-
-步骤3：逐步扩大或立即回滚
-  ✅ 指标正常 → 逐步增加v2.0比例(10%→30%→50%→100%)
-  ❌ 指标异常 → 立即将流量切回v1.0
-</code></pre><h3 id=53-spring-cloud灰度实现>5.3 Spring Cloud灰度实现</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Nacos 注册时打上版本标签</span><span class=w>
+</span></span></code></pre></div><hr><h2 id=五灰度发布与金丝雀部署>五、灰度发布与金丝雀部署</h2><h3 id=51-发布策略演进>5.1 发布策略演进</h3><table><thead><tr><th>策略</th><th>过程</th><th>风险</th><th>回滚速度</th></tr></thead><tbody><tr><td><strong>全量发布</strong></td><td>所有节点一次性更新</td><td>最高 💀</td><td>最慢</td></tr><tr><td><strong>滚动发布</strong></td><td>逐台更新，分批替换</td><td>中</td><td>较快</td></tr><tr><td><strong>蓝绿部署</strong></td><td>两套完整环境，切换流量</td><td>低</td><td>秒级</td></tr><tr><td><strong>金丝雀发布（灰度）</strong></td><td>小部分用户先体验新版本</td><td>最低 ✅</td><td>即时</td></tr></tbody></table><h3 id=52-金丝雀发布原理>5.2 金丝雀发布原理</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>金丝雀（灰度）发布流程：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>步骤1：部署新版本到少量实例
+</span></span><span class=line><span class=cl>  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+</span></span><span class=line><span class=cl>  │ v1.0    │  │ v1.0    │  │ v1.0    │  │ v2.0 🐤 │ ← 金丝雀
+</span></span><span class=line><span class=cl>  └──────────┘  └──────────┘  └──────────┘  └──────────┘
+</span></span><span class=line><span class=cl>     90%流量      90%流量      90%流量        10%流量
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>步骤2：监控金丝雀的健康指标
+</span></span><span class=line><span class=cl>  - 错误率是否上升？
+</span></span><span class=line><span class=cl>  - 响应时间是否恶化？
+</span></span><span class=line><span class=cl>  - 业务指标是否异常？
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>步骤3：逐步扩大或立即回滚
+</span></span><span class=line><span class=cl>  ✅ 指标正常 → 逐步增加v2.0比例(10%→30%→50%→100%)
+</span></span><span class=line><span class=cl>  ❌ 指标异常 → 立即将流量切回v1.0
+</span></span></code></pre></div><h3 id=53-spring-cloud灰度实现>5.3 Spring Cloud灰度实现</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Nacos 注册时打上版本标签</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spring</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>cloud</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>nacos</span><span class=p>:</span><span class=w>
@@ -570,34 +570,34 @@ TraceId: &#34;trace-001&#34;  ← 全局唯一，贯穿整个调用链
 </span></span><span class=line><span class=cl>        <span class=o>};</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=54-全链路灰度方案>5.4 全链路灰度方案</h3><pre tabindex=0><code>全链路灰度（从网关到数据库）：
-
-普通用户链路：
-  用户 → Gateway → Order(v1) → Payment(v1) → Inventory(v1) → DB(主)
-
-灰度用户链路：
-  用户 → Gateway → Order(v2🐤) → Payment(v2🐤) → Inventory(v2🐤) → DB(主)
-
-关键实现：
-  - 请求入口打标（Header: X-Lane=canary）
-  - 服务间调用透传标签
-  - 负载均衡根据标签路由
-  - Feign拦截器自动透传
-
-// Feign拦截器透传灰度标签
-@Component
-public class GrayFeignInterceptor implements RequestInterceptor {
-    
-    @Override
-    public void apply(RequestTemplate template) {
-        // 从当前请求上下文中获取灰度标签并透传
-        String grayTag = GrayContextHolder.getGrayTag();
-        if (grayTag != null) {
-            template.header(&#34;X-Lane&#34;, grayTag);
-        }
-    }
-}
-</code></pre><hr><h2 id=六面试高频真题>六、面试高频真题</h2><h3 id=q1-熔断和降级的区别>Q1: 熔断和降级的区别？</h3><table><thead><tr><th>维度</th><th>熔断（Circuit Breaker）</th><th>降级（Fallback）</th></tr></thead><tbody><tr><td>触发条件</td><td>错误率/慢调用率达到阈值</td><td>熔断触发后 / 主动关闭非核心功能</td></tr><tr><td>行为</td><td>快速失败，不再调用下游</td><td>返回兜底数据或替代逻辑</td></tr><tr><td>粒度</td><td>服务级别（对整个下游）</td><td>方法级别（对单个接口）</td></tr><tr><td>关系</td><td>熔断是一种保护机制</td><td>降级是熔断后的具体处理手段</td></tr></tbody></table><p><strong>比喻</strong>：熔断像家里的漏电保护器（发现异常自动跳闸），降级像是跳闸后用蜡烛照明（用备选方案维持基本功能）。</p><h3 id=q2-限流算法如何选型>Q2: 限流算法如何选型？</h3><table><thead><tr><th>场景</th><th>推荐算法</th><th>原因</th></tr></thead><tbody><tr><td>Web接口QPS限流</td><td>滑动窗口</td><td>统计精准，内存占用可控</td></tr><tr><td>网关层全局限流</td><td>令牌桶</td><td>允许一定突发流量</td></tr><tr><td>第三方API调用</td><td>漏桶（匀速排队）</td><td>保护下游，匀速调用</td></tr><tr><td>系统冷启动保护</td><td>预热/令牌桶</td><td>缓慢放开流量</td></tr><tr><td>分布式限流</td><td>Redis + 滑动窗口</td><td>跨节点统一计数</td></tr></tbody></table><h3 id=q3-如何实现分布式限流>Q3: 如何实现分布式限流？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Redis + Lua 实现分布式限流
+</span></span></code></pre></div><h3 id=54-全链路灰度方案>5.4 全链路灰度方案</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>全链路灰度（从网关到数据库）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>普通用户链路：
+</span></span><span class=line><span class=cl>  用户 → Gateway → Order(v1) → Payment(v1) → Inventory(v1) → DB(主)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>灰度用户链路：
+</span></span><span class=line><span class=cl>  用户 → Gateway → Order(v2🐤) → Payment(v2🐤) → Inventory(v2🐤) → DB(主)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>关键实现：
+</span></span><span class=line><span class=cl>  - 请求入口打标（Header: X-Lane=canary）
+</span></span><span class=line><span class=cl>  - 服务间调用透传标签
+</span></span><span class=line><span class=cl>  - 负载均衡根据标签路由
+</span></span><span class=line><span class=cl>  - Feign拦截器自动透传
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>// Feign拦截器透传灰度标签
+</span></span><span class=line><span class=cl>@Component
+</span></span><span class=line><span class=cl>public class GrayFeignInterceptor implements RequestInterceptor {
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    @Override
+</span></span><span class=line><span class=cl>    public void apply(RequestTemplate template) {
+</span></span><span class=line><span class=cl>        // 从当前请求上下文中获取灰度标签并透传
+</span></span><span class=line><span class=cl>        String grayTag = GrayContextHolder.getGrayTag();
+</span></span><span class=line><span class=cl>        if (grayTag != null) {
+</span></span><span class=line><span class=cl>            template.header(&#34;X-Lane&#34;, grayTag);
+</span></span><span class=line><span class=cl>        }
+</span></span><span class=line><span class=cl>    }
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></div><hr><h2 id=六面试高频真题>六、面试高频真题</h2><h3 id=q1-熔断和降级的区别>Q1: 熔断和降级的区别？</h3><table><thead><tr><th>维度</th><th>熔断（Circuit Breaker）</th><th>降级（Fallback）</th></tr></thead><tbody><tr><td>触发条件</td><td>错误率/慢调用率达到阈值</td><td>熔断触发后 / 主动关闭非核心功能</td></tr><tr><td>行为</td><td>快速失败，不再调用下游</td><td>返回兜底数据或替代逻辑</td></tr><tr><td>粒度</td><td>服务级别（对整个下游）</td><td>方法级别（对单个接口）</td></tr><tr><td>关系</td><td>熔断是一种保护机制</td><td>降级是熔断后的具体处理手段</td></tr></tbody></table><p><strong>比喻</strong>：熔断像家里的漏电保护器（发现异常自动跳闸），降级像是跳闸后用蜡烛照明（用备选方案维持基本功能）。</p><h3 id=q2-限流算法如何选型>Q2: 限流算法如何选型？</h3><table><thead><tr><th>场景</th><th>推荐算法</th><th>原因</th></tr></thead><tbody><tr><td>Web接口QPS限流</td><td>滑动窗口</td><td>统计精准，内存占用可控</td></tr><tr><td>网关层全局限流</td><td>令牌桶</td><td>允许一定突发流量</td></tr><tr><td>第三方API调用</td><td>漏桶（匀速排队）</td><td>保护下游，匀速调用</td></tr><tr><td>系统冷启动保护</td><td>预热/令牌桶</td><td>缓慢放开流量</td></tr><tr><td>分布式限流</td><td>Redis + 滑动窗口</td><td>跨节点统一计数</td></tr></tbody></table><h3 id=q3-如何实现分布式限流>Q3: 如何实现分布式限流？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Redis + Lua 实现分布式限流
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Component</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>DistributedRateLimiter</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
@@ -635,27 +635,27 @@ public class GrayFeignInterceptor implements RequestInterceptor {
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=c1>// Lua脚本保证原子性：INCR + EXPIRE 要么都执行，要么都不执行
-</span></span></span></code></pre></div><h3 id=q4-如何设计一个高可用的注册中心>Q4: 如何设计一个高可用的注册中心？</h3><pre tabindex=0><code>注册中心高可用设计要点：
-
-1. 集群部署：
-   Nacos集群 = 3节点以上（Raft协议需要奇数）
-   
-2. 数据一致性：
-   临时实例 → AP模式（Distro协议）
-   持久实例 → CP模式（Raft协议）
-   
-3. 自我保护：
-   15分钟内心跳失败 &gt; 85% → 进入自我保护模式
-   不剔除任何实例，宁可保留不健康节点
-   
-4. 健康检查：
-   主动探活（TCP/HTTP/MySQL检查）
-   被动上报（客户端心跳）
-   
-5. 故障转移：
-   客户端本地缓存服务列表
-   注册中心全部挂掉后，仍可基于缓存列表调用
-</code></pre><h3 id=q5-链路追踪的采样策略如何设计>Q5: 链路追踪的采样策略如何设计？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 自适应采样策略</span><span class=w>
+</span></span></span></code></pre></div><h3 id=q4-如何设计一个高可用的注册中心>Q4: 如何设计一个高可用的注册中心？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>注册中心高可用设计要点：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>1. 集群部署：
+</span></span><span class=line><span class=cl>   Nacos集群 = 3节点以上（Raft协议需要奇数）
+</span></span><span class=line><span class=cl>   
+</span></span><span class=line><span class=cl>2. 数据一致性：
+</span></span><span class=line><span class=cl>   临时实例 → AP模式（Distro协议）
+</span></span><span class=line><span class=cl>   持久实例 → CP模式（Raft协议）
+</span></span><span class=line><span class=cl>   
+</span></span><span class=line><span class=cl>3. 自我保护：
+</span></span><span class=line><span class=cl>   15分钟内心跳失败 &gt; 85% → 进入自我保护模式
+</span></span><span class=line><span class=cl>   不剔除任何实例，宁可保留不健康节点
+</span></span><span class=line><span class=cl>   
+</span></span><span class=line><span class=cl>4. 健康检查：
+</span></span><span class=line><span class=cl>   主动探活（TCP/HTTP/MySQL检查）
+</span></span><span class=line><span class=cl>   被动上报（客户端心跳）
+</span></span><span class=line><span class=cl>   
+</span></span><span class=line><span class=cl>5. 故障转移：
+</span></span><span class=line><span class=cl>   客户端本地缓存服务列表
+</span></span><span class=line><span class=cl>   注册中心全部挂掉后，仍可基于缓存列表调用
+</span></span></code></pre></div><h3 id=q5-链路追踪的采样策略如何设计>Q5: 链路追踪的采样策略如何设计？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 自适应采样策略</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spring</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>sleuth</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>sampler</span><span class=p>:</span><span class=w>

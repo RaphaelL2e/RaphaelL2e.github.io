@@ -9,27 +9,27 @@
 <a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Java AQS 深度解析：并发编程的基石</h1><p class=article-description>面试高频问题：AQS 的原理是什么？CLH 队列是怎么实现的？独占模式和共享模式有什么区别？为什么 AQS 是并发包的基石？ AbstractQueuedSynchronizer（AQS）是 Java 并发包（java.util.concurrent）中最核心的框架类，ReentrantLock、C。</p><div class=article-meta><span>发布于 <time datetime=2026-06-07>2026-06-07</time></span>
 <span>最后验证 2026-06</span>
 <span>9 分钟阅读</span>
-<span>1841 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#引言>引言</a></li><li><a href=#一aqs-核心设计思想>一、AQS 核心设计思想</a><ul><li><a href=#11-模板方法模式>1.1 模板方法模式</a></li><li><a href=#12-核心状态变量>1.2 核心状态变量</a></li><li><a href=#13-fifo-等待队列clh-变体>1.3 FIFO 等待队列（CLH 变体）</a></li></ul></li><li><a href=#二独占模式源码全流程>二、独占模式源码全流程</a><ul><li><a href=#21-acquireint-arg--获取独占锁>2.1 acquire(int arg) — 获取独占锁</a></li><li><a href=#22-tryacquire--子类实现获取逻辑>2.2 tryAcquire — 子类实现获取逻辑</a></li><li><a href=#23-addwaiter--入队操作>2.3 addWaiter — 入队操作</a></li><li><a href=#24-acquirequeued--自旋获取与阻塞>2.4 acquireQueued — 自旋获取与阻塞</a></li><li><a href=#25-shouldparkafterfailedacquire--判断是否阻塞>2.5 shouldParkAfterFailedAcquire — 判断是否阻塞</a></li><li><a href=#26-releaseint-arg--释放独占锁>2.6 release(int arg) — 释放独占锁</a></li></ul></li><li><a href=#三共享模式源码全流程>三、共享模式源码全流程</a><ul><li><a href=#31-acquiresharedint-arg--获取共享锁>3.1 acquireShared(int arg) — 获取共享锁</a></li><li><a href=#32-setheadandpropagate--传播唤醒>3.2 setHeadAndPropagate — 传播唤醒</a></li><li><a href=#33-semaphore-中的共享实现>3.3 Semaphore 中的共享实现</a></li><li><a href=#34-countdownlatch-中的共享实现>3.4 CountDownLatch 中的共享实现</a></li></ul></li><li><a href=#四condition-条件队列>四、Condition 条件队列</a><ul><li><a href=#41-condition-与-aqs-的关系>4.1 Condition 与 AQS 的关系</a></li><li><a href=#42-await--等待条件>4.2 await() — 等待条件</a></li><li><a href=#43-signal--唤醒等待线程>4.3 signal() — 唤醒等待线程</a></li></ul></li><li><a href=#五取消与中断处理>五、取消与中断处理</a><ul><li><a href=#51-cancelacquire--取消节点>5.1 cancelAcquire — 取消节点</a></li><li><a href=#52-中断的处理策略>5.2 中断的处理策略</a></li></ul></li><li><a href=#六公平与非公平锁对比>六、公平与非公平锁对比</a><ul><li><a href=#61-fairsync-vs-nonfairsync>6.1 FairSync vs NonfairSync</a></li><li><a href=#62-hasqueuedpredecessors>6.2 hasQueuedPredecessors</a></li></ul></li><li><a href=#七aqs-应用全景>七、AQS 应用全景</a><ul><li><a href=#71-各工具类使用-aqs-的方式>7.1 各工具类使用 AQS 的方式</a></li><li><a href=#72-基于-aqs-自定义同步器>7.2 基于 AQS 自定义同步器</a></li></ul></li><li><a href=#八常见面试题>八、常见面试题</a><ul><li><a href=#q1-aqs-为什么用-clh-队列而不是普通队列>Q1: AQS 为什么用 CLH 队列而不是普通队列？</a></li><li><a href=#q2-aqs-的-state-为什么用-volatile--cas-而不是直接用锁>Q2: AQS 的 state 为什么用 volatile + CAS 而不是直接用锁？</a></li><li><a href=#q3-独占模式和共享模式的本质区别>Q3: 独占模式和共享模式的本质区别？</a></li><li><a href=#q4-为什么-unparksuccessor-要从尾部向前查找>Q4: 为什么 unparkSuccessor 要从尾部向前查找？</a></li><li><a href=#q5-公平锁一定比非公平锁慢吗>Q5: 公平锁一定比非公平锁慢吗？</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：AQS 的原理是什么？CLH 队列是怎么实现的？独占模式和共享模式有什么区别？为什么 AQS 是并发包的基石？</p></blockquote><h2 id=引言>引言</h2><p><code>AbstractQueuedSynchronizer</code>（AQS）是 Java 并发包（<code>java.util.concurrent</code>）中最核心的框架类，ReentrantLock、CountDownLatch、Semaphore、ReentrantReadWriteLock 等常用并发工具类都基于 AQS 实现。理解 AQS 是深入掌握 Java 并发编程的必经之路。</p><p><strong>本文要点</strong>：</p><ul><li>AQS 核心设计思想与架构</li><li>CLH 队列（FIFO 等待队列）的实现</li><li>独占模式（Exclusive）源码全流程</li><li>共享模式（Shared）源码全流程</li><li>Condition 条件队列机制</li><li>AQS 在并发工具类中的应用</li></ul><h2 id=一aqs-核心设计思想>一、AQS 核心设计思想</h2><h3 id=11-模板方法模式>1.1 模板方法模式</h3><p>AQS 采用<strong>模板方法模式</strong>，将同步状态的管理和线程排队封装在基类中，子类只需实现特定方法来定义获取和释放同步状态的逻辑。</p><pre tabindex=0><code>┌──────────────────────────────────────────────┐
-│                  AQS 基类                     │
-│                                              │
-│  ┌─ 模板方法（不可重写）────────────────────┐  │
-│  │ acquire()       独占获取                  │  │
-│  │ release()       独占释放                  │  │
-│  │ acquireShared() 共享获取                  │  │
-│  │ releaseShared() 共享释放                  │  │
-│  └───────────────────────────────────────────┘  │
-│  ┌─ 钩子方法（子类重写）────────────────────┐  │
-│  │ tryAcquire()    独占式尝试获取            │  │
-│  │ tryRelease()    独占式尝试释放            │  │
-│  │ tryAcquireShared() 共享式尝试获取         │  │
-│  │ tryReleaseShared() 共享式尝试释放         │  │
-│  │ isHeldExclusively() 是否被独占持有        │  │
-│  └───────────────────────────────────────────┘  │
-└──────────────────────────────────────────────┘
-        ▲           ▲           ▲
-        │           │           │
-  ReentrantLock  CountDownLatch  Semaphore
-</code></pre><h3 id=12-核心状态变量>1.2 核心状态变量</h3><p>AQS 的核心是一个 <code>volatile int state</code>，通过 CAS 操作来修改：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>abstract</span> <span class=kd>class</span> <span class=nc>AbstractQueuedSynchronizer</span>
+<span>1841 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#引言>引言</a></li><li><a href=#一aqs-核心设计思想>一、AQS 核心设计思想</a><ul><li><a href=#11-模板方法模式>1.1 模板方法模式</a></li><li><a href=#12-核心状态变量>1.2 核心状态变量</a></li><li><a href=#13-fifo-等待队列clh-变体>1.3 FIFO 等待队列（CLH 变体）</a></li></ul></li><li><a href=#二独占模式源码全流程>二、独占模式源码全流程</a><ul><li><a href=#21-acquireint-arg--获取独占锁>2.1 acquire(int arg) — 获取独占锁</a></li><li><a href=#22-tryacquire--子类实现获取逻辑>2.2 tryAcquire — 子类实现获取逻辑</a></li><li><a href=#23-addwaiter--入队操作>2.3 addWaiter — 入队操作</a></li><li><a href=#24-acquirequeued--自旋获取与阻塞>2.4 acquireQueued — 自旋获取与阻塞</a></li><li><a href=#25-shouldparkafterfailedacquire--判断是否阻塞>2.5 shouldParkAfterFailedAcquire — 判断是否阻塞</a></li><li><a href=#26-releaseint-arg--释放独占锁>2.6 release(int arg) — 释放独占锁</a></li></ul></li><li><a href=#三共享模式源码全流程>三、共享模式源码全流程</a><ul><li><a href=#31-acquiresharedint-arg--获取共享锁>3.1 acquireShared(int arg) — 获取共享锁</a></li><li><a href=#32-setheadandpropagate--传播唤醒>3.2 setHeadAndPropagate — 传播唤醒</a></li><li><a href=#33-semaphore-中的共享实现>3.3 Semaphore 中的共享实现</a></li><li><a href=#34-countdownlatch-中的共享实现>3.4 CountDownLatch 中的共享实现</a></li></ul></li><li><a href=#四condition-条件队列>四、Condition 条件队列</a><ul><li><a href=#41-condition-与-aqs-的关系>4.1 Condition 与 AQS 的关系</a></li><li><a href=#42-await--等待条件>4.2 await() — 等待条件</a></li><li><a href=#43-signal--唤醒等待线程>4.3 signal() — 唤醒等待线程</a></li></ul></li><li><a href=#五取消与中断处理>五、取消与中断处理</a><ul><li><a href=#51-cancelacquire--取消节点>5.1 cancelAcquire — 取消节点</a></li><li><a href=#52-中断的处理策略>5.2 中断的处理策略</a></li></ul></li><li><a href=#六公平与非公平锁对比>六、公平与非公平锁对比</a><ul><li><a href=#61-fairsync-vs-nonfairsync>6.1 FairSync vs NonfairSync</a></li><li><a href=#62-hasqueuedpredecessors>6.2 hasQueuedPredecessors</a></li></ul></li><li><a href=#七aqs-应用全景>七、AQS 应用全景</a><ul><li><a href=#71-各工具类使用-aqs-的方式>7.1 各工具类使用 AQS 的方式</a></li><li><a href=#72-基于-aqs-自定义同步器>7.2 基于 AQS 自定义同步器</a></li></ul></li><li><a href=#八常见面试题>八、常见面试题</a><ul><li><a href=#q1-aqs-为什么用-clh-队列而不是普通队列>Q1: AQS 为什么用 CLH 队列而不是普通队列？</a></li><li><a href=#q2-aqs-的-state-为什么用-volatile--cas-而不是直接用锁>Q2: AQS 的 state 为什么用 volatile + CAS 而不是直接用锁？</a></li><li><a href=#q3-独占模式和共享模式的本质区别>Q3: 独占模式和共享模式的本质区别？</a></li><li><a href=#q4-为什么-unparksuccessor-要从尾部向前查找>Q4: 为什么 unparkSuccessor 要从尾部向前查找？</a></li><li><a href=#q5-公平锁一定比非公平锁慢吗>Q5: 公平锁一定比非公平锁慢吗？</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：AQS 的原理是什么？CLH 队列是怎么实现的？独占模式和共享模式有什么区别？为什么 AQS 是并发包的基石？</p></blockquote><h2 id=引言>引言</h2><p><code>AbstractQueuedSynchronizer</code>（AQS）是 Java 并发包（<code>java.util.concurrent</code>）中最核心的框架类，ReentrantLock、CountDownLatch、Semaphore、ReentrantReadWriteLock 等常用并发工具类都基于 AQS 实现。理解 AQS 是深入掌握 Java 并发编程的必经之路。</p><p><strong>本文要点</strong>：</p><ul><li>AQS 核心设计思想与架构</li><li>CLH 队列（FIFO 等待队列）的实现</li><li>独占模式（Exclusive）源码全流程</li><li>共享模式（Shared）源码全流程</li><li>Condition 条件队列机制</li><li>AQS 在并发工具类中的应用</li></ul><h2 id=一aqs-核心设计思想>一、AQS 核心设计思想</h2><h3 id=11-模板方法模式>1.1 模板方法模式</h3><p>AQS 采用<strong>模板方法模式</strong>，将同步状态的管理和线程排队封装在基类中，子类只需实现特定方法来定义获取和释放同步状态的逻辑。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌──────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                  AQS 基类                     │
+</span></span><span class=line><span class=cl>│                                              │
+</span></span><span class=line><span class=cl>│  ┌─ 模板方法（不可重写）────────────────────┐  │
+</span></span><span class=line><span class=cl>│  │ acquire()       独占获取                  │  │
+</span></span><span class=line><span class=cl>│  │ release()       独占释放                  │  │
+</span></span><span class=line><span class=cl>│  │ acquireShared() 共享获取                  │  │
+</span></span><span class=line><span class=cl>│  │ releaseShared() 共享释放                  │  │
+</span></span><span class=line><span class=cl>│  └───────────────────────────────────────────┘  │
+</span></span><span class=line><span class=cl>│  ┌─ 钩子方法（子类重写）────────────────────┐  │
+</span></span><span class=line><span class=cl>│  │ tryAcquire()    独占式尝试获取            │  │
+</span></span><span class=line><span class=cl>│  │ tryRelease()    独占式尝试释放            │  │
+</span></span><span class=line><span class=cl>│  │ tryAcquireShared() 共享式尝试获取         │  │
+</span></span><span class=line><span class=cl>│  │ tryReleaseShared() 共享式尝试释放         │  │
+</span></span><span class=line><span class=cl>│  │ isHeldExclusively() 是否被独占持有        │  │
+</span></span><span class=line><span class=cl>│  └───────────────────────────────────────────┘  │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>        ▲           ▲           ▲
+</span></span><span class=line><span class=cl>        │           │           │
+</span></span><span class=line><span class=cl>  ReentrantLock  CountDownLatch  Semaphore
+</span></span></code></pre></div><h3 id=12-核心状态变量>1.2 核心状态变量</h3><p>AQS 的核心是一个 <code>volatile int state</code>，通过 CAS 操作来修改：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>abstract</span> <span class=kd>class</span> <span class=nc>AbstractQueuedSynchronizer</span>
 </span></span><span class=line><span class=cl>    <span class=kd>extends</span> <span class=n>AbstractOwnableSynchronizer</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl>    <span class=c1>// 同步状态，volatile保证可见性
@@ -40,16 +40,16 @@
 </span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>unsafe</span><span class=o>.</span><span class=na>compareAndSwapInt</span><span class=o>(</span><span class=k>this</span><span class=o>,</span> <span class=n>stateOffset</span><span class=o>,</span> <span class=n>expect</span><span class=o>,</span> <span class=n>update</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>不同工具类对 state 的语义</strong>：</p><table><thead><tr><th>工具类</th><th>state 含义</th><th>初始值</th></tr></thead><tbody><tr><td>ReentrantLock</td><td>锁重入次数</td><td>0（未锁定）</td></tr><tr><td>CountDownLatch</td><td>剩余计数</td><td>N（初始计数）</td></tr><tr><td>Semaphore</td><td>可用许可数</td><td>permits</td></tr><tr><td>ReentrantReadWriteLock</td><td>高16位=读锁持有数，低16位=写锁重入数</td><td>0</td></tr></tbody></table><h3 id=13-fifo-等待队列clh-变体>1.3 FIFO 等待队列（CLH 变体）</h3><p>AQS 内部维护一个 <strong>CLH（Craig, Landin, and Hagersten）队列变体</strong>的双向链表：</p><pre tabindex=0><code>     head          Node          Node          tail
-       │             │             │             │
-       ▼             ▼             ▼             ▼
-  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
-  │ sentinel │←→│ Thread-A │←→│ Thread-B │←→│ Thread-C │
-  │ (空节点) │  │ SIGNAL   │  │ SIGNAL   │  │ 0       │
-  └─────────┘  └─────────┘  └─────────┘  └─────────┘
-       ↑
-   获取到锁的线程
-</code></pre><p><strong>Node 节点核心字段</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>static</span> <span class=kd>final</span> <span class=kd>class</span> <span class=nc>Node</span> <span class=o>{</span>
+</span></span></code></pre></div><p><strong>不同工具类对 state 的语义</strong>：</p><table><thead><tr><th>工具类</th><th>state 含义</th><th>初始值</th></tr></thead><tbody><tr><td>ReentrantLock</td><td>锁重入次数</td><td>0（未锁定）</td></tr><tr><td>CountDownLatch</td><td>剩余计数</td><td>N（初始计数）</td></tr><tr><td>Semaphore</td><td>可用许可数</td><td>permits</td></tr><tr><td>ReentrantReadWriteLock</td><td>高16位=读锁持有数，低16位=写锁重入数</td><td>0</td></tr></tbody></table><h3 id=13-fifo-等待队列clh-变体>1.3 FIFO 等待队列（CLH 变体）</h3><p>AQS 内部维护一个 <strong>CLH（Craig, Landin, and Hagersten）队列变体</strong>的双向链表：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>     head          Node          Node          tail
+</span></span><span class=line><span class=cl>       │             │             │             │
+</span></span><span class=line><span class=cl>       ▼             ▼             ▼             ▼
+</span></span><span class=line><span class=cl>  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>  │ sentinel │←→│ Thread-A │←→│ Thread-B │←→│ Thread-C │
+</span></span><span class=line><span class=cl>  │ (空节点) │  │ SIGNAL   │  │ SIGNAL   │  │ 0       │
+</span></span><span class=line><span class=cl>  └─────────┘  └─────────┘  └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>       ↑
+</span></span><span class=line><span class=cl>   获取到锁的线程
+</span></span></code></pre></div><p><strong>Node 节点核心字段</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>static</span> <span class=kd>final</span> <span class=kd>class</span> <span class=nc>Node</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 等待状态
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kd>volatile</span> <span class=kt>int</span> <span class=n>waitStatus</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 前驱节点
@@ -72,26 +72,26 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=n>acquireQueued</span><span class=o>(</span><span class=n>addWaiter</span><span class=o>(</span><span class=n>Node</span><span class=o>.</span><span class=na>EXCLUSIVE</span><span class=o>),</span> <span class=n>arg</span><span class=o>))</span>  <span class=c1>// ② 获取失败，入队并阻塞
 </span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=n>selfInterrupt</span><span class=o>();</span>                       <span class=c1>// ③ 如果被中断过，恢复中断标志
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=o>}</span>
-</span></span></code></pre></div><p><strong>流程图</strong>：</p><pre tabindex=0><code>tryAcquire(arg)
-    │
-    ├─ 成功 → 获取到锁，返回
-    │
-    └─ 失败
-        │
-        addWaiter(EXCLUSIVE)  ← 将当前线程包装为Node加入队尾
-            │
-            acquireQueued(node, arg)  ← 在队列中自旋/阻塞等待
-                │
-                ├─ 前驱是head且tryAcquire成功 → 获取到锁
-                │
-                ├─ shouldParkAfterFailedAcquire → 判断是否需要阻塞
-                │       │
-                │       ├─ 前驱waitStatus=SIGNAL → parkAndCheckInterrupt() 阻塞
-                │       │
-                │       └─ 否则 → 修改前驱状态，继续自旋
-                │
-                └─ 被唤醒后重试获取锁
-</code></pre><h3 id=22-tryacquire--子类实现获取逻辑>2.2 tryAcquire — 子类实现获取逻辑</h3><p>以 ReentrantLock 的公平锁为例：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// FairSync.tryAcquire
+</span></span></code></pre></div><p><strong>流程图</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>tryAcquire(arg)
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ├─ 成功 → 获取到锁，返回
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └─ 失败
+</span></span><span class=line><span class=cl>        │
+</span></span><span class=line><span class=cl>        addWaiter(EXCLUSIVE)  ← 将当前线程包装为Node加入队尾
+</span></span><span class=line><span class=cl>            │
+</span></span><span class=line><span class=cl>            acquireQueued(node, arg)  ← 在队列中自旋/阻塞等待
+</span></span><span class=line><span class=cl>                │
+</span></span><span class=line><span class=cl>                ├─ 前驱是head且tryAcquire成功 → 获取到锁
+</span></span><span class=line><span class=cl>                │
+</span></span><span class=line><span class=cl>                ├─ shouldParkAfterFailedAcquire → 判断是否需要阻塞
+</span></span><span class=line><span class=cl>                │       │
+</span></span><span class=line><span class=cl>                │       ├─ 前驱waitStatus=SIGNAL → parkAndCheckInterrupt() 阻塞
+</span></span><span class=line><span class=cl>                │       │
+</span></span><span class=line><span class=cl>                │       └─ 否则 → 修改前驱状态，继续自旋
+</span></span><span class=line><span class=cl>                │
+</span></span><span class=line><span class=cl>                └─ 被唤醒后重试获取锁
+</span></span></code></pre></div><h3 id=22-tryacquire--子类实现获取逻辑>2.2 tryAcquire — 子类实现获取逻辑</h3><p>以 ReentrantLock 的公平锁为例：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// FairSync.tryAcquire
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>protected</span> <span class=kd>final</span> <span class=kt>boolean</span> <span class=nf>tryAcquire</span><span class=o>(</span><span class=kt>int</span> <span class=n>acquires</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>final</span> <span class=n>Thread</span> <span class=n>current</span> <span class=o>=</span> <span class=n>Thread</span><span class=o>.</span><span class=na>currentThread</span><span class=o>();</span>
 </span></span><span class=line><span class=cl>    <span class=kt>int</span> <span class=n>c</span> <span class=o>=</span> <span class=n>getState</span><span class=o>();</span>
@@ -143,18 +143,18 @@
 </span></span><span class=line><span class=cl>        <span class=o>}</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>入队过程示意</strong>：</p><pre tabindex=0><code>初始状态（空队列）：
-  head = tail = null
-
-Step 1: 初始化哨兵节点
-  head → [sentinel] ← tail
-
-Step 2: Thread-A 入队
-  head → [sentinel] ↔ [Thread-A] ← tail
-
-Step 3: Thread-B 入队
-  head → [sentinel] ↔ [Thread-A] ↔ [Thread-B] ← tail
-</code></pre><h3 id=24-acquirequeued--自旋获取与阻塞>2.4 acquireQueued — 自旋获取与阻塞</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>final</span> <span class=kt>boolean</span> <span class=nf>acquireQueued</span><span class=o>(</span><span class=kd>final</span> <span class=n>Node</span> <span class=n>node</span><span class=o>,</span> <span class=kt>int</span> <span class=n>arg</span><span class=o>)</span> <span class=o>{</span>
+</span></span></code></pre></div><p><strong>入队过程示意</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>初始状态（空队列）：
+</span></span><span class=line><span class=cl>  head = tail = null
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 1: 初始化哨兵节点
+</span></span><span class=line><span class=cl>  head → [sentinel] ← tail
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 2: Thread-A 入队
+</span></span><span class=line><span class=cl>  head → [sentinel] ↔ [Thread-A] ← tail
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 3: Thread-B 入队
+</span></span><span class=line><span class=cl>  head → [sentinel] ↔ [Thread-A] ↔ [Thread-B] ← tail
+</span></span></code></pre></div><h3 id=24-acquirequeued--自旋获取与阻塞>2.4 acquireQueued — 自旋获取与阻塞</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>final</span> <span class=kt>boolean</span> <span class=nf>acquireQueued</span><span class=o>(</span><span class=kd>final</span> <span class=n>Node</span> <span class=n>node</span><span class=o>,</span> <span class=kt>int</span> <span class=n>arg</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kt>boolean</span> <span class=n>failed</span> <span class=o>=</span> <span class=kc>true</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=k>try</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>        <span class=kt>boolean</span> <span class=n>interrupted</span> <span class=o>=</span> <span class=kc>false</span><span class=o>;</span>
@@ -302,12 +302,12 @@ Step 3: Thread-B 入队
 </span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=n>nextc</span> <span class=o>==</span> <span class=mi>0</span><span class=o>;</span>  <span class=c1>// 减到0时返回true，触发唤醒
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h2 id=四condition-条件队列>四、Condition 条件队列</h2><h3 id=41-condition-与-aqs-的关系>4.1 Condition 与 AQS 的关系</h3><p>每个 ConditionObject 维护一个独立的<strong>条件队列</strong>（单向链表），与 AQS 的<strong>同步队列</strong>（双向链表）是两个独立的队列。</p><pre tabindex=0><code>同步队列（AQS queue）：
-  head → [sentinel] ↔ [Thread-A] ↔ [Thread-B] ← tail
-
-条件队列（Condition queue）：
-  firstWaiter → [Thread-C] → [Thread-D] → null
-</code></pre><h3 id=42-await--等待条件>4.2 await() — 等待条件</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>final</span> <span class=kt>void</span> <span class=nf>await</span><span class=o>()</span> <span class=kd>throws</span> <span class=n>InterruptedException</span> <span class=o>{</span>
+</span></span></code></pre></div><h2 id=四condition-条件队列>四、Condition 条件队列</h2><h3 id=41-condition-与-aqs-的关系>4.1 Condition 与 AQS 的关系</h3><p>每个 ConditionObject 维护一个独立的<strong>条件队列</strong>（单向链表），与 AQS 的<strong>同步队列</strong>（双向链表）是两个独立的队列。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>同步队列（AQS queue）：
+</span></span><span class=line><span class=cl>  head → [sentinel] ↔ [Thread-A] ↔ [Thread-B] ← tail
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>条件队列（Condition queue）：
+</span></span><span class=line><span class=cl>  firstWaiter → [Thread-C] → [Thread-D] → null
+</span></span></code></pre></div><h3 id=42-await--等待条件>4.2 await() — 等待条件</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>final</span> <span class=kt>void</span> <span class=nf>await</span><span class=o>()</span> <span class=kd>throws</span> <span class=n>InterruptedException</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=o>(</span><span class=n>Thread</span><span class=o>.</span><span class=na>interrupted</span><span class=o>())</span>
 </span></span><span class=line><span class=cl>        <span class=k>throw</span> <span class=k>new</span> <span class=n>InterruptedException</span><span class=o>();</span>
 </span></span><span class=line><span class=cl>    <span class=n>Node</span> <span class=n>node</span> <span class=o>=</span> <span class=n>addConditionWaiter</span><span class=o>();</span>     <span class=c1>// ① 加入条件队列
@@ -342,21 +342,21 @@ Step 3: Thread-B 入队
 </span></span><span class=line><span class=cl>    <span class=o>}</span> <span class=k>while</span> <span class=o>(!</span><span class=n>transferForSignal</span><span class=o>(</span><span class=n>first</span><span class=o>)</span> <span class=o>&amp;&amp;</span>  <span class=c1>// CAS+unpark
 </span></span></span><span class=line><span class=cl><span class=c1></span>             <span class=o>(</span><span class=n>first</span> <span class=o>=</span> <span class=n>firstWaiter</span><span class=o>)</span> <span class=o>!=</span> <span class=kc>null</span><span class=o>);</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>await/signal 流程图</strong>：</p><pre tabindex=0><code>初始：Thread-A 持有锁
-
-1. Thread-A 调用 condition.await()
-   → 释放锁(state=0)
-   → Thread-A 移入条件队列
-   → Thread-B 获取到锁
-
-2. Thread-B 调用 condition.signal()
-   → Thread-A 从条件队列移到同步队列
-   → Thread-B 继续执行
-
-3. Thread-B 释放锁
-   → 唤醒同步队列中的 Thread-A
-   → Thread-A 重新获取锁并继续执行
-</code></pre><h2 id=五取消与中断处理>五、取消与中断处理</h2><h3 id=51-cancelacquire--取消节点>5.1 cancelAcquire — 取消节点</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>private</span> <span class=kt>void</span> <span class=nf>cancelAcquire</span><span class=o>(</span><span class=n>Node</span> <span class=n>node</span><span class=o>)</span> <span class=o>{</span>
+</span></span></code></pre></div><p><strong>await/signal 流程图</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>初始：Thread-A 持有锁
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>1. Thread-A 调用 condition.await()
+</span></span><span class=line><span class=cl>   → 释放锁(state=0)
+</span></span><span class=line><span class=cl>   → Thread-A 移入条件队列
+</span></span><span class=line><span class=cl>   → Thread-B 获取到锁
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>2. Thread-B 调用 condition.signal()
+</span></span><span class=line><span class=cl>   → Thread-A 从条件队列移到同步队列
+</span></span><span class=line><span class=cl>   → Thread-B 继续执行
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>3. Thread-B 释放锁
+</span></span><span class=line><span class=cl>   → 唤醒同步队列中的 Thread-A
+</span></span><span class=line><span class=cl>   → Thread-A 重新获取锁并继续执行
+</span></span></code></pre></div><h2 id=五取消与中断处理>五、取消与中断处理</h2><h3 id=51-cancelacquire--取消节点>5.1 cancelAcquire — 取消节点</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>private</span> <span class=kt>void</span> <span class=nf>cancelAcquire</span><span class=o>(</span><span class=n>Node</span> <span class=n>node</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=o>(</span><span class=n>node</span> <span class=o>==</span> <span class=kc>null</span><span class=o>)</span> <span class=k>return</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=n>node</span><span class=o>.</span><span class=na>thread</span> <span class=o>=</span> <span class=kc>null</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>
@@ -420,17 +420,17 @@ Step 3: Thread-B 入队
 </span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>h</span> <span class=o>!=</span> <span class=n>t</span> <span class=o>&amp;&amp;</span>
 </span></span><span class=line><span class=cl>        <span class=o>((</span><span class=n>s</span> <span class=o>=</span> <span class=n>h</span><span class=o>.</span><span class=na>next</span><span class=o>)</span> <span class=o>==</span> <span class=kc>null</span> <span class=o>||</span> <span class=n>s</span><span class=o>.</span><span class=na>thread</span> <span class=o>!=</span> <span class=n>Thread</span><span class=o>.</span><span class=na>currentThread</span><span class=o>());</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>公平与非公平对比</strong>：</p><table><thead><tr><th>特性</th><th>公平锁</th><th>非公平锁</th></tr></thead><tbody><tr><td>获取顺序</td><td>严格FIFO</td><td>可能插队</td></tr><tr><td>吞吐量</td><td>较低</td><td>较高（约10倍）</td></tr><tr><td>饥饿问题</td><td>不会饥饿</td><td>可能饥饿</td></tr><tr><td>线程切换</td><td>频繁</td><td>较少</td></tr><tr><td>默认选择</td><td>-</td><td>✅ ReentrantLock默认</td></tr></tbody></table><h2 id=七aqs-应用全景>七、AQS 应用全景</h2><pre tabindex=0><code>                    ┌─────────────────────────────────────────────┐
-                    │               AQS (state + CLH queue)        │
-                    └──────────────────┬──────────────────────────┘
-                                       │
-           ┌───────────┬───────────┬───┴────┬────────────┬──────────────┐
-           │           │           │        │            │              │
-     ReentrantLock  CountDownLatch  Semaphore  ReentrantReadWriteLock  CyclicBarrier
-     (独占)          (共享)          (共享)     (独占+共享)              (不直接用AQS)
-           │           │           │        │
-     state=重入数   state=计数    state=许可  state=高16读+低16写
-</code></pre><h3 id=71-各工具类使用-aqs-的方式>7.1 各工具类使用 AQS 的方式</h3><table><thead><tr><th>工具类</th><th>模式</th><th>state 语义</th><th>自定义方法</th></tr></thead><tbody><tr><td>ReentrantLock</td><td>独占</td><td>重入次数</td><td>tryAcquire/tryRelease</td></tr><tr><td>CountDownLatch</td><td>共享</td><td>剩余计数</td><td>tryAcquireShared/tryReleaseShared</td></tr><tr><td>Semaphore</td><td>共享</td><td>可用许可</td><td>tryAcquireShared/tryReleaseShared</td></tr><tr><td>ReentrantReadWriteLock</td><td>独占+共享</td><td>读写锁计数</td><td>全部4个方法</td></tr></tbody></table><h3 id=72-基于-aqs-自定义同步器>7.2 基于 AQS 自定义同步器</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 不可重入互斥锁
+</span></span></code></pre></div><p><strong>公平与非公平对比</strong>：</p><table><thead><tr><th>特性</th><th>公平锁</th><th>非公平锁</th></tr></thead><tbody><tr><td>获取顺序</td><td>严格FIFO</td><td>可能插队</td></tr><tr><td>吞吐量</td><td>较低</td><td>较高（约10倍）</td></tr><tr><td>饥饿问题</td><td>不会饥饿</td><td>可能饥饿</td></tr><tr><td>线程切换</td><td>频繁</td><td>较少</td></tr><tr><td>默认选择</td><td>-</td><td>✅ ReentrantLock默认</td></tr></tbody></table><h2 id=七aqs-应用全景>七、AQS 应用全景</h2><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                    ┌─────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>                    │               AQS (state + CLH queue)        │
+</span></span><span class=line><span class=cl>                    └──────────────────┬──────────────────────────┘
+</span></span><span class=line><span class=cl>                                       │
+</span></span><span class=line><span class=cl>           ┌───────────┬───────────┬───┴────┬────────────┬──────────────┐
+</span></span><span class=line><span class=cl>           │           │           │        │            │              │
+</span></span><span class=line><span class=cl>     ReentrantLock  CountDownLatch  Semaphore  ReentrantReadWriteLock  CyclicBarrier
+</span></span><span class=line><span class=cl>     (独占)          (共享)          (共享)     (独占+共享)              (不直接用AQS)
+</span></span><span class=line><span class=cl>           │           │           │        │
+</span></span><span class=line><span class=cl>     state=重入数   state=计数    state=许可  state=高16读+低16写
+</span></span></code></pre></div><h3 id=71-各工具类使用-aqs-的方式>7.1 各工具类使用 AQS 的方式</h3><table><thead><tr><th>工具类</th><th>模式</th><th>state 语义</th><th>自定义方法</th></tr></thead><tbody><tr><td>ReentrantLock</td><td>独占</td><td>重入次数</td><td>tryAcquire/tryRelease</td></tr><tr><td>CountDownLatch</td><td>共享</td><td>剩余计数</td><td>tryAcquireShared/tryReleaseShared</td></tr><tr><td>Semaphore</td><td>共享</td><td>可用许可</td><td>tryAcquireShared/tryReleaseShared</td></tr><tr><td>ReentrantReadWriteLock</td><td>独占+共享</td><td>读写锁计数</td><td>全部4个方法</td></tr></tbody></table><h3 id=72-基于-aqs-自定义同步器>7.2 基于 AQS 自定义同步器</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 不可重入互斥锁
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>class</span> <span class=nc>Mutex</span> <span class=kd>implements</span> <span class=n>Lock</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>class</span> <span class=nc>Sync</span> <span class=kd>extends</span> <span class=n>AbstractQueuedSynchronizer</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>        <span class=nd>@Override</span>

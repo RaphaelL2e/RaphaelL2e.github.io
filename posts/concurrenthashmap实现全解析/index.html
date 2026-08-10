@@ -30,18 +30,18 @@
 </span></span><span class=line><span class=cl><span class=c1>// 问题：100个线程操作不同桶，完全可以并行
 </span></span></span><span class=line><span class=cl><span class=c1>// 但 Hashtable 全局锁，完全串行
 </span></span></span><span class=line><span class=cl><span class=c1>// 吞吐量 ≈ 单线程
-</span></span></span></code></pre></div><h2 id=二jdk7-实现分段锁segment>二、JDK7 实现：分段锁（Segment）</h2><h3 id=21-整体架构>2.1 整体架构</h3><pre tabindex=0><code>ConcurrentHashMap
-├── Segment[] segments        // 默认16个段
-│   ├── Segment 0
-│   │   └── HashEntry[] table // 每段独立的Hash表
-│   │       ├── HashEntry
-│   │       └── HashEntry
-│   ├── Segment 1
-│   │   └── HashEntry[] table
-│   ├── ...
-│   └── Segment 15
-│       └── HashEntry[] table
-</code></pre><h3 id=22-核心数据结构>2.2 核心数据结构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 分段锁
+</span></span></span></code></pre></div><h2 id=二jdk7-实现分段锁segment>二、JDK7 实现：分段锁（Segment）</h2><h3 id=21-整体架构>2.1 整体架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>ConcurrentHashMap
+</span></span><span class=line><span class=cl>├── Segment[] segments        // 默认16个段
+</span></span><span class=line><span class=cl>│   ├── Segment 0
+</span></span><span class=line><span class=cl>│   │   └── HashEntry[] table // 每段独立的Hash表
+</span></span><span class=line><span class=cl>│   │       ├── HashEntry
+</span></span><span class=line><span class=cl>│   │       └── HashEntry
+</span></span><span class=line><span class=cl>│   ├── Segment 1
+</span></span><span class=line><span class=cl>│   │   └── HashEntry[] table
+</span></span><span class=line><span class=cl>│   ├── ...
+</span></span><span class=line><span class=cl>│   └── Segment 15
+</span></span><span class=line><span class=cl>│       └── HashEntry[] table
+</span></span></code></pre></div><h3 id=22-核心数据结构>2.2 核心数据结构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 分段锁
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>static</span> <span class=kd>final</span> <span class=kd>class</span> <span class=nc>Segment</span><span class=o>&lt;</span><span class=n>K</span><span class=o>,</span><span class=n>V</span><span class=o>&gt;</span> <span class=kd>extends</span> <span class=n>ReentrantLock</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>transient</span> <span class=kd>volatile</span> <span class=n>HashEntry</span><span class=o>&lt;</span><span class=n>K</span><span class=o>,</span><span class=n>V</span><span class=o>&gt;[]</span> <span class=n>table</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=kd>transient</span> <span class=kt>int</span> <span class=n>count</span><span class=o>;</span>           <span class=c1>// 元素计数
@@ -135,9 +135,9 @@
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kc>null</span><span class=o>;</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>为什么 get 不加锁？</strong></p><ul><li><code>value</code> 是 volatile 的，保证可见性</li><li><code>HashEntry.next</code> 也是 volatile 的</li><li>volatile 读的语义：总是读到最新写入的值</li><li><strong>代价</strong>：弱一致性——put 之后不一定立即 get 到</li></ul><h3 id=26-jdk7-的问题>2.6 JDK7 的问题</h3><table><thead><tr><th>问题</th><th>说明</th></tr></thead><tbody><tr><td><strong>Segment 数量固定</strong></td><td>默认16个，并发度不可动态调整</td></tr><tr><td><strong>内存浪费</strong></td><td>每个 Segment 预分配 HashEntry[]，大量空桶</td></tr><tr><td><strong>二次 Hash 开销</strong></td><td>多一次 Hash 计算和寻址</td></tr><tr><td><strong>Segment 粒度仍偏粗</strong></td><td>同一 Segment 内的所有桶互斥</td></tr><tr><td><strong>扩容粒度大</strong></td><td>单个 Segment 扩容，不影响其他 Segment</td></tr></tbody></table><h2 id=三jdk8-实现cas--synchronized>三、JDK8 实现：CAS + synchronized</h2><h3 id=31-架构变化>3.1 架构变化</h3><pre tabindex=0><code>JDK7: Segment[] → HashEntry[]  (分段锁)
-JDK8: Node[] → 链表/红黑树       (桶级锁)
-</code></pre><p><strong>核心改变</strong>：去掉 Segment，直接在 Node 数组的每个桶上做并发控制。</p><h3 id=32-核心数据结构>3.2 核心数据结构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 基础节点
+</span></span></code></pre></div><p><strong>为什么 get 不加锁？</strong></p><ul><li><code>value</code> 是 volatile 的，保证可见性</li><li><code>HashEntry.next</code> 也是 volatile 的</li><li>volatile 读的语义：总是读到最新写入的值</li><li><strong>代价</strong>：弱一致性——put 之后不一定立即 get 到</li></ul><h3 id=26-jdk7-的问题>2.6 JDK7 的问题</h3><table><thead><tr><th>问题</th><th>说明</th></tr></thead><tbody><tr><td><strong>Segment 数量固定</strong></td><td>默认16个，并发度不可动态调整</td></tr><tr><td><strong>内存浪费</strong></td><td>每个 Segment 预分配 HashEntry[]，大量空桶</td></tr><tr><td><strong>二次 Hash 开销</strong></td><td>多一次 Hash 计算和寻址</td></tr><tr><td><strong>Segment 粒度仍偏粗</strong></td><td>同一 Segment 内的所有桶互斥</td></tr><tr><td><strong>扩容粒度大</strong></td><td>单个 Segment 扩容，不影响其他 Segment</td></tr></tbody></table><h2 id=三jdk8-实现cas--synchronized>三、JDK8 实现：CAS + synchronized</h2><h3 id=31-架构变化>3.1 架构变化</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>JDK7: Segment[] → HashEntry[]  (分段锁)
+</span></span><span class=line><span class=cl>JDK8: Node[] → 链表/红黑树       (桶级锁)
+</span></span></code></pre></div><p><strong>核心改变</strong>：去掉 Segment，直接在 Node 数组的每个桶上做并发控制。</p><h3 id=32-核心数据结构>3.2 核心数据结构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 基础节点
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>static</span> <span class=kd>class</span> <span class=nc>Node</span><span class=o>&lt;</span><span class=n>K</span><span class=o>,</span><span class=n>V</span><span class=o>&gt;</span> <span class=kd>implements</span> <span class=n>Map</span><span class=o>.</span><span class=na>Entry</span><span class=o>&lt;</span><span class=n>K</span><span class=o>,</span><span class=n>V</span><span class=o>&gt;</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>final</span> <span class=kt>int</span> <span class=n>hash</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=kd>final</span> <span class=n>K</span> <span class=n>key</span><span class=o>;</span>

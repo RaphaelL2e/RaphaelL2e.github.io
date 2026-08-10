@@ -10,33 +10,33 @@
 <span>/</span><a href=/series/ai-llm-interview/>AI 大模型面试</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>AI大模型面试八股文（六）——大模型系统设计与工程实践</h1><p class=article-description>面试高频问题：如何设计一个RAG系统？在线推理和离线推理有什么区别？大模型如何评测？如何设计一个多轮对话系统？本文带你掌握大模型系统设计与工程实践的核心知识。 Q: 什么是RAG？为什么要用RAG？ A: RAG(Retrieval-Augmented Generation)是将检索与生成结合的架构。</p><div class=article-meta><span>发布于 <time datetime=2026-06-14>2026-06-14</time></span>
 <span>最后验证 2026-06</span>
 <span>9 分钟阅读</span>
-<span>1766 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一rag系统架构设计>一、RAG系统架构设计</a><ul><li><a href=#11-rag基本原理>1.1 RAG基本原理</a></li><li><a href=#12-rag系统架构设计>1.2 RAG系统架构设计</a></li><li><a href=#13-高级检索策略>1.3 高级检索策略</a></li><li><a href=#14-rag评估指标>1.4 RAG评估指标</a></li></ul></li><li><a href=#二大模型推理系统设计>二、大模型推理系统设计</a><ul><li><a href=#21-在线推理-vs-离线推理>2.1 在线推理 vs 离线推理</a></li><li><a href=#22-推理优化技术>2.2 推理优化技术</a></li><li><a href=#23-推理系统架构>2.3 推理系统架构</a></li></ul></li><li><a href=#三大模型评测体系>三、大模型评测体系</a><ul><li><a href=#31-评测维度>3.1 评测维度</a></li><li><a href=#32-主流评测基准>3.2 主流评测基准</a></li><li><a href=#33-自动评测框架>3.3 自动评测框架</a></li><li><a href=#34-llm-as-judge>3.4 LLM-as-Judge</a></li></ul></li><li><a href=#四多轮对话系统设计>四、多轮对话系统设计</a><ul><li><a href=#41-对话系统架构>4.1 对话系统架构</a></li><li><a href=#42-上下文窗口管理>4.2 上下文窗口管理</a></li><li><a href=#43-function-calling与工具使用>4.3 Function Calling与工具使用</a></li></ul></li><li><a href=#五prompt工程进阶>五、Prompt工程进阶</a><ul><li><a href=#51-高级prompt技术>5.1 高级Prompt技术</a></li><li><a href=#52-结构化输出>5.2 结构化输出</a></li></ul></li><li><a href=#六llm应用监控与运维>六、LLM应用监控与运维</a><ul><li><a href=#61-关键监控指标>6.1 关键监控指标</a></li><li><a href=#62-可观测性架构>6.2 可观测性架构</a></li><li><a href=#63-ab测试与迭代>6.3 A/B测试与迭代</a></li></ul></li><li><a href=#七成本优化策略>七、成本优化策略</a><ul><li><a href=#71-token成本优化>7.1 Token成本优化</a></li></ul></li><li><a href=#八面试系统设计题实战>八、面试系统设计题实战</a><ul><li><a href=#81-设计一个智能客服系统>8.1 设计一个智能客服系统</a></li><li><a href=#82-设计一个代码助手>8.2 设计一个代码助手</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：如何设计一个RAG系统？在线推理和离线推理有什么区别？大模型如何评测？如何设计一个多轮对话系统？本文带你掌握大模型系统设计与工程实践的核心知识。</p></blockquote><hr><h2 id=一rag系统架构设计>一、RAG系统架构设计</h2><h3 id=11-rag基本原理>1.1 RAG基本原理</h3><p><strong>Q: 什么是RAG？为什么要用RAG？</strong></p><p>A: RAG(Retrieval-Augmented Generation)是将检索与生成结合的架构：</p><pre tabindex=0><code>用户问题 → Query处理 → 检索 → 上下文增强 → LLM生成 → 回答
-              │           │          │
-              ↓           ↓          ↓
-         Query改写    向量检索    Prompt组装
-         Query分解    混合检索    上下文窗口管理
-         意图识别     重排序      引用溯源
-</code></pre><p><strong>为什么需要RAG？</strong></p><table><thead><tr><th>问题</th><th>RAG的解决方案</th></tr></thead><tbody><tr><td>幻觉(Hallucination)</td><td>基于真实文档生成，减少编造</td></tr><tr><td>知识过时</td><td>检索最新文档，无需重训练</td></tr><tr><td>领域专业性</td><td>检索专业文档库，提供准确信息</td></tr><tr><td>长尾知识</td><td>小众信息也能检索到</td></tr><tr><td>可追溯性</td><td>可以引用来源，支持验证</td></tr><tr><td>成本</td><td>无需微调，部署成本低</td></tr></tbody></table><h3 id=12-rag系统架构设计>1.2 RAG系统架构设计</h3><p><strong>Q: 如何设计一个生产级RAG系统？</strong></p><p>A: 完整的RAG系统包含以下模块：</p><pre tabindex=0><code>┌──────────────────────────────────────────────────┐
-│                   RAG System                      │
-│                                                   │
-│  ┌─────────┐  ┌──────────┐  ┌─────────────────┐ │
-│  │ Ingestion│  │ Retrieval│  │   Generation    │ │
-│  │ Pipeline │  │ Pipeline │  │    Pipeline     │ │
-│  │          │  │          │  │                 │ │
-│  │ 文档加载 │  │ Query处理│  │ Prompt组装     │ │
-│  │ 文档解析 │  │ 向量检索 │  │ 上下文管理     │ │
-│  │ 文本分块 │  │ 关键词检索│  │ LLM调用       │ │
-│  │ 向量化   │  │ 混合检索 │  │ 流式输出       │ │
-│  │ 索引构建 │  │ 重排序   │  │ 引用溯源       │ │
-│  │ 元数据   │  │ 结果过滤 │  │ 后处理         │ │
-│  └─────────┘  └──────────┘  └─────────────────┘ │
-│                                                   │
-│  ┌─────────────────────────────────────────────┐ │
-│  │            Evaluation &amp; Monitoring           │ │
-│  │  检索质量评估 | 生成质量评估 | 端到端评估   │ │
-│  └─────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────┘
-</code></pre><p><strong>Ingestion Pipeline（数据摄入）：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># 1. 文档加载与解析</span>
+<span>1766 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一rag系统架构设计>一、RAG系统架构设计</a><ul><li><a href=#11-rag基本原理>1.1 RAG基本原理</a></li><li><a href=#12-rag系统架构设计>1.2 RAG系统架构设计</a></li><li><a href=#13-高级检索策略>1.3 高级检索策略</a></li><li><a href=#14-rag评估指标>1.4 RAG评估指标</a></li></ul></li><li><a href=#二大模型推理系统设计>二、大模型推理系统设计</a><ul><li><a href=#21-在线推理-vs-离线推理>2.1 在线推理 vs 离线推理</a></li><li><a href=#22-推理优化技术>2.2 推理优化技术</a></li><li><a href=#23-推理系统架构>2.3 推理系统架构</a></li></ul></li><li><a href=#三大模型评测体系>三、大模型评测体系</a><ul><li><a href=#31-评测维度>3.1 评测维度</a></li><li><a href=#32-主流评测基准>3.2 主流评测基准</a></li><li><a href=#33-自动评测框架>3.3 自动评测框架</a></li><li><a href=#34-llm-as-judge>3.4 LLM-as-Judge</a></li></ul></li><li><a href=#四多轮对话系统设计>四、多轮对话系统设计</a><ul><li><a href=#41-对话系统架构>4.1 对话系统架构</a></li><li><a href=#42-上下文窗口管理>4.2 上下文窗口管理</a></li><li><a href=#43-function-calling与工具使用>4.3 Function Calling与工具使用</a></li></ul></li><li><a href=#五prompt工程进阶>五、Prompt工程进阶</a><ul><li><a href=#51-高级prompt技术>5.1 高级Prompt技术</a></li><li><a href=#52-结构化输出>5.2 结构化输出</a></li></ul></li><li><a href=#六llm应用监控与运维>六、LLM应用监控与运维</a><ul><li><a href=#61-关键监控指标>6.1 关键监控指标</a></li><li><a href=#62-可观测性架构>6.2 可观测性架构</a></li><li><a href=#63-ab测试与迭代>6.3 A/B测试与迭代</a></li></ul></li><li><a href=#七成本优化策略>七、成本优化策略</a><ul><li><a href=#71-token成本优化>7.1 Token成本优化</a></li></ul></li><li><a href=#八面试系统设计题实战>八、面试系统设计题实战</a><ul><li><a href=#81-设计一个智能客服系统>8.1 设计一个智能客服系统</a></li><li><a href=#82-设计一个代码助手>8.2 设计一个代码助手</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：如何设计一个RAG系统？在线推理和离线推理有什么区别？大模型如何评测？如何设计一个多轮对话系统？本文带你掌握大模型系统设计与工程实践的核心知识。</p></blockquote><hr><h2 id=一rag系统架构设计>一、RAG系统架构设计</h2><h3 id=11-rag基本原理>1.1 RAG基本原理</h3><p><strong>Q: 什么是RAG？为什么要用RAG？</strong></p><p>A: RAG(Retrieval-Augmented Generation)是将检索与生成结合的架构：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用户问题 → Query处理 → 检索 → 上下文增强 → LLM生成 → 回答
+</span></span><span class=line><span class=cl>              │           │          │
+</span></span><span class=line><span class=cl>              ↓           ↓          ↓
+</span></span><span class=line><span class=cl>         Query改写    向量检索    Prompt组装
+</span></span><span class=line><span class=cl>         Query分解    混合检索    上下文窗口管理
+</span></span><span class=line><span class=cl>         意图识别     重排序      引用溯源
+</span></span></code></pre></div><p><strong>为什么需要RAG？</strong></p><table><thead><tr><th>问题</th><th>RAG的解决方案</th></tr></thead><tbody><tr><td>幻觉(Hallucination)</td><td>基于真实文档生成，减少编造</td></tr><tr><td>知识过时</td><td>检索最新文档，无需重训练</td></tr><tr><td>领域专业性</td><td>检索专业文档库，提供准确信息</td></tr><tr><td>长尾知识</td><td>小众信息也能检索到</td></tr><tr><td>可追溯性</td><td>可以引用来源，支持验证</td></tr><tr><td>成本</td><td>无需微调，部署成本低</td></tr></tbody></table><h3 id=12-rag系统架构设计>1.2 RAG系统架构设计</h3><p><strong>Q: 如何设计一个生产级RAG系统？</strong></p><p>A: 完整的RAG系统包含以下模块：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌──────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                   RAG System                      │
+</span></span><span class=line><span class=cl>│                                                   │
+</span></span><span class=line><span class=cl>│  ┌─────────┐  ┌──────────┐  ┌─────────────────┐ │
+</span></span><span class=line><span class=cl>│  │ Ingestion│  │ Retrieval│  │   Generation    │ │
+</span></span><span class=line><span class=cl>│  │ Pipeline │  │ Pipeline │  │    Pipeline     │ │
+</span></span><span class=line><span class=cl>│  │          │  │          │  │                 │ │
+</span></span><span class=line><span class=cl>│  │ 文档加载 │  │ Query处理│  │ Prompt组装     │ │
+</span></span><span class=line><span class=cl>│  │ 文档解析 │  │ 向量检索 │  │ 上下文管理     │ │
+</span></span><span class=line><span class=cl>│  │ 文本分块 │  │ 关键词检索│  │ LLM调用       │ │
+</span></span><span class=line><span class=cl>│  │ 向量化   │  │ 混合检索 │  │ 流式输出       │ │
+</span></span><span class=line><span class=cl>│  │ 索引构建 │  │ 重排序   │  │ 引用溯源       │ │
+</span></span><span class=line><span class=cl>│  │ 元数据   │  │ 结果过滤 │  │ 后处理         │ │
+</span></span><span class=line><span class=cl>│  └─────────┘  └──────────┘  └─────────────────┘ │
+</span></span><span class=line><span class=cl>│                                                   │
+</span></span><span class=line><span class=cl>│  ┌─────────────────────────────────────────────┐ │
+</span></span><span class=line><span class=cl>│  │            Evaluation &amp; Monitoring           │ │
+</span></span><span class=line><span class=cl>│  │  检索质量评估 | 生成质量评估 | 端到端评估   │ │
+</span></span><span class=line><span class=cl>│  └─────────────────────────────────────────────┘ │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────┘
+</span></span></code></pre></div><p><strong>Ingestion Pipeline（数据摄入）：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># 1. 文档加载与解析</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.document_loaders</span> <span class=kn>import</span> <span class=p>(</span>
 </span></span><span class=line><span class=cl>    <span class=n>PyPDFLoader</span><span class=p>,</span>          <span class=c1># PDF</span>
 </span></span><span class=line><span class=cl>    <span class=n>UnstructuredHTMLLoader</span><span class=p>,</span>  <span class=c1># HTML</span>
@@ -106,61 +106,61 @@
 </span></span><span class=line><span class=cl>    <span class=n>base_compressor</span><span class=o>=</span><span class=n>compressor</span><span class=p>,</span>
 </span></span><span class=line><span class=cl>    <span class=n>base_retriever</span><span class=o>=</span><span class=n>ensemble_retriever</span>
 </span></span><span class=line><span class=cl><span class=p>)</span>
-</span></span></code></pre></div><h3 id=14-rag评估指标>1.4 RAG评估指标</h3><p><strong>Q: 如何评估RAG系统质量？</strong></p><p>A: RAG评估分三个维度（RAGAS框架）：</p><table><thead><tr><th>维度</th><th>指标</th><th>说明</th></tr></thead><tbody><tr><td>检索质量</td><td>Context Precision</td><td>检索到的内容中相关内容的比例</td></tr><tr><td>检索质量</td><td>Context Recall</td><td>回答问题所需的上下文被检索到的比例</td></tr><tr><td>生成质量</td><td>Faithfulness</td><td>生成内容与检索上下文的一致性</td></tr><tr><td>生成质量</td><td>Answer Relevance</td><td>回答与问题的相关性</td></tr><tr><td>端到端</td><td>Answer Correctness</td><td>回答与标准答案的相似度</td></tr><tr><td>端到端</td><td>Answer Similarity</td><td>语义相似度评分</td></tr></tbody></table><hr><h2 id=二大模型推理系统设计>二、大模型推理系统设计</h2><h3 id=21-在线推理-vs-离线推理>2.1 在线推理 vs 离线推理</h3><p><strong>Q: 在线推理和离线推理系统的区别？</strong></p><table><thead><tr><th>特性</th><th>在线推理</th><th>离线推理</th></tr></thead><tbody><tr><td>延迟要求</td><td>低延迟(100ms-5s)</td><td>无严格要求</td></tr><tr><td>吞吐</td><td>中等</td><td>高吞吐优先</td></tr><tr><td>请求模式</td><td>随机到达</td><td>批量处理</td></tr><tr><td>GPU利用率</td><td>低(请求不均匀)</td><td>高(批量填充)</td></tr><tr><td>典型场景</td><td>聊天、搜索</td><td>数据标注、摘要生成</td></tr><tr><td>成本</td><td>高(常驻)</td><td>低(按需)</td></tr></tbody></table><h3 id=22-推理优化技术>2.2 推理优化技术</h3><p><strong>Q: 大模型推理有哪些优化技术？</strong></p><p>A: 核心优化技术分层：</p><pre tabindex=0><code>┌───────────────────────────────────────┐
-│          应用层优化                     │
-│  缓存 | 前缀共享 | 语义路由            │
-├───────────────────────────────────────┤
-│          模型层优化                     │
-│  量化 | 蒸馏 | 剪枝 | 稀疏化           │
-├───────────────────────────────────────┤
-│          系统层优化                     │
-│  连续批处理 | PagedAttention | 调度     │
-├───────────────────────────────────────┤
-│          硬件层优化                     │
-│  GPU集群 | Tensor并行 | 流水线并行      │
-└───────────────────────────────────────┘
-</code></pre><p><strong>关键优化详解：</strong></p><p><strong>1. KV Cache + PagedAttention：</strong></p><pre tabindex=0><code>传统推理：
-┌────────────────────────────┐
-│ 预分配最大KV缓存 → 显存浪费 │
-└────────────────────────────┘
-
-PagedAttention(vLLM)：
-┌────────────────────────────┐
-│ 按需分配KV块 → 显存高效利用 │
-│ 类似OS虚拟内存的分页管理     │
-└────────────────────────────┘
-
-KV Block Table:
-Block 1: [token1-16]
-Block 2: [token17-32]
-Block 3: [token33-48]  ← 动态分配
-</code></pre><p><strong>2. 连续批处理(Continuous Batching)：</strong></p><pre tabindex=0><code>传统批处理：
-Request A: [生成中......][生成完][空闲.......]
-Request B: [等待........][生成中......][生成完]
-
-连续批处理：
-Request A: [生成中......][完成移出]
-Request B: [生成中......][生成中......][完成移出]
-Request C: [新加入......][生成中......][生成中..]
-                    ↑ 新请求随时加入
-</code></pre><p><strong>3. 模型量化：</strong></p><table><thead><tr><th>方法</th><th>精度</th><th>压缩比</th><th>质量损失</th><th>适用</th></tr></thead><tbody><tr><td>FP16</td><td>16bit</td><td>1x</td><td>无</td><td>基准</td></tr><tr><td>INT8</td><td>8bit</td><td>2x</td><td>极小</td><td>生产推荐</td></tr><tr><td>INT4(GPTQ)</td><td>4bit</td><td>4x</td><td>小</td><td>消费级GPU</td></tr><tr><td>AWQ</td><td>4bit</td><td>4x</td><td>小</td><td>注意力权重量化</td></tr><tr><td>GGUF</td><td>4-8bit</td><td>2-4x</td><td>可控</td><td>CPU推理</td></tr></tbody></table><h3 id=23-推理系统架构>2.3 推理系统架构</h3><p><strong>Q: 如何设计高可用的大模型推理服务？</strong></p><pre tabindex=0><code>                    ┌─────────────┐
-                    │  API Gateway │
-                    │  限流/路由   │
-                    └──────┬──────┘
-                           │
-              ┌────────────┼────────────┐
-              │            │            │
-        ┌─────┴─────┐┌────┴─────┐┌────┴─────┐
-        │ Inference  ││Inference ││Inference │
-        │  Worker 1  ││ Worker 2 ││ Worker 3 │
-        │ (vLLM/A100)││(TGI/L40S)││(vLLM/H100)│
-        └─────┬─────┘└────┬─────┘└────┬─────┘
-              │            │            │
-        ┌─────┴────────────┴────────────┴─────┐
-        │           Model Store / S3            │
-        │      模型权重存储 + 版本管理          │
-        └──────────────────────────────────────┘
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># K8s部署示例</span><span class=w>
+</span></span></code></pre></div><h3 id=14-rag评估指标>1.4 RAG评估指标</h3><p><strong>Q: 如何评估RAG系统质量？</strong></p><p>A: RAG评估分三个维度（RAGAS框架）：</p><table><thead><tr><th>维度</th><th>指标</th><th>说明</th></tr></thead><tbody><tr><td>检索质量</td><td>Context Precision</td><td>检索到的内容中相关内容的比例</td></tr><tr><td>检索质量</td><td>Context Recall</td><td>回答问题所需的上下文被检索到的比例</td></tr><tr><td>生成质量</td><td>Faithfulness</td><td>生成内容与检索上下文的一致性</td></tr><tr><td>生成质量</td><td>Answer Relevance</td><td>回答与问题的相关性</td></tr><tr><td>端到端</td><td>Answer Correctness</td><td>回答与标准答案的相似度</td></tr><tr><td>端到端</td><td>Answer Similarity</td><td>语义相似度评分</td></tr></tbody></table><hr><h2 id=二大模型推理系统设计>二、大模型推理系统设计</h2><h3 id=21-在线推理-vs-离线推理>2.1 在线推理 vs 离线推理</h3><p><strong>Q: 在线推理和离线推理系统的区别？</strong></p><table><thead><tr><th>特性</th><th>在线推理</th><th>离线推理</th></tr></thead><tbody><tr><td>延迟要求</td><td>低延迟(100ms-5s)</td><td>无严格要求</td></tr><tr><td>吞吐</td><td>中等</td><td>高吞吐优先</td></tr><tr><td>请求模式</td><td>随机到达</td><td>批量处理</td></tr><tr><td>GPU利用率</td><td>低(请求不均匀)</td><td>高(批量填充)</td></tr><tr><td>典型场景</td><td>聊天、搜索</td><td>数据标注、摘要生成</td></tr><tr><td>成本</td><td>高(常驻)</td><td>低(按需)</td></tr></tbody></table><h3 id=22-推理优化技术>2.2 推理优化技术</h3><p><strong>Q: 大模型推理有哪些优化技术？</strong></p><p>A: 核心优化技术分层：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌───────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│          应用层优化                     │
+</span></span><span class=line><span class=cl>│  缓存 | 前缀共享 | 语义路由            │
+</span></span><span class=line><span class=cl>├───────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│          模型层优化                     │
+</span></span><span class=line><span class=cl>│  量化 | 蒸馏 | 剪枝 | 稀疏化           │
+</span></span><span class=line><span class=cl>├───────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│          系统层优化                     │
+</span></span><span class=line><span class=cl>│  连续批处理 | PagedAttention | 调度     │
+</span></span><span class=line><span class=cl>├───────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│          硬件层优化                     │
+</span></span><span class=line><span class=cl>│  GPU集群 | Tensor并行 | 流水线并行      │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────┘
+</span></span></code></pre></div><p><strong>关键优化详解：</strong></p><p><strong>1. KV Cache + PagedAttention：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>传统推理：
+</span></span><span class=line><span class=cl>┌────────────────────────────┐
+</span></span><span class=line><span class=cl>│ 预分配最大KV缓存 → 显存浪费 │
+</span></span><span class=line><span class=cl>└────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>PagedAttention(vLLM)：
+</span></span><span class=line><span class=cl>┌────────────────────────────┐
+</span></span><span class=line><span class=cl>│ 按需分配KV块 → 显存高效利用 │
+</span></span><span class=line><span class=cl>│ 类似OS虚拟内存的分页管理     │
+</span></span><span class=line><span class=cl>└────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>KV Block Table:
+</span></span><span class=line><span class=cl>Block 1: [token1-16]
+</span></span><span class=line><span class=cl>Block 2: [token17-32]
+</span></span><span class=line><span class=cl>Block 3: [token33-48]  ← 动态分配
+</span></span></code></pre></div><p><strong>2. 连续批处理(Continuous Batching)：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>传统批处理：
+</span></span><span class=line><span class=cl>Request A: [生成中......][生成完][空闲.......]
+</span></span><span class=line><span class=cl>Request B: [等待........][生成中......][生成完]
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>连续批处理：
+</span></span><span class=line><span class=cl>Request A: [生成中......][完成移出]
+</span></span><span class=line><span class=cl>Request B: [生成中......][生成中......][完成移出]
+</span></span><span class=line><span class=cl>Request C: [新加入......][生成中......][生成中..]
+</span></span><span class=line><span class=cl>                    ↑ 新请求随时加入
+</span></span></code></pre></div><p><strong>3. 模型量化：</strong></p><table><thead><tr><th>方法</th><th>精度</th><th>压缩比</th><th>质量损失</th><th>适用</th></tr></thead><tbody><tr><td>FP16</td><td>16bit</td><td>1x</td><td>无</td><td>基准</td></tr><tr><td>INT8</td><td>8bit</td><td>2x</td><td>极小</td><td>生产推荐</td></tr><tr><td>INT4(GPTQ)</td><td>4bit</td><td>4x</td><td>小</td><td>消费级GPU</td></tr><tr><td>AWQ</td><td>4bit</td><td>4x</td><td>小</td><td>注意力权重量化</td></tr><tr><td>GGUF</td><td>4-8bit</td><td>2-4x</td><td>可控</td><td>CPU推理</td></tr></tbody></table><h3 id=23-推理系统架构>2.3 推理系统架构</h3><p><strong>Q: 如何设计高可用的大模型推理服务？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                    ┌─────────────┐
+</span></span><span class=line><span class=cl>                    │  API Gateway │
+</span></span><span class=line><span class=cl>                    │  限流/路由   │
+</span></span><span class=line><span class=cl>                    └──────┬──────┘
+</span></span><span class=line><span class=cl>                           │
+</span></span><span class=line><span class=cl>              ┌────────────┼────────────┐
+</span></span><span class=line><span class=cl>              │            │            │
+</span></span><span class=line><span class=cl>        ┌─────┴─────┐┌────┴─────┐┌────┴─────┐
+</span></span><span class=line><span class=cl>        │ Inference  ││Inference ││Inference │
+</span></span><span class=line><span class=cl>        │  Worker 1  ││ Worker 2 ││ Worker 3 │
+</span></span><span class=line><span class=cl>        │ (vLLM/A100)││(TGI/L40S)││(vLLM/H100)│
+</span></span><span class=line><span class=cl>        └─────┬─────┘└────┬─────┘└────┬─────┘
+</span></span><span class=line><span class=cl>              │            │            │
+</span></span><span class=line><span class=cl>        ┌─────┴────────────┴────────────┴─────┐
+</span></span><span class=line><span class=cl>        │           Model Store / S3            │
+</span></span><span class=line><span class=cl>        │      模型权重存储 + 版本管理          │
+</span></span><span class=line><span class=cl>        └──────────────────────────────────────┘
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># K8s部署示例</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
@@ -242,26 +242,26 @@ Request C: [新加入......][生成中......][生成中..]
 </span></span></span><span class=line><span class=cl><span class=s2>               &#34;B&#34;: {{&#34;accuracy&#34;: 1-5, &#34;completeness&#34;: 1-5}}}}
 </span></span></span><span class=line><span class=cl><span class=s2>}}
 </span></span></span><span class=line><span class=cl><span class=s2>&#34;&#34;&#34;</span>
-</span></span></code></pre></div><hr><h2 id=四多轮对话系统设计>四、多轮对话系统设计</h2><h3 id=41-对话系统架构>4.1 对话系统架构</h3><p><strong>Q: 如何设计一个多轮对话系统？</strong></p><pre tabindex=0><code>┌───────────────────────────────────────────────┐
-│              Multi-turn Dialog System          │
-│                                                │
-│  ┌──────────┐    ┌───────────┐    ┌────────┐ │
-│  │  Dialog   │    │  Context  │    │  LLM   │ │
-│  │ Manager   │───→│  Manager  │───→│ Engine │ │
-│  │           │    │           │    │        │ │
-│  │ 意图识别  │    │ 历史压缩  │    │ 生成   │ │
-│  │ 状态跟踪  │    │ 槽位填充  │    │ 流式   │ │
-│  │ 对话策略  │    │ 上下文窗口│    │ 工具   │ │
-│  └──────────┘    └───────────┘    └────────┘ │
-│       │                               │        │
-│       └──────────┬────────────────────┘        │
-│                  │                              │
-│            ┌─────┴─────┐                       │
-│            │  Memory   │                       │
-│            │ 短期/长期 │                       │
-│            └───────────┘                       │
-└───────────────────────────────────────────────┘
-</code></pre><h3 id=42-上下文窗口管理>4.2 上下文窗口管理</h3><p><strong>Q: 如何管理长对话的上下文窗口？</strong></p><p>A: 对话历史可能超过模型上下文窗口，需要策略管理：</p><table><thead><tr><th>策略</th><th>原理</th><th>优缺点</th></tr></thead><tbody><tr><td>滑动窗口</td><td>保留最近N轮</td><td>简单但丢失早期信息</td></tr><tr><td>摘要压缩</td><td>LLM压缩历史</td><td>保留要点但可能丢失细节</td></tr><tr><td>混合策略</td><td>摘要+最近原文</td><td>平衡效果，生产推荐</td></tr><tr><td>向量检索</td><td>按需检索历史</td><td>灵活但增加延迟</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># 混合上下文管理</span>
+</span></span></code></pre></div><hr><h2 id=四多轮对话系统设计>四、多轮对话系统设计</h2><h3 id=41-对话系统架构>4.1 对话系统架构</h3><p><strong>Q: 如何设计一个多轮对话系统？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│              Multi-turn Dialog System          │
+</span></span><span class=line><span class=cl>│                                                │
+</span></span><span class=line><span class=cl>│  ┌──────────┐    ┌───────────┐    ┌────────┐ │
+</span></span><span class=line><span class=cl>│  │  Dialog   │    │  Context  │    │  LLM   │ │
+</span></span><span class=line><span class=cl>│  │ Manager   │───→│  Manager  │───→│ Engine │ │
+</span></span><span class=line><span class=cl>│  │           │    │           │    │        │ │
+</span></span><span class=line><span class=cl>│  │ 意图识别  │    │ 历史压缩  │    │ 生成   │ │
+</span></span><span class=line><span class=cl>│  │ 状态跟踪  │    │ 槽位填充  │    │ 流式   │ │
+</span></span><span class=line><span class=cl>│  │ 对话策略  │    │ 上下文窗口│    │ 工具   │ │
+</span></span><span class=line><span class=cl>│  └──────────┘    └───────────┘    └────────┘ │
+</span></span><span class=line><span class=cl>│       │                               │        │
+</span></span><span class=line><span class=cl>│       └──────────┬────────────────────┘        │
+</span></span><span class=line><span class=cl>│                  │                              │
+</span></span><span class=line><span class=cl>│            ┌─────┴─────┐                       │
+</span></span><span class=line><span class=cl>│            │  Memory   │                       │
+</span></span><span class=line><span class=cl>│            │ 短期/长期 │                       │
+</span></span><span class=line><span class=cl>│            └───────────┘                       │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=42-上下文窗口管理>4.2 上下文窗口管理</h3><p><strong>Q: 如何管理长对话的上下文窗口？</strong></p><p>A: 对话历史可能超过模型上下文窗口，需要策略管理：</p><table><thead><tr><th>策略</th><th>原理</th><th>优缺点</th></tr></thead><tbody><tr><td>滑动窗口</td><td>保留最近N轮</td><td>简单但丢失早期信息</td></tr><tr><td>摘要压缩</td><td>LLM压缩历史</td><td>保留要点但可能丢失细节</td></tr><tr><td>混合策略</td><td>摘要+最近原文</td><td>平衡效果，生产推荐</td></tr><tr><td>向量检索</td><td>按需检索历史</td><td>灵活但增加延迟</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># 混合上下文管理</span>
 </span></span><span class=line><span class=cl><span class=k>class</span> <span class=nc>ContextManager</span><span class=p>:</span>
 </span></span><span class=line><span class=cl>    <span class=k>def</span> <span class=fm>__init__</span><span class=p>(</span><span class=bp>self</span><span class=p>,</span> <span class=n>max_tokens</span><span class=o>=</span><span class=mi>8192</span><span class=p>,</span> <span class=n>recent_turns</span><span class=o>=</span><span class=mi>4</span><span class=p>):</span>
 </span></span><span class=line><span class=cl>        <span class=bp>self</span><span class=o>.</span><span class=n>max_tokens</span> <span class=o>=</span> <span class=n>max_tokens</span>
@@ -489,28 +489,28 @@ Request C: [新加入......][生成中......][生成中..]
 </span></span><span class=line><span class=cl>        
 </span></span><span class=line><span class=cl>        <span class=n>result</span> <span class=o>=</span> <span class=n>small_llm</span><span class=o>.</span><span class=n>invoke</span><span class=p>(</span><span class=n>prompt</span><span class=p>)</span>
 </span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>result</span><span class=o>.</span><span class=n>strip</span><span class=p>()</span><span class=o>.</span><span class=n>lower</span><span class=p>()</span>
-</span></span></code></pre></div><hr><h2 id=八面试系统设计题实战>八、面试系统设计题实战</h2><h3 id=81-设计一个智能客服系统>8.1 设计一个智能客服系统</h3><p><strong>Q: 请设计一个基于大模型的智能客服系统。</strong></p><p><strong>系统架构：</strong></p><pre tabindex=0><code>用户 → CDN → API网关 → 会话管理 → 意图识别
-                                     │
-                        ┌────────────┼────────────┐
-                        │            │            │
-                   FAQ检索      知识库RAG     工具调用
-                        │            │            │
-                        └────────────┼────────────┘
-                                     │
-                              回答生成+审核
-                                     │
-                              人工客服兜底
-</code></pre><p><strong>关键设计决策：</strong></p><table><thead><tr><th>决策点</th><th>选择</th><th>理由</th></tr></thead><tbody><tr><td>检索方案</td><td>混合检索(向量+ES)</td><td>FAQ精确匹配+语义理解</td></tr><tr><td>上下文管理</td><td>摘要+最近5轮</td><td>长对话不丢信息</td></tr><tr><td>安全审核</td><td>输入输出双审核</td><td>防注入+防泄露</td></tr><tr><td>降级策略</td><td>规则引擎→LLM→人工</td><td>三级降级保证可用性</td></tr><tr><td>多轮记忆</td><td>Redis短期+MySQL长期</td><td>7天热数据+全量冷数据</td></tr></tbody></table><h3 id=82-设计一个代码助手>8.2 设计一个代码助手</h3><p><strong>Q: 请设计一个类似GitHub Copilot的代码助手。</strong></p><pre tabindex=0><code>IDE → LSP协议 → 代码上下文分析 → Prompt组装 → LLM推理 → 后处理 → 补全建议
-                     │                              │
-                     │                              ├─ 语法校验
-                     │                              ├─ 安全检测
-                     │                              └─ 相似代码去重
-                     │
-                     ├─ 当前文件上下文
-                     ├─ 项目结构
-                     ├─ 相关文件(imports)
-                     └─ Git历史(可选)
-</code></pre><p><strong>关键挑战：</strong></p><table><thead><tr><th>挑战</th><th>解决方案</th></tr></thead><tbody><tr><td>低延迟要求</td><td>流式输出 + 本地小模型 + 缓存</td></tr><tr><td>上下文有限</td><td>Tree-sitter解析 + 智能选择相关代码</td></tr><tr><td>代码质量</td><td>后处理语法校验 + 静态分析</td></tr><tr><td>隐私合规</td><td>本地模型选项 + 代码脱敏</td></tr></tbody></table><hr><h2 id=九总结>九、总结</h2><table><thead><tr><th>主题</th><th>核心要点</th><th>面试关键词</th></tr></thead><tbody><tr><td>RAG</td><td>检索增强生成、混合检索、重排序、RAGAS评估</td><td>Chunking, Embedding, Rerank, Faithfulness</td></tr><tr><td>推理系统</td><td>vLLM、PagedAttention、连续批处理、量化部署</td><td>KV Cache, Continuous Batching, GPTQ</td></tr><tr><td>评测体系</td><td>MMLU、MT-Bench、LLM-as-Judge、自动评测</td><td>Benchmark, Arena, RAGAS</td></tr><tr><td>对话系统</td><td>上下文管理、摘要压缩、Function Calling</td><td>Context Window, Tool Use, Multi-turn</td></tr><tr><td>Prompt工程</td><td>CoT、DSPy、结构化输出</td><td>Few-shot, ReAct, Instructor</td></tr><tr><td>监控运维</td><td>TTFT、TPS、幻觉率、A/B测试</td><td>Observability, Cost Optimization</td></tr><tr><td>成本优化</td><td>模型路由、缓存、量化、批处理</td><td>Model Router, Semantic Cache</td></tr></tbody></table><hr><blockquote><p>🎯 <strong>AI大模型面试八股文系列完结！</strong> 本系列从Transformer基础、训练微调、推理部署、应用开发、安全对齐到系统设计，全面覆盖了大模型面试的核心知识点。</p><p>📌 <strong>下期预告</strong>：《Java并发编程面试八股文（一）——线程基础与锁机制》将深入Java线程模型、synchronized原理、Lock接口、AQS框架等并发编程核心话题，开启全新的面试八股文系列，敬请期待！</p></blockquote></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/ai%E5%A4%A7%E6%A8%A1%E5%9E%8B%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%AE%89%E5%85%A8%E5%AF%B9%E9%BD%90%E4%B8%8E%E5%89%8D%E6%B2%BF%E8%B6%8B%E5%8A%BF/><span>← 上一篇</span><strong>AI大模型面试八股文（五）——大模型安全、对齐与前沿趋势</strong></a>
+</span></span></code></pre></div><hr><h2 id=八面试系统设计题实战>八、面试系统设计题实战</h2><h3 id=81-设计一个智能客服系统>8.1 设计一个智能客服系统</h3><p><strong>Q: 请设计一个基于大模型的智能客服系统。</strong></p><p><strong>系统架构：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用户 → CDN → API网关 → 会话管理 → 意图识别
+</span></span><span class=line><span class=cl>                                     │
+</span></span><span class=line><span class=cl>                        ┌────────────┼────────────┐
+</span></span><span class=line><span class=cl>                        │            │            │
+</span></span><span class=line><span class=cl>                   FAQ检索      知识库RAG     工具调用
+</span></span><span class=line><span class=cl>                        │            │            │
+</span></span><span class=line><span class=cl>                        └────────────┼────────────┘
+</span></span><span class=line><span class=cl>                                     │
+</span></span><span class=line><span class=cl>                              回答生成+审核
+</span></span><span class=line><span class=cl>                                     │
+</span></span><span class=line><span class=cl>                              人工客服兜底
+</span></span></code></pre></div><p><strong>关键设计决策：</strong></p><table><thead><tr><th>决策点</th><th>选择</th><th>理由</th></tr></thead><tbody><tr><td>检索方案</td><td>混合检索(向量+ES)</td><td>FAQ精确匹配+语义理解</td></tr><tr><td>上下文管理</td><td>摘要+最近5轮</td><td>长对话不丢信息</td></tr><tr><td>安全审核</td><td>输入输出双审核</td><td>防注入+防泄露</td></tr><tr><td>降级策略</td><td>规则引擎→LLM→人工</td><td>三级降级保证可用性</td></tr><tr><td>多轮记忆</td><td>Redis短期+MySQL长期</td><td>7天热数据+全量冷数据</td></tr></tbody></table><h3 id=82-设计一个代码助手>8.2 设计一个代码助手</h3><p><strong>Q: 请设计一个类似GitHub Copilot的代码助手。</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>IDE → LSP协议 → 代码上下文分析 → Prompt组装 → LLM推理 → 后处理 → 补全建议
+</span></span><span class=line><span class=cl>                     │                              │
+</span></span><span class=line><span class=cl>                     │                              ├─ 语法校验
+</span></span><span class=line><span class=cl>                     │                              ├─ 安全检测
+</span></span><span class=line><span class=cl>                     │                              └─ 相似代码去重
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>                     ├─ 当前文件上下文
+</span></span><span class=line><span class=cl>                     ├─ 项目结构
+</span></span><span class=line><span class=cl>                     ├─ 相关文件(imports)
+</span></span><span class=line><span class=cl>                     └─ Git历史(可选)
+</span></span></code></pre></div><p><strong>关键挑战：</strong></p><table><thead><tr><th>挑战</th><th>解决方案</th></tr></thead><tbody><tr><td>低延迟要求</td><td>流式输出 + 本地小模型 + 缓存</td></tr><tr><td>上下文有限</td><td>Tree-sitter解析 + 智能选择相关代码</td></tr><tr><td>代码质量</td><td>后处理语法校验 + 静态分析</td></tr><tr><td>隐私合规</td><td>本地模型选项 + 代码脱敏</td></tr></tbody></table><hr><h2 id=九总结>九、总结</h2><table><thead><tr><th>主题</th><th>核心要点</th><th>面试关键词</th></tr></thead><tbody><tr><td>RAG</td><td>检索增强生成、混合检索、重排序、RAGAS评估</td><td>Chunking, Embedding, Rerank, Faithfulness</td></tr><tr><td>推理系统</td><td>vLLM、PagedAttention、连续批处理、量化部署</td><td>KV Cache, Continuous Batching, GPTQ</td></tr><tr><td>评测体系</td><td>MMLU、MT-Bench、LLM-as-Judge、自动评测</td><td>Benchmark, Arena, RAGAS</td></tr><tr><td>对话系统</td><td>上下文管理、摘要压缩、Function Calling</td><td>Context Window, Tool Use, Multi-turn</td></tr><tr><td>Prompt工程</td><td>CoT、DSPy、结构化输出</td><td>Few-shot, ReAct, Instructor</td></tr><tr><td>监控运维</td><td>TTFT、TPS、幻觉率、A/B测试</td><td>Observability, Cost Optimization</td></tr><tr><td>成本优化</td><td>模型路由、缓存、量化、批处理</td><td>Model Router, Semantic Cache</td></tr></tbody></table><hr><blockquote><p>🎯 <strong>AI大模型面试八股文系列完结！</strong> 本系列从Transformer基础、训练微调、推理部署、应用开发、安全对齐到系统设计，全面覆盖了大模型面试的核心知识点。</p><p>📌 <strong>下期预告</strong>：《Java并发编程面试八股文（一）——线程基础与锁机制》将深入Java线程模型、synchronized原理、Lock接口、AQS框架等并发编程核心话题，开启全新的面试八股文系列，敬请期待！</p></blockquote></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/ai%E5%A4%A7%E6%A8%A1%E5%9E%8B%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%AE%89%E5%85%A8%E5%AF%B9%E9%BD%90%E4%B8%8E%E5%89%8D%E6%B2%BF%E8%B6%8B%E5%8A%BF/><span>← 上一篇</span><strong>AI大模型面试八股文（五）——大模型安全、对齐与前沿趋势</strong></a>
 <a class=next href=/posts/ai%E5%A4%A7%E6%A8%A1%E5%9E%8B%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83%E5%A4%A7%E6%A8%A1%E5%9E%8B%E8%AF%84%E4%BC%B0%E4%BD%93%E7%B3%BB%E4%B8%8E%E6%8F%90%E7%A4%BA%E5%B7%A5%E7%A8%8B%E5%AE%9E%E6%88%98/><span>下一篇 →</span><strong>AI大模型面试八股文（七）——大模型评估体系与提示工程实战</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/spring-ai%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%8D%81ai%E5%BA%94%E7%94%A8%E5%AE%89%E5%85%A8%E4%B8%8E%E5%90%88%E8%A7%84%E4%BB%8Eprompt%E6%B3%A8%E5%85%A5%E5%88%B0%E6%95%B0%E6%8D%AE%E6%B2%BB%E7%90%86/><span>2026-07-28</span><strong>Spring AI面试八股文（十）——AI应用安全与合规：从Prompt注入到数据治理</strong><p>从 Prompt 注入防御、输入输出内容过滤、对话数据合规存储到企业级 AI 安全治理框架，系统讲解 Spring AI 应用的安全与合规实践，本系列收官篇。</p></a><a href=/posts/ai%E5%A4%A7%E6%A8%A1%E5%9E%8B%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%8D%81ai-agent%E5%B7%A5%E7%A8%8B%E5%8C%96%E5%AE%9E%E6%88%98%E4%B8%8E%E9%9D%A2%E8%AF%95%E5%86%B2%E5%88%BA/><span>2026-07-27</span><strong>AI大模型面试八股文（十）——AI Agent工程化实战与面试冲刺</strong><p>面试高频问题：AI Agent的架构模式有哪些？多Agent协作怎么设计？Agent的延迟和成本如何控制？Agent安全怎么保障？本文从Agent架构模式、多Agent协 …</p></a><a href=/posts/ai%E5%A4%A7%E6%A8%A1%E5%9E%8B%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B9%9Drag%E7%B3%BB%E7%BB%9F%E8%BF%9B%E9%98%B6%E4%B8%8E%E7%9F%A5%E8%AF%86%E5%B7%A5%E7%A8%8B/><span>2026-07-26</span><strong>AI大模型面试八股文（九）——RAG系统进阶与知识工程</strong><p>面试高频问题：RAG的分块策略有哪些？如何做混合检索？重排序为什么重要？GraphRAG和Agentic RAG是什么？本文从分块策略、检索架构演进、重排序工程实 …</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9AAI%E5%A4%A7%E6%A8%A1%E5%9E%8B%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%EF%BC%88%E5%85%AD%EF%BC%89%E2%80%94%E2%80%94%E5%A4%A7%E6%A8%A1%E5%9E%8B%E7%B3%BB%E7%BB%9F%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%B7%A5%E7%A8%8B%E5%AE%9E%E8%B7%B5" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一rag系统架构设计>一、RAG系统架构设计</a><ul><li><a href=#11-rag基本原理>1.1 RAG基本原理</a></li><li><a href=#12-rag系统架构设计>1.2 RAG系统架构设计</a></li><li><a href=#13-高级检索策略>1.3 高级检索策略</a></li><li><a href=#14-rag评估指标>1.4 RAG评估指标</a></li></ul></li><li><a href=#二大模型推理系统设计>二、大模型推理系统设计</a><ul><li><a href=#21-在线推理-vs-离线推理>2.1 在线推理 vs 离线推理</a></li><li><a href=#22-推理优化技术>2.2 推理优化技术</a></li><li><a href=#23-推理系统架构>2.3 推理系统架构</a></li></ul></li><li><a href=#三大模型评测体系>三、大模型评测体系</a><ul><li><a href=#31-评测维度>3.1 评测维度</a></li><li><a href=#32-主流评测基准>3.2 主流评测基准</a></li><li><a href=#33-自动评测框架>3.3 自动评测框架</a></li><li><a href=#34-llm-as-judge>3.4 LLM-as-Judge</a></li></ul></li><li><a href=#四多轮对话系统设计>四、多轮对话系统设计</a><ul><li><a href=#41-对话系统架构>4.1 对话系统架构</a></li><li><a href=#42-上下文窗口管理>4.2 上下文窗口管理</a></li><li><a href=#43-function-calling与工具使用>4.3 Function Calling与工具使用</a></li></ul></li><li><a href=#五prompt工程进阶>五、Prompt工程进阶</a><ul><li><a href=#51-高级prompt技术>5.1 高级Prompt技术</a></li><li><a href=#52-结构化输出>5.2 结构化输出</a></li></ul></li><li><a href=#六llm应用监控与运维>六、LLM应用监控与运维</a><ul><li><a href=#61-关键监控指标>6.1 关键监控指标</a></li><li><a href=#62-可观测性架构>6.2 可观测性架构</a></li><li><a href=#63-ab测试与迭代>6.3 A/B测试与迭代</a></li></ul></li><li><a href=#七成本优化策略>七、成本优化策略</a><ul><li><a href=#71-token成本优化>7.1 Token成本优化</a></li></ul></li><li><a href=#八面试系统设计题实战>八、面试系统设计题实战</a><ul><li><a href=#81-设计一个智能客服系统>8.1 设计一个智能客服系统</a></li><li><a href=#82-设计一个代码助手>8.2 设计一个代码助手</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
 <a href=mailto:liyafei.work@foxmail.com>邮箱</a>
 <a href=/index.xml>RSS</a>

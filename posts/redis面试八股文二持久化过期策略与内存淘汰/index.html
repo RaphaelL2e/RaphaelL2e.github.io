@@ -9,65 +9,65 @@
 <a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Redis面试八股文（二）——持久化、过期策略与内存淘汰</h1><p class=article-description>🎯 本文目标：承接上一篇五大数据结构的底层原理，本文将转向Redis数据安全与内存管理两大核心主题——从RDB快照与AOF日志的底层机制对比，到混合持久化的技术演进，再到键过期策略的惰性+定期双管齐下，最终深入八种内存淘汰算法的原理、适用场景与实战选型。 Q: RDB持久化的原理是什么？ RDB（R。</p><div class=article-meta><span>发布于 <time datetime=2026-06-21>2026-06-21</time></span>
 <span>最后验证 2026-06</span>
 <span>5 分钟阅读</span>
-<span>936 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一rdb持久化内存快照>一、RDB持久化——内存快照</a><ul><li><a href=#11-rdb是什么>1.1 RDB是什么？</a></li><li><a href=#12-bgsave的fork原理>1.2 bgsave的fork原理</a></li><li><a href=#13-rdb的配置与触发>1.3 RDB的配置与触发</a></li><li><a href=#14-rdb的优缺点>1.4 RDB的优缺点</a></li></ul></li><li><a href=#二aof持久化命令日志>二、AOF持久化——命令日志</a><ul><li><a href=#21-aof是什么>2.1 AOF是什么？</a></li><li><a href=#22-aof的三种刷盘策略>2.2 AOF的三种刷盘策略</a></li><li><a href=#23-aof重写机制>2.3 AOF重写机制</a></li><li><a href=#24-rdb-vs-aof-如何选择>2.4 RDB vs AOF 如何选择？</a></li></ul></li><li><a href=#三混合持久化redis-40的进化>三、混合持久化——Redis 4.0的进化</a><ul><li><a href=#31-混合持久化原理>3.1 混合持久化原理</a></li><li><a href=#32-面试总结持久化演进路线>3.2 面试总结：持久化演进路线</a></li></ul></li><li><a href=#四过期删除策略键的生命周期管理>四、过期删除策略——键的生命周期管理</a><ul><li><a href=#41-三种过期删除策略对比>4.1 三种过期删除策略对比</a></li><li><a href=#42-惰性删除>4.2 惰性删除</a></li><li><a href=#43-定期删除>4.3 定期删除</a></li><li><a href=#44-主从架构下的过期策略>4.4 主从架构下的过期策略</a></li></ul></li><li><a href=#五内存淘汰策略内存不够怎么办>五、内存淘汰策略——内存不够怎么办？</a><ul><li><a href=#51-八种内存淘汰策略全景>5.1 八种内存淘汰策略全景</a></li><li><a href=#52-lru算法深入>5.2 LRU算法深入</a></li><li><a href=#53-lfu算法深入>5.3 LFU算法深入</a></li><li><a href=#54-内存淘汰策略选择指南>5.4 内存淘汰策略选择指南</a></li></ul></li><li><a href=#六实战场景分析>六、实战场景分析</a><ul><li><a href=#61-场景一缓存雪崩>6.1 场景一：缓存雪崩</a></li><li><a href=#62-场景二大key的过期删除>6.2 场景二：大Key的过期删除</a></li><li><a href=#63-场景三内存淘汰与过期策略的配合>6.3 场景三：内存淘汰与过期策略的配合</a></li><li><a href=#64-场景四内存使用率监控>6.4 场景四：内存使用率监控</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接上一篇五大数据结构的底层原理，本文将转向Redis数据安全与内存管理两大核心主题——从RDB快照与AOF日志的底层机制对比，到混合持久化的技术演进，再到键过期策略的惰性+定期双管齐下，最终深入八种内存淘汰算法的原理、适用场景与实战选型。</p></blockquote><hr><h2 id=一rdb持久化内存快照>一、RDB持久化——内存快照</h2><h3 id=11-rdb是什么>1.1 RDB是什么？</h3><p><strong>Q: RDB持久化的原理是什么？</strong></p><p>RDB（Redis DataBase）是将某一时刻的内存数据以<strong>二进制快照</strong>的形式保存到磁盘。可以理解为给Redis内存拍了一张"照片"。</p><table><thead><tr><th>特性</th><th>说明</th></tr></thead><tbody><tr><td>触发方式</td><td>save（阻塞）/ bgsave（fork子进程）</td></tr><tr><td>文件格式</td><td>二进制压缩dump.rdb</td></tr><tr><td>恢复速度</td><td>快，直接加载到内存</td></tr><tr><td>数据丢失</td><td>最后一次快照后的数据</td></tr></tbody></table><h3 id=12-bgsave的fork原理>1.2 bgsave的fork原理</h3><p><strong>Q: bgsave时Redis还能处理请求吗？为什么？</strong></p><p>bgsave的核心机制是操作系统的<strong>写时复制（Copy-On-Write, COW）</strong>：</p><pre tabindex=0><code>主进程                    子进程
-  │                         │
-  │── fork() ──────────────►│
-  │                         │── 共享父进程内存页（只读）
-  │── 处理客户端请求         │── 遍历所有数据写入RDB
-  │                         │
-  │── 修改Key A时：         │
-  │   复制该内存页           │
-  │   在副本上修改           │── 子进程仍读原始页
-  │                         │
-  │                         │── 写入完成，退出
-</code></pre><p><strong>关键点：</strong></p><ol><li>fork()时父子进程共享同一块物理内存</li><li>父进程修改数据时，OS会复制被修改的内存页</li><li>子进程始终读取fork那一刻的快照数据</li><li>COW确保bgsave期间不需要锁，不影响读写</li></ol><h3 id=13-rdb的配置与触发>1.3 RDB的配置与触发</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># redis.conf 配置</span>
+<span>936 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一rdb持久化内存快照>一、RDB持久化——内存快照</a><ul><li><a href=#11-rdb是什么>1.1 RDB是什么？</a></li><li><a href=#12-bgsave的fork原理>1.2 bgsave的fork原理</a></li><li><a href=#13-rdb的配置与触发>1.3 RDB的配置与触发</a></li><li><a href=#14-rdb的优缺点>1.4 RDB的优缺点</a></li></ul></li><li><a href=#二aof持久化命令日志>二、AOF持久化——命令日志</a><ul><li><a href=#21-aof是什么>2.1 AOF是什么？</a></li><li><a href=#22-aof的三种刷盘策略>2.2 AOF的三种刷盘策略</a></li><li><a href=#23-aof重写机制>2.3 AOF重写机制</a></li><li><a href=#24-rdb-vs-aof-如何选择>2.4 RDB vs AOF 如何选择？</a></li></ul></li><li><a href=#三混合持久化redis-40的进化>三、混合持久化——Redis 4.0的进化</a><ul><li><a href=#31-混合持久化原理>3.1 混合持久化原理</a></li><li><a href=#32-面试总结持久化演进路线>3.2 面试总结：持久化演进路线</a></li></ul></li><li><a href=#四过期删除策略键的生命周期管理>四、过期删除策略——键的生命周期管理</a><ul><li><a href=#41-三种过期删除策略对比>4.1 三种过期删除策略对比</a></li><li><a href=#42-惰性删除>4.2 惰性删除</a></li><li><a href=#43-定期删除>4.3 定期删除</a></li><li><a href=#44-主从架构下的过期策略>4.4 主从架构下的过期策略</a></li></ul></li><li><a href=#五内存淘汰策略内存不够怎么办>五、内存淘汰策略——内存不够怎么办？</a><ul><li><a href=#51-八种内存淘汰策略全景>5.1 八种内存淘汰策略全景</a></li><li><a href=#52-lru算法深入>5.2 LRU算法深入</a></li><li><a href=#53-lfu算法深入>5.3 LFU算法深入</a></li><li><a href=#54-内存淘汰策略选择指南>5.4 内存淘汰策略选择指南</a></li></ul></li><li><a href=#六实战场景分析>六、实战场景分析</a><ul><li><a href=#61-场景一缓存雪崩>6.1 场景一：缓存雪崩</a></li><li><a href=#62-场景二大key的过期删除>6.2 场景二：大Key的过期删除</a></li><li><a href=#63-场景三内存淘汰与过期策略的配合>6.3 场景三：内存淘汰与过期策略的配合</a></li><li><a href=#64-场景四内存使用率监控>6.4 场景四：内存使用率监控</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接上一篇五大数据结构的底层原理，本文将转向Redis数据安全与内存管理两大核心主题——从RDB快照与AOF日志的底层机制对比，到混合持久化的技术演进，再到键过期策略的惰性+定期双管齐下，最终深入八种内存淘汰算法的原理、适用场景与实战选型。</p></blockquote><hr><h2 id=一rdb持久化内存快照>一、RDB持久化——内存快照</h2><h3 id=11-rdb是什么>1.1 RDB是什么？</h3><p><strong>Q: RDB持久化的原理是什么？</strong></p><p>RDB（Redis DataBase）是将某一时刻的内存数据以<strong>二进制快照</strong>的形式保存到磁盘。可以理解为给Redis内存拍了一张"照片"。</p><table><thead><tr><th>特性</th><th>说明</th></tr></thead><tbody><tr><td>触发方式</td><td>save（阻塞）/ bgsave（fork子进程）</td></tr><tr><td>文件格式</td><td>二进制压缩dump.rdb</td></tr><tr><td>恢复速度</td><td>快，直接加载到内存</td></tr><tr><td>数据丢失</td><td>最后一次快照后的数据</td></tr></tbody></table><h3 id=12-bgsave的fork原理>1.2 bgsave的fork原理</h3><p><strong>Q: bgsave时Redis还能处理请求吗？为什么？</strong></p><p>bgsave的核心机制是操作系统的<strong>写时复制（Copy-On-Write, COW）</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>主进程                    子进程
+</span></span><span class=line><span class=cl>  │                         │
+</span></span><span class=line><span class=cl>  │── fork() ──────────────►│
+</span></span><span class=line><span class=cl>  │                         │── 共享父进程内存页（只读）
+</span></span><span class=line><span class=cl>  │── 处理客户端请求         │── 遍历所有数据写入RDB
+</span></span><span class=line><span class=cl>  │                         │
+</span></span><span class=line><span class=cl>  │── 修改Key A时：         │
+</span></span><span class=line><span class=cl>  │   复制该内存页           │
+</span></span><span class=line><span class=cl>  │   在副本上修改           │── 子进程仍读原始页
+</span></span><span class=line><span class=cl>  │                         │
+</span></span><span class=line><span class=cl>  │                         │── 写入完成，退出
+</span></span></code></pre></div><p><strong>关键点：</strong></p><ol><li>fork()时父子进程共享同一块物理内存</li><li>父进程修改数据时，OS会复制被修改的内存页</li><li>子进程始终读取fork那一刻的快照数据</li><li>COW确保bgsave期间不需要锁，不影响读写</li></ol><h3 id=13-rdb的配置与触发>1.3 RDB的配置与触发</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># redis.conf 配置</span>
 </span></span><span class=line><span class=cl>save <span class=m>900</span> <span class=m>1</span>      <span class=c1># 900秒内至少1个key变化</span>
 </span></span><span class=line><span class=cl>save <span class=m>300</span> <span class=m>10</span>     <span class=c1># 300秒内至少10个key变化</span>
 </span></span><span class=line><span class=cl>save <span class=m>60</span> <span class=m>10000</span>   <span class=c1># 60秒内至少10000个key变化</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl>dbfilename dump.rdb
 </span></span><span class=line><span class=cl>dir /var/lib/redis
-</span></span></code></pre></div><p><strong>Q: save和bgsave的区别？为什么不推荐用save？</strong></p><table><thead><tr><th>对比维度</th><th>save</th><th>bgsave</th></tr></thead><tbody><tr><td>是否阻塞</td><td>阻塞所有客户端请求</td><td>仅fork时短暂阻塞</td></tr><tr><td>执行方式</td><td>主进程直接执行</td><td>fork子进程执行</td></tr><tr><td>适用场景</td><td>关机维护时手动</td><td>生产环境自动触发</td></tr><tr><td>风险</td><td>数据量大时可能阻塞数秒</td><td>内存翻倍风险</td></tr></tbody></table><h3 id=14-rdb的优缺点>1.4 RDB的优缺点</h3><p><strong>优点：</strong></p><ul><li>文件紧凑，适合备份和灾难恢复</li><li>恢复大数据集时比AOF快</li><li>对性能影响小（fork子进程处理）</li></ul><p><strong>缺点：</strong></p><ul><li>数据安全性较低（两次快照间的数据可能丢失）</li><li>fork子进程时内存占用翻倍</li><li>频繁fork可能影响性能</li></ul><hr><h2 id=二aof持久化命令日志>二、AOF持久化——命令日志</h2><h3 id=21-aof是什么>2.1 AOF是什么？</h3><p><strong>Q: AOF持久化的原理是什么？</strong></p><p>AOF（Append Only File）记录Redis执行的<strong>每一条写命令</strong>，重启时通过重放命令恢复数据。类似于MySQL的binlog。</p><pre tabindex=0><code>客户端: SET name &#34;zhangsan&#34;
-   │
-   ▼
-Redis Server:
-   │── 执行命令，修改内存数据
-   │── 将命令追加到AOF缓冲区
-   │── 根据fsync策略刷盘
-</code></pre><h3 id=22-aof的三种刷盘策略>2.2 AOF的三种刷盘策略</h3><p><strong>Q: AOF的fsync策略有哪些？各自优缺点是什么？</strong></p><table><thead><tr><th>策略</th><th>配置值</th><th>行为</th><th>数据安全</th><th>性能</th></tr></thead><tbody><tr><td>每次刷盘</td><td>always</td><td>每个写命令后fsync</td><td>最高，最多丢1条</td><td>最低</td></tr><tr><td>每秒刷盘</td><td>everysec</td><td>每秒fsync一次</td><td>较高，最多丢1秒</td><td>平衡</td></tr><tr><td>不主动刷盘</td><td>no</td><td>交给OS决定</td><td>最低</td><td>最高</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># redis.conf</span>
+</span></span></code></pre></div><p><strong>Q: save和bgsave的区别？为什么不推荐用save？</strong></p><table><thead><tr><th>对比维度</th><th>save</th><th>bgsave</th></tr></thead><tbody><tr><td>是否阻塞</td><td>阻塞所有客户端请求</td><td>仅fork时短暂阻塞</td></tr><tr><td>执行方式</td><td>主进程直接执行</td><td>fork子进程执行</td></tr><tr><td>适用场景</td><td>关机维护时手动</td><td>生产环境自动触发</td></tr><tr><td>风险</td><td>数据量大时可能阻塞数秒</td><td>内存翻倍风险</td></tr></tbody></table><h3 id=14-rdb的优缺点>1.4 RDB的优缺点</h3><p><strong>优点：</strong></p><ul><li>文件紧凑，适合备份和灾难恢复</li><li>恢复大数据集时比AOF快</li><li>对性能影响小（fork子进程处理）</li></ul><p><strong>缺点：</strong></p><ul><li>数据安全性较低（两次快照间的数据可能丢失）</li><li>fork子进程时内存占用翻倍</li><li>频繁fork可能影响性能</li></ul><hr><h2 id=二aof持久化命令日志>二、AOF持久化——命令日志</h2><h3 id=21-aof是什么>2.1 AOF是什么？</h3><p><strong>Q: AOF持久化的原理是什么？</strong></p><p>AOF（Append Only File）记录Redis执行的<strong>每一条写命令</strong>，重启时通过重放命令恢复数据。类似于MySQL的binlog。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>客户端: SET name &#34;zhangsan&#34;
+</span></span><span class=line><span class=cl>   │
+</span></span><span class=line><span class=cl>   ▼
+</span></span><span class=line><span class=cl>Redis Server:
+</span></span><span class=line><span class=cl>   │── 执行命令，修改内存数据
+</span></span><span class=line><span class=cl>   │── 将命令追加到AOF缓冲区
+</span></span><span class=line><span class=cl>   │── 根据fsync策略刷盘
+</span></span></code></pre></div><h3 id=22-aof的三种刷盘策略>2.2 AOF的三种刷盘策略</h3><p><strong>Q: AOF的fsync策略有哪些？各自优缺点是什么？</strong></p><table><thead><tr><th>策略</th><th>配置值</th><th>行为</th><th>数据安全</th><th>性能</th></tr></thead><tbody><tr><td>每次刷盘</td><td>always</td><td>每个写命令后fsync</td><td>最高，最多丢1条</td><td>最低</td></tr><tr><td>每秒刷盘</td><td>everysec</td><td>每秒fsync一次</td><td>较高，最多丢1秒</td><td>平衡</td></tr><tr><td>不主动刷盘</td><td>no</td><td>交给OS决定</td><td>最低</td><td>最高</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># redis.conf</span>
 </span></span><span class=line><span class=cl>appendonly yes
 </span></span><span class=line><span class=cl>appendfsync everysec    <span class=c1># 推荐配置</span>
-</span></span></code></pre></div><p><strong>always vs everysec的选择场景：</strong></p><ul><li><strong>always</strong>：对数据安全性要求极高（金融交易核心数据）</li><li><strong>everysec</strong>：绝大多数场景的推荐配置，性能与安全的平衡点</li><li><strong>no</strong>：纯缓存场景，数据可丢失</li></ul><h3 id=23-aof重写机制>2.3 AOF重写机制</h3><p><strong>Q: AOF文件为什么越来越大？如何解决？</strong></p><p>随着运行时间增长，AOF文件会包含大量冗余命令。例如：</p><pre tabindex=0><code>SET counter 1   ← 第一条
-INCR counter    ← 冗余
-INCR counter    ← 冗余
-INCR counter    ← 冗余
-DEL counter     ← 最终counter已不存在
-</code></pre><p>AOF重写（Rewrite）将冗余命令合并为最精简的形式：</p><pre tabindex=0><code># 重写后：counter已被删除，不再写入
-</code></pre><p><strong>重写原理（BGREWRITEAOF）：</strong></p><pre tabindex=0><code>主进程                    子进程
-  │                         │
-  │── fork() ──────────────►│
-  │                         │── 根据当前内存数据生成新AOF
-  │── 处理写入请求           │
-  │── 写入AOF重写缓冲区 ◄────│
-  │                         │── 新AOF生成完毕
-  │── 追加缓冲区到新AOF      │
-  │── 原子rename替换旧AOF   │
-</code></pre><p><strong>AOF重写触发条件：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>auto-aof-rewrite-percentage <span class=m>100</span>   <span class=c1># 比上次重写时增长100%</span>
+</span></span></code></pre></div><p><strong>always vs everysec的选择场景：</strong></p><ul><li><strong>always</strong>：对数据安全性要求极高（金融交易核心数据）</li><li><strong>everysec</strong>：绝大多数场景的推荐配置，性能与安全的平衡点</li><li><strong>no</strong>：纯缓存场景，数据可丢失</li></ul><h3 id=23-aof重写机制>2.3 AOF重写机制</h3><p><strong>Q: AOF文件为什么越来越大？如何解决？</strong></p><p>随着运行时间增长，AOF文件会包含大量冗余命令。例如：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>SET counter 1   ← 第一条
+</span></span><span class=line><span class=cl>INCR counter    ← 冗余
+</span></span><span class=line><span class=cl>INCR counter    ← 冗余
+</span></span><span class=line><span class=cl>INCR counter    ← 冗余
+</span></span><span class=line><span class=cl>DEL counter     ← 最终counter已不存在
+</span></span></code></pre></div><p>AOF重写（Rewrite）将冗余命令合并为最精简的形式：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl># 重写后：counter已被删除，不再写入
+</span></span></code></pre></div><p><strong>重写原理（BGREWRITEAOF）：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>主进程                    子进程
+</span></span><span class=line><span class=cl>  │                         │
+</span></span><span class=line><span class=cl>  │── fork() ──────────────►│
+</span></span><span class=line><span class=cl>  │                         │── 根据当前内存数据生成新AOF
+</span></span><span class=line><span class=cl>  │── 处理写入请求           │
+</span></span><span class=line><span class=cl>  │── 写入AOF重写缓冲区 ◄────│
+</span></span><span class=line><span class=cl>  │                         │── 新AOF生成完毕
+</span></span><span class=line><span class=cl>  │── 追加缓冲区到新AOF      │
+</span></span><span class=line><span class=cl>  │── 原子rename替换旧AOF   │
+</span></span></code></pre></div><p><strong>AOF重写触发条件：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>auto-aof-rewrite-percentage <span class=m>100</span>   <span class=c1># 比上次重写时增长100%</span>
 </span></span><span class=line><span class=cl>auto-aof-rewrite-min-size 64mb    <span class=c1># 最小64MB才触发</span>
-</span></span></code></pre></div><h3 id=24-rdb-vs-aof-如何选择>2.4 RDB vs AOF 如何选择？</h3><p><strong>面试高频问题：生产环境用RDB还是AOF？</strong></p><table><thead><tr><th>维度</th><th>RDB</th><th>AOF</th></tr></thead><tbody><tr><td>数据安全性</td><td>可能丢失几分钟</td><td>最多丢失1秒</td></tr><tr><td>恢复速度</td><td>快</td><td>慢（重放命令）</td></tr><tr><td>文件大小</td><td>小</td><td>大</td></tr><tr><td>IO性能影响</td><td>fork时短暂影响</td><td>持续写入影响</td></tr><tr><td>可读性</td><td>二进制不可读</td><td>文本可读</td></tr></tbody></table><p><strong>最佳实践（大多数场景）：两者同时开启，AOF优先恢复。</strong></p><hr><h2 id=三混合持久化redis-40的进化>三、混合持久化——Redis 4.0的进化</h2><h3 id=31-混合持久化原理>3.1 混合持久化原理</h3><p><strong>Q: Redis 4.0的混合持久化是什么？解决了什么问题？</strong></p><p>混合持久化是RDB和AOF的结合体：AOF重写时，将重写时刻的内存数据以RDB格式写入AOF文件头部，后续的增量命令以AOF格式追加。</p><p><strong>文件结构：</strong></p><pre tabindex=0><code>┌─────────────────────────────────────┐
-│           RDB格式（全量数据）          │  ← 重写时的内存快照
-├─────────────────────────────────────┤
-│           AOF格式（增量命令）          │  ← 重写后的写操作
-└─────────────────────────────────────┘
-</code></pre><p><strong>优势：</strong></p><ol><li>兼具RDB的快速恢复和AOF的数据安全</li><li>重写后的AOF文件前半部分是RDB，体积更小</li><li>恢复时前半部分直接加载RDB，后半部分重放AOF</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># redis.conf（Redis 5.0+默认开启）</span>
+</span></span></code></pre></div><h3 id=24-rdb-vs-aof-如何选择>2.4 RDB vs AOF 如何选择？</h3><p><strong>面试高频问题：生产环境用RDB还是AOF？</strong></p><table><thead><tr><th>维度</th><th>RDB</th><th>AOF</th></tr></thead><tbody><tr><td>数据安全性</td><td>可能丢失几分钟</td><td>最多丢失1秒</td></tr><tr><td>恢复速度</td><td>快</td><td>慢（重放命令）</td></tr><tr><td>文件大小</td><td>小</td><td>大</td></tr><tr><td>IO性能影响</td><td>fork时短暂影响</td><td>持续写入影响</td></tr><tr><td>可读性</td><td>二进制不可读</td><td>文本可读</td></tr></tbody></table><p><strong>最佳实践（大多数场景）：两者同时开启，AOF优先恢复。</strong></p><hr><h2 id=三混合持久化redis-40的进化>三、混合持久化——Redis 4.0的进化</h2><h3 id=31-混合持久化原理>3.1 混合持久化原理</h3><p><strong>Q: Redis 4.0的混合持久化是什么？解决了什么问题？</strong></p><p>混合持久化是RDB和AOF的结合体：AOF重写时，将重写时刻的内存数据以RDB格式写入AOF文件头部，后续的增量命令以AOF格式追加。</p><p><strong>文件结构：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│           RDB格式（全量数据）          │  ← 重写时的内存快照
+</span></span><span class=line><span class=cl>├─────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│           AOF格式（增量命令）          │  ← 重写后的写操作
+</span></span><span class=line><span class=cl>└─────────────────────────────────────┘
+</span></span></code></pre></div><p><strong>优势：</strong></p><ol><li>兼具RDB的快速恢复和AOF的数据安全</li><li>重写后的AOF文件前半部分是RDB，体积更小</li><li>恢复时前半部分直接加载RDB，后半部分重放AOF</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># redis.conf（Redis 5.0+默认开启）</span>
 </span></span><span class=line><span class=cl>aof-use-rdb-preamble yes
-</span></span></code></pre></div><h3 id=32-面试总结持久化演进路线>3.2 面试总结：持久化演进路线</h3><pre tabindex=0><code>Redis 1.0   → 仅支持内存，无持久化
-Redis 1.1   → 引入RDB（bgsave）
-Redis 1.1   → 引入AOF
-Redis 2.4   → 引入AOF Rewrite的增量缓冲
-Redis 4.0   → 引入混合持久化（RDB+AOF融合）
-Redis 7.0   → AOF多部分文件（Multi-Part AOF）
-</code></pre><hr><h2 id=四过期删除策略键的生命周期管理>四、过期删除策略——键的生命周期管理</h2><h3 id=41-三种过期删除策略对比>4.1 三种过期删除策略对比</h3><p><strong>Q: Redis如何删除过期键？</strong></p><table><thead><tr><th>策略</th><th>原理</th><th>优点</th><th>缺点</th></tr></thead><tbody><tr><td>定时删除</td><td>每个key设一个定时器</td><td>内存友好</td><td>CPU不友好，定时器开销大</td></tr><tr><td>惰性删除</td><td>访问时检查是否过期</td><td>CPU友好</td><td>内存不友好</td></tr><tr><td>定期删除</td><td>每隔一段时间抽样删除</td><td>折中方案</td><td>实现复杂</td></tr></tbody></table><p><strong>Redis的组合策略：惰性删除 + 定期删除</strong></p><h3 id=42-惰性删除>4.2 惰性删除</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=c1>// 伪代码：每次读写命令前检查key是否过期
+</span></span></code></pre></div><h3 id=32-面试总结持久化演进路线>3.2 面试总结：持久化演进路线</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Redis 1.0   → 仅支持内存，无持久化
+</span></span><span class=line><span class=cl>Redis 1.1   → 引入RDB（bgsave）
+</span></span><span class=line><span class=cl>Redis 1.1   → 引入AOF
+</span></span><span class=line><span class=cl>Redis 2.4   → 引入AOF Rewrite的增量缓冲
+</span></span><span class=line><span class=cl>Redis 4.0   → 引入混合持久化（RDB+AOF融合）
+</span></span><span class=line><span class=cl>Redis 7.0   → AOF多部分文件（Multi-Part AOF）
+</span></span></code></pre></div><hr><h2 id=四过期删除策略键的生命周期管理>四、过期删除策略——键的生命周期管理</h2><h3 id=41-三种过期删除策略对比>4.1 三种过期删除策略对比</h3><p><strong>Q: Redis如何删除过期键？</strong></p><table><thead><tr><th>策略</th><th>原理</th><th>优点</th><th>缺点</th></tr></thead><tbody><tr><td>定时删除</td><td>每个key设一个定时器</td><td>内存友好</td><td>CPU不友好，定时器开销大</td></tr><tr><td>惰性删除</td><td>访问时检查是否过期</td><td>CPU友好</td><td>内存不友好</td></tr><tr><td>定期删除</td><td>每隔一段时间抽样删除</td><td>折中方案</td><td>实现复杂</td></tr></tbody></table><p><strong>Redis的组合策略：惰性删除 + 定期删除</strong></p><h3 id=42-惰性删除>4.2 惰性删除</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=c1>// 伪代码：每次读写命令前检查key是否过期
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=nf>expireIfNeeded</span><span class=p>(</span><span class=n>redisDb</span> <span class=o>*</span><span class=n>db</span><span class=p>,</span> <span class=n>robj</span> <span class=o>*</span><span class=n>key</span><span class=p>)</span> <span class=p>{</span>
 </span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>(</span><span class=o>!</span><span class=nf>keyIsExpired</span><span class=p>(</span><span class=n>db</span><span class=p>,</span> <span class=n>key</span><span class=p>))</span> <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 惰性删除
@@ -88,16 +88,16 @@ Redis 7.0   → AOF多部分文件（Multi-Part AOF）
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=p>}</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 限制总执行时间不超过CPU时间的25%
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
-</span></span></code></pre></div><p><strong>定期删除的关键设计：</strong></p><ol><li><strong>随机抽取</strong>：不遍历全部，每次随机取20个key</li><li><strong>自适应循环</strong>：过期比例高时继续处理，低时切换DB</li><li><strong>CPU时间限制</strong>：单次执行不超过25ms（hz配置影响频率）</li><li><strong>模式区分</strong>：快速模式（FAST）和慢速模式（SLOW）</li></ol><h3 id=44-主从架构下的过期策略>4.4 主从架构下的过期策略</h3><p><strong>Q: Redis主从模式下过期键怎么处理？</strong></p><pre tabindex=0><code>主节点：
-  1. 惰性删除：发现过期 → 删除Key → 向从节点发送DEL命令
-  2. 定期删除：发现过期 → 删除Key → 向从节点发送DEL命令
-
-从节点：
-  1. 惰性删除：发现过期 → 不删除 → 返回客户端（逻辑过期）
-  2. 等待主节点的DEL命令才真正删除
-</code></pre><p><strong>核心规则：从节点不主动删除过期键，一切以主节点为准。</strong></p><hr><h2 id=五内存淘汰策略内存不够怎么办>五、内存淘汰策略——内存不够怎么办？</h2><h3 id=51-八种内存淘汰策略全景>5.1 八种内存淘汰策略全景</h3><p><strong>Q: Redis内存满了怎么办？有哪些淘汰策略？</strong></p><table><thead><tr><th>策略</th><th>配置值</th><th>行为</th><th>适用场景</th></tr></thead><tbody><tr><td>不淘汰</td><td>noeviction</td><td>拒绝写入，返回错误</td><td>不允许数据丢失的核心数据</td></tr><tr><td>全局LRU</td><td>allkeys-lru</td><td>淘汰最近最少使用的key</td><td>通用缓存场景</td></tr><tr><td>全局LFU</td><td>allkeys-lfu</td><td>淘汰最近最不频繁使用的key</td><td>热点数据缓存</td></tr><tr><td>全局随机</td><td>allkeys-random</td><td>随机淘汰</td><td>数据访问无规律</td></tr><tr><td>过期LRU</td><td>volatile-lru</td><td>有过期时间的key中LRU淘汰</td><td>混合场景（缓存+持久）</td></tr><tr><td>过期LFU</td><td>volatile-lfu</td><td>有过期时间的key中LFU淘汰</td><td>过期缓存优化</td></tr><tr><td>过期随机</td><td>volatile-random</td><td>有过期时间的key中随机淘汰</td><td>简单场景</td></tr><tr><td>过期TTL</td><td>volatile-ttl</td><td>淘汰最快过期的key</td><td>临时数据缓存</td></tr></tbody></table><h3 id=52-lru算法深入>5.2 LRU算法深入</h3><p><strong>Q: Redis的LRU和标准LRU有什么不同？</strong></p><p><strong>标准LRU：</strong></p><pre tabindex=0><code>双向链表 + HashMap，O(1)淘汰最久未使用的节点。
-缺点：每个key需要额外指针开销。
-</code></pre><p><strong>Redis近似LRU：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=c1>// Redis在每个对象中维护一个24位的lru时钟
+</span></span></code></pre></div><p><strong>定期删除的关键设计：</strong></p><ol><li><strong>随机抽取</strong>：不遍历全部，每次随机取20个key</li><li><strong>自适应循环</strong>：过期比例高时继续处理，低时切换DB</li><li><strong>CPU时间限制</strong>：单次执行不超过25ms（hz配置影响频率）</li><li><strong>模式区分</strong>：快速模式（FAST）和慢速模式（SLOW）</li></ol><h3 id=44-主从架构下的过期策略>4.4 主从架构下的过期策略</h3><p><strong>Q: Redis主从模式下过期键怎么处理？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>主节点：
+</span></span><span class=line><span class=cl>  1. 惰性删除：发现过期 → 删除Key → 向从节点发送DEL命令
+</span></span><span class=line><span class=cl>  2. 定期删除：发现过期 → 删除Key → 向从节点发送DEL命令
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>从节点：
+</span></span><span class=line><span class=cl>  1. 惰性删除：发现过期 → 不删除 → 返回客户端（逻辑过期）
+</span></span><span class=line><span class=cl>  2. 等待主节点的DEL命令才真正删除
+</span></span></code></pre></div><p><strong>核心规则：从节点不主动删除过期键，一切以主节点为准。</strong></p><hr><h2 id=五内存淘汰策略内存不够怎么办>五、内存淘汰策略——内存不够怎么办？</h2><h3 id=51-八种内存淘汰策略全景>5.1 八种内存淘汰策略全景</h3><p><strong>Q: Redis内存满了怎么办？有哪些淘汰策略？</strong></p><table><thead><tr><th>策略</th><th>配置值</th><th>行为</th><th>适用场景</th></tr></thead><tbody><tr><td>不淘汰</td><td>noeviction</td><td>拒绝写入，返回错误</td><td>不允许数据丢失的核心数据</td></tr><tr><td>全局LRU</td><td>allkeys-lru</td><td>淘汰最近最少使用的key</td><td>通用缓存场景</td></tr><tr><td>全局LFU</td><td>allkeys-lfu</td><td>淘汰最近最不频繁使用的key</td><td>热点数据缓存</td></tr><tr><td>全局随机</td><td>allkeys-random</td><td>随机淘汰</td><td>数据访问无规律</td></tr><tr><td>过期LRU</td><td>volatile-lru</td><td>有过期时间的key中LRU淘汰</td><td>混合场景（缓存+持久）</td></tr><tr><td>过期LFU</td><td>volatile-lfu</td><td>有过期时间的key中LFU淘汰</td><td>过期缓存优化</td></tr><tr><td>过期随机</td><td>volatile-random</td><td>有过期时间的key中随机淘汰</td><td>简单场景</td></tr><tr><td>过期TTL</td><td>volatile-ttl</td><td>淘汰最快过期的key</td><td>临时数据缓存</td></tr></tbody></table><h3 id=52-lru算法深入>5.2 LRU算法深入</h3><p><strong>Q: Redis的LRU和标准LRU有什么不同？</strong></p><p><strong>标准LRU：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>双向链表 + HashMap，O(1)淘汰最久未使用的节点。
+</span></span><span class=line><span class=cl>缺点：每个key需要额外指针开销。
+</span></span></code></pre></div><p><strong>Redis近似LRU：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=c1>// Redis在每个对象中维护一个24位的lru时钟
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>typedef</span> <span class=k>struct</span> <span class=n>redisObject</span> <span class=p>{</span>
 </span></span><span class=line><span class=cl>    <span class=kt>unsigned</span> <span class=nl>type</span><span class=p>:</span><span class=mi>4</span><span class=p>;</span>
 </span></span><span class=line><span class=cl>    <span class=kt>unsigned</span> <span class=nl>encoding</span><span class=p>:</span><span class=mi>4</span><span class=p>;</span>
@@ -111,15 +111,15 @@ Redis 7.0   → AOF多部分文件（Multi-Part AOF）
 </span></span></span></code></pre></div><p><strong>面试重点：Redis为什么不实现标准LRU？</strong></p><table><thead><tr><th>对比</th><th>标准LRU</th><th>Redis 近似LRU</th></tr></thead><tbody><tr><td>内存开销</td><td>高（双向链表指针）</td><td>低（24位时钟）</td></tr><tr><td>精度</td><td>精确</td><td>近似（采样越多越准）</td></tr><tr><td>性能</td><td>O(1)淘汰，但维护成本高</td><td>O(N)采样，但N很小</td></tr><tr><td>实现复杂度</td><td>高</td><td>低</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 精度配置</span>
 </span></span><span class=line><span class=cl>maxmemory-policy allkeys-lru
 </span></span><span class=line><span class=cl>maxmemory-samples <span class=m>10</span>   <span class=c1># 越大越精确，但越耗CPU（默认5）</span>
-</span></span></code></pre></div><h3 id=53-lfu算法深入>5.3 LFU算法深入</h3><p><strong>Q: LFU和LRU的区别？Redis如何实现LFU？</strong></p><p><strong>LRU vs LFU：</strong></p><table><thead><tr><th>维度</th><th>LRU</th><th>LFU</th></tr></thead><tbody><tr><td>核心思想</td><td>最近没用的淘汰</td><td>最不频繁用的淘汰</td></tr><tr><td>计数方式</td><td>最近访问时间</td><td>访问频率</td></tr><tr><td>适用场景</td><td>热点随时间变化</td><td>热点相对稳定</td></tr><tr><td>典型问题</td><td>偶发大量访问的key不会被淘汰</td><td>历史高频key难以淘汰</td></tr></tbody></table><p><strong>Redis LFU的实现：</strong></p><p>Redis复用了24位lru字段来实现LFU：</p><pre tabindex=0><code>24位分为两部分：
-┌──────────────┬──────────────┐
-│  16位 ldt    │   8位 logc   │
-│ (最近访问时间) │  (对数计数器)  │
-└──────────────┴──────────────┘
-
-- ldt（Last Decrement Time）：上次衰减时间
-- logc（Logarithmic Counter）：对数访问计数器（0-255）
-</code></pre><p><strong>LFU计数规则：</strong></p><ol><li>每次访问，logc增加（不是线性增长，是对数增长）</li><li>随着时间推移，logc会衰减（防止历史高频key永不淘汰）</li><li>淘汰时选择logc最小的key</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=c1>// 伪代码：LFU计数增长
+</span></span></code></pre></div><h3 id=53-lfu算法深入>5.3 LFU算法深入</h3><p><strong>Q: LFU和LRU的区别？Redis如何实现LFU？</strong></p><p><strong>LRU vs LFU：</strong></p><table><thead><tr><th>维度</th><th>LRU</th><th>LFU</th></tr></thead><tbody><tr><td>核心思想</td><td>最近没用的淘汰</td><td>最不频繁用的淘汰</td></tr><tr><td>计数方式</td><td>最近访问时间</td><td>访问频率</td></tr><tr><td>适用场景</td><td>热点随时间变化</td><td>热点相对稳定</td></tr><tr><td>典型问题</td><td>偶发大量访问的key不会被淘汰</td><td>历史高频key难以淘汰</td></tr></tbody></table><p><strong>Redis LFU的实现：</strong></p><p>Redis复用了24位lru字段来实现LFU：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>24位分为两部分：
+</span></span><span class=line><span class=cl>┌──────────────┬──────────────┐
+</span></span><span class=line><span class=cl>│  16位 ldt    │   8位 logc   │
+</span></span><span class=line><span class=cl>│ (最近访问时间) │  (对数计数器)  │
+</span></span><span class=line><span class=cl>└──────────────┴──────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>- ldt（Last Decrement Time）：上次衰减时间
+</span></span><span class=line><span class=cl>- logc（Logarithmic Counter）：对数访问计数器（0-255）
+</span></span></code></pre></div><p><strong>LFU计数规则：</strong></p><ol><li>每次访问，logc增加（不是线性增长，是对数增长）</li><li>随着时间推移，logc会衰减（防止历史高频key永不淘汰）</li><li>淘汰时选择logc最小的key</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=c1>// 伪代码：LFU计数增长
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>void</span> <span class=nf>LFULogIncr</span><span class=p>(</span><span class=kt>uint8_t</span> <span class=o>*</span><span class=n>counter</span><span class=p>)</span> <span class=p>{</span>
 </span></span><span class=line><span class=cl>    <span class=kt>double</span> <span class=n>r</span> <span class=o>=</span> <span class=p>(</span><span class=kt>double</span><span class=p>)</span><span class=nf>rand</span><span class=p>()</span> <span class=o>/</span> <span class=n>RAND_MAX</span><span class=p>;</span>
 </span></span><span class=line><span class=cl>    <span class=kt>double</span> <span class=n>baseval</span> <span class=o>=</span> <span class=o>*</span><span class=n>counter</span> <span class=o>-</span> <span class=n>LFU_INIT_VAL</span><span class=p>;</span>
@@ -140,25 +140,25 @@ Redis 7.0   → AOF多部分文件（Multi-Part AOF）
 </span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># LFU相关配置</span>
 </span></span><span class=line><span class=cl>lfu-log-factor <span class=m>10</span>       <span class=c1># 对数因子，越大增长越慢（默认10）</span>
 </span></span><span class=line><span class=cl>lfu-decay-time <span class=m>1</span>        <span class=c1># 衰减周期（分钟），默认1</span>
-</span></span></code></pre></div><h3 id=54-内存淘汰策略选择指南>5.4 内存淘汰策略选择指南</h3><pre tabindex=0><code>你的Redis用途是什么？
-  │
-  ├── 纯缓存（数据可丢失）
-  │   ├── 热点随时间变化 → allkeys-lru（推荐）
-  │   └── 热点相对稳定 → allkeys-lfu
-  │
-  ├── 既有缓存又有持久化数据
-  │   ├── 热点随时间变化 → volatile-lru
-  │   └── 热点相对稳定 → volatile-lfu
-  │
-  └── 不能丢失数据（消息队列、计数器等）
-      └── noeviction + 监控告警
-</code></pre><hr><h2 id=六实战场景分析>六、实战场景分析</h2><h3 id=61-场景一缓存雪崩>6.1 场景一：缓存雪崩</h3><p><strong>问题：</strong> 大量key同时过期，请求全部打到数据库。</p><p><strong>方案：</strong> 过期时间加随机因子</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 在基础过期时间上增加随机值
+</span></span></code></pre></div><h3 id=54-内存淘汰策略选择指南>5.4 内存淘汰策略选择指南</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>你的Redis用途是什么？
+</span></span><span class=line><span class=cl>  │
+</span></span><span class=line><span class=cl>  ├── 纯缓存（数据可丢失）
+</span></span><span class=line><span class=cl>  │   ├── 热点随时间变化 → allkeys-lru（推荐）
+</span></span><span class=line><span class=cl>  │   └── 热点相对稳定 → allkeys-lfu
+</span></span><span class=line><span class=cl>  │
+</span></span><span class=line><span class=cl>  ├── 既有缓存又有持久化数据
+</span></span><span class=line><span class=cl>  │   ├── 热点随时间变化 → volatile-lru
+</span></span><span class=line><span class=cl>  │   └── 热点相对稳定 → volatile-lfu
+</span></span><span class=line><span class=cl>  │
+</span></span><span class=line><span class=cl>  └── 不能丢失数据（消息队列、计数器等）
+</span></span><span class=line><span class=cl>      └── noeviction + 监控告警
+</span></span></code></pre></div><hr><h2 id=六实战场景分析>六、实战场景分析</h2><h3 id=61-场景一缓存雪崩>6.1 场景一：缓存雪崩</h3><p><strong>问题：</strong> 大量key同时过期，请求全部打到数据库。</p><p><strong>方案：</strong> 过期时间加随机因子</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 在基础过期时间上增加随机值
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=n>baseExpire</span> <span class=o>=</span> <span class=mi>3600</span><span class=o>;</span>  <span class=c1>// 1小时
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=n>randomOffset</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Random</span><span class=o>().</span><span class=na>nextInt</span><span class=o>(</span><span class=mi>300</span><span class=o>);</span>  <span class=c1>// 0-5分钟
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>jedis</span><span class=o>.</span><span class=na>setex</span><span class=o>(</span><span class=s>&#34;hot:data:&#34;</span> <span class=o>+</span> <span class=n>id</span><span class=o>,</span> <span class=n>baseExpire</span> <span class=o>+</span> <span class=n>randomOffset</span><span class=o>,</span> <span class=n>value</span><span class=o>);</span>
-</span></span></code></pre></div><h3 id=62-场景二大key的过期删除>6.2 场景二：大Key的过期删除</h3><p><strong>Q: Redis删除大Key会阻塞吗？如何解决？</strong></p><p><strong>问题：</strong> 删除包含百万元素的List/Hash/Set/ZSet时，单线程执行DEL会阻塞。</p><p><strong>解决方案：Redis 4.0+引入的UNLINK（异步删除）</strong></p><pre tabindex=0><code>DEL bigkey     → 阻塞主线程，stalled
-UNLINK bigkey  → 后台线程异步回收内存，主线程不阻塞
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 配置：自动将DEL转为UNLINK</span>
+</span></span></code></pre></div><h3 id=62-场景二大key的过期删除>6.2 场景二：大Key的过期删除</h3><p><strong>Q: Redis删除大Key会阻塞吗？如何解决？</strong></p><p><strong>问题：</strong> 删除包含百万元素的List/Hash/Set/ZSet时，单线程执行DEL会阻塞。</p><p><strong>解决方案：Redis 4.0+引入的UNLINK（异步删除）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>DEL bigkey     → 阻塞主线程，stalled
+</span></span><span class=line><span class=cl>UNLINK bigkey  → 后台线程异步回收内存，主线程不阻塞
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 配置：自动将DEL转为UNLINK</span>
 </span></span><span class=line><span class=cl>lazyfree-lazy-eviction yes      <span class=c1># 内存淘汰时异步删除</span>
 </span></span><span class=line><span class=cl>lazyfree-lazy-expire yes         <span class=c1># 过期键异步删除</span>
 </span></span><span class=line><span class=cl>lazyfree-lazy-server-del yes     <span class=c1># 隐式DEL（rename等）异步删除</span>

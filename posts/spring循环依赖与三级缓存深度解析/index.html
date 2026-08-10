@@ -38,9 +38,9 @@
 </span></span><span class=line><span class=cl>    <span class=nd>@Autowired</span>
 </span></span><span class=line><span class=cl>    <span class=kd>private</span> <span class=n>A</span> <span class=n>a</span><span class=o>;</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=12-没有缓存的问题>1.2 没有缓存的问题</h3><pre tabindex=0><code>创建 A → 发现需要 B → 创建 B → 发现需要 A → 创建 A → ...
-无限循环！
-</code></pre><h2 id=二三级缓存>二、三级缓存</h2><h3 id=21-三级缓存定义>2.1 三级缓存定义</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// DefaultSingletonBeanRegistry
+</span></span></code></pre></div><h3 id=12-没有缓存的问题>1.2 没有缓存的问题</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>创建 A → 发现需要 B → 创建 B → 发现需要 A → 创建 A → ...
+</span></span><span class=line><span class=cl>无限循环！
+</span></span></code></pre></div><h2 id=二三级缓存>二、三级缓存</h2><h3 id=21-三级缓存定义>2.1 三级缓存定义</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// DefaultSingletonBeanRegistry
 </span></span></span><span class=line><span class=cl><span class=c1></span>
 </span></span><span class=line><span class=cl><span class=c1>// 一级缓存：成品 Bean（完全初始化）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>private</span> <span class=kd>final</span> <span class=n>Map</span><span class=o>&lt;</span><span class=n>String</span><span class=o>,</span> <span class=n>Object</span><span class=o>&gt;</span> <span class=n>singletonObjects</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ConcurrentHashMap</span><span class=o>&lt;&gt;(</span><span class=mi>256</span><span class=o>);</span>
@@ -50,60 +50,60 @@
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1>// 三级缓存：ObjectFactory（Bean 工厂）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>private</span> <span class=kd>final</span> <span class=n>Map</span><span class=o>&lt;</span><span class=n>String</span><span class=o>,</span> <span class=n>ObjectFactory</span><span class=o>&lt;?&gt;&gt;</span> <span class=n>singletonFactories</span> <span class=o>=</span> <span class=k>new</span> <span class=n>HashMap</span><span class=o>&lt;&gt;(</span><span class=mi>16</span><span class=o>);</span>
-</span></span></code></pre></div><table><thead><tr><th>缓存</th><th>名称</th><th>存储内容</th><th>状态</th></tr></thead><tbody><tr><td>一级</td><td><code>singletonObjects</code></td><td>完整的 Bean</td><td>成品</td></tr><tr><td>二级</td><td><code>earlySingletonObjects</code></td><td>早期引用（可能被代理）</td><td>半成品</td></tr><tr><td>三级</td><td><code>singletonFactories</code></td><td>ObjectFactory</td><td>工厂</td></tr></tbody></table><h3 id=22-为什么需要三级>2.2 为什么需要三级？</h3><p><strong>问题</strong>：如果只有一级缓存，会有什么问题？</p><pre tabindex=0><code>1. A 实例化，放入一级缓存
-2. A 注入 B，发现 B 不存在
-3. 创建 B，B 注入 A，从一级缓存获取 A（但 A 还没初始化完！）
-4. 结果：B 持有了未初始化的 A → 可能导致空指针
-</code></pre><p><strong>问题</strong>：如果只有两级缓存，会有什么问题？</p><pre tabindex=0><code>考虑 AOP 场景：
-1. A 实例化，创建 A 的 ObjectFactory
-2. A 注入 B
-3. B 需要 A，通过 ObjectFactory 获取 A 的代理
-4. A 初始化时，AOP 又创建了一个代理
-5. 结果：B 持有代理 1，容器中是代理 2 → 不一致！
-</code></pre><p><strong>三级缓存解决</strong>：ObjectFactory 可以保证代理对象只创建一次。</p><h3 id=23-三级缓存流程>2.3 三级缓存流程</h3><pre tabindex=0><code>创建 Bean A：
-│
-├─ 1. 实例化 A（调用构造函数）
-│   └─ 将 A 的 ObjectFactory 放入三级缓存
-│      singletonFactories.put(&#34;a&#34;, () -&gt; getEarlyBeanReference(&#34;a&#34;, beanDefinition, a))
-│
-├─ 2. 填充属性（注入 B）
-│   └─ 发现需要 B
-│   │
-│   ├─ 3. 创建 Bean B：
-│   │   ├─ 3.1 实例化 B
-│   │   │   └─ 将 B 的 ObjectFactory 放入三级缓存
-│   │   │
-│   │   ├─ 3.2 填充属性（注入 A）
-│   │   │   └─ 发现需要 A
-│   │   │   │
-│   │   │   ├─ 查一级缓存：singletonObjects.get(&#34;a&#34;) → null
-│   │   │   ├─ 查二级缓存：earlySingletonObjects.get(&#34;a&#34;) → null
-│   │   │   ├─ 查三级缓存：singletonFactories.get(&#34;a&#34;) → ObjectFactory
-│   │   │   │   └─ 调用 ObjectFactory.getObject()
-│   │   │   │       └─ 返回 A 的早期引用（可能是代理）
-│   │   │   │
-│   │   │   ├─ 将 A 的早期引用放入二级缓存
-│   │   │   │   earlySingletonObjects.put(&#34;a&#34;, earlyA)
-│   │   │   │
-│   │   │   └─ 从三级缓存移除 A
-│   │   │       singletonFactories.remove(&#34;a&#34;)
-│   │   │
-│   │   ├─ 3.3 B 初始化
-│   │   │
-│   │   └─ 3.4 B 创建完成
-│   │       ├─ 放入一级缓存：singletonObjects.put(&#34;b&#34;, b)
-│   │       ├─ 清除二级缓存：earlySingletonObjects.remove(&#34;b&#34;)
-│   │       └─ 清除三级缓存：singletonFactories.remove(&#34;b&#34;)
-│   │
-│   └─ B 注入成功
-│
-├─ 4. A 初始化
-│
-└─ 5. A 创建完成
-    ├─ 放入一级缓存：singletonObjects.put(&#34;a&#34;, a)
-    ├─ 清除二级缓存：earlySingletonObjects.remove(&#34;a&#34;)
-    └─ 清除三级缓存：singletonFactories.remove(&#34;a&#34;)
-</code></pre><h2 id=三源码解析>三、源码解析</h2><h3 id=31-getsingleton获取-bean>3.1 getSingleton（获取 Bean）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// DefaultSingletonBeanRegistry.getSingleton()
+</span></span></code></pre></div><table><thead><tr><th>缓存</th><th>名称</th><th>存储内容</th><th>状态</th></tr></thead><tbody><tr><td>一级</td><td><code>singletonObjects</code></td><td>完整的 Bean</td><td>成品</td></tr><tr><td>二级</td><td><code>earlySingletonObjects</code></td><td>早期引用（可能被代理）</td><td>半成品</td></tr><tr><td>三级</td><td><code>singletonFactories</code></td><td>ObjectFactory</td><td>工厂</td></tr></tbody></table><h3 id=22-为什么需要三级>2.2 为什么需要三级？</h3><p><strong>问题</strong>：如果只有一级缓存，会有什么问题？</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. A 实例化，放入一级缓存
+</span></span><span class=line><span class=cl>2. A 注入 B，发现 B 不存在
+</span></span><span class=line><span class=cl>3. 创建 B，B 注入 A，从一级缓存获取 A（但 A 还没初始化完！）
+</span></span><span class=line><span class=cl>4. 结果：B 持有了未初始化的 A → 可能导致空指针
+</span></span></code></pre></div><p><strong>问题</strong>：如果只有两级缓存，会有什么问题？</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>考虑 AOP 场景：
+</span></span><span class=line><span class=cl>1. A 实例化，创建 A 的 ObjectFactory
+</span></span><span class=line><span class=cl>2. A 注入 B
+</span></span><span class=line><span class=cl>3. B 需要 A，通过 ObjectFactory 获取 A 的代理
+</span></span><span class=line><span class=cl>4. A 初始化时，AOP 又创建了一个代理
+</span></span><span class=line><span class=cl>5. 结果：B 持有代理 1，容器中是代理 2 → 不一致！
+</span></span></code></pre></div><p><strong>三级缓存解决</strong>：ObjectFactory 可以保证代理对象只创建一次。</p><h3 id=23-三级缓存流程>2.3 三级缓存流程</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>创建 Bean A：
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├─ 1. 实例化 A（调用构造函数）
+</span></span><span class=line><span class=cl>│   └─ 将 A 的 ObjectFactory 放入三级缓存
+</span></span><span class=line><span class=cl>│      singletonFactories.put(&#34;a&#34;, () -&gt; getEarlyBeanReference(&#34;a&#34;, beanDefinition, a))
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├─ 2. 填充属性（注入 B）
+</span></span><span class=line><span class=cl>│   └─ 发现需要 B
+</span></span><span class=line><span class=cl>│   │
+</span></span><span class=line><span class=cl>│   ├─ 3. 创建 Bean B：
+</span></span><span class=line><span class=cl>│   │   ├─ 3.1 实例化 B
+</span></span><span class=line><span class=cl>│   │   │   └─ 将 B 的 ObjectFactory 放入三级缓存
+</span></span><span class=line><span class=cl>│   │   │
+</span></span><span class=line><span class=cl>│   │   ├─ 3.2 填充属性（注入 A）
+</span></span><span class=line><span class=cl>│   │   │   └─ 发现需要 A
+</span></span><span class=line><span class=cl>│   │   │   │
+</span></span><span class=line><span class=cl>│   │   │   ├─ 查一级缓存：singletonObjects.get(&#34;a&#34;) → null
+</span></span><span class=line><span class=cl>│   │   │   ├─ 查二级缓存：earlySingletonObjects.get(&#34;a&#34;) → null
+</span></span><span class=line><span class=cl>│   │   │   ├─ 查三级缓存：singletonFactories.get(&#34;a&#34;) → ObjectFactory
+</span></span><span class=line><span class=cl>│   │   │   │   └─ 调用 ObjectFactory.getObject()
+</span></span><span class=line><span class=cl>│   │   │   │       └─ 返回 A 的早期引用（可能是代理）
+</span></span><span class=line><span class=cl>│   │   │   │
+</span></span><span class=line><span class=cl>│   │   │   ├─ 将 A 的早期引用放入二级缓存
+</span></span><span class=line><span class=cl>│   │   │   │   earlySingletonObjects.put(&#34;a&#34;, earlyA)
+</span></span><span class=line><span class=cl>│   │   │   │
+</span></span><span class=line><span class=cl>│   │   │   └─ 从三级缓存移除 A
+</span></span><span class=line><span class=cl>│   │   │       singletonFactories.remove(&#34;a&#34;)
+</span></span><span class=line><span class=cl>│   │   │
+</span></span><span class=line><span class=cl>│   │   ├─ 3.3 B 初始化
+</span></span><span class=line><span class=cl>│   │   │
+</span></span><span class=line><span class=cl>│   │   └─ 3.4 B 创建完成
+</span></span><span class=line><span class=cl>│   │       ├─ 放入一级缓存：singletonObjects.put(&#34;b&#34;, b)
+</span></span><span class=line><span class=cl>│   │       ├─ 清除二级缓存：earlySingletonObjects.remove(&#34;b&#34;)
+</span></span><span class=line><span class=cl>│   │       └─ 清除三级缓存：singletonFactories.remove(&#34;b&#34;)
+</span></span><span class=line><span class=cl>│   │
+</span></span><span class=line><span class=cl>│   └─ B 注入成功
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├─ 4. A 初始化
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>└─ 5. A 创建完成
+</span></span><span class=line><span class=cl>    ├─ 放入一级缓存：singletonObjects.put(&#34;a&#34;, a)
+</span></span><span class=line><span class=cl>    ├─ 清除二级缓存：earlySingletonObjects.remove(&#34;a&#34;)
+</span></span><span class=line><span class=cl>    └─ 清除三级缓存：singletonFactories.remove(&#34;a&#34;)
+</span></span></code></pre></div><h2 id=三源码解析>三、源码解析</h2><h3 id=31-getsingleton获取-bean>3.1 getSingleton（获取 Bean）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// DefaultSingletonBeanRegistry.getSingleton()
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=n>Object</span> <span class=nf>getSingleton</span><span class=o>(</span><span class=n>String</span> <span class=n>beanName</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 1. 查一级缓存
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>Object</span> <span class=n>singletonObject</span> <span class=o>=</span> <span class=k>this</span><span class=o>.</span><span class=na>singletonObjects</span><span class=o>.</span><span class=na>get</span><span class=o>(</span><span class=n>beanName</span><span class=o>);</span>
@@ -166,17 +166,17 @@
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>exposedObject</span><span class=o>;</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>关键</strong>：<code>getEarlyBeanReference</code> 是 AOP 代理的提前创建入口。</p><h3 id=34-aop-与循环依赖>3.4 AOP 与循环依赖</h3><pre tabindex=0><code>没有循环依赖时：
-  实例化 → 注入 → 初始化 → BeanPostProcessor 创建代理
-
-有循环依赖时：
-  实例化 → 提前暴露 ObjectFactory → 注入时触发代理创建 → 初始化
-
-关键：AbstractAutoProxyCreator
-  - 正常：postProcessAfterInitialization() 创建代理
-  - 循环依赖：getEarlyBeanReference() 提前创建代理
-  - 通过 earlyProxyReferences 缓存保证只创建一次
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// AbstractAutoProxyCreator
+</span></span></code></pre></div><p><strong>关键</strong>：<code>getEarlyBeanReference</code> 是 AOP 代理的提前创建入口。</p><h3 id=34-aop-与循环依赖>3.4 AOP 与循环依赖</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>没有循环依赖时：
+</span></span><span class=line><span class=cl>  实例化 → 注入 → 初始化 → BeanPostProcessor 创建代理
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>有循环依赖时：
+</span></span><span class=line><span class=cl>  实例化 → 提前暴露 ObjectFactory → 注入时触发代理创建 → 初始化
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>关键：AbstractAutoProxyCreator
+</span></span><span class=line><span class=cl>  - 正常：postProcessAfterInitialization() 创建代理
+</span></span><span class=line><span class=cl>  - 循环依赖：getEarlyBeanReference() 提前创建代理
+</span></span><span class=line><span class=cl>  - 通过 earlyProxyReferences 缓存保证只创建一次
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// AbstractAutoProxyCreator
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=n>Object</span> <span class=nf>getEarlyBeanReference</span><span class=o>(</span><span class=n>Object</span> <span class=n>bean</span><span class=o>,</span> <span class=n>String</span> <span class=n>beanName</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=n>Object</span> <span class=n>cacheKey</span> <span class=o>=</span> <span class=n>getCacheKey</span><span class=o>(</span><span class=n>bean</span><span class=o>.</span><span class=na>getClass</span><span class=o>(),</span> <span class=n>beanName</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=k>this</span><span class=o>.</span><span class=na>earlyProxyReferences</span><span class=o>.</span><span class=na>put</span><span class=o>(</span><span class=n>cacheKey</span><span class=o>,</span> <span class=n>bean</span><span class=o>);</span>  <span class=c1>// 标记已提前创建代理
@@ -211,9 +211,9 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>this</span><span class=o>.</span><span class=na>a</span> <span class=o>=</span> <span class=n>a</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>原因</strong>：</p><ul><li>三级缓存在<strong>实例化之后</strong>才暴露</li><li>构造器注入在<strong>实例化时</strong>就需要依赖</li><li>此时 ObjectFactory 还没放入三级缓存</li></ul><pre tabindex=0><code>创建 A → 构造函数需要 B → 创建 B → 构造函数需要 A → 一级缓存没有 → 二级缓存没有 → 三级缓存没有
-→ 抛出 BeanCurrentlyInCreationException
-</code></pre><h3 id=42-解决方案>4.2 解决方案</h3><p><strong>方案 1：改用字段注入或 setter 注入</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Component</span>
+</span></span></code></pre></div><p><strong>原因</strong>：</p><ul><li>三级缓存在<strong>实例化之后</strong>才暴露</li><li>构造器注入在<strong>实例化时</strong>就需要依赖</li><li>此时 ObjectFactory 还没放入三级缓存</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>创建 A → 构造函数需要 B → 创建 B → 构造函数需要 A → 一级缓存没有 → 二级缓存没有 → 三级缓存没有
+</span></span><span class=line><span class=cl>→ 抛出 BeanCurrentlyInCreationException
+</span></span></code></pre></div><h3 id=42-解决方案>4.2 解决方案</h3><p><strong>方案 1：改用字段注入或 setter 注入</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Component</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>A</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=nd>@Autowired</span>
 </span></span><span class=line><span class=cl>    <span class=kd>private</span> <span class=n>B</span> <span class=n>b</span><span class=o>;</span>  <span class=c1>// 字段注入，可以解决

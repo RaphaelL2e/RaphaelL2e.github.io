@@ -10,284 +10,284 @@
 <span>/</span><a href=/series/database-interview/>数据库面试</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>数据库面试八股文（十一）——分布式数据库与NewSQL实战</h1><p class=article-description>🎯 本文目标：承接本系列前10篇的单机数据库知识，全面转向分布式数据库领域。从CAP理论出发，深入TiDB/CockroachDB等NewSQL架构原理，剖析分布式事务、Raft一致性协议，最终以高频面试题收尾。 Q1: 为什么大多数互联网公司选择AP而非CP？ 用户体验优先：宁可看到5秒前的旧数据。</p><div class=article-meta><span>发布于 <time datetime=2026-06-18>2026-06-18</time></span>
 <span>最后验证 2026-06</span>
 <span>6 分钟阅读</span>
-<span>1125 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一分布式理论基础>一、分布式理论基础</a><ul><li><a href=#11-cap定理的本质>1.1 CAP定理的本质</a></li><li><a href=#12-base理论>1.2 BASE理论</a></li><li><a href=#13-一致性模型全览>1.3 一致性模型全览</a></li></ul></li><li><a href=#二分布式一致性协议>二、分布式一致性协议</a><ul><li><a href=#21-paxos核心思想>2.1 Paxos核心思想</a></li><li><a href=#22-raft协议详解>2.2 Raft协议详解</a></li><li><a href=#23-2pc-vs-3pc-vs-tcc>2.3 2PC vs 3PC vs TCC</a></li></ul></li><li><a href=#三tidb深度剖析>三、TiDB深度剖析</a><ul><li><a href=#31-架构回顾与存储>3.1 架构回顾与存储</a></li><li><a href=#32-key-value映射与region分裂>3.2 Key-Value映射与Region分裂</a></li><li><a href=#33-分布式事务percolator模型>3.3 分布式事务：Percolator模型</a></li><li><a href=#34-tiflash与htap>3.4 TiFlash与HTAP</a></li></ul></li><li><a href=#四cockroachdb深度剖析>四、CockroachDB深度剖析</a><ul><li><a href=#41-核心特色>4.1 核心特色</a></li><li><a href=#42-crdb的range与leaseholder>4.2 CRDB的Range与Leaseholder</a></li><li><a href=#43-crdb的分布式事务>4.3 CRDB的分布式事务</a></li></ul></li><li><a href=#五其他newsql方案概览>五、其他NewSQL方案概览</a><ul><li><a href=#51-oceanbase>5.1 OceanBase</a></li><li><a href=#52-yugabytedb>5.2 YugabyteDB</a></li><li><a href=#53-google-spanner>5.3 Google Spanner</a></li></ul></li><li><a href=#六分布式数据库选型指南>六、分布式数据库选型指南</a><ul><li><a href=#61-选型决策树>6.1 选型决策树</a></li><li><a href=#62-迁移风险清单>6.2 迁移风险清单</a></li></ul></li><li><a href=#七面试高频题精选>七、面试高频题精选</a></li><li><a href=#八未来趋势>八、未来趋势</a><ul><li><a href=#newsql的发展方向>NewSQL的发展方向</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接本系列前10篇的单机数据库知识，全面转向分布式数据库领域。从CAP理论出发，深入TiDB/CockroachDB等NewSQL架构原理，剖析分布式事务、Raft一致性协议，最终以高频面试题收尾。</p></blockquote><hr><h2 id=一分布式理论基础>一、分布式理论基础</h2><h3 id=11-cap定理的本质>1.1 CAP定理的本质</h3><pre tabindex=0><code>CAP定理: 一个分布式系统最多只能同时满足以下三个特性中的两个：
-
-    C (Consistency)     一致性  —— 所有节点同一时刻看到相同数据
-    A (Availability)    可用性  —— 每个请求都能获得非错误的响应
-    P (Partition Tolerance) 分区容错性 —— 系统在网络分区时仍能继续工作
-
-    注意：P是客观存在的（网络分区无法避免），所以实际上是CP vs AP的选择
-</code></pre><p><strong>CAP选择的现实含义：</strong></p><pre tabindex=0><code>CP系统（优先一致性）:
-  发生网络分区时 → 牺牲可用性 → 少数派节点拒绝服务
-  代表: Zookeeper, HBase, MongoDB(默认强一致配置)
-  适用: 金融交易、配置中心、元数据管理
-
-AP系统（优先可用性）:
-  发生网络分区时 → 牺牲一致性 → 允许读到旧数据，最终一致
-  代表: Eureka, Cassandra, DynamoDB
-  适用: 社交媒体feed、商品展示、用户偏好
-
-⚠️ 澄清误区:
-  - CAP不是说三选二，而是发生分区时优先保证哪个
-  - 没有分区时，系统可以同时提供C和A
-  - &#34;CP&#34;不代表系统不可用，只是强一致场景下等待多数派确认
-</code></pre><h3 id=12-base理论>1.2 BASE理论</h3><pre tabindex=0><code>BASE = Basically Available（基本可用）+ Soft state（软状态）+ Eventually consistent（最终一致性）
-
-它是AP系统的实践理论，与ACID形成对比：
-
-        ACID                      BASE
-    强一致性                   最终一致性
-    事务边界清晰                允许中间态
-    传统RDBMS                  NoSQL/NewSQL
-    &#34;现在就要对&#34;               &#34;过一会儿对也行&#34;
-</code></pre><h3 id=13-一致性模型全览>1.3 一致性模型全览</h3><table><thead><tr><th>一致性级别</th><th>说明</th><th>实现</th><th>性能</th></tr></thead><tbody><tr><td>强一致性</td><td>写入后立刻对所有读者可见</td><td>Paxos/Raft同步</td><td>低</td></tr><tr><td>顺序一致性</td><td>所有节点看到相同操作顺序</td><td>ZAB协议</td><td>中</td></tr><tr><td>因果一致性</td><td>有因果关系的操作保持顺序</td><td>向量时钟</td><td>中高</td></tr><tr><td>读己之写</td><td>用户总能读到自己的写入</td><td>会话粘性</td><td>中高</td></tr><tr><td>单调读</td><td>不会读到越来越旧的数据</td><td>客户端缓存版本</td><td>中高</td></tr><tr><td>最终一致性</td><td>停止写入后最终一致</td><td>Gossip协议</td><td>高</td></tr></tbody></table><p><strong>Q1: 为什么大多数互联网公司选择AP而非CP？</strong>
-A:</p><ol><li><strong>用户体验优先</strong>：宁可看到5秒前的旧数据，也不愿看到500错误</li><li><strong>业务可容忍短暂不一致</strong>：微博评论数差几秒没人在意</li><li><strong>补偿机制成熟</strong>：可以用对账、消息队列补发等补偿数据不一致</li><li><strong>成本考量</strong>：强一致的同步开销远高于最终一致性方案</li></ol><hr><h2 id=二分布式一致性协议>二、分布式一致性协议</h2><h3 id=21-paxos核心思想>2.1 Paxos核心思想</h3><pre tabindex=0><code>Paxos三个角色:
-  Proposer (提议者)  → 发起提案
-  Acceptor (接受者)  → 投票表决
-  Learner  (学习者)  → 学习已确定的决议
-
-基本Paxos流程:
-  Phase 1 (Prepare):
-    Proposer → 广播 Prepare(n)  → Acceptors
-    Acceptor承诺: &#34;不再接受编号 &lt; n 的提案&#34;
-    
-  Phase 2 (Accept):
-    Proposer → 广播 Accept(n, value) → Acceptors
-    多数派接受 → 决议确定
-
-问题: 活锁（两个Proposer交替提更高的n，谁都无法提交）
-解决: Multi-Paxos → 选举Leader，只有Leader可以提议
-</code></pre><h3 id=22-raft协议详解>2.2 Raft协议详解</h3><pre tabindex=0><code>Raft的三个子问题:
-  ┌─ Leader Election（领导人选举）
-  │    随机超时 → 发起投票 → 获得多数票 → 成为Leader
-  │    Term（任期）概念，每个Term最多一个Leader
-  │
-  ├─ Log Replication（日志复制）
-  │   客户端写 → Leader日志 → 复制到Followers → 多数确认 → 提交
-  │   提交后Apply到状态机
-  │
-  └─ Safety（安全性）
-       Leader只能提交当前Term的日志（间接提交之前Term的日志）
-       选举限制：Candidate的日志必须至少和多数节点一样新
-</code></pre><p><strong>Raft vs Paxos：</strong></p><table><thead><tr><th>维度</th><th>Paxos</th><th>Raft</th></tr></thead><tbody><tr><td>理解难度</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐</td></tr><tr><td>工程实现</td><td>需要大量工程决策</td><td>设计就是为可实现</td></tr><tr><td>日志</td><td>不支持连续日志</td><td>原生支持Log Replication</td></tr><tr><td>成员变更</td><td>复杂</td><td>联合共识(Joint Consensus)</td></tr><tr><td>代表实现</td><td>Chubby(ZooKeeper类似)</td><td>etcd, TiKV, Consul</td></tr></tbody></table><p><strong>Leader选举过程动画：</strong></p><pre tabindex=0><code>Term 1:
-  Node1: [Follower] timeout→[Candidate]→gets 3 votes→[Leader]
-  Node2: [Follower]────────→votes Node1──→[Follower]
-  Node3: [Follower]────────→votes Node1──→[Follower]
-
-Term 2 (Node1故障):
-  Node2: [Follower] timeout→[Candidate]→gets 2 votes→[Leader]
-  Node3: [Follower]────────→votes Node2──→[Follower]
-</code></pre><h3 id=23-2pc-vs-3pc-vs-tcc>2.3 2PC vs 3PC vs TCC</h3><pre tabindex=0><code>2PC (两阶段提交):
-  Phase 1: Coordinator → 所有参与者: &#34;Prepare&#34;
-           参与者锁定资源，回复 Yes/No
-  Phase 2: 全部Yes → 发送Commit → 参与者提交
-           任何No → 发送Rollback → 参与者回滚
-
-  致命缺陷: Coordinator宕机时，参与者持锁等待，形成阻塞
-
-3PC (三阶段提交):
-  增加PreCommit阶段和超时机制
-  但网络分区时仍可能不一致（很少实际使用）
-
-TCC (Try-Confirm-Cancel):
-  Try:    预留资源（如冻结库存）
-  Confirm: 确认执行（如扣减库存）
-  Cancel:  释放资源（如解冻库存）
-  
-  优势: 业务层面控制，不持有数据库锁
-  代价: 需实现Confirm/Cancel的幂等逻辑
-</code></pre><hr><h2 id=三tidb深度剖析>三、TiDB深度剖析</h2><h3 id=31-架构回顾与存储>3.1 架构回顾与存储</h3><pre tabindex=0><code>┌────────────────────────────────────────────────┐
-│                   TiDB Cluster                  │
-│                                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
-│  │ TiDB     │  │ TiDB     │  │ TiDB     │     │
-│  │ (SQL层)  │  │ (SQL层)  │  │ (SQL层)  │     │  ← 计算节点
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘     │
-│       │              │              │           │
-│       └──────────────┼──────────────┘           │
-│                      │                           │
-│              ┌───────┴───────┐                   │
-│              │      PD       │                   │  ← 大脑
-│              │ (Placement    │                   │
-│              │  Driver)      │                   │
-│              └───────┬───────┘                   │
-│                      │                           │
-│    ┌─────────────────┼─────────────────┐        │
-│    │                 │                 │        │
-│ ┌──┴───┐        ┌───┴──┐        ┌───┴──┐     │
-│ │ TiKV │        │ TiKV │        │ TiKV │     │  ← 行存储
-│ │      │        │      │        │      │     │
-│ └──────┘        └──────┘        └──────┘     │
-│                                                 │
-│ ┌──────┐        ┌──────┐         ┌──────┐     │
-│ │TiFlash│       │TiFlash│        │TiFlash│    │  ← 列存储(HTAP)
-│ └──────┘        └──────┘         └──────┘     │
-└────────────────────────────────────────────────┘
-</code></pre><h3 id=32-key-value映射与region分裂>3.2 Key-Value映射与Region分裂</h3><pre tabindex=0><code>从SQL到KV的映射:
-  Table: t(id INT PRIMARY KEY, name VARCHAR)
-  行: (1, &#34;张三&#34;)
-  
-  ↓ 编码 ↓
-  
-  Key:   t_1_r    (t{tableID}_1{rowID}_r)
-  Value: [name: &#34;张三&#34;]
-  
-  ↓ Region划分 ↓
-  
-  Region-1: [t_1_, t_100_)   ← 包含id 1~99的数据
-  Region-2: [t_100_, t_200_) ← 包含id 100~199的数据
-  Region-3: [t_200_, )       ← 包含id 200+的数据
-
-Region分裂:
-  默认96MB自动分裂 → 确保每个Region不会过大
-  热点Region自动分裂 → 解决写入热点
-  空Region自动合并 → 节省Raft组开销
-</code></pre><h3 id=33-分布式事务percolator模型>3.3 分布式事务：Percolator模型</h3><pre tabindex=0><code>Percolator事务流程（乐观事务）:
-
-预写阶段 (Prewrite):
-  Client → TiDB: BEGIN
-  TiDB → PD: 分配start_ts(事务开始时间戳)
-  
-  对每个涉及的行:
-    1. 写入Lock:     key_lock = {primary, start_ts}
-    2. 写入Data:     key_data = value (此时版本=start_ts, 不可见)
-    3. 检查冲突:     是否有其他事务锁定了这些行
-  
-  全部Prewrite成功 → 进入Commit阶段
-  任何Prewrite失败 → 回滚（清理锁和data）
-
-提交阶段 (Commit):
-  TiDB → PD: 分配commit_ts
-  写入Write记录: key_write = {start_ts, commit_ts}
-  清理Lock
-  
-事务可见性判断:
-  读取时找到最新的 commit_ts &lt;= read_ts 的版本
-  如果遇到未提交的Lock → 等待或回滚
-
-Percolator的核心优势:
-  ✅ 无中心化事务管理器（消除了2PC的Coordinator瓶颈）
-  ✅ 快照隔离(SI)级别
-  ✅ 写入不会阻塞读取（MVCC机制）
-</code></pre><p><strong>Q2: Percolator模型如何处理冲突？</strong>
-A:</p><ol><li><strong>写-写冲突</strong>：Prewrite阶段检测，后事务检测到Lock → Abort</li><li><strong>读-写冲突</strong>：快照隔离，读不阻塞写，写不阻塞读</li><li><strong>锁超时</strong>：TTL机制，超时的锁可被其他事务清理（防止死锁）</li><li><strong>锁残留</strong>：<code>ResolveLocks</code>协程定期扫描并清理残留锁</li></ol><h3 id=34-tiflash与htap>3.4 TiFlash与HTAP</h3><pre tabindex=0><code>HTAP = Hybrid Transactional/Analytical Processing
-
-传统架构:
-  OLTP(MySQL) ──ETL──→ OLAP(Hive/ClickHouse)
-  问题: 延迟高(T+1)、数据不一致、维护两套
-
-TiDB HTAP:
-  TiKV(行存)     ——→  实时同步  ——→  TiFlash(列存)
-  (TP查询)        (Raft Learner)      (AP查询)
-  
-  TiDB自动路由:
-    SELECT * FROM orders WHERE id = 123   → TiKV(点查)
-    SELECT SUM(amount) FROM orders        → TiFlash(聚合)
-</code></pre><hr><h2 id=四cockroachdb深度剖析>四、CockroachDB深度剖析</h2><h3 id=41-核心特色>4.1 核心特色</h3><pre tabindex=0><code>CockroachDB vs TiDB 差异:
-
-CockroachDB特色:
-  1. 多区域部署原生支持
-     CREATE TABLE users (
-       id INT PRIMARY KEY,
-       name STRING,
-       region STRING
-     ) LOCALITY REGIONAL BY TABLE IN &#34;us-east&#34;;
-     
-  2. 数据属地性(Data Domiciling)
-     德国用户数据 → 永远存储在德国数据中心
-     满足GDPR合规要求
-     
-  3. Follow-the-Work
-     数据跟随访问者自动迁移到最近区域
-     
-  4. PostgreSQL兼容
-     使用PG协议和语法，而非MySQL
-</code></pre><h3 id=42-crdb的range与leaseholder>4.2 CRDB的Range与Leaseholder</h3><pre tabindex=0><code>Range结构:
-  ┌─────────────────────────┐
-  │       Range [a, m)      │
-  │                         │
-  │  Replica 1 (Node A)     │  ← Leaseholder (负责读写协调)
-  │  Replica 2 (Node B)     │
-  │  Replica 3 (Node C)     │
-  └─────────────────────────┘
-
-Leaseholder类似Raft Leader:
-  - 持有时间租约(Lease)，到期需续约
-  - 所有写请求通过Leaseholder
-  - 读请求根据一致性要求可能走Follower
-
-Region vs Range:
-  TiDB的Region ≈ CockroachDB的Range
-  都是数据分片的基本单位
-</code></pre><h3 id=43-crdb的分布式事务>4.3 CRDB的分布式事务</h3><pre tabindex=0><code>CRDB事务流程（并行提交优化）:
-
-传统:  
-  BEGIN → Writes → COMMIT(等待2轮Raft) → 完成
-  
-并行提交(Parallel Commit):
-  BEGIN → Writes → Staging Record(同时并行写入) → COMMIT(1轮Raft) → 完成
-  
-  Staging Record: 提前告诉系统&#34;这些Write我打算提交&#34;
-  如果事务失败: Staging Records被垃圾回收
-  
-性能对比:
-  普通事务: 2轮Raft共识延迟
-  并行提交: 1轮Raft共识延迟 (近50%提升)
-</code></pre><hr><h2 id=五其他newsql方案概览>五、其他NewSQL方案概览</h2><h3 id=51-oceanbase>5.1 OceanBase</h3><pre tabindex=0><code>OceanBase (蚂蚁集团):
-  架构: 对等节点，每个节点同时承担计算和存储
-  特色:
-    - 准内存数据库（数据主要在内存，磁盘是备份）
-    - 多租户架构（资源隔离）
-    - TPC-C跑分冠军(2020年)
-    - 金融级高可用（RPO=0, RTO&lt;30s）
-  适用: 金融核心系统
-</code></pre><h3 id=52-yugabytedb>5.2 YugabyteDB</h3><pre tabindex=0><code>YugabyteDB:
-  存储: 基于DocDB（RocksDB增强版）
-  分片: Tablet分片（Hash/Range）
-  一致性: Raft
-  SQL: PostgreSQL兼容
-  特色:
-    - 真正的多区域主-主部署
-    - 支持Redis兼容API(YEDIS)
-    - 每个Tablet是独立的Raft组
-</code></pre><h3 id=53-google-spanner>5.3 Google Spanner</h3><pre tabindex=0><code>Google Spanner (NewSQL鼻祖):
-  核心创新: TrueTime API
-    - 通过原子钟+GPS提供全局时钟
-    - 时间误差范围控制在[ε, +ε]（通常&lt;7ms）
-    - 外部分布式事务无锁等待时间 = 2ε
-  
-  外部一致性:
-    如果T1在T2之前提交 → T1的时间戳 &lt; T2的时间戳
-    这是分布式数据库的最强一致性保证
-    
-  影响:
-    TiDB的TSO(PD分配时间戳) → 类Spanner方案
-    CRDB的HLC(混合逻辑时钟) → Spanner的简化版
-</code></pre><hr><h2 id=六分布式数据库选型指南>六、分布式数据库选型指南</h2><h3 id=61-选型决策树>6.1 选型决策树</h3><pre tabindex=0><code>你的需求是什么？
-├── 极致OLTP性能 + 简单架构
-│   └── → 单机MySQL/PostgreSQL（未到瓶颈）
-│
-├── 单机开始触达瓶颈，团队有DBA
-│   └── → MySQL分库分表 + ShardingSphere
-│
-├── 业务快速发展，不希望管理分片
-│   ├── MySQL技术栈 → TiDB
-│   └── PostgreSQL技术栈 → CockroachDB
-│
-├── 金融核心系统 + Oracle替代
-│   └── → OceanBase
-│
-├── 全球化多区域部署
-│   └── → CockroachDB（原生多区域支持）
-│
-├── 需要HTAP混合负载
-│   └── → TiDB（TiFlash列存引擎）
-│
-└── 公有云/K8s原生
-    ├── AWS → Aurora
-    ├── GCP → Spanner
-    └── K8s → Vitess + MySQL
-</code></pre><h3 id=62-迁移风险清单>6.2 迁移风险清单</h3><table><thead><tr><th>风险</th><th>说明</th><th>缓解措施</th></tr></thead><tbody><tr><td>SQL不兼容</td><td>某些SQL语法/函数不支持</td><td>全面测试，建立兼容性清单</td></tr><tr><td>性能回退</td><td>单行查询可能慢于MySQL</td><td>POC压测，评估核心场景</td></tr><tr><td>运维能力</td><td>NewSQL运维要求高</td><td>优先使用云服务版本(TiDB Cloud)</td></tr><tr><td>生态成熟度</td><td>周边工具不如MySQL丰富</td><td>评估监控/备份/迁移工具链</td></tr><tr><td>成本</td><td>至少3节点起步</td><td>TCO对比（含分库分表运维人力）</td></tr></tbody></table><p><strong>Q3: TiDB能否完全替代MySQL？</strong>
+<span>1125 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一分布式理论基础>一、分布式理论基础</a><ul><li><a href=#11-cap定理的本质>1.1 CAP定理的本质</a></li><li><a href=#12-base理论>1.2 BASE理论</a></li><li><a href=#13-一致性模型全览>1.3 一致性模型全览</a></li></ul></li><li><a href=#二分布式一致性协议>二、分布式一致性协议</a><ul><li><a href=#21-paxos核心思想>2.1 Paxos核心思想</a></li><li><a href=#22-raft协议详解>2.2 Raft协议详解</a></li><li><a href=#23-2pc-vs-3pc-vs-tcc>2.3 2PC vs 3PC vs TCC</a></li></ul></li><li><a href=#三tidb深度剖析>三、TiDB深度剖析</a><ul><li><a href=#31-架构回顾与存储>3.1 架构回顾与存储</a></li><li><a href=#32-key-value映射与region分裂>3.2 Key-Value映射与Region分裂</a></li><li><a href=#33-分布式事务percolator模型>3.3 分布式事务：Percolator模型</a></li><li><a href=#34-tiflash与htap>3.4 TiFlash与HTAP</a></li></ul></li><li><a href=#四cockroachdb深度剖析>四、CockroachDB深度剖析</a><ul><li><a href=#41-核心特色>4.1 核心特色</a></li><li><a href=#42-crdb的range与leaseholder>4.2 CRDB的Range与Leaseholder</a></li><li><a href=#43-crdb的分布式事务>4.3 CRDB的分布式事务</a></li></ul></li><li><a href=#五其他newsql方案概览>五、其他NewSQL方案概览</a><ul><li><a href=#51-oceanbase>5.1 OceanBase</a></li><li><a href=#52-yugabytedb>5.2 YugabyteDB</a></li><li><a href=#53-google-spanner>5.3 Google Spanner</a></li></ul></li><li><a href=#六分布式数据库选型指南>六、分布式数据库选型指南</a><ul><li><a href=#61-选型决策树>6.1 选型决策树</a></li><li><a href=#62-迁移风险清单>6.2 迁移风险清单</a></li></ul></li><li><a href=#七面试高频题精选>七、面试高频题精选</a></li><li><a href=#八未来趋势>八、未来趋势</a><ul><li><a href=#newsql的发展方向>NewSQL的发展方向</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接本系列前10篇的单机数据库知识，全面转向分布式数据库领域。从CAP理论出发，深入TiDB/CockroachDB等NewSQL架构原理，剖析分布式事务、Raft一致性协议，最终以高频面试题收尾。</p></blockquote><hr><h2 id=一分布式理论基础>一、分布式理论基础</h2><h3 id=11-cap定理的本质>1.1 CAP定理的本质</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>CAP定理: 一个分布式系统最多只能同时满足以下三个特性中的两个：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    C (Consistency)     一致性  —— 所有节点同一时刻看到相同数据
+</span></span><span class=line><span class=cl>    A (Availability)    可用性  —— 每个请求都能获得非错误的响应
+</span></span><span class=line><span class=cl>    P (Partition Tolerance) 分区容错性 —— 系统在网络分区时仍能继续工作
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    注意：P是客观存在的（网络分区无法避免），所以实际上是CP vs AP的选择
+</span></span></code></pre></div><p><strong>CAP选择的现实含义：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>CP系统（优先一致性）:
+</span></span><span class=line><span class=cl>  发生网络分区时 → 牺牲可用性 → 少数派节点拒绝服务
+</span></span><span class=line><span class=cl>  代表: Zookeeper, HBase, MongoDB(默认强一致配置)
+</span></span><span class=line><span class=cl>  适用: 金融交易、配置中心、元数据管理
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>AP系统（优先可用性）:
+</span></span><span class=line><span class=cl>  发生网络分区时 → 牺牲一致性 → 允许读到旧数据，最终一致
+</span></span><span class=line><span class=cl>  代表: Eureka, Cassandra, DynamoDB
+</span></span><span class=line><span class=cl>  适用: 社交媒体feed、商品展示、用户偏好
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>⚠️ 澄清误区:
+</span></span><span class=line><span class=cl>  - CAP不是说三选二，而是发生分区时优先保证哪个
+</span></span><span class=line><span class=cl>  - 没有分区时，系统可以同时提供C和A
+</span></span><span class=line><span class=cl>  - &#34;CP&#34;不代表系统不可用，只是强一致场景下等待多数派确认
+</span></span></code></pre></div><h3 id=12-base理论>1.2 BASE理论</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>BASE = Basically Available（基本可用）+ Soft state（软状态）+ Eventually consistent（最终一致性）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>它是AP系统的实践理论，与ACID形成对比：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        ACID                      BASE
+</span></span><span class=line><span class=cl>    强一致性                   最终一致性
+</span></span><span class=line><span class=cl>    事务边界清晰                允许中间态
+</span></span><span class=line><span class=cl>    传统RDBMS                  NoSQL/NewSQL
+</span></span><span class=line><span class=cl>    &#34;现在就要对&#34;               &#34;过一会儿对也行&#34;
+</span></span></code></pre></div><h3 id=13-一致性模型全览>1.3 一致性模型全览</h3><table><thead><tr><th>一致性级别</th><th>说明</th><th>实现</th><th>性能</th></tr></thead><tbody><tr><td>强一致性</td><td>写入后立刻对所有读者可见</td><td>Paxos/Raft同步</td><td>低</td></tr><tr><td>顺序一致性</td><td>所有节点看到相同操作顺序</td><td>ZAB协议</td><td>中</td></tr><tr><td>因果一致性</td><td>有因果关系的操作保持顺序</td><td>向量时钟</td><td>中高</td></tr><tr><td>读己之写</td><td>用户总能读到自己的写入</td><td>会话粘性</td><td>中高</td></tr><tr><td>单调读</td><td>不会读到越来越旧的数据</td><td>客户端缓存版本</td><td>中高</td></tr><tr><td>最终一致性</td><td>停止写入后最终一致</td><td>Gossip协议</td><td>高</td></tr></tbody></table><p><strong>Q1: 为什么大多数互联网公司选择AP而非CP？</strong>
+A:</p><ol><li><strong>用户体验优先</strong>：宁可看到5秒前的旧数据，也不愿看到500错误</li><li><strong>业务可容忍短暂不一致</strong>：微博评论数差几秒没人在意</li><li><strong>补偿机制成熟</strong>：可以用对账、消息队列补发等补偿数据不一致</li><li><strong>成本考量</strong>：强一致的同步开销远高于最终一致性方案</li></ol><hr><h2 id=二分布式一致性协议>二、分布式一致性协议</h2><h3 id=21-paxos核心思想>2.1 Paxos核心思想</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Paxos三个角色:
+</span></span><span class=line><span class=cl>  Proposer (提议者)  → 发起提案
+</span></span><span class=line><span class=cl>  Acceptor (接受者)  → 投票表决
+</span></span><span class=line><span class=cl>  Learner  (学习者)  → 学习已确定的决议
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>基本Paxos流程:
+</span></span><span class=line><span class=cl>  Phase 1 (Prepare):
+</span></span><span class=line><span class=cl>    Proposer → 广播 Prepare(n)  → Acceptors
+</span></span><span class=line><span class=cl>    Acceptor承诺: &#34;不再接受编号 &lt; n 的提案&#34;
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>  Phase 2 (Accept):
+</span></span><span class=line><span class=cl>    Proposer → 广播 Accept(n, value) → Acceptors
+</span></span><span class=line><span class=cl>    多数派接受 → 决议确定
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>问题: 活锁（两个Proposer交替提更高的n，谁都无法提交）
+</span></span><span class=line><span class=cl>解决: Multi-Paxos → 选举Leader，只有Leader可以提议
+</span></span></code></pre></div><h3 id=22-raft协议详解>2.2 Raft协议详解</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Raft的三个子问题:
+</span></span><span class=line><span class=cl>  ┌─ Leader Election（领导人选举）
+</span></span><span class=line><span class=cl>  │    随机超时 → 发起投票 → 获得多数票 → 成为Leader
+</span></span><span class=line><span class=cl>  │    Term（任期）概念，每个Term最多一个Leader
+</span></span><span class=line><span class=cl>  │
+</span></span><span class=line><span class=cl>  ├─ Log Replication（日志复制）
+</span></span><span class=line><span class=cl>  │   客户端写 → Leader日志 → 复制到Followers → 多数确认 → 提交
+</span></span><span class=line><span class=cl>  │   提交后Apply到状态机
+</span></span><span class=line><span class=cl>  │
+</span></span><span class=line><span class=cl>  └─ Safety（安全性）
+</span></span><span class=line><span class=cl>       Leader只能提交当前Term的日志（间接提交之前Term的日志）
+</span></span><span class=line><span class=cl>       选举限制：Candidate的日志必须至少和多数节点一样新
+</span></span></code></pre></div><p><strong>Raft vs Paxos：</strong></p><table><thead><tr><th>维度</th><th>Paxos</th><th>Raft</th></tr></thead><tbody><tr><td>理解难度</td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐⭐</td></tr><tr><td>工程实现</td><td>需要大量工程决策</td><td>设计就是为可实现</td></tr><tr><td>日志</td><td>不支持连续日志</td><td>原生支持Log Replication</td></tr><tr><td>成员变更</td><td>复杂</td><td>联合共识(Joint Consensus)</td></tr><tr><td>代表实现</td><td>Chubby(ZooKeeper类似)</td><td>etcd, TiKV, Consul</td></tr></tbody></table><p><strong>Leader选举过程动画：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Term 1:
+</span></span><span class=line><span class=cl>  Node1: [Follower] timeout→[Candidate]→gets 3 votes→[Leader]
+</span></span><span class=line><span class=cl>  Node2: [Follower]────────→votes Node1──→[Follower]
+</span></span><span class=line><span class=cl>  Node3: [Follower]────────→votes Node1──→[Follower]
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Term 2 (Node1故障):
+</span></span><span class=line><span class=cl>  Node2: [Follower] timeout→[Candidate]→gets 2 votes→[Leader]
+</span></span><span class=line><span class=cl>  Node3: [Follower]────────→votes Node2──→[Follower]
+</span></span></code></pre></div><h3 id=23-2pc-vs-3pc-vs-tcc>2.3 2PC vs 3PC vs TCC</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>2PC (两阶段提交):
+</span></span><span class=line><span class=cl>  Phase 1: Coordinator → 所有参与者: &#34;Prepare&#34;
+</span></span><span class=line><span class=cl>           参与者锁定资源，回复 Yes/No
+</span></span><span class=line><span class=cl>  Phase 2: 全部Yes → 发送Commit → 参与者提交
+</span></span><span class=line><span class=cl>           任何No → 发送Rollback → 参与者回滚
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  致命缺陷: Coordinator宕机时，参与者持锁等待，形成阻塞
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>3PC (三阶段提交):
+</span></span><span class=line><span class=cl>  增加PreCommit阶段和超时机制
+</span></span><span class=line><span class=cl>  但网络分区时仍可能不一致（很少实际使用）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>TCC (Try-Confirm-Cancel):
+</span></span><span class=line><span class=cl>  Try:    预留资源（如冻结库存）
+</span></span><span class=line><span class=cl>  Confirm: 确认执行（如扣减库存）
+</span></span><span class=line><span class=cl>  Cancel:  释放资源（如解冻库存）
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  优势: 业务层面控制，不持有数据库锁
+</span></span><span class=line><span class=cl>  代价: 需实现Confirm/Cancel的幂等逻辑
+</span></span></code></pre></div><hr><h2 id=三tidb深度剖析>三、TiDB深度剖析</h2><h3 id=31-架构回顾与存储>3.1 架构回顾与存储</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                   TiDB Cluster                  │
+</span></span><span class=line><span class=cl>│                                                 │
+</span></span><span class=line><span class=cl>│  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
+</span></span><span class=line><span class=cl>│  │ TiDB     │  │ TiDB     │  │ TiDB     │     │
+</span></span><span class=line><span class=cl>│  │ (SQL层)  │  │ (SQL层)  │  │ (SQL层)  │     │  ← 计算节点
+</span></span><span class=line><span class=cl>│  └────┬─────┘  └────┬─────┘  └────┬─────┘     │
+</span></span><span class=line><span class=cl>│       │              │              │           │
+</span></span><span class=line><span class=cl>│       └──────────────┼──────────────┘           │
+</span></span><span class=line><span class=cl>│                      │                           │
+</span></span><span class=line><span class=cl>│              ┌───────┴───────┐                   │
+</span></span><span class=line><span class=cl>│              │      PD       │                   │  ← 大脑
+</span></span><span class=line><span class=cl>│              │ (Placement    │                   │
+</span></span><span class=line><span class=cl>│              │  Driver)      │                   │
+</span></span><span class=line><span class=cl>│              └───────┬───────┘                   │
+</span></span><span class=line><span class=cl>│                      │                           │
+</span></span><span class=line><span class=cl>│    ┌─────────────────┼─────────────────┐        │
+</span></span><span class=line><span class=cl>│    │                 │                 │        │
+</span></span><span class=line><span class=cl>│ ┌──┴───┐        ┌───┴──┐        ┌───┴──┐     │
+</span></span><span class=line><span class=cl>│ │ TiKV │        │ TiKV │        │ TiKV │     │  ← 行存储
+</span></span><span class=line><span class=cl>│ │      │        │      │        │      │     │
+</span></span><span class=line><span class=cl>│ └──────┘        └──────┘        └──────┘     │
+</span></span><span class=line><span class=cl>│                                                 │
+</span></span><span class=line><span class=cl>│ ┌──────┐        ┌──────┐         ┌──────┐     │
+</span></span><span class=line><span class=cl>│ │TiFlash│       │TiFlash│        │TiFlash│    │  ← 列存储(HTAP)
+</span></span><span class=line><span class=cl>│ └──────┘        └──────┘         └──────┘     │
+</span></span><span class=line><span class=cl>└────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=32-key-value映射与region分裂>3.2 Key-Value映射与Region分裂</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>从SQL到KV的映射:
+</span></span><span class=line><span class=cl>  Table: t(id INT PRIMARY KEY, name VARCHAR)
+</span></span><span class=line><span class=cl>  行: (1, &#34;张三&#34;)
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  ↓ 编码 ↓
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  Key:   t_1_r    (t{tableID}_1{rowID}_r)
+</span></span><span class=line><span class=cl>  Value: [name: &#34;张三&#34;]
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  ↓ Region划分 ↓
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  Region-1: [t_1_, t_100_)   ← 包含id 1~99的数据
+</span></span><span class=line><span class=cl>  Region-2: [t_100_, t_200_) ← 包含id 100~199的数据
+</span></span><span class=line><span class=cl>  Region-3: [t_200_, )       ← 包含id 200+的数据
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Region分裂:
+</span></span><span class=line><span class=cl>  默认96MB自动分裂 → 确保每个Region不会过大
+</span></span><span class=line><span class=cl>  热点Region自动分裂 → 解决写入热点
+</span></span><span class=line><span class=cl>  空Region自动合并 → 节省Raft组开销
+</span></span></code></pre></div><h3 id=33-分布式事务percolator模型>3.3 分布式事务：Percolator模型</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Percolator事务流程（乐观事务）:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>预写阶段 (Prewrite):
+</span></span><span class=line><span class=cl>  Client → TiDB: BEGIN
+</span></span><span class=line><span class=cl>  TiDB → PD: 分配start_ts(事务开始时间戳)
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  对每个涉及的行:
+</span></span><span class=line><span class=cl>    1. 写入Lock:     key_lock = {primary, start_ts}
+</span></span><span class=line><span class=cl>    2. 写入Data:     key_data = value (此时版本=start_ts, 不可见)
+</span></span><span class=line><span class=cl>    3. 检查冲突:     是否有其他事务锁定了这些行
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  全部Prewrite成功 → 进入Commit阶段
+</span></span><span class=line><span class=cl>  任何Prewrite失败 → 回滚（清理锁和data）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>提交阶段 (Commit):
+</span></span><span class=line><span class=cl>  TiDB → PD: 分配commit_ts
+</span></span><span class=line><span class=cl>  写入Write记录: key_write = {start_ts, commit_ts}
+</span></span><span class=line><span class=cl>  清理Lock
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>事务可见性判断:
+</span></span><span class=line><span class=cl>  读取时找到最新的 commit_ts &lt;= read_ts 的版本
+</span></span><span class=line><span class=cl>  如果遇到未提交的Lock → 等待或回滚
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Percolator的核心优势:
+</span></span><span class=line><span class=cl>  ✅ 无中心化事务管理器（消除了2PC的Coordinator瓶颈）
+</span></span><span class=line><span class=cl>  ✅ 快照隔离(SI)级别
+</span></span><span class=line><span class=cl>  ✅ 写入不会阻塞读取（MVCC机制）
+</span></span></code></pre></div><p><strong>Q2: Percolator模型如何处理冲突？</strong>
+A:</p><ol><li><strong>写-写冲突</strong>：Prewrite阶段检测，后事务检测到Lock → Abort</li><li><strong>读-写冲突</strong>：快照隔离，读不阻塞写，写不阻塞读</li><li><strong>锁超时</strong>：TTL机制，超时的锁可被其他事务清理（防止死锁）</li><li><strong>锁残留</strong>：<code>ResolveLocks</code>协程定期扫描并清理残留锁</li></ol><h3 id=34-tiflash与htap>3.4 TiFlash与HTAP</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>HTAP = Hybrid Transactional/Analytical Processing
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>传统架构:
+</span></span><span class=line><span class=cl>  OLTP(MySQL) ──ETL──→ OLAP(Hive/ClickHouse)
+</span></span><span class=line><span class=cl>  问题: 延迟高(T+1)、数据不一致、维护两套
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>TiDB HTAP:
+</span></span><span class=line><span class=cl>  TiKV(行存)     ——→  实时同步  ——→  TiFlash(列存)
+</span></span><span class=line><span class=cl>  (TP查询)        (Raft Learner)      (AP查询)
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  TiDB自动路由:
+</span></span><span class=line><span class=cl>    SELECT * FROM orders WHERE id = 123   → TiKV(点查)
+</span></span><span class=line><span class=cl>    SELECT SUM(amount) FROM orders        → TiFlash(聚合)
+</span></span></code></pre></div><hr><h2 id=四cockroachdb深度剖析>四、CockroachDB深度剖析</h2><h3 id=41-核心特色>4.1 核心特色</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>CockroachDB vs TiDB 差异:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>CockroachDB特色:
+</span></span><span class=line><span class=cl>  1. 多区域部署原生支持
+</span></span><span class=line><span class=cl>     CREATE TABLE users (
+</span></span><span class=line><span class=cl>       id INT PRIMARY KEY,
+</span></span><span class=line><span class=cl>       name STRING,
+</span></span><span class=line><span class=cl>       region STRING
+</span></span><span class=line><span class=cl>     ) LOCALITY REGIONAL BY TABLE IN &#34;us-east&#34;;
+</span></span><span class=line><span class=cl>     
+</span></span><span class=line><span class=cl>  2. 数据属地性(Data Domiciling)
+</span></span><span class=line><span class=cl>     德国用户数据 → 永远存储在德国数据中心
+</span></span><span class=line><span class=cl>     满足GDPR合规要求
+</span></span><span class=line><span class=cl>     
+</span></span><span class=line><span class=cl>  3. Follow-the-Work
+</span></span><span class=line><span class=cl>     数据跟随访问者自动迁移到最近区域
+</span></span><span class=line><span class=cl>     
+</span></span><span class=line><span class=cl>  4. PostgreSQL兼容
+</span></span><span class=line><span class=cl>     使用PG协议和语法，而非MySQL
+</span></span></code></pre></div><h3 id=42-crdb的range与leaseholder>4.2 CRDB的Range与Leaseholder</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Range结构:
+</span></span><span class=line><span class=cl>  ┌─────────────────────────┐
+</span></span><span class=line><span class=cl>  │       Range [a, m)      │
+</span></span><span class=line><span class=cl>  │                         │
+</span></span><span class=line><span class=cl>  │  Replica 1 (Node A)     │  ← Leaseholder (负责读写协调)
+</span></span><span class=line><span class=cl>  │  Replica 2 (Node B)     │
+</span></span><span class=line><span class=cl>  │  Replica 3 (Node C)     │
+</span></span><span class=line><span class=cl>  └─────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Leaseholder类似Raft Leader:
+</span></span><span class=line><span class=cl>  - 持有时间租约(Lease)，到期需续约
+</span></span><span class=line><span class=cl>  - 所有写请求通过Leaseholder
+</span></span><span class=line><span class=cl>  - 读请求根据一致性要求可能走Follower
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Region vs Range:
+</span></span><span class=line><span class=cl>  TiDB的Region ≈ CockroachDB的Range
+</span></span><span class=line><span class=cl>  都是数据分片的基本单位
+</span></span></code></pre></div><h3 id=43-crdb的分布式事务>4.3 CRDB的分布式事务</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>CRDB事务流程（并行提交优化）:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>传统:  
+</span></span><span class=line><span class=cl>  BEGIN → Writes → COMMIT(等待2轮Raft) → 完成
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>并行提交(Parallel Commit):
+</span></span><span class=line><span class=cl>  BEGIN → Writes → Staging Record(同时并行写入) → COMMIT(1轮Raft) → 完成
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  Staging Record: 提前告诉系统&#34;这些Write我打算提交&#34;
+</span></span><span class=line><span class=cl>  如果事务失败: Staging Records被垃圾回收
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>性能对比:
+</span></span><span class=line><span class=cl>  普通事务: 2轮Raft共识延迟
+</span></span><span class=line><span class=cl>  并行提交: 1轮Raft共识延迟 (近50%提升)
+</span></span></code></pre></div><hr><h2 id=五其他newsql方案概览>五、其他NewSQL方案概览</h2><h3 id=51-oceanbase>5.1 OceanBase</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>OceanBase (蚂蚁集团):
+</span></span><span class=line><span class=cl>  架构: 对等节点，每个节点同时承担计算和存储
+</span></span><span class=line><span class=cl>  特色:
+</span></span><span class=line><span class=cl>    - 准内存数据库（数据主要在内存，磁盘是备份）
+</span></span><span class=line><span class=cl>    - 多租户架构（资源隔离）
+</span></span><span class=line><span class=cl>    - TPC-C跑分冠军(2020年)
+</span></span><span class=line><span class=cl>    - 金融级高可用（RPO=0, RTO&lt;30s）
+</span></span><span class=line><span class=cl>  适用: 金融核心系统
+</span></span></code></pre></div><h3 id=52-yugabytedb>5.2 YugabyteDB</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>YugabyteDB:
+</span></span><span class=line><span class=cl>  存储: 基于DocDB（RocksDB增强版）
+</span></span><span class=line><span class=cl>  分片: Tablet分片（Hash/Range）
+</span></span><span class=line><span class=cl>  一致性: Raft
+</span></span><span class=line><span class=cl>  SQL: PostgreSQL兼容
+</span></span><span class=line><span class=cl>  特色:
+</span></span><span class=line><span class=cl>    - 真正的多区域主-主部署
+</span></span><span class=line><span class=cl>    - 支持Redis兼容API(YEDIS)
+</span></span><span class=line><span class=cl>    - 每个Tablet是独立的Raft组
+</span></span></code></pre></div><h3 id=53-google-spanner>5.3 Google Spanner</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Google Spanner (NewSQL鼻祖):
+</span></span><span class=line><span class=cl>  核心创新: TrueTime API
+</span></span><span class=line><span class=cl>    - 通过原子钟+GPS提供全局时钟
+</span></span><span class=line><span class=cl>    - 时间误差范围控制在[ε, +ε]（通常&lt;7ms）
+</span></span><span class=line><span class=cl>    - 外部分布式事务无锁等待时间 = 2ε
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  外部一致性:
+</span></span><span class=line><span class=cl>    如果T1在T2之前提交 → T1的时间戳 &lt; T2的时间戳
+</span></span><span class=line><span class=cl>    这是分布式数据库的最强一致性保证
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>  影响:
+</span></span><span class=line><span class=cl>    TiDB的TSO(PD分配时间戳) → 类Spanner方案
+</span></span><span class=line><span class=cl>    CRDB的HLC(混合逻辑时钟) → Spanner的简化版
+</span></span></code></pre></div><hr><h2 id=六分布式数据库选型指南>六、分布式数据库选型指南</h2><h3 id=61-选型决策树>6.1 选型决策树</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>你的需求是什么？
+</span></span><span class=line><span class=cl>├── 极致OLTP性能 + 简单架构
+</span></span><span class=line><span class=cl>│   └── → 单机MySQL/PostgreSQL（未到瓶颈）
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── 单机开始触达瓶颈，团队有DBA
+</span></span><span class=line><span class=cl>│   └── → MySQL分库分表 + ShardingSphere
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── 业务快速发展，不希望管理分片
+</span></span><span class=line><span class=cl>│   ├── MySQL技术栈 → TiDB
+</span></span><span class=line><span class=cl>│   └── PostgreSQL技术栈 → CockroachDB
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── 金融核心系统 + Oracle替代
+</span></span><span class=line><span class=cl>│   └── → OceanBase
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── 全球化多区域部署
+</span></span><span class=line><span class=cl>│   └── → CockroachDB（原生多区域支持）
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── 需要HTAP混合负载
+</span></span><span class=line><span class=cl>│   └── → TiDB（TiFlash列存引擎）
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>└── 公有云/K8s原生
+</span></span><span class=line><span class=cl>    ├── AWS → Aurora
+</span></span><span class=line><span class=cl>    ├── GCP → Spanner
+</span></span><span class=line><span class=cl>    └── K8s → Vitess + MySQL
+</span></span></code></pre></div><h3 id=62-迁移风险清单>6.2 迁移风险清单</h3><table><thead><tr><th>风险</th><th>说明</th><th>缓解措施</th></tr></thead><tbody><tr><td>SQL不兼容</td><td>某些SQL语法/函数不支持</td><td>全面测试，建立兼容性清单</td></tr><tr><td>性能回退</td><td>单行查询可能慢于MySQL</td><td>POC压测，评估核心场景</td></tr><tr><td>运维能力</td><td>NewSQL运维要求高</td><td>优先使用云服务版本(TiDB Cloud)</td></tr><tr><td>生态成熟度</td><td>周边工具不如MySQL丰富</td><td>评估监控/备份/迁移工具链</td></tr><tr><td>成本</td><td>至少3节点起步</td><td>TCO对比（含分库分表运维人力）</td></tr></tbody></table><p><strong>Q3: TiDB能否完全替代MySQL？</strong>
 A: <strong>大多数场景可以，但不是全部。</strong></p><ul><li>✅ 替代：常规OLTP、分库分表场景、需要弹性扩缩</li><li>⚠️ 谨慎：极致延迟敏感（&lt;1ms）、存储过程重度使用</li><li>❌ 不适合：嵌入式/单机部署（IoT设备）、某些特殊SQL语法</li></ul><hr><h2 id=七面试高频题精选>七、面试高频题精选</h2><p><strong>Q4: Raft协议如何保证Leader切换时数据不丢失？</strong>
 A:</p><ol><li><strong>选举限制</strong>：Candidate的日志必须至少和多数节点一样新</li><li><strong>只提交当前Term的日志</strong>：Leader只能提交自己Term内的日志，之前的日志通过"间接提交"</li><li><strong>Commitment规则</strong>：一条日志被复制到多数节点后才认为Committed</li><li><strong>Leader Append-Only</strong>：Leader永远不会删除或覆盖自己的日志</li></ol><p><strong>Q5: TiDB为什么需要PD？PD挂掉会怎样？</strong>
 A:</p><ul><li><strong>PD的作用</strong>：TSO分配、Region调度、元数据管理</li><li><strong>PD挂掉影响</strong>：<ul><li>TSO无法分配 → 新的事务无法开始（已有事务可继续）</li><li>Region调度停止（但不影响正常读写）</li><li>元数据变更停止（但缓存可继续使用）</li></ul></li><li><strong>高可用</strong>：3节点PD集群，Raft保证一致性</li><li><strong>脑裂处理</strong>：TSO基于时间戳，分配前会检查Leader身份</li></ul><p><strong>Q6: 分库分表后如何进行跨分片分页查询？</strong>
@@ -309,42 +309,42 @@ A:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=err>方案</span><span class=mi>4</span><span class=p>:</span><span class=w> </span><span class=err>禁止跳页</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=err>只支持</span><span class=s2>&#34;加载更多&#34;</span><span class=err>（基于游标分页）</span><span class=w>
 </span></span></span></code></pre></div><p><strong>Q7: 什么是HTAP？为什么以前不能实现？</strong>
-A:</p><pre tabindex=0><code>HTAP = Hybrid Transactional/Analytical Processing
-同一套数据，同时支持OLTP(事务)和OLAP(分析)
-
-以前不能的原因:
-  1. 行存适合OLTP，列存适合OLAP → 互相矛盾
-  2. TP和AP查询会互相争夺资源
-  3. 数据同步延迟（ETL需要T+1）
-
-现在的实现:
-  1. Raft Learner复制 → 实时同步行存→列存（秒级延迟）
-  2. 资源隔离 → TP和AP使用不同节点
-  3. TiDB: TiKV(行存) + TiFlash(列存)，自动路由
-</code></pre><p><strong>Q8: 分布式事务的隔离级别能到Serializable吗？</strong>
-A:</p><ul><li><strong>TiDB</strong>：默认Snapshot Isolation(SI)，可通过<code>SET TRANSACTION ISOLATION LEVEL SERIALIZABLE</code>升级到SSI（Serializable Snapshot Isolation），但性能会有损耗</li><li><strong>CockroachDB</strong>：默认Serializable！通过串行化冲突检测实现</li><li><strong>为什么大多数选择SI</strong>：SI已能防止脏读、不可重复读、幻读（基于MVCC快照），写偏斜(Write Skew)等极端场景才需要Serializable</li></ul><hr><h2 id=八未来趋势>八、未来趋势</h2><h3 id=newsql的发展方向>NewSQL的发展方向</h3><pre tabindex=0><code>1. Serverless数据库
-   - TiDB Cloud Serverless Tier
-   - CockroachDB Serverless
-   - Neon (Serverless PostgreSQL)
-   趋势: 按需付费，零运维，适合中小项目
-
-2. AI + 数据库
-   - 智能索引推荐
-   - SQL自动优化（AI生成执行计划）
-   - 自然语言查询（Text-to-SQL）
-   
-3. 多模数据库
-   - 一份数据多种访问方式（SQL + KV + Graph + 文档）
-   - TiDB融入向量搜索能力
-
-4. 边缘数据库
-   - SQLite + CRDT = 本地优先的分布式
-   - 离线可用 + 在线同步
-
-5. 区块链数据库
-   - 可验证的SQL查询
-   - 防篡改的审计日志
-</code></pre><hr><h2 id=九总结>九、总结</h2><table><thead><tr><th>层次</th><th>核心技术</th><th>面试关键词</th></tr></thead><tbody><tr><td>理论基础</td><td>CAP/BASE、一致性模型</td><td>强一致、最终一致、因果一致</td></tr><tr><td>一致性协议</td><td>Paxos/Raft/2PC/TCC</td><td>Leader选举、日志复制、多数派</td></tr><tr><td>NewSQL架构</td><td>TiDB/CockroachDB/OceanBase</td><td>Region/Range、Percolator、HTAP</td></tr><tr><td>分布式事务</td><td>2PC/Percolator/并行提交</td><td>TSO、MVCC、写偏斜</td></tr><tr><td>工程选型</td><td>分库分表 vs NewSQL</td><td>迁移风险评估、TCO对比</td></tr></tbody></table><p><strong>分布式数据库面试三条线：</strong></p><ol><li><strong>理论线</strong>：CAP → BASE → 一致性模型 → 2PC → Paxos/Raft</li><li><strong>架构线</strong>：分库分表 → 中间件 → TiDB → HTAP</li><li><strong>实践线</strong>：SQL优化 → 分片策略 → 分布式事务 → 性能调优</li></ol><hr><blockquote><p>🎯 <strong>数据库面试八股文系列第（十一）篇完结！</strong> 本文从CAP理论出发，系统讲解了Paxos/Raft一致性协议、TiDB/CockroachDB/OceanBase等NewSQL架构核心原理、分布式事务实现，以及面试高频考点。结合前10篇的单机数据库知识，你现在已经具备从MySQL到NewSQL的完整知识体系。</p><p>📌 <strong>下期预告</strong>：《数据库面试八股文（十二）——数据库安全与审计实战》将深入探讨SQL注入防御、数据加密（传输加密TLS/存储加密TDE）、审计日志与合规、权限管理最佳实践，以及GDPR对数据库设计的影响，敬请期待！</p></blockquote></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%8D%81%E6%95%B0%E6%8D%AE%E5%BA%93%E7%BB%BC%E5%90%88%E9%9D%A2%E8%AF%95%E9%A2%98%E4%B8%8E%E5%AE%9E%E6%88%98/><span>← 上一篇</span><strong>数据库面试八股文（十）——数据库综合面试题与实战</strong></a>
+A:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>HTAP = Hybrid Transactional/Analytical Processing
+</span></span><span class=line><span class=cl>同一套数据，同时支持OLTP(事务)和OLAP(分析)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>以前不能的原因:
+</span></span><span class=line><span class=cl>  1. 行存适合OLTP，列存适合OLAP → 互相矛盾
+</span></span><span class=line><span class=cl>  2. TP和AP查询会互相争夺资源
+</span></span><span class=line><span class=cl>  3. 数据同步延迟（ETL需要T+1）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>现在的实现:
+</span></span><span class=line><span class=cl>  1. Raft Learner复制 → 实时同步行存→列存（秒级延迟）
+</span></span><span class=line><span class=cl>  2. 资源隔离 → TP和AP使用不同节点
+</span></span><span class=line><span class=cl>  3. TiDB: TiKV(行存) + TiFlash(列存)，自动路由
+</span></span></code></pre></div><p><strong>Q8: 分布式事务的隔离级别能到Serializable吗？</strong>
+A:</p><ul><li><strong>TiDB</strong>：默认Snapshot Isolation(SI)，可通过<code>SET TRANSACTION ISOLATION LEVEL SERIALIZABLE</code>升级到SSI（Serializable Snapshot Isolation），但性能会有损耗</li><li><strong>CockroachDB</strong>：默认Serializable！通过串行化冲突检测实现</li><li><strong>为什么大多数选择SI</strong>：SI已能防止脏读、不可重复读、幻读（基于MVCC快照），写偏斜(Write Skew)等极端场景才需要Serializable</li></ul><hr><h2 id=八未来趋势>八、未来趋势</h2><h3 id=newsql的发展方向>NewSQL的发展方向</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. Serverless数据库
+</span></span><span class=line><span class=cl>   - TiDB Cloud Serverless Tier
+</span></span><span class=line><span class=cl>   - CockroachDB Serverless
+</span></span><span class=line><span class=cl>   - Neon (Serverless PostgreSQL)
+</span></span><span class=line><span class=cl>   趋势: 按需付费，零运维，适合中小项目
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>2. AI + 数据库
+</span></span><span class=line><span class=cl>   - 智能索引推荐
+</span></span><span class=line><span class=cl>   - SQL自动优化（AI生成执行计划）
+</span></span><span class=line><span class=cl>   - 自然语言查询（Text-to-SQL）
+</span></span><span class=line><span class=cl>   
+</span></span><span class=line><span class=cl>3. 多模数据库
+</span></span><span class=line><span class=cl>   - 一份数据多种访问方式（SQL + KV + Graph + 文档）
+</span></span><span class=line><span class=cl>   - TiDB融入向量搜索能力
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>4. 边缘数据库
+</span></span><span class=line><span class=cl>   - SQLite + CRDT = 本地优先的分布式
+</span></span><span class=line><span class=cl>   - 离线可用 + 在线同步
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>5. 区块链数据库
+</span></span><span class=line><span class=cl>   - 可验证的SQL查询
+</span></span><span class=line><span class=cl>   - 防篡改的审计日志
+</span></span></code></pre></div><hr><h2 id=九总结>九、总结</h2><table><thead><tr><th>层次</th><th>核心技术</th><th>面试关键词</th></tr></thead><tbody><tr><td>理论基础</td><td>CAP/BASE、一致性模型</td><td>强一致、最终一致、因果一致</td></tr><tr><td>一致性协议</td><td>Paxos/Raft/2PC/TCC</td><td>Leader选举、日志复制、多数派</td></tr><tr><td>NewSQL架构</td><td>TiDB/CockroachDB/OceanBase</td><td>Region/Range、Percolator、HTAP</td></tr><tr><td>分布式事务</td><td>2PC/Percolator/并行提交</td><td>TSO、MVCC、写偏斜</td></tr><tr><td>工程选型</td><td>分库分表 vs NewSQL</td><td>迁移风险评估、TCO对比</td></tr></tbody></table><p><strong>分布式数据库面试三条线：</strong></p><ol><li><strong>理论线</strong>：CAP → BASE → 一致性模型 → 2PC → Paxos/Raft</li><li><strong>架构线</strong>：分库分表 → 中间件 → TiDB → HTAP</li><li><strong>实践线</strong>：SQL优化 → 分片策略 → 分布式事务 → 性能调优</li></ol><hr><blockquote><p>🎯 <strong>数据库面试八股文系列第（十一）篇完结！</strong> 本文从CAP理论出发，系统讲解了Paxos/Raft一致性协议、TiDB/CockroachDB/OceanBase等NewSQL架构核心原理、分布式事务实现，以及面试高频考点。结合前10篇的单机数据库知识，你现在已经具备从MySQL到NewSQL的完整知识体系。</p><p>📌 <strong>下期预告</strong>：《数据库面试八股文（十二）——数据库安全与审计实战》将深入探讨SQL注入防御、数据加密（传输加密TLS/存储加密TDE）、审计日志与合规、权限管理最佳实践，以及GDPR对数据库设计的影响，敬请期待！</p></blockquote></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%8D%81%E6%95%B0%E6%8D%AE%E5%BA%93%E7%BB%BC%E5%90%88%E9%9D%A2%E8%AF%95%E9%A2%98%E4%B8%8E%E5%AE%9E%E6%88%98/><span>← 上一篇</span><strong>数据库面试八股文（十）——数据库综合面试题与实战</strong></a>
 <a class=next href=/posts/%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%8D%81%E4%BA%8C%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AE%89%E5%85%A8%E4%B8%8E%E5%AE%A1%E8%AE%A1%E5%AE%9E%E6%88%98/><span>下一篇 →</span><strong>数据库面试八股文（十二）——数据库安全与审计实战</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/clickhouse%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90olap%E5%88%97%E5%BC%8F%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AE%9E%E6%88%98%E6%8C%87%E5%8D%97/><span>2026-07-15</span><strong>ClickHouse深度解析：OLAP列式数据库实战指南</strong><p>系统讲解 ClickHouse 列式存储、MergeTree 引擎、分区排序、查询优化与集群部署，并给出实时 OLAP 场景的生产实践。</p></a><a href=/posts/rocketmq%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90%E6%9E%B6%E6%9E%84%E5%8E%9F%E7%90%86%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E6%88%98/><span>2026-07-15</span><strong>RocketMQ深度解析：架构原理与生产实战</strong><p>RocketMQ 是阿里巴巴开源的分布式消息中间件，目前是 Apache 顶级项目，在国内互联网公司中应用极为广泛。相比 Kafka，RocketMQ 在延迟消息、事务消息、顺序消 …</p></a><a href=/posts/redis%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94stream%E6%B6%88%E6%81%AF%E6%B5%81hyperloglog%E4%B8%8Ebitmap%E5%AE%9E%E6%88%98/><span>2026-07-14</span><strong>Redis面试八股文（五）——Stream消息流、HyperLogLog与Bitmap实战</strong><p>对比 Redis Stream 与 Kafka，深入 HyperLogLog 亿级 UV 统计、Bitmap 状态记录，并讲解 BigKeys、慢查询与性能监控。</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9A%E6%95%B0%E6%8D%AE%E5%BA%93%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%EF%BC%88%E5%8D%81%E4%B8%80%EF%BC%89%E2%80%94%E2%80%94%E5%88%86%E5%B8%83%E5%BC%8F%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%8ENewSQL%E5%AE%9E%E6%88%98" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一分布式理论基础>一、分布式理论基础</a><ul><li><a href=#11-cap定理的本质>1.1 CAP定理的本质</a></li><li><a href=#12-base理论>1.2 BASE理论</a></li><li><a href=#13-一致性模型全览>1.3 一致性模型全览</a></li></ul></li><li><a href=#二分布式一致性协议>二、分布式一致性协议</a><ul><li><a href=#21-paxos核心思想>2.1 Paxos核心思想</a></li><li><a href=#22-raft协议详解>2.2 Raft协议详解</a></li><li><a href=#23-2pc-vs-3pc-vs-tcc>2.3 2PC vs 3PC vs TCC</a></li></ul></li><li><a href=#三tidb深度剖析>三、TiDB深度剖析</a><ul><li><a href=#31-架构回顾与存储>3.1 架构回顾与存储</a></li><li><a href=#32-key-value映射与region分裂>3.2 Key-Value映射与Region分裂</a></li><li><a href=#33-分布式事务percolator模型>3.3 分布式事务：Percolator模型</a></li><li><a href=#34-tiflash与htap>3.4 TiFlash与HTAP</a></li></ul></li><li><a href=#四cockroachdb深度剖析>四、CockroachDB深度剖析</a><ul><li><a href=#41-核心特色>4.1 核心特色</a></li><li><a href=#42-crdb的range与leaseholder>4.2 CRDB的Range与Leaseholder</a></li><li><a href=#43-crdb的分布式事务>4.3 CRDB的分布式事务</a></li></ul></li><li><a href=#五其他newsql方案概览>五、其他NewSQL方案概览</a><ul><li><a href=#51-oceanbase>5.1 OceanBase</a></li><li><a href=#52-yugabytedb>5.2 YugabyteDB</a></li><li><a href=#53-google-spanner>5.3 Google Spanner</a></li></ul></li><li><a href=#六分布式数据库选型指南>六、分布式数据库选型指南</a><ul><li><a href=#61-选型决策树>6.1 选型决策树</a></li><li><a href=#62-迁移风险清单>6.2 迁移风险清单</a></li></ul></li><li><a href=#七面试高频题精选>七、面试高频题精选</a></li><li><a href=#八未来趋势>八、未来趋势</a><ul><li><a href=#newsql的发展方向>NewSQL的发展方向</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
 <a href=mailto:liyafei.work@foxmail.com>邮箱</a>
 <a href=/index.xml>RSS</a>

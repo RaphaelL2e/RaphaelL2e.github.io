@@ -9,29 +9,29 @@
 <a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Spring AOP 深度解析</h1><p class=article-description>面试高频问题：什么是 AOP？JDK 动态代理和 CGLIB 的区别？@Transactional 原理？ AOP（Aspect-Oriented Programming，面向切面编程）是 Spring 框架的另一大核心。它通过将横切关注点（如日志、事务、安全）与业务逻辑分离，提高了代码的模块化。本。</p><div class=article-meta><span>发布于 <time datetime=2026-05-11>2026-05-11</time></span>
 <span>最后验证 2026-05</span>
 <span>6 分钟阅读</span>
-<span>1223 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#引言>引言</a></li><li><a href=#一aop-核心概念>一、AOP 核心概念</a><ul><li><a href=#11-什么是-aop>1.1 什么是 AOP？</a></li><li><a href=#12-aop-术语>1.2 AOP 术语</a></li></ul></li><li><a href=#二spring-aop-的使用>二、Spring AOP 的使用</a><ul><li><a href=#21-启用-aop>2.1 启用 AOP</a></li><li><a href=#22-定义切面>2.2 定义切面</a></li><li><a href=#23-切点表达式>2.3 切点表达式</a></li><li><a href=#24-通知执行顺序>2.4 通知执行顺序</a></li></ul></li><li><a href=#三spring-aop-的底层实现>三、Spring AOP 的底层实现</a><ul><li><a href=#31-代理机制>3.1 代理机制</a></li><li><a href=#32-jdk-动态代理-vs-cglib>3.2 JDK 动态代理 vs CGLIB</a></li><li><a href=#33-强制使用-cglib>3.3 强制使用 CGLIB</a></li></ul></li><li><a href=#四spring-事务管理>四、Spring 事务管理</a><ul><li><a href=#41-声明式事务transactional>4.1 声明式事务（@Transactional）</a></li><li><a href=#42-事务传播行为>4.2 事务传播行为</a></li><li><a href=#43-事务隔离级别>4.3 事务隔离级别</a></li><li><a href=#44-transactional-失效场景>4.4 @Transactional 失效场景</a></li></ul></li><li><a href=#五aop-实战案例>五、AOP 实战案例</a><ul><li><a href=#案例-1性能监控>案例 1：性能监控</a></li><li><a href=#案例-2安全校验>案例 2：安全校验</a></li><li><a href=#案例-3缓存切面>案例 3：缓存切面</a></li></ul></li><li><a href=#六面试高频问题>六、面试高频问题</a><ul><li><a href=#q1jdk-动态代理和-cglib-的区别>Q1：JDK 动态代理和 CGLIB 的区别？</a></li><li><a href=#q2transactional-的原理>Q2：@Transactional 的原理？</a></li><li><a href=#q3transactional-失效的场景>Q3：@Transactional 失效的场景？</a></li><li><a href=#q4事务传播行为有哪些>Q4：事务传播行为有哪些？</a></li><li><a href=#q5aop-的应用场景>Q5：AOP 的应用场景？</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：什么是 AOP？JDK 动态代理和 CGLIB 的区别？@Transactional 原理？</p></blockquote><h2 id=引言>引言</h2><p>AOP（Aspect-Oriented Programming，面向切面编程）是 Spring 框架的另一大核心。它通过将横切关注点（如日志、事务、安全）与业务逻辑分离，提高了代码的模块化。本文将从代理机制到事务管理，全面解析 Spring AOP。</p><h2 id=一aop-核心概念>一、AOP 核心概念</h2><h3 id=11-什么是-aop>1.1 什么是 AOP？</h3><p><strong>AOP</strong>：面向切面编程，将横切关注点与业务逻辑分离。</p><pre tabindex=0><code>传统方式（代码冗余）：
-┌─────────────────────────────┐
-│ 业务逻辑                        │
-│  ├─ 权限检查                  │
-│  ├─ 记录日志                  │
-│  ├─ 业务逻辑                  │
-│  ├─ 提交事务                  │
-│  └─ 异常处理                  │
-└─────────────────────────────┘
-
-AOP 方式（切面分离）：
-┌─────────────────────────────┐
-│ 切面（Aspect）                 │
-│  ├─ 权限检查                  │
-│  ├─ 记录日志                  │
-│  └─ 事务管理                  │
-└─────────────────────────────┘
-          ↓ 织入（Weaving）
-┌─────────────────────────────┐
-│ 业务逻辑（纯净）                │
-│  └─ 核心业务                  │
-└─────────────────────────────┘
-</code></pre><h3 id=12-aop-术语>1.2 AOP 术语</h3><table><thead><tr><th>术语</th><th>说明</th><th>示例</th></tr></thead><tbody><tr><td><strong>Aspect</strong></td><td>切面，横切关注点的模块化</td><td>日志切面、事务切面</td></tr><tr><td><strong>Join Point</strong></td><td>连接点，程序执行点</td><td>方法调用、异常抛出</td></tr><tr><td><strong>Pointcut</strong></td><td>切点，匹配连接点的表达式</td><td><code>execution(* com.example.*.*(..))</code></td></tr><tr><td><strong>Advice</strong></td><td>通知，切面在特定连接点的动作</td><td><code>@Before</code>、<code>@After</code></td></tr><tr><td><strong>Target</strong></td><td>目标对象，被代理的对象</td><td><code>OrderService</code></td></tr><tr><td><strong>Proxy</strong></td><td>代理对象，AOP 创建的代理</td><td>JDK 动态代理 / CGLIB 代理</td></tr><tr><td><strong>Weaving</strong></td><td>织入，将切面应用到目标对象</td><td>运行时织入</td></tr></tbody></table><h2 id=二spring-aop-的使用>二、Spring AOP 的使用</h2><h3 id=21-启用-aop>2.1 启用 AOP</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Configuration</span>
+<span>1223 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#引言>引言</a></li><li><a href=#一aop-核心概念>一、AOP 核心概念</a><ul><li><a href=#11-什么是-aop>1.1 什么是 AOP？</a></li><li><a href=#12-aop-术语>1.2 AOP 术语</a></li></ul></li><li><a href=#二spring-aop-的使用>二、Spring AOP 的使用</a><ul><li><a href=#21-启用-aop>2.1 启用 AOP</a></li><li><a href=#22-定义切面>2.2 定义切面</a></li><li><a href=#23-切点表达式>2.3 切点表达式</a></li><li><a href=#24-通知执行顺序>2.4 通知执行顺序</a></li></ul></li><li><a href=#三spring-aop-的底层实现>三、Spring AOP 的底层实现</a><ul><li><a href=#31-代理机制>3.1 代理机制</a></li><li><a href=#32-jdk-动态代理-vs-cglib>3.2 JDK 动态代理 vs CGLIB</a></li><li><a href=#33-强制使用-cglib>3.3 强制使用 CGLIB</a></li></ul></li><li><a href=#四spring-事务管理>四、Spring 事务管理</a><ul><li><a href=#41-声明式事务transactional>4.1 声明式事务（@Transactional）</a></li><li><a href=#42-事务传播行为>4.2 事务传播行为</a></li><li><a href=#43-事务隔离级别>4.3 事务隔离级别</a></li><li><a href=#44-transactional-失效场景>4.4 @Transactional 失效场景</a></li></ul></li><li><a href=#五aop-实战案例>五、AOP 实战案例</a><ul><li><a href=#案例-1性能监控>案例 1：性能监控</a></li><li><a href=#案例-2安全校验>案例 2：安全校验</a></li><li><a href=#案例-3缓存切面>案例 3：缓存切面</a></li></ul></li><li><a href=#六面试高频问题>六、面试高频问题</a><ul><li><a href=#q1jdk-动态代理和-cglib-的区别>Q1：JDK 动态代理和 CGLIB 的区别？</a></li><li><a href=#q2transactional-的原理>Q2：@Transactional 的原理？</a></li><li><a href=#q3transactional-失效的场景>Q3：@Transactional 失效的场景？</a></li><li><a href=#q4事务传播行为有哪些>Q4：事务传播行为有哪些？</a></li><li><a href=#q5aop-的应用场景>Q5：AOP 的应用场景？</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：什么是 AOP？JDK 动态代理和 CGLIB 的区别？@Transactional 原理？</p></blockquote><h2 id=引言>引言</h2><p>AOP（Aspect-Oriented Programming，面向切面编程）是 Spring 框架的另一大核心。它通过将横切关注点（如日志、事务、安全）与业务逻辑分离，提高了代码的模块化。本文将从代理机制到事务管理，全面解析 Spring AOP。</p><h2 id=一aop-核心概念>一、AOP 核心概念</h2><h3 id=11-什么是-aop>1.1 什么是 AOP？</h3><p><strong>AOP</strong>：面向切面编程，将横切关注点与业务逻辑分离。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>传统方式（代码冗余）：
+</span></span><span class=line><span class=cl>┌─────────────────────────────┐
+</span></span><span class=line><span class=cl>│ 业务逻辑                        │
+</span></span><span class=line><span class=cl>│  ├─ 权限检查                  │
+</span></span><span class=line><span class=cl>│  ├─ 记录日志                  │
+</span></span><span class=line><span class=cl>│  ├─ 业务逻辑                  │
+</span></span><span class=line><span class=cl>│  ├─ 提交事务                  │
+</span></span><span class=line><span class=cl>│  └─ 异常处理                  │
+</span></span><span class=line><span class=cl>└─────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>AOP 方式（切面分离）：
+</span></span><span class=line><span class=cl>┌─────────────────────────────┐
+</span></span><span class=line><span class=cl>│ 切面（Aspect）                 │
+</span></span><span class=line><span class=cl>│  ├─ 权限检查                  │
+</span></span><span class=line><span class=cl>│  ├─ 记录日志                  │
+</span></span><span class=line><span class=cl>│  └─ 事务管理                  │
+</span></span><span class=line><span class=cl>└─────────────────────────────┘
+</span></span><span class=line><span class=cl>          ↓ 织入（Weaving）
+</span></span><span class=line><span class=cl>┌─────────────────────────────┐
+</span></span><span class=line><span class=cl>│ 业务逻辑（纯净）                │
+</span></span><span class=line><span class=cl>│  └─ 核心业务                  │
+</span></span><span class=line><span class=cl>└─────────────────────────────┘
+</span></span></code></pre></div><h3 id=12-aop-术语>1.2 AOP 术语</h3><table><thead><tr><th>术语</th><th>说明</th><th>示例</th></tr></thead><tbody><tr><td><strong>Aspect</strong></td><td>切面，横切关注点的模块化</td><td>日志切面、事务切面</td></tr><tr><td><strong>Join Point</strong></td><td>连接点，程序执行点</td><td>方法调用、异常抛出</td></tr><tr><td><strong>Pointcut</strong></td><td>切点，匹配连接点的表达式</td><td><code>execution(* com.example.*.*(..))</code></td></tr><tr><td><strong>Advice</strong></td><td>通知，切面在特定连接点的动作</td><td><code>@Before</code>、<code>@After</code></td></tr><tr><td><strong>Target</strong></td><td>目标对象，被代理的对象</td><td><code>OrderService</code></td></tr><tr><td><strong>Proxy</strong></td><td>代理对象，AOP 创建的代理</td><td>JDK 动态代理 / CGLIB 代理</td></tr><tr><td><strong>Weaving</strong></td><td>织入，将切面应用到目标对象</td><td>运行时织入</td></tr></tbody></table><h2 id=二spring-aop-的使用>二、Spring AOP 的使用</h2><h3 id=21-启用-aop>2.1 启用 AOP</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Configuration</span>
 </span></span><span class=line><span class=cl><span class=nd>@EnableAspectJAutoProxy</span>  <span class=c1>// 启用 AOP
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>class</span> <span class=nc>AppConfig</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
@@ -76,17 +76,17 @@ AOP 方式（切面分离）：
 </span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>result</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=23-切点表达式>2.3 切点表达式</h3><p><strong>execution 表达式</strong>：</p><pre tabindex=0><code>execution(modifiers-pattern? ret-type-pattern declaring-type-pattern? name-pattern(param-pattern) throws-pattern?)
-
-示例：
-execution(* com.example.service.*.*(..))
-         │    │                  │   │   │
-         │    │                  │   │   └─ 任意参数
-         │    │                  │   └─ 任意方法名
-         │    │                  └─ 任意类
-         │    └─ 任意返回类型
-         └─ 任意访问修饰符
-</code></pre><p><strong>常用切点表达式</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 1. 匹配所有 public 方法
+</span></span></code></pre></div><h3 id=23-切点表达式>2.3 切点表达式</h3><p><strong>execution 表达式</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>execution(modifiers-pattern? ret-type-pattern declaring-type-pattern? name-pattern(param-pattern) throws-pattern?)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>示例：
+</span></span><span class=line><span class=cl>execution(* com.example.service.*.*(..))
+</span></span><span class=line><span class=cl>         │    │                  │   │   │
+</span></span><span class=line><span class=cl>         │    │                  │   │   └─ 任意参数
+</span></span><span class=line><span class=cl>         │    │                  │   └─ 任意方法名
+</span></span><span class=line><span class=cl>         │    │                  └─ 任意类
+</span></span><span class=line><span class=cl>         │    └─ 任意返回类型
+</span></span><span class=line><span class=cl>         └─ 任意访问修饰符
+</span></span></code></pre></div><p><strong>常用切点表达式</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 1. 匹配所有 public 方法
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>execution</span><span class=o>(</span><span class=kd>public</span> <span class=o>*</span> <span class=o>*(..))</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1>// 2. 匹配所有 Service 层方法
@@ -123,24 +123,24 @@ execution(* com.example.service.*.*(..))
 </span></span><span class=line><span class=cl>        <span class=n>System</span><span class=o>.</span><span class=na>out</span><span class=o>.</span><span class=na>println</span><span class=o>(</span><span class=s>&#34;5. After&#34;</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>  <span class=c1>// 输出 &#34;6. Around After&#34;
-</span></span></span></code></pre></div><h2 id=三spring-aop-的底层实现>三、Spring AOP 的底层实现</h2><h3 id=31-代理机制>3.1 代理机制</h3><p>Spring AOP 使用<strong>代理模式</strong>实现切面织入：</p><pre tabindex=0><code>┌─────────────────────────────────────────────────────┐
-│ 客户端代码                                           │
-│   │                                                │
-│   └─ 调用代理对象  ────────────────────┐           │
-│                                             ↓       │
-│                                   ┌─────────────┐   │
-│                                   │  代理对象     │   │
-│                                   │  ├─ 前置通知  │   │
-│                                   │  ├─ 目标方法  │   │
-│                                   │  └─ 后置通知  │   │
-│                                   └─────────────┘   │
-│                                             ↓       │
-│                                   ┌─────────────┐   │
-│                                   │  目标对象     │   │
-│                                   │  (Target)    │   │
-│                                   └─────────────┘   │
-└─────────────────────────────────────────────────────┘
-</code></pre><h3 id=32-jdk-动态代理-vs-cglib>3.2 JDK 动态代理 vs CGLIB</h3><p>Spring AOP 根据情况选择不同的代理方式：</p><table><thead><tr><th>特性</th><th>JDK 动态代理</th><th>CGLIB</th></tr></thead><tbody><tr><td><strong>条件</strong></td><td>目标类实现接口</td><td>目标类无接口 / proxyTargetClass=true</td></tr><tr><td><strong>原理</strong></td><td>实现接口，创建接口代理</td><td>继承目标类，创建子类</td></tr><tr><td><strong>性能</strong></td><td>创建快，执行慢</td><td>创建慢，执行快</td></tr><tr><td><strong>限制</strong></td><td>只能代理接口方法</td><td>不能代理 final 方法</td></tr></tbody></table><p><strong>JDK 动态代理</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 目标类实现接口
+</span></span></span></code></pre></div><h2 id=三spring-aop-的底层实现>三、Spring AOP 的底层实现</h2><h3 id=31-代理机制>3.1 代理机制</h3><p>Spring AOP 使用<strong>代理模式</strong>实现切面织入：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│ 客户端代码                                           │
+</span></span><span class=line><span class=cl>│   │                                                │
+</span></span><span class=line><span class=cl>│   └─ 调用代理对象  ────────────────────┐           │
+</span></span><span class=line><span class=cl>│                                             ↓       │
+</span></span><span class=line><span class=cl>│                                   ┌─────────────┐   │
+</span></span><span class=line><span class=cl>│                                   │  代理对象     │   │
+</span></span><span class=line><span class=cl>│                                   │  ├─ 前置通知  │   │
+</span></span><span class=line><span class=cl>│                                   │  ├─ 目标方法  │   │
+</span></span><span class=line><span class=cl>│                                   │  └─ 后置通知  │   │
+</span></span><span class=line><span class=cl>│                                   └─────────────┘   │
+</span></span><span class=line><span class=cl>│                                             ↓       │
+</span></span><span class=line><span class=cl>│                                   ┌─────────────┐   │
+</span></span><span class=line><span class=cl>│                                   │  目标对象     │   │
+</span></span><span class=line><span class=cl>│                                   │  (Target)    │   │
+</span></span><span class=line><span class=cl>│                                   └─────────────┘   │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=32-jdk-动态代理-vs-cglib>3.2 JDK 动态代理 vs CGLIB</h3><p>Spring AOP 根据情况选择不同的代理方式：</p><table><thead><tr><th>特性</th><th>JDK 动态代理</th><th>CGLIB</th></tr></thead><tbody><tr><td><strong>条件</strong></td><td>目标类实现接口</td><td>目标类无接口 / proxyTargetClass=true</td></tr><tr><td><strong>原理</strong></td><td>实现接口，创建接口代理</td><td>继承目标类，创建子类</td></tr><tr><td><strong>性能</strong></td><td>创建快，执行慢</td><td>创建慢，执行快</td></tr><tr><td><strong>限制</strong></td><td>只能代理接口方法</td><td>不能代理 final 方法</td></tr></tbody></table><p><strong>JDK 动态代理</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 目标类实现接口
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>class</span> <span class=nc>OrderServiceImpl</span> <span class=kd>implements</span> <span class=n>OrderService</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>public</span> <span class=kt>void</span> <span class=nf>createOrder</span><span class=o>()</span> <span class=o>{</span> <span class=o>...</span> <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>

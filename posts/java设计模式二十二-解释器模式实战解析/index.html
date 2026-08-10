@@ -10,25 +10,25 @@
 <span>/</span><a href=/series/java-design-patterns/>GoF 设计模式</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Java设计模式（二十二）：解释器模式实战解析</h1><p class=article-description>解释器模式（Interpreter Pattern）是一种行为型设计模式，它的核心思想是：给定一个语言，定义它的文法的一种表示，并定义一个解释器，这个解释器使用该表示来解释语言中的句子。 核心思想：用类来表示文法规则，通过组合这些类来解释表达式。 在许多应用中，我们需要解析特定领域的表达式： SQL。</p><div class=article-meta><span>发布于 <time datetime=2026-04-22>2026-04-22</time></span>
 <span>最后验证 2026-04</span>
 <span>7 分钟阅读</span>
-<span>1385 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#前言>前言</a></li><li><a href=#一为什么需要解释器模式>一、为什么需要解释器模式</a><ul><li><a href=#11-领域特定语言dsl>1.1 领域特定语言（DSL）</a></li><li><a href=#12-文法与类的关系>1.2 文法与类的关系</a></li></ul></li><li><a href=#二解释器模式的结构>二、解释器模式的结构</a><ul><li><a href=#21-类图>2.1 类图</a></li><li><a href=#22-核心角色>2.2 核心角色</a></li><li><a href=#23-完整实现布尔表达式解释器>2.3 完整实现：布尔表达式解释器</a></li></ul></li><li><a href=#三解释器模式的高级用法>三、解释器模式的高级用法</a><ul><li><a href=#31-数学表达式解释器>3.1 数学表达式解释器</a></li><li><a href=#32-规则引擎解释器>3.2 规则引擎解释器</a></li></ul></li><li><a href=#四解释器模式在-jdk-中的应用>四、解释器模式在 JDK 中的应用</a><ul><li><a href=#41-javautilregexpattern>4.1 java.util.regex.Pattern</a></li><li><a href=#42-javatextformat>4.2 java.text.Format</a></li><li><a href=#43-el-表达式>4.3 EL 表达式</a></li></ul></li><li><a href=#五解释器模式-vs-其他模式>五、解释器模式 vs 其他模式</a><ul><li><a href=#51-对比组合模式>5.1 对比组合模式</a></li><li><a href=#52-对比访问者模式>5.2 对比访问者模式</a></li></ul></li><li><a href=#六解释器模式的优缺点>六、解释器模式的优缺点</a><ul><li><a href=#优点>优点</a></li><li><a href=#缺点>缺点</a></li><li><a href=#适用场景>适用场景</a></li></ul></li><li><a href=#七面试常见问题>七、面试常见问题</a><ul><li><a href=#q1-解释器模式的核心思想是什么>Q1: 解释器模式的核心思想是什么？</a></li><li><a href=#q2-解释器模式适合什么场景>Q2: 解释器模式适合什么场景？</a></li><li><a href=#q3-解释器模式和组合模式有什么关系>Q3: 解释器模式和组合模式有什么关系？</a></li><li><a href=#q4-为什么实际项目中很少用解释器模式>Q4: 为什么实际项目中很少用解释器模式？</a></li></ul></li><li><a href=#八总结>八、总结</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=前言>前言</h2><p>解释器模式（Interpreter Pattern）是一种行为型设计模式，它的核心思想是：<strong>给定一个语言，定义它的文法的一种表示，并定义一个解释器，这个解释器使用该表示来解释语言中的句子</strong>。</p><p><strong>核心思想</strong>：用类来表示文法规则，通过组合这些类来解释表达式。</p><h2 id=一为什么需要解释器模式>一、为什么需要解释器模式</h2><h3 id=11-领域特定语言dsl>1.1 领域特定语言（DSL）</h3><p>在许多应用中，我们需要解析特定领域的表达式：</p><ul><li>SQL 查询条件：<code>age > 18 AND name = 'Alice'</code></li><li>配置规则：<code>env == "prod" AND region IN ["us", "eu"]</code></li><li>数学表达式：<code>(1 + 2) * 3 - 4</code></li><li>权限规则：<code>role == "admin" OR (role == "user" AND department == "IT")</code></li></ul><p>解释器模式将这些表达式的文法规则映射为类，通过组合类来构建和解释表达式。</p><h3 id=12-文法与类的关系>1.2 文法与类的关系</h3><p>解释器模式的核心思想：<strong>每一条文法规则对应一个类</strong>。</p><pre tabindex=0><code>文法: Expression ::= Terminal | OrExpression | AndExpression
-类:   Expression  ←  Terminal  |  OrExpression  |  AndExpression
-</code></pre><h2 id=二解释器模式的结构>二、解释器模式的结构</h2><h3 id=21-类图>2.1 类图</h3><pre tabindex=0><code>┌─────────────────────────┐
-│  AbstractExpression     │
-│─────────────────────────│
-│ + interpret(Context)    │
-└───────────┬─────────────┘
-            │
-    ┌───────┼───────┐
-    │       │       │
-┌───┴────┐ ┌┴──────┐ ┌──────────────────┐
-│Terminal│ │NonTer-│ │  Context         │
-│Express │ │minal  │ │──────────────────│
-│        │ │Express│ │ 全局信息/变量表  │
-└────────┘ │───────│ └──────────────────┘
-           │expr1  │
-           │expr2  │
-           └───────┘
-</code></pre><h3 id=22-核心角色>2.2 核心角色</h3><table><thead><tr><th>角色</th><th>职责</th></tr></thead><tbody><tr><td>AbstractExpression</td><td>声明解释操作</td></tr><tr><td>TerminalExpression</td><td>终结符表达式（叶子节点）</td></tr><tr><td>NonTerminalExpression</td><td>非终结符表达式（组合节点）</td></tr><tr><td>Context</td><td>上下文，存储全局信息</td></tr></tbody></table><h3 id=23-完整实现布尔表达式解释器>2.3 完整实现：布尔表达式解释器</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 1. 上下文 ==========
+<span>1385 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#前言>前言</a></li><li><a href=#一为什么需要解释器模式>一、为什么需要解释器模式</a><ul><li><a href=#11-领域特定语言dsl>1.1 领域特定语言（DSL）</a></li><li><a href=#12-文法与类的关系>1.2 文法与类的关系</a></li></ul></li><li><a href=#二解释器模式的结构>二、解释器模式的结构</a><ul><li><a href=#21-类图>2.1 类图</a></li><li><a href=#22-核心角色>2.2 核心角色</a></li><li><a href=#23-完整实现布尔表达式解释器>2.3 完整实现：布尔表达式解释器</a></li></ul></li><li><a href=#三解释器模式的高级用法>三、解释器模式的高级用法</a><ul><li><a href=#31-数学表达式解释器>3.1 数学表达式解释器</a></li><li><a href=#32-规则引擎解释器>3.2 规则引擎解释器</a></li></ul></li><li><a href=#四解释器模式在-jdk-中的应用>四、解释器模式在 JDK 中的应用</a><ul><li><a href=#41-javautilregexpattern>4.1 java.util.regex.Pattern</a></li><li><a href=#42-javatextformat>4.2 java.text.Format</a></li><li><a href=#43-el-表达式>4.3 EL 表达式</a></li></ul></li><li><a href=#五解释器模式-vs-其他模式>五、解释器模式 vs 其他模式</a><ul><li><a href=#51-对比组合模式>5.1 对比组合模式</a></li><li><a href=#52-对比访问者模式>5.2 对比访问者模式</a></li></ul></li><li><a href=#六解释器模式的优缺点>六、解释器模式的优缺点</a><ul><li><a href=#优点>优点</a></li><li><a href=#缺点>缺点</a></li><li><a href=#适用场景>适用场景</a></li></ul></li><li><a href=#七面试常见问题>七、面试常见问题</a><ul><li><a href=#q1-解释器模式的核心思想是什么>Q1: 解释器模式的核心思想是什么？</a></li><li><a href=#q2-解释器模式适合什么场景>Q2: 解释器模式适合什么场景？</a></li><li><a href=#q3-解释器模式和组合模式有什么关系>Q3: 解释器模式和组合模式有什么关系？</a></li><li><a href=#q4-为什么实际项目中很少用解释器模式>Q4: 为什么实际项目中很少用解释器模式？</a></li></ul></li><li><a href=#八总结>八、总结</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=前言>前言</h2><p>解释器模式（Interpreter Pattern）是一种行为型设计模式，它的核心思想是：<strong>给定一个语言，定义它的文法的一种表示，并定义一个解释器，这个解释器使用该表示来解释语言中的句子</strong>。</p><p><strong>核心思想</strong>：用类来表示文法规则，通过组合这些类来解释表达式。</p><h2 id=一为什么需要解释器模式>一、为什么需要解释器模式</h2><h3 id=11-领域特定语言dsl>1.1 领域特定语言（DSL）</h3><p>在许多应用中，我们需要解析特定领域的表达式：</p><ul><li>SQL 查询条件：<code>age > 18 AND name = 'Alice'</code></li><li>配置规则：<code>env == "prod" AND region IN ["us", "eu"]</code></li><li>数学表达式：<code>(1 + 2) * 3 - 4</code></li><li>权限规则：<code>role == "admin" OR (role == "user" AND department == "IT")</code></li></ul><p>解释器模式将这些表达式的文法规则映射为类，通过组合类来构建和解释表达式。</p><h3 id=12-文法与类的关系>1.2 文法与类的关系</h3><p>解释器模式的核心思想：<strong>每一条文法规则对应一个类</strong>。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>文法: Expression ::= Terminal | OrExpression | AndExpression
+</span></span><span class=line><span class=cl>类:   Expression  ←  Terminal  |  OrExpression  |  AndExpression
+</span></span></code></pre></div><h2 id=二解释器模式的结构>二、解释器模式的结构</h2><h3 id=21-类图>2.1 类图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────┐
+</span></span><span class=line><span class=cl>│  AbstractExpression     │
+</span></span><span class=line><span class=cl>│─────────────────────────│
+</span></span><span class=line><span class=cl>│ + interpret(Context)    │
+</span></span><span class=line><span class=cl>└───────────┬─────────────┘
+</span></span><span class=line><span class=cl>            │
+</span></span><span class=line><span class=cl>    ┌───────┼───────┐
+</span></span><span class=line><span class=cl>    │       │       │
+</span></span><span class=line><span class=cl>┌───┴────┐ ┌┴──────┐ ┌──────────────────┐
+</span></span><span class=line><span class=cl>│Terminal│ │NonTer-│ │  Context         │
+</span></span><span class=line><span class=cl>│Express │ │minal  │ │──────────────────│
+</span></span><span class=line><span class=cl>│        │ │Express│ │ 全局信息/变量表  │
+</span></span><span class=line><span class=cl>└────────┘ │───────│ └──────────────────┘
+</span></span><span class=line><span class=cl>           │expr1  │
+</span></span><span class=line><span class=cl>           │expr2  │
+</span></span><span class=line><span class=cl>           └───────┘
+</span></span></code></pre></div><h3 id=22-核心角色>2.2 核心角色</h3><table><thead><tr><th>角色</th><th>职责</th></tr></thead><tbody><tr><td>AbstractExpression</td><td>声明解释操作</td></tr><tr><td>TerminalExpression</td><td>终结符表达式（叶子节点）</td></tr><tr><td>NonTerminalExpression</td><td>非终结符表达式（组合节点）</td></tr><tr><td>Context</td><td>上下文，存储全局信息</td></tr></tbody></table><h3 id=23-完整实现布尔表达式解释器>2.3 完整实现：布尔表达式解释器</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 1. 上下文 ==========
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>class</span> <span class=nc>Context</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>private</span> <span class=kd>final</span> <span class=n>Map</span><span class=o>&lt;</span><span class=n>String</span><span class=o>,</span> <span class=n>Boolean</span><span class=o>&gt;</span> <span class=n>variables</span> <span class=o>=</span> <span class=k>new</span> <span class=n>HashMap</span><span class=o>&lt;&gt;();</span>
 </span></span><span class=line><span class=cl>    
@@ -176,11 +176,11 @@
 </span></span><span class=line><span class=cl>        <span class=n>System</span><span class=o>.</span><span class=na>out</span><span class=o>.</span><span class=na>println</span><span class=o>(</span><span class=s>&#34;场景3: &#34;</span> <span class=o>+</span> <span class=n>expr</span><span class=o>.</span><span class=na>interpret</span><span class=o>(</span><span class=n>ctx3</span><span class=o>));</span>  <span class=c1>// false
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p>运行结果：</p><pre tabindex=0><code>表达式: ((isAdmin OR isEditor) AND NOT(isBanned))
-场景1: true
-场景2: false
-场景3: false
-</code></pre><h2 id=三解释器模式的高级用法>三、解释器模式的高级用法</h2><h3 id=31-数学表达式解释器>3.1 数学表达式解释器</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 抽象表达式 ==========
+</span></span></code></pre></div><p>运行结果：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>表达式: ((isAdmin OR isEditor) AND NOT(isBanned))
+</span></span><span class=line><span class=cl>场景1: true
+</span></span><span class=line><span class=cl>场景2: false
+</span></span><span class=line><span class=cl>场景3: false
+</span></span></code></pre></div><h2 id=三解释器模式的高级用法>三、解释器模式的高级用法</h2><h3 id=31-数学表达式解释器>3.1 数学表达式解释器</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 抽象表达式 ==========
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>interface</span> <span class=nc>MathExpression</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kt>double</span> <span class=nf>interpret</span><span class=o>();</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>

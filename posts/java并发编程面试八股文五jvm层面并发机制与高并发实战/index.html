@@ -55,11 +55,11 @@
 </span></span><span class=line><span class=cl>        <span class=n>Thread</span><span class=o>.</span><span class=na>sleep</span><span class=o>(</span><span class=mi>1000</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><hr><h2 id=二volatile与内存屏障>二、volatile与内存屏障</h2><h3 id=21-volatile的底层实现>2.1 volatile的底层实现</h3><p><strong>Q: volatile变量读写时JVM做了什么？</strong></p><p>volatile通过**内存屏障（Memory Barrier）**实现可见性和有序性。</p><table><thead><tr><th>操作</th><th>插入的屏障</th><th>作用</th></tr></thead><tbody><tr><td>volatile写</td><td>StoreStore + StoreLoad</td><td>禁止写与之前/之后的读写重排序</td></tr><tr><td>volatile读</td><td>LoadLoad + LoadStore</td><td>禁止读与之后/之前的读写重排序</td></tr></tbody></table><p><strong>JMM内存屏障分类：</strong></p><pre tabindex=0><code>LoadLoad屏障：   Load1; LoadLoad; Load2  → 确保Load1在Load2之前完成
-StoreStore屏障： Store1; StoreStore; Store2 → 确保Store1在Store2之前完成
-LoadStore屏障：  Load1; LoadStore; Store1 → 确保Load1在Store1之前完成
-StoreLoad屏障：  Store1; StoreLoad; Load1 → 确保Store1在Load1之前完成（最重）
-</code></pre><h3 id=22-硬件层面的内存屏障>2.2 硬件层面的内存屏障</h3><p><strong>Q: 不同CPU架构如何实现内存屏障？</strong></p><table><thead><tr><th>架构</th><th>LoadLoad</th><th>StoreStore</th><th>LoadStore</th><th>StoreLoad</th></tr></thead><tbody><tr><td>x86</td><td>无需</td><td>无需</td><td>无需</td><td>mfence/lock</td></tr><tr><td>ARM</td><td>dmb</td><td>dmb st</td><td>dmb</td><td>dmb/dsb</td></tr></tbody></table><blockquote><p>x86是<strong>强内存模型（TSO）</strong>，只允许Store-Load重排序，因此只有StoreLoad需要显式屏障。ARM是弱内存模型，四种屏障都需要。</p></blockquote><h3 id=23-dcl单例为什么要volatile>2.3 DCL单例为什么要volatile</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>Singleton</span> <span class=o>{</span>
+</span></span></code></pre></div><hr><h2 id=二volatile与内存屏障>二、volatile与内存屏障</h2><h3 id=21-volatile的底层实现>2.1 volatile的底层实现</h3><p><strong>Q: volatile变量读写时JVM做了什么？</strong></p><p>volatile通过**内存屏障（Memory Barrier）**实现可见性和有序性。</p><table><thead><tr><th>操作</th><th>插入的屏障</th><th>作用</th></tr></thead><tbody><tr><td>volatile写</td><td>StoreStore + StoreLoad</td><td>禁止写与之前/之后的读写重排序</td></tr><tr><td>volatile读</td><td>LoadLoad + LoadStore</td><td>禁止读与之后/之前的读写重排序</td></tr></tbody></table><p><strong>JMM内存屏障分类：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>LoadLoad屏障：   Load1; LoadLoad; Load2  → 确保Load1在Load2之前完成
+</span></span><span class=line><span class=cl>StoreStore屏障： Store1; StoreStore; Store2 → 确保Store1在Store2之前完成
+</span></span><span class=line><span class=cl>LoadStore屏障：  Load1; LoadStore; Store1 → 确保Load1在Store1之前完成
+</span></span><span class=line><span class=cl>StoreLoad屏障：  Store1; StoreLoad; Load1 → 确保Store1在Load1之前完成（最重）
+</span></span></code></pre></div><h3 id=22-硬件层面的内存屏障>2.2 硬件层面的内存屏障</h3><p><strong>Q: 不同CPU架构如何实现内存屏障？</strong></p><table><thead><tr><th>架构</th><th>LoadLoad</th><th>StoreStore</th><th>LoadStore</th><th>StoreLoad</th></tr></thead><tbody><tr><td>x86</td><td>无需</td><td>无需</td><td>无需</td><td>mfence/lock</td></tr><tr><td>ARM</td><td>dmb</td><td>dmb st</td><td>dmb</td><td>dmb/dsb</td></tr></tbody></table><blockquote><p>x86是<strong>强内存模型（TSO）</strong>，只允许Store-Load重排序，因此只有StoreLoad需要显式屏障。ARM是弱内存模型，四种屏障都需要。</p></blockquote><h3 id=23-dcl单例为什么要volatile>2.3 DCL单例为什么要volatile</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>Singleton</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 必须加volatile：禁止指令重排序
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>volatile</span> <span class=n>Singleton</span> <span class=n>instance</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    
@@ -124,25 +124,25 @@ StoreLoad屏障：  Store1; StoreLoad; Load1 → 确保Store1在Load1之前完�
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 禁用分层编译</span>
 </span></span><span class=line><span class=cl>java -XX:-TieredCompilation MyApp
-</span></span></code></pre></div><hr><h2 id=四高并发系统架构设计>四、高并发系统架构设计</h2><h3 id=41-高并发系统设计原则>4.1 高并发系统设计原则</h3><p><strong>Q: 设计高并发系统需要遵循哪些原则？</strong></p><table><thead><tr><th>原则</th><th>说明</th><th>技术手段</th></tr></thead><tbody><tr><td>无状态化</td><td>服务节点不存储会话状态</td><td>Token/JWT, 分布式Session</td></tr><tr><td>异步化</td><td>非核心流程异步处理</td><td>MQ, CompletableFuture, 事件驱动</td></tr><tr><td>缓存化</td><td>多级缓存减少DB压力</td><td>本地缓存, Redis, CDN</td></tr><tr><td>分库分表</td><td>水平拆分降低单库压力</td><td>ShardingSphere, MyCat</td></tr><tr><td>读写分离</td><td>读多写少场景优化</td><td>MySQL主从, Redis Cluster</td></tr><tr><td>限流降级</td><td>保护系统不过载</td><td>Sentinel, Hystrix, RateLimiter</td></tr><tr><td>削峰填谷</td><td>平滑流量冲击</td><td>MQ消峰, 排队, 预热</td></tr></tbody></table><h3 id=42-秒杀系统架构设计>4.2 秒杀系统架构设计</h3><p><strong>Q: 如何设计一个秒杀系统？</strong></p><pre tabindex=0><code>                        ┌─────────────┐
-                        │   CDN/静态化  │ ← 秒杀页面静态化
-                        └──────┬──────┘
-                               │
-                        ┌──────▼──────┐
-                        │   网关层     │ ← 限流、验证码、IP黑名单
-                        └──────┬──────┘
-                               │
-                        ┌──────▼──────┐
-                        │   业务层     │ ← Redis预减库存，异步下单
-                        └──────┬──────┘
-                               │
-                    ┌──────────┼──────────┐
-                    │          │          │
-              ┌─────▼──┐ ┌───▼───┐ ┌───▼────┐
-              │ Redis  │ │  MQ   │ │ MySQL  │
-              │ 库存   │ │ 削峰  │ │ 兜底   │
-              └─────────┘ └───────┘ └────────┘
-</code></pre><p><strong>核心流程：</strong></p><ol><li><strong>前端限流</strong>：按钮置灰、验证码、答题</li><li><strong>网关限流</strong>：令牌桶/漏桶，拒绝超出QPS的请求</li><li><strong>Redis预减库存</strong>：<code>decr</code>原子操作，减到0直接拒绝</li><li><strong>MQ异步下单</strong>：抢购成功的请求进入MQ队列</li><li><strong>DB异步写入</strong>：消费MQ消息，写入订单表</li><li><strong>定时对账</strong>：Redis与DB库存对账，防止超卖</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Redis预减库存
+</span></span></code></pre></div><hr><h2 id=四高并发系统架构设计>四、高并发系统架构设计</h2><h3 id=41-高并发系统设计原则>4.1 高并发系统设计原则</h3><p><strong>Q: 设计高并发系统需要遵循哪些原则？</strong></p><table><thead><tr><th>原则</th><th>说明</th><th>技术手段</th></tr></thead><tbody><tr><td>无状态化</td><td>服务节点不存储会话状态</td><td>Token/JWT, 分布式Session</td></tr><tr><td>异步化</td><td>非核心流程异步处理</td><td>MQ, CompletableFuture, 事件驱动</td></tr><tr><td>缓存化</td><td>多级缓存减少DB压力</td><td>本地缓存, Redis, CDN</td></tr><tr><td>分库分表</td><td>水平拆分降低单库压力</td><td>ShardingSphere, MyCat</td></tr><tr><td>读写分离</td><td>读多写少场景优化</td><td>MySQL主从, Redis Cluster</td></tr><tr><td>限流降级</td><td>保护系统不过载</td><td>Sentinel, Hystrix, RateLimiter</td></tr><tr><td>削峰填谷</td><td>平滑流量冲击</td><td>MQ消峰, 排队, 预热</td></tr></tbody></table><h3 id=42-秒杀系统架构设计>4.2 秒杀系统架构设计</h3><p><strong>Q: 如何设计一个秒杀系统？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                        ┌─────────────┐
+</span></span><span class=line><span class=cl>                        │   CDN/静态化  │ ← 秒杀页面静态化
+</span></span><span class=line><span class=cl>                        └──────┬──────┘
+</span></span><span class=line><span class=cl>                               │
+</span></span><span class=line><span class=cl>                        ┌──────▼──────┐
+</span></span><span class=line><span class=cl>                        │   网关层     │ ← 限流、验证码、IP黑名单
+</span></span><span class=line><span class=cl>                        └──────┬──────┘
+</span></span><span class=line><span class=cl>                               │
+</span></span><span class=line><span class=cl>                        ┌──────▼──────┐
+</span></span><span class=line><span class=cl>                        │   业务层     │ ← Redis预减库存，异步下单
+</span></span><span class=line><span class=cl>                        └──────┬──────┘
+</span></span><span class=line><span class=cl>                               │
+</span></span><span class=line><span class=cl>                    ┌──────────┼──────────┐
+</span></span><span class=line><span class=cl>                    │          │          │
+</span></span><span class=line><span class=cl>              ┌─────▼──┐ ┌───▼───┐ ┌───▼────┐
+</span></span><span class=line><span class=cl>              │ Redis  │ │  MQ   │ │ MySQL  │
+</span></span><span class=line><span class=cl>              │ 库存   │ │ 削峰  │ │ 兜底   │
+</span></span><span class=line><span class=cl>              └─────────┘ └───────┘ └────────┘
+</span></span></code></pre></div><p><strong>核心流程：</strong></p><ol><li><strong>前端限流</strong>：按钮置灰、验证码、答题</li><li><strong>网关限流</strong>：令牌桶/漏桶，拒绝超出QPS的请求</li><li><strong>Redis预减库存</strong>：<code>decr</code>原子操作，减到0直接拒绝</li><li><strong>MQ异步下单</strong>：抢购成功的请求进入MQ队列</li><li><strong>DB异步写入</strong>：消费MQ消息，写入订单表</li><li><strong>定时对账</strong>：Redis与DB库存对账，防止超卖</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Redis预减库存
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kt>boolean</span> <span class=nf>deductStock</span><span class=o>(</span><span class=n>String</span> <span class=n>productId</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=n>String</span> <span class=n>key</span> <span class=o>=</span> <span class=s>&#34;stock:&#34;</span> <span class=o>+</span> <span class=n>productId</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// Lua脚本保证原子性

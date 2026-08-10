@@ -41,13 +41,13 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>synchronized</span> <span class=nf>method</span><span class=o>()</span><span class=n>V</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 方法执行前自动获取 monitor 锁
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 方法执行后自动释放 monitor 锁
-</span></span></span></code></pre></div><h3 id=13-锁升级过程>1.3 锁升级过程</h3><pre tabindex=0><code>无锁 → 偏向锁 → 轻量级锁 → 重量级锁
- │        │          │           │
- │        │          │           └─ 自旋失败，操作系统互斥量
- │        │          └─ CAS 竞争，自旋等待
- │        └─ 第一个线程获取，记录线程 ID
- └─ 对象刚创建
-</code></pre><p><strong>对象头中的锁状态</strong>：</p><table><thead><tr><th>锁状态</th><th>存储内容</th><th>适用场景</th></tr></thead><tbody><tr><td>无锁</td><td>对象哈希码、GC 分代年龄</td><td>无竞争</td></tr><tr><td>偏向锁</td><td>线程 ID</td><td>单线程重复获取</td></tr><tr><td>轻量级锁</td><td>指向栈中锁记录的指针</td><td>短时间竞争</td></tr><tr><td>重量级锁</td><td>指向 Monitor 的指针</td><td>长时间竞争</td></tr></tbody></table><h2 id=二reentrantlock-详解>二、ReentrantLock 详解</h2><h3 id=21-基本用法>2.1 基本用法</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>private</span> <span class=kd>final</span> <span class=n>ReentrantLock</span> <span class=n>lock</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ReentrantLock</span><span class=o>();</span>
+</span></span></span></code></pre></div><h3 id=13-锁升级过程>1.3 锁升级过程</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>无锁 → 偏向锁 → 轻量级锁 → 重量级锁
+</span></span><span class=line><span class=cl> │        │          │           │
+</span></span><span class=line><span class=cl> │        │          │           └─ 自旋失败，操作系统互斥量
+</span></span><span class=line><span class=cl> │        │          └─ CAS 竞争，自旋等待
+</span></span><span class=line><span class=cl> │        └─ 第一个线程获取，记录线程 ID
+</span></span><span class=line><span class=cl> └─ 对象刚创建
+</span></span></code></pre></div><p><strong>对象头中的锁状态</strong>：</p><table><thead><tr><th>锁状态</th><th>存储内容</th><th>适用场景</th></tr></thead><tbody><tr><td>无锁</td><td>对象哈希码、GC 分代年龄</td><td>无竞争</td></tr><tr><td>偏向锁</td><td>线程 ID</td><td>单线程重复获取</td></tr><tr><td>轻量级锁</td><td>指向栈中锁记录的指针</td><td>短时间竞争</td></tr><tr><td>重量级锁</td><td>指向 Monitor 的指针</td><td>长时间竞争</td></tr></tbody></table><h2 id=二reentrantlock-详解>二、ReentrantLock 详解</h2><h3 id=21-基本用法>2.1 基本用法</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>private</span> <span class=kd>final</span> <span class=n>ReentrantLock</span> <span class=n>lock</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ReentrantLock</span><span class=o>();</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kt>void</span> <span class=nf>method</span><span class=o>()</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=n>lock</span><span class=o>.</span><span class=na>lock</span><span class=o>();</span>        <span class=c1>// 加锁
@@ -123,22 +123,22 @@
 </span></span><span class=line><span class=cl>        <span class=n>lock</span><span class=o>.</span><span class=na>unlock</span><span class=o>();</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>Condition vs Object.wait/notify</strong>：</p><table><thead><tr><th>特性</th><th>Condition</th><th>Object.wait/notify</th></tr></thead><tbody><tr><td>条件数量</td><td>多个</td><td>单个</td></tr><tr><td>精确唤醒</td><td><code>signal()</code> 指定条件</td><td><code>notify()</code> 随机</td></tr><tr><td>超时</td><td>支持</td><td>支持</td></tr><tr><td>不响应中断</td><td><code>awaitUninterruptibly()</code></td><td>不支持</td></tr></tbody></table><h2 id=三reentrantlock-源码解析>三、ReentrantLock 源码解析</h2><h3 id=31-aqsabstractqueuedsynchronizer>3.1 AQS（AbstractQueuedSynchronizer）</h3><p>ReentrantLock 的核心是 AQS：</p><pre tabindex=0><code>┌────────────────────────────────────────────────────┐
-│                    AQS                              │
-├────────────────────────────────────────────────────┤
-│  state（int）: 锁状态                               │
-│    ├─ 0: 未锁定                                    │
-│    └─ &gt;0: 锁定（可重入，每次 +1）                    │
-│                                                     │
-│  exclusiveOwnerThread: 持有锁的线程                  │
-│                                                     │
-│  CLH 队列: 等待线程的双向链表                        │
-│    ┌─────┐    ┌─────┐    ┌─────┐               │
-│    │Node │ ←→ │Node │ ←→ │Node │               │
-│    └─────┘    └─────┘    └─────┘               │
-│     头节点     等待线程    等待线程                  │
-└────────────────────────────────────────────────────┘
-</code></pre><h3 id=32-非公平锁加锁流程>3.2 非公平锁加锁流程</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// NonfairSync.lock()
+</span></span></code></pre></div><p><strong>Condition vs Object.wait/notify</strong>：</p><table><thead><tr><th>特性</th><th>Condition</th><th>Object.wait/notify</th></tr></thead><tbody><tr><td>条件数量</td><td>多个</td><td>单个</td></tr><tr><td>精确唤醒</td><td><code>signal()</code> 指定条件</td><td><code>notify()</code> 随机</td></tr><tr><td>超时</td><td>支持</td><td>支持</td></tr><tr><td>不响应中断</td><td><code>awaitUninterruptibly()</code></td><td>不支持</td></tr></tbody></table><h2 id=三reentrantlock-源码解析>三、ReentrantLock 源码解析</h2><h3 id=31-aqsabstractqueuedsynchronizer>3.1 AQS（AbstractQueuedSynchronizer）</h3><p>ReentrantLock 的核心是 AQS：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                    AQS                              │
+</span></span><span class=line><span class=cl>├────────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│  state（int）: 锁状态                               │
+</span></span><span class=line><span class=cl>│    ├─ 0: 未锁定                                    │
+</span></span><span class=line><span class=cl>│    └─ &gt;0: 锁定（可重入，每次 +1）                    │
+</span></span><span class=line><span class=cl>│                                                     │
+</span></span><span class=line><span class=cl>│  exclusiveOwnerThread: 持有锁的线程                  │
+</span></span><span class=line><span class=cl>│                                                     │
+</span></span><span class=line><span class=cl>│  CLH 队列: 等待线程的双向链表                        │
+</span></span><span class=line><span class=cl>│    ┌─────┐    ┌─────┐    ┌─────┐               │
+</span></span><span class=line><span class=cl>│    │Node │ ←→ │Node │ ←→ │Node │               │
+</span></span><span class=line><span class=cl>│    └─────┘    └─────┘    └─────┘               │
+</span></span><span class=line><span class=cl>│     头节点     等待线程    等待线程                  │
+</span></span><span class=line><span class=cl>└────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=32-非公平锁加锁流程>3.2 非公平锁加锁流程</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// NonfairSync.lock()
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>final</span> <span class=kt>void</span> <span class=nf>lock</span><span class=o>()</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 1. CAS 尝试获取锁（插队）
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=o>(</span><span class=n>compareAndSetState</span><span class=o>(</span><span class=mi>0</span><span class=o>,</span> <span class=mi>1</span><span class=o>))</span> <span class=o>{</span>
@@ -233,48 +233,48 @@
 </span></span><span class=line><span class=cl>    <span class=n>setState</span><span class=o>(</span><span class=n>c</span><span class=o>);</span>  <span class=c1>// 可重入：state -1
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>return</span> <span class=n>free</span><span class=o>;</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h2 id=四核心对比>四、核心对比</h2><h3 id=41-功能对比>4.1 功能对比</h3><table><thead><tr><th>特性</th><th>synchronized</th><th>ReentrantLock</th></tr></thead><tbody><tr><td><strong>实现</strong></td><td>JVM 内置</td><td>JDK API（AQS）</td></tr><tr><td><strong>加锁方式</strong></td><td>隐式（自动）</td><td>显式（手动）</td></tr><tr><td><strong>可中断</strong></td><td>❌</td><td>✅ <code>lockInterruptibly()</code></td></tr><tr><td><strong>超时获取</strong></td><td>❌</td><td>✅ <code>tryLock(timeout)</code></td></tr><tr><td><strong>公平锁</strong></td><td>❌（只有非公平）</td><td>✅（可选）</td></tr><tr><td><strong>条件变量</strong></td><td>单个（wait/notify）</td><td>多个（Condition）</td></tr><tr><td><strong>可重入</strong></td><td>✅</td><td>✅</td></tr><tr><td><strong>锁绑定多个条件</strong></td><td>❌</td><td>✅</td></tr></tbody></table><h3 id=42-性能对比>4.2 性能对比</h3><pre tabindex=0><code>低竞争场景：
-┌──────────────────────────────────────────────────────┐
-│ synchronized: 偏向锁 → 几乎无开销                      │
-│ ReentrantLock: CAS + AQS → 轻微开销                   │
-│ 结论: synchronized 稍快                                │
-└──────────────────────────────────────────────────────┘
-
-高竞争场景：
-┌──────────────────────────────────────────────────────┐
-│ synchronized: 重量级锁 → 操作系统互斥量                 │
-│ ReentrantLock: CAS + CLH 队列 → 更高效               │
-│ 结论: ReentrantLock 更优                               │
-└──────────────────────────────────────────────────────┘
-</code></pre><h3 id=43-适用场景>4.3 适用场景</h3><table><thead><tr><th>场景</th><th>推荐</th><th>原因</th></tr></thead><tbody><tr><td>简单互斥</td><td>synchronized</td><td>简洁、不会忘记释放锁</td></tr><tr><td>需要公平锁</td><td>ReentrantLock</td><td>synchronized 不支持</td></tr><tr><td>需要可中断</td><td>ReentrantLock</td><td><code>lockInterruptibly()</code></td></tr><tr><td>需要超时</td><td>ReentrantLock</td><td><code>tryLock(timeout)</code></td></tr><tr><td>需要多个条件</td><td>ReentrantLock</td><td>多个 Condition</td></tr><tr><td>高竞争</td><td>ReentrantLock</td><td>AQS 更高效</td></tr></tbody></table><h2 id=五公平锁-vs-非公平锁>五、公平锁 vs 非公平锁</h2><h3 id=51-区别>5.1 区别</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 非公平锁：新线程直接 CAS 尝试获取，可能插队
+</span></span></code></pre></div><h2 id=四核心对比>四、核心对比</h2><h3 id=41-功能对比>4.1 功能对比</h3><table><thead><tr><th>特性</th><th>synchronized</th><th>ReentrantLock</th></tr></thead><tbody><tr><td><strong>实现</strong></td><td>JVM 内置</td><td>JDK API（AQS）</td></tr><tr><td><strong>加锁方式</strong></td><td>隐式（自动）</td><td>显式（手动）</td></tr><tr><td><strong>可中断</strong></td><td>❌</td><td>✅ <code>lockInterruptibly()</code></td></tr><tr><td><strong>超时获取</strong></td><td>❌</td><td>✅ <code>tryLock(timeout)</code></td></tr><tr><td><strong>公平锁</strong></td><td>❌（只有非公平）</td><td>✅（可选）</td></tr><tr><td><strong>条件变量</strong></td><td>单个（wait/notify）</td><td>多个（Condition）</td></tr><tr><td><strong>可重入</strong></td><td>✅</td><td>✅</td></tr><tr><td><strong>锁绑定多个条件</strong></td><td>❌</td><td>✅</td></tr></tbody></table><h3 id=42-性能对比>4.2 性能对比</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>低竞争场景：
+</span></span><span class=line><span class=cl>┌──────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│ synchronized: 偏向锁 → 几乎无开销                      │
+</span></span><span class=line><span class=cl>│ ReentrantLock: CAS + AQS → 轻微开销                   │
+</span></span><span class=line><span class=cl>│ 结论: synchronized 稍快                                │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>高竞争场景：
+</span></span><span class=line><span class=cl>┌──────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│ synchronized: 重量级锁 → 操作系统互斥量                 │
+</span></span><span class=line><span class=cl>│ ReentrantLock: CAS + CLH 队列 → 更高效               │
+</span></span><span class=line><span class=cl>│ 结论: ReentrantLock 更优                               │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=43-适用场景>4.3 适用场景</h3><table><thead><tr><th>场景</th><th>推荐</th><th>原因</th></tr></thead><tbody><tr><td>简单互斥</td><td>synchronized</td><td>简洁、不会忘记释放锁</td></tr><tr><td>需要公平锁</td><td>ReentrantLock</td><td>synchronized 不支持</td></tr><tr><td>需要可中断</td><td>ReentrantLock</td><td><code>lockInterruptibly()</code></td></tr><tr><td>需要超时</td><td>ReentrantLock</td><td><code>tryLock(timeout)</code></td></tr><tr><td>需要多个条件</td><td>ReentrantLock</td><td>多个 Condition</td></tr><tr><td>高竞争</td><td>ReentrantLock</td><td>AQS 更高效</td></tr></tbody></table><h2 id=五公平锁-vs-非公平锁>五、公平锁 vs 非公平锁</h2><h3 id=51-区别>5.1 区别</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 非公平锁：新线程直接 CAS 尝试获取，可能插队
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>lock</span><span class=o>.</span><span class=na>lock</span><span class=o>();</span>  <span class=c1>// 不看队列，直接抢
 </span></span></span><span class=line><span class=cl><span class=c1></span>
 </span></span><span class=line><span class=cl><span class=c1>// 公平锁：新线程先看队列，有等待者就排队
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>lock</span><span class=o>.</span><span class=na>lock</span><span class=o>();</span>  <span class=c1>// 先检查队列
-</span></span></span></code></pre></div><h3 id=52-为什么默认非公平>5.2 为什么默认非公平？</h3><pre tabindex=0><code>公平锁的线程切换开销：
-┌──────────────────────────────────────────────────┐
-│ 线程 A 释放锁                                     │
-│   ↓                                              │
-│ 唤醒队列中的线程 B                                 │
-│   ↓ （线程 B 还没醒来）                           │
-│ 线程 C 到达，但公平锁不让 C 获取                   │
-│   ↓ （等线程 B 醒来）                             │
-│ 线程 B 获取锁                                     │
-│                                                   │
-│ 结果：有上下文切换延迟                             │
-└──────────────────────────────────────────────────┘
-
-非公平锁：
-┌──────────────────────────────────────────────────┐
-│ 线程 A 释放锁                                     │
-│   ↓                                              │
-│ 线程 C 刚好到达，CAS 获取成功                      │
-│   ↓                                              │
-│ 线程 C 立即执行                                   │
-│                                                   │
-│ 结果：减少上下文切换，吞吐量更高                   │
-└──────────────────────────────────────────────────┘
-</code></pre><p><strong>代价</strong>：非公平锁可能导致队列中的线程<strong>饥饿</strong>。</p><h2 id=六reentrantreadwritelock>六、ReentrantReadWriteLock</h2><h3 id=61-读写锁>6.1 读写锁</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>private</span> <span class=kd>final</span> <span class=n>ReentrantReadWriteLock</span> <span class=n>rwLock</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ReentrantReadWriteLock</span><span class=o>();</span>
+</span></span></span></code></pre></div><h3 id=52-为什么默认非公平>5.2 为什么默认非公平？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>公平锁的线程切换开销：
+</span></span><span class=line><span class=cl>┌──────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│ 线程 A 释放锁                                     │
+</span></span><span class=line><span class=cl>│   ↓                                              │
+</span></span><span class=line><span class=cl>│ 唤醒队列中的线程 B                                 │
+</span></span><span class=line><span class=cl>│   ↓ （线程 B 还没醒来）                           │
+</span></span><span class=line><span class=cl>│ 线程 C 到达，但公平锁不让 C 获取                   │
+</span></span><span class=line><span class=cl>│   ↓ （等线程 B 醒来）                             │
+</span></span><span class=line><span class=cl>│ 线程 B 获取锁                                     │
+</span></span><span class=line><span class=cl>│                                                   │
+</span></span><span class=line><span class=cl>│ 结果：有上下文切换延迟                             │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>非公平锁：
+</span></span><span class=line><span class=cl>┌──────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│ 线程 A 释放锁                                     │
+</span></span><span class=line><span class=cl>│   ↓                                              │
+</span></span><span class=line><span class=cl>│ 线程 C 刚好到达，CAS 获取成功                      │
+</span></span><span class=line><span class=cl>│   ↓                                              │
+</span></span><span class=line><span class=cl>│ 线程 C 立即执行                                   │
+</span></span><span class=line><span class=cl>│                                                   │
+</span></span><span class=line><span class=cl>│ 结果：减少上下文切换，吞吐量更高                   │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────┘
+</span></span></code></pre></div><p><strong>代价</strong>：非公平锁可能导致队列中的线程<strong>饥饿</strong>。</p><h2 id=六reentrantreadwritelock>六、ReentrantReadWriteLock</h2><h3 id=61-读写锁>6.1 读写锁</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>private</span> <span class=kd>final</span> <span class=n>ReentrantReadWriteLock</span> <span class=n>rwLock</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ReentrantReadWriteLock</span><span class=o>();</span>
 </span></span><span class=line><span class=cl><span class=kd>private</span> <span class=kd>final</span> <span class=n>Lock</span> <span class=n>readLock</span> <span class=o>=</span> <span class=n>rwLock</span><span class=o>.</span><span class=na>readLock</span><span class=o>();</span>    <span class=c1>// 读锁（共享）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>private</span> <span class=kd>final</span> <span class=n>Lock</span> <span class=n>writeLock</span> <span class=o>=</span> <span class=n>rwLock</span><span class=o>.</span><span class=na>writeLock</span><span class=o>();</span>  <span class=c1>// 写锁（排他）
 </span></span></span><span class=line><span class=cl><span class=c1></span>

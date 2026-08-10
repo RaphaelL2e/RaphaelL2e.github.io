@@ -9,30 +9,30 @@
 <a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>MySQL 锁机制深入理解</h1><p class=article-description>面试高频问题：MySQL 有哪些锁？ InnoDB 和 MyISAM 的锁有什么区别？什么是死锁？如何避免？ 锁是数据库并发控制的核心机制，用于保证事务的隔离性和数据一致性。MySQL 中，不同存储引擎的锁机制差异很大，InnoDB 采用了细粒度的行锁和 MVCC，相比 MyISAM 的表锁更适合高。</p><div class=article-meta><span>发布于 <time datetime=2026-05-12>2026-05-12</time></span>
 <span>最后验证 2026-05</span>
 <span>6 分钟阅读</span>
-<span>1159 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#引言>引言</a></li><li><a href=#一锁概述>一、锁概述</a><ul><li><a href=#11-为什么需要锁>1.1 为什么需要锁？</a></li><li><a href=#12-锁的作用>1.2 锁的作用</a></li></ul></li><li><a href=#二mysql-锁的分类>二、MySQL 锁的分类</a><ul><li><a href=#21-按锁粒度划分>2.1 按锁粒度划分</a></li><li><a href=#22-按锁属性划分>2.2 按锁属性划分</a></li><li><a href=#23-意向锁的作用>2.3 意向锁的作用</a></li></ul></li><li><a href=#三innodb-行锁详解>三、InnoDB 行锁详解</a><ul><li><a href=#31-记录锁record-lock>3.1 记录锁（Record Lock）</a></li><li><a href=#32-间隙锁gap-lock>3.2 间隙锁（Gap Lock）</a></li><li><a href=#33-临键锁next-key-lock>3.3 临键锁（Next-Key Lock）</a></li><li><a href=#34-插入意向锁insert-intention-lock>3.4 插入意向锁（Insert Intention Lock）</a></li></ul></li><li><a href=#四myisam-表锁>四、MyISAM 表锁</a><ul><li><a href=#41-表锁加锁方式>4.1 表锁加锁方式</a></li><li><a href=#42-锁调度机制>4.2 锁调度机制</a></li><li><a href=#43-并发插入>4.3 并发插入</a></li></ul></li><li><a href=#五乐观锁与悲观锁>五、乐观锁与悲观锁</a><ul><li><a href=#51-悲观锁pessimistic-lock>5.1 悲观锁（Pessimistic Lock）</a></li><li><a href=#52-乐观锁optimistic-lock>5.2 乐观锁（Optimistic Lock）</a></li><li><a href=#53-两种锁的对比>5.3 两种锁的对比</a></li></ul></li><li><a href=#六死锁>六、死锁</a><ul><li><a href=#61-什么是死锁>6.1 什么是死锁？</a></li><li><a href=#62-死锁示例>6.2 死锁示例</a></li><li><a href=#63-innodb-死锁处理>6.3 InnoDB 死锁处理</a></li><li><a href=#64-避免死锁>6.4 避免死锁</a></li></ul></li><li><a href=#七锁问题与监控>七、锁问题与监控</a><ul><li><a href=#71-常见锁问题>7.1 常见锁问题</a></li><li><a href=#72-锁监控>7.2 锁监控</a></li></ul></li><li><a href=#八面试高频问题>八、面试高频问题</a><ul><li><a href=#q1innodb-和-myisam-的锁有什么区别>Q1：InnoDB 和 MyISAM 的锁有什么区别？</a></li><li><a href=#q2什么是临键锁next-key-lock>Q2：什么是临键锁（Next-Key Lock）？</a></li><li><a href=#q3什么是死锁如何避免>Q3：什么是死锁？如何避免？</a></li><li><a href=#q4乐观锁和悲观锁的区别>Q4：乐观锁和悲观锁的区别？</a></li><li><a href=#q5innodb-如何解决幻读>Q5：InnoDB 如何解决幻读？</a></li><li><a href=#q6锁等待超时参数是什么>Q6：锁等待超时参数是什么？</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：MySQL 有哪些锁？ InnoDB 和 MyISAM 的锁有什么区别？什么是死锁？如何避免？</p></blockquote><h2 id=引言>引言</h2><p>锁是数据库并发控制的核心机制，用于保证事务的隔离性和数据一致性。MySQL 中，不同存储引擎的锁机制差异很大，InnoDB 采用了细粒度的行锁和 MVCC，相比 MyISAM 的表锁更适合高并发场景。</p><h2 id=一锁概述>一、锁概述</h2><h3 id=11-为什么需要锁>1.1 为什么需要锁？</h3><pre tabindex=0><code>并发问题示例：
-                    时间线
-事务 A ──────────────────────────────────→
-                    │ 读取 balance=1000
-                    │                  │ balance=1000+100=1100
-                    │                  │ (还没提交)
-事务 B ──────────────────────────────────→
-                    │ 读取 balance=1000
-                    │                  │ balance=1000+200=1200
-                    │                  │ (提交)
-                    
-结果：balance 应该是 1000-100-200=700
-     但实际可能是 1100 或 1200（取决于谁先提交）
-</code></pre><p>没有锁：并发事务相互干扰，数据不一致</p><h3 id=12-锁的作用>1.2 锁的作用</h3><ol><li><strong>保证数据一致性</strong>：防止并发事务相互干扰</li><li><strong>实现事务隔离</strong>：不同隔离级别通过不同锁实现</li><li><strong>维护数据完整性</strong>：防止脏读、不可重复读、幻读</li></ol><h2 id=二mysql-锁的分类>二、MySQL 锁的分类</h2><h3 id=21-按锁粒度划分>2.1 按锁粒度划分</h3><pre tabindex=0><code>锁粒度
-├── 表锁：锁定整张表
-├── 行锁：锁定表中某一行
-├── 页锁：锁定某一页（BDB 存储引擎）
-└── 意向锁：表级锁，表示事务有意向锁定某行
-</code></pre><table><thead><tr><th>锁类型</th><th>开销</th><th>冲突概率</th><th>并发度</th><th>场景</th></tr></thead><tbody><tr><td>表锁</td><td>小</td><td>高</td><td>低</td><td>MyISAM、MongoDB</td></tr><tr><td>行锁</td><td>大</td><td>低</td><td>高</td><td>InnoDB</td></tr><tr><td>页锁</td><td>中</td><td>中</td><td>中</td><td>BDB</td></tr></tbody></table><p><strong>InnoDB 与 MyISAM 锁对比</strong>：</p><table><thead><tr><th>特性</th><th>InnoDB</th><th>MyISAM</th></tr></thead><tbody><tr><td>锁类型</td><td>行锁 + 表锁</td><td>表锁</td></tr><tr><td>并发度</td><td>高</td><td>低</td></tr><tr><td>事务支持</td><td>支持</td><td>不支持</td></tr><tr><td>死锁</td><td>可能</td><td>不可能</td></tr><tr><td>MVCC</td><td>支持</td><td>不支持</td></tr></tbody></table><h3 id=22-按锁属性划分>2.2 按锁属性划分</h3><pre tabindex=0><code>锁属性
-├── 共享锁（S 锁）：读锁，可并行读
-├── 排他锁（X 锁）：写锁，互斥
-├── 意向共享锁（IS）：表级，表示事务将使用 S 锁
-└── 意向排他锁（IX）：表级，表示事务将使用 X 锁
-</code></pre><p><strong>S 锁与 X 锁的兼容矩阵</strong>：</p><table><thead><tr><th></th><th>S 锁</th><th>X 锁</th></tr></thead><tbody><tr><td><strong>S 锁</strong></td><td>✅ 兼容</td><td>❌ 冲突</td></tr><tr><td><strong>X 锁</strong></td><td>❌ 冲突</td><td>❌ 冲突</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- S 锁：其他事务可以读，不能写
+<span>1159 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#引言>引言</a></li><li><a href=#一锁概述>一、锁概述</a><ul><li><a href=#11-为什么需要锁>1.1 为什么需要锁？</a></li><li><a href=#12-锁的作用>1.2 锁的作用</a></li></ul></li><li><a href=#二mysql-锁的分类>二、MySQL 锁的分类</a><ul><li><a href=#21-按锁粒度划分>2.1 按锁粒度划分</a></li><li><a href=#22-按锁属性划分>2.2 按锁属性划分</a></li><li><a href=#23-意向锁的作用>2.3 意向锁的作用</a></li></ul></li><li><a href=#三innodb-行锁详解>三、InnoDB 行锁详解</a><ul><li><a href=#31-记录锁record-lock>3.1 记录锁（Record Lock）</a></li><li><a href=#32-间隙锁gap-lock>3.2 间隙锁（Gap Lock）</a></li><li><a href=#33-临键锁next-key-lock>3.3 临键锁（Next-Key Lock）</a></li><li><a href=#34-插入意向锁insert-intention-lock>3.4 插入意向锁（Insert Intention Lock）</a></li></ul></li><li><a href=#四myisam-表锁>四、MyISAM 表锁</a><ul><li><a href=#41-表锁加锁方式>4.1 表锁加锁方式</a></li><li><a href=#42-锁调度机制>4.2 锁调度机制</a></li><li><a href=#43-并发插入>4.3 并发插入</a></li></ul></li><li><a href=#五乐观锁与悲观锁>五、乐观锁与悲观锁</a><ul><li><a href=#51-悲观锁pessimistic-lock>5.1 悲观锁（Pessimistic Lock）</a></li><li><a href=#52-乐观锁optimistic-lock>5.2 乐观锁（Optimistic Lock）</a></li><li><a href=#53-两种锁的对比>5.3 两种锁的对比</a></li></ul></li><li><a href=#六死锁>六、死锁</a><ul><li><a href=#61-什么是死锁>6.1 什么是死锁？</a></li><li><a href=#62-死锁示例>6.2 死锁示例</a></li><li><a href=#63-innodb-死锁处理>6.3 InnoDB 死锁处理</a></li><li><a href=#64-避免死锁>6.4 避免死锁</a></li></ul></li><li><a href=#七锁问题与监控>七、锁问题与监控</a><ul><li><a href=#71-常见锁问题>7.1 常见锁问题</a></li><li><a href=#72-锁监控>7.2 锁监控</a></li></ul></li><li><a href=#八面试高频问题>八、面试高频问题</a><ul><li><a href=#q1innodb-和-myisam-的锁有什么区别>Q1：InnoDB 和 MyISAM 的锁有什么区别？</a></li><li><a href=#q2什么是临键锁next-key-lock>Q2：什么是临键锁（Next-Key Lock）？</a></li><li><a href=#q3什么是死锁如何避免>Q3：什么是死锁？如何避免？</a></li><li><a href=#q4乐观锁和悲观锁的区别>Q4：乐观锁和悲观锁的区别？</a></li><li><a href=#q5innodb-如何解决幻读>Q5：InnoDB 如何解决幻读？</a></li><li><a href=#q6锁等待超时参数是什么>Q6：锁等待超时参数是什么？</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>面试高频问题：MySQL 有哪些锁？ InnoDB 和 MyISAM 的锁有什么区别？什么是死锁？如何避免？</p></blockquote><h2 id=引言>引言</h2><p>锁是数据库并发控制的核心机制，用于保证事务的隔离性和数据一致性。MySQL 中，不同存储引擎的锁机制差异很大，InnoDB 采用了细粒度的行锁和 MVCC，相比 MyISAM 的表锁更适合高并发场景。</p><h2 id=一锁概述>一、锁概述</h2><h3 id=11-为什么需要锁>1.1 为什么需要锁？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>并发问题示例：
+</span></span><span class=line><span class=cl>                    时间线
+</span></span><span class=line><span class=cl>事务 A ──────────────────────────────────→
+</span></span><span class=line><span class=cl>                    │ 读取 balance=1000
+</span></span><span class=line><span class=cl>                    │                  │ balance=1000+100=1100
+</span></span><span class=line><span class=cl>                    │                  │ (还没提交)
+</span></span><span class=line><span class=cl>事务 B ──────────────────────────────────→
+</span></span><span class=line><span class=cl>                    │ 读取 balance=1000
+</span></span><span class=line><span class=cl>                    │                  │ balance=1000+200=1200
+</span></span><span class=line><span class=cl>                    │                  │ (提交)
+</span></span><span class=line><span class=cl>                    
+</span></span><span class=line><span class=cl>结果：balance 应该是 1000-100-200=700
+</span></span><span class=line><span class=cl>     但实际可能是 1100 或 1200（取决于谁先提交）
+</span></span></code></pre></div><p>没有锁：并发事务相互干扰，数据不一致</p><h3 id=12-锁的作用>1.2 锁的作用</h3><ol><li><strong>保证数据一致性</strong>：防止并发事务相互干扰</li><li><strong>实现事务隔离</strong>：不同隔离级别通过不同锁实现</li><li><strong>维护数据完整性</strong>：防止脏读、不可重复读、幻读</li></ol><h2 id=二mysql-锁的分类>二、MySQL 锁的分类</h2><h3 id=21-按锁粒度划分>2.1 按锁粒度划分</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>锁粒度
+</span></span><span class=line><span class=cl>├── 表锁：锁定整张表
+</span></span><span class=line><span class=cl>├── 行锁：锁定表中某一行
+</span></span><span class=line><span class=cl>├── 页锁：锁定某一页（BDB 存储引擎）
+</span></span><span class=line><span class=cl>└── 意向锁：表级锁，表示事务有意向锁定某行
+</span></span></code></pre></div><table><thead><tr><th>锁类型</th><th>开销</th><th>冲突概率</th><th>并发度</th><th>场景</th></tr></thead><tbody><tr><td>表锁</td><td>小</td><td>高</td><td>低</td><td>MyISAM、MongoDB</td></tr><tr><td>行锁</td><td>大</td><td>低</td><td>高</td><td>InnoDB</td></tr><tr><td>页锁</td><td>中</td><td>中</td><td>中</td><td>BDB</td></tr></tbody></table><p><strong>InnoDB 与 MyISAM 锁对比</strong>：</p><table><thead><tr><th>特性</th><th>InnoDB</th><th>MyISAM</th></tr></thead><tbody><tr><td>锁类型</td><td>行锁 + 表锁</td><td>表锁</td></tr><tr><td>并发度</td><td>高</td><td>低</td></tr><tr><td>事务支持</td><td>支持</td><td>不支持</td></tr><tr><td>死锁</td><td>可能</td><td>不可能</td></tr><tr><td>MVCC</td><td>支持</td><td>不支持</td></tr></tbody></table><h3 id=22-按锁属性划分>2.2 按锁属性划分</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>锁属性
+</span></span><span class=line><span class=cl>├── 共享锁（S 锁）：读锁，可并行读
+</span></span><span class=line><span class=cl>├── 排他锁（X 锁）：写锁，互斥
+</span></span><span class=line><span class=cl>├── 意向共享锁（IS）：表级，表示事务将使用 S 锁
+</span></span><span class=line><span class=cl>└── 意向排他锁（IX）：表级，表示事务将使用 X 锁
+</span></span></code></pre></div><p><strong>S 锁与 X 锁的兼容矩阵</strong>：</p><table><thead><tr><th></th><th>S 锁</th><th>X 锁</th></tr></thead><tbody><tr><td><strong>S 锁</strong></td><td>✅ 兼容</td><td>❌ 冲突</td></tr><tr><td><strong>X 锁</strong></td><td>❌ 冲突</td><td>❌ 冲突</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- S 锁：其他事务可以读，不能写
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>SELECT</span><span class=w> </span><span class=o>*</span><span class=w> </span><span class=k>FROM</span><span class=w> </span><span class=n>users</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>id</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>1</span><span class=w> </span><span class=k>LOCK</span><span class=w> </span><span class=k>IN</span><span class=w> </span><span class=k>SHARE</span><span class=w> </span><span class=k>MODE</span><span class=p>;</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- X 锁：其他事务不能读也不能写
@@ -102,14 +102,14 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 如果 version 已变（被其他事务更新），影响行数为 0
 </span></span></span><span class=line><span class=cl><span class=c1>-- 应用层重新读取、修改、提交
-</span></span></span></code></pre></div><p><strong>适用场景</strong>：冲突较少、读多写多的场景</p><h3 id=53-两种锁的对比>5.3 两种锁的对比</h3><table><thead><tr><th>特性</th><th>悲观锁</th><th>乐观锁</th></tr></thead><tbody><tr><td>实现方式</td><td>数据库锁</td><td>版本号/时间戳</td></tr><tr><td>并发度</td><td>低</td><td>高</td></tr><tr><td>冲突处理</td><td>阻塞等待</td><td>冲突后重试</td></tr><tr><td>适用场景</td><td>冲突频繁</td><td>冲突较少</td></tr><tr><td>开销</td><td>锁开销</td><td>重试开销</td></tr></tbody></table><h2 id=六死锁>六、死锁</h2><h3 id=61-什么是死锁>6.1 什么是死锁？</h3><p>死锁：两个或多个事务相互等待对方持有的锁，形成循环等待。</p><pre tabindex=0><code>事务 A：
-    锁定 id=1，等待 id=2
-
-事务 B：
-    锁定 id=2，等待 id=1
-
-→ 死锁！
-</code></pre><h3 id=62-死锁示例>6.2 死锁示例</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 事务 A
+</span></span></span></code></pre></div><p><strong>适用场景</strong>：冲突较少、读多写多的场景</p><h3 id=53-两种锁的对比>5.3 两种锁的对比</h3><table><thead><tr><th>特性</th><th>悲观锁</th><th>乐观锁</th></tr></thead><tbody><tr><td>实现方式</td><td>数据库锁</td><td>版本号/时间戳</td></tr><tr><td>并发度</td><td>低</td><td>高</td></tr><tr><td>冲突处理</td><td>阻塞等待</td><td>冲突后重试</td></tr><tr><td>适用场景</td><td>冲突频繁</td><td>冲突较少</td></tr><tr><td>开销</td><td>锁开销</td><td>重试开销</td></tr></tbody></table><h2 id=六死锁>六、死锁</h2><h3 id=61-什么是死锁>6.1 什么是死锁？</h3><p>死锁：两个或多个事务相互等待对方持有的锁，形成循环等待。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>事务 A：
+</span></span><span class=line><span class=cl>    锁定 id=1，等待 id=2
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>事务 B：
+</span></span><span class=line><span class=cl>    锁定 id=2，等待 id=1
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>→ 死锁！
+</span></span></code></pre></div><h3 id=62-死锁示例>6.2 死锁示例</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 事务 A
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>BEGIN</span><span class=p>;</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=k>UPDATE</span><span class=w> </span><span class=n>users</span><span class=w> </span><span class=k>SET</span><span class=w> </span><span class=n>name</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s1>&#39;A&#39;</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>id</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>1</span><span class=p>;</span><span class=w>  </span><span class=c1>-- 锁定 id=1
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>UPDATE</span><span class=w> </span><span class=n>users</span><span class=w> </span><span class=k>SET</span><span class=w> </span><span class=n>name</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=s1>&#39;A&#39;</span><span class=w> </span><span class=k>WHERE</span><span class=w> </span><span class=n>id</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>2</span><span class=p>;</span><span class=w>  </span><span class=c1>-- 等待 id=2

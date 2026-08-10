@@ -10,54 +10,54 @@
 <span>/</span><a href=/series/system-design/>系统分析与设计</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>系统分析与设计（六）——分布式系统设计实战：从理论到代码</h1><p class=article-description>🎯 本文目标：结合前五篇的全部知识——从需求分析与建模（一、二）、设计模式（三）、架构设计（四）到质量属性（五），以一个高并发电商秒杀系统为例，完整走一遍"从0到1设计一个分布式系统"的全流程。从系统建模、架构选型、关键技术攻坚到代码实现，提供 Java 和 Go 双语言核心代码示例，构建端到端的分。</p><div class=article-meta><span>发布于 <time datetime=2026-06-25>2026-06-25</time></span>
 <span>最后验证 2026-06</span>
 <span>9 分钟阅读</span>
-<span>1739 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一场景定义高并发电商秒杀系统>一、场景定义——高并发电商秒杀系统</a><ul><li><a href=#11-业务需求>1.1 业务需求</a></li><li><a href=#12-系统建模呼应第一篇静态建模>1.2 系统建模（呼应第一篇静态建模）</a></li><li><a href=#13-动态行为建模呼应第二篇动态建模>1.3 动态行为建模（呼应第二篇动态建模）</a></li></ul></li><li><a href=#二架构设计从单体到分布式>二、架构设计——从单体到分布式</a><ul><li><a href=#21-整体架构图>2.1 整体架构图</a></li><li><a href=#22-核心架构决策呼应第四篇架构设计>2.2 核心架构决策（呼应第四篇架构设计）</a></li></ul></li><li><a href=#三核心技术攻坚代码实战>三、核心技术攻坚——代码实战</a><ul><li><a href=#31-redis库存预扣防超卖的核心>3.1 Redis库存预扣——防超卖的核心</a></li><li><a href=#32-限流器多层防线>3.2 限流器——多层防线</a></li><li><a href=#33-分布式锁防止重复下单>3.3 分布式锁——防止重复下单</a></li><li><a href=#34-消息队列削峰从100万qps到1万tps>3.4 消息队列削峰——从100万QPS到1万TPS</a></li><li><a href=#35-分布式事务seata-at模式>3.5 分布式事务——Seata AT模式</a></li><li><a href=#36-缓存架构多级缓存设计>3.6 缓存架构——多级缓存设计</a></li><li><a href=#37-分库分表订单表水平扩展>3.7 分库分表——订单表水平扩展</a></li></ul></li><li><a href=#四系统质量属性保障呼应第五篇>四、系统质量属性保障（呼应第五篇）</a><ul><li><a href=#41-性能保障总览>4.1 性能保障总览</a></li><li><a href=#42-可用性sentinel熔断降级>4.2 可用性——Sentinel熔断降级</a></li><li><a href=#43-安全性防刷与验证码>4.3 安全性——防刷与验证码</a></li></ul></li><li><a href=#五面试高频分布式系统核心问题>五、面试高频——分布式系统核心问题</a><ul><li><a href=#q1redis库存扣减为什么用lua脚本>Q1：Redis库存扣减为什么用Lua脚本？</a></li><li><a href=#q2100万并发请求如何做到不超卖>Q2：100万并发请求如何做到不超卖？</a></li><li><a href=#q3分布式事务seata-at模式的优缺点>Q3：分布式事务Seata AT模式的优缺点？</a></li><li><a href=#q4如何保证消息不丢失>Q4：如何保证消息不丢失？</a></li><li><a href=#q5系统设计题的答题框架面试必备>Q5：系统设计题的答题框架（面试必备）</a></li></ul></li><li><a href=#六知识总结>六、知识总结</a><ul><li><a href=#核心知识矩阵>核心知识矩阵</a></li></ul></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：结合前五篇的全部知识——从需求分析与建模（一、二）、设计模式（三）、架构设计（四）到质量属性（五），以一个高并发电商秒杀系统为例，完整走一遍"从0到1设计一个分布式系统"的全流程。从系统建模、架构选型、关键技术攻坚到代码实现，提供 Java 和 Go 双语言核心代码示例，构建端到端的分布式系统工程实践能力。</p></blockquote><hr><h2 id=一场景定义高并发电商秒杀系统>一、场景定义——高并发电商秒杀系统</h2><h3 id=11-业务需求>1.1 业务需求</h3><p><strong>核心场景</strong>：双11秒杀——100万用户同时抢购1万件商品。</p><table><thead><tr><th>维度</th><th>需求描述</th><th>量化指标</th></tr></thead><tbody><tr><td>并发量</td><td>瞬时100万并发请求</td><td>QPS峰值 > 50万</td></tr><tr><td>库存</td><td>秒杀商品库存1万件</td><td>不允许超卖</td></tr><tr><td>响应时间</td><td>用户操作需即时反馈</td><td>P99 &lt; 500ms</td></tr><tr><td>可用性</td><td>核心链路不可中断</td><td>99.99%</td></tr><tr><td>数据一致性</td><td>订单与库存严格一致</td><td>强一致性</td></tr><tr><td>安全性</td><td>防刷单、防机器人</td><td>请求限流、验证码</td></tr></tbody></table><h3 id=12-系统建模呼应第一篇静态建模>1.2 系统建模（呼应第一篇静态建模）</h3><p><strong>领域模型（UML类图核心实体）</strong>：</p><pre tabindex=0><code>┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   SeckillGoods   │     │   SeckillOrder   │     │      User       │
-├─────────────────┤     ├─────────────────┤     ├─────────────────┤
-│ - goodsId: Long  │1   *│ - orderId: Long  │     │ - userId: Long  │
-│ - stock: int     │────▶│ - goodsId: Long  │     │ - phone: String │
-│ - price: BigDecimal│   │ - userId: Long   │     │ - name: String  │
-│ - startTime: Date│     │ - createTime: Date│    └─────────────────┘
-│ - endTime: Date  │     │ - status: Enum   │
-└─────────────────┘     └─────────────────┘
-</code></pre><p><strong>用例图——秒杀核心用例</strong>：</p><ol><li>查看秒杀商品列表</li><li>商品详情（含倒计时）</li><li><strong>执行秒杀（核心用例）</strong></li><li>查询秒杀结果</li><li>支付订单</li></ol><h3 id=13-动态行为建模呼应第二篇动态建模>1.3 动态行为建模（呼应第二篇动态建模）</h3><p><strong>秒杀核心时序图</strong>：</p><pre tabindex=0><code>用户 → API网关 → 限流器 → 秒杀服务 → Redis(库存预扣) → MQ → 订单服务 → MySQL
-                ↓（限流拒绝）
-              返回&#34;活动火爆&#34;
-                         ↓（库存不足）
-                      返回&#34;已售罄&#34;
-</code></pre><p><strong>状态机——秒杀订单生命周期</strong>：</p><pre tabindex=0><code>创建 → 待支付 → 已支付 → 已发货 → 已完成
-  ↓       ↓        ↓
-已取消  已取消   已退款
-</code></pre><hr><h2 id=二架构设计从单体到分布式>二、架构设计——从单体到分布式</h2><h3 id=21-整体架构图>2.1 整体架构图</h3><pre tabindex=0><code>┌──────────────────────────────────────────────────────────┐
-│                        客户端层                            │
-│          App / H5 / 小程序（CDN静态资源加速）               │
-└─────────────────┬────────────────────────────────────────┘
-                  │
-┌─────────────────▼────────────────────────────────────────┐
-│                     接入层                                │
-│  Nginx(动静分离) → API Gateway(限流/鉴权/路由/降级)        │
-└─────────────────┬────────────────────────────────────────┘
-                  │
-┌─────────────────▼────────────────────────────────────────┐
-│                     业务层                                │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐    │
-│  │秒杀服务   │ │商品服务   │ │订单服务   │ │用户服务   │    │
-│  │Seckill   │ │Product   │ │Order     │ │User       │    │
-│  └─────┬────┘ └──────────┘ └────┬─────┘ └──────────┘    │
-│        │                        │                         │
-│  ┌─────▼────────────────────────▼───────────────────┐    │
-│  │            消息队列 (RocketMQ/Kafka)              │    │
-│  │      削峰填谷 / 异步解耦 / 最终一致性              │    │
-│  └─────────────────────────────────────────────────┘    │
-└──────────────────────────────────────────────────────────┘
-                  │
-┌─────────────────▼────────────────────────────────────────┐
-│                    数据层                                 │
-│  ┌──────────┐ ┌──────────┐ ┌──────────────────────────┐ │
-│  │  Redis   │ │  MySQL   │ │   搜索引擎(Elasticsearch)│ │
-│  │ 缓存/库存 │ │  持久化   │ │     商品搜索             │ │
-│  └──────────┘ └──────────┘ └──────────────────────────┘ │
-└──────────────────────────────────────────────────────────┘
-</code></pre><h3 id=22-核心架构决策呼应第四篇架构设计>2.2 核心架构决策（呼应第四篇架构设计）</h3><table><thead><tr><th>决策点</th><th>方案</th><th>理由</th></tr></thead><tbody><tr><td>静态化</td><td>CDN + Nginx</td><td>减少后端压力，商品详情页提前静态化</td></tr><tr><td>限流</td><td>令牌桶 + 滑动窗口（双层）</td><td>API网关层令牌桶防突发，业务层滑动窗口精确控量</td></tr><tr><td>库存扣减</td><td>Redis Lua脚本原子扣减</td><td>单线程原子操作，避免超卖</td></tr><tr><td>削峰</td><td>RocketMQ异步下单</td><td>将瞬时100万请求削峰为DB能处理的速率</td></tr><tr><td>缓存策略</td><td>Redis多级缓存 + 本地Caffeine</td><td>热点数据提前预热到JVM本地缓存</td></tr><tr><td>数据一致性</td><td>分布式事务（Seata AT模式）</td><td>订单创建和库存扣减的最终一致性</td></tr><tr><td>数据库</td><td>MySQL分库分表 + 读写分离</td><td>订单表按user_id分片，水平扩展</td></tr></tbody></table><hr><h2 id=三核心技术攻坚代码实战>三、核心技术攻坚——代码实战</h2><h3 id=31-redis库存预扣防超卖的核心>3.1 Redis库存预扣——防超卖的核心</h3><p><strong>面试高频：为什么用Lua脚本？</strong></p><blockquote><p>因为Redis执行Lua脚本是原子性的，整个脚本作为一个整体执行，中间不会被其他命令插入。如果分开用GET+DECR，会有竞态条件导致超卖。</p></blockquote><p><strong>Java实现——Spring Boot + Redisson：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
+<span>1739 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一场景定义高并发电商秒杀系统>一、场景定义——高并发电商秒杀系统</a><ul><li><a href=#11-业务需求>1.1 业务需求</a></li><li><a href=#12-系统建模呼应第一篇静态建模>1.2 系统建模（呼应第一篇静态建模）</a></li><li><a href=#13-动态行为建模呼应第二篇动态建模>1.3 动态行为建模（呼应第二篇动态建模）</a></li></ul></li><li><a href=#二架构设计从单体到分布式>二、架构设计——从单体到分布式</a><ul><li><a href=#21-整体架构图>2.1 整体架构图</a></li><li><a href=#22-核心架构决策呼应第四篇架构设计>2.2 核心架构决策（呼应第四篇架构设计）</a></li></ul></li><li><a href=#三核心技术攻坚代码实战>三、核心技术攻坚——代码实战</a><ul><li><a href=#31-redis库存预扣防超卖的核心>3.1 Redis库存预扣——防超卖的核心</a></li><li><a href=#32-限流器多层防线>3.2 限流器——多层防线</a></li><li><a href=#33-分布式锁防止重复下单>3.3 分布式锁——防止重复下单</a></li><li><a href=#34-消息队列削峰从100万qps到1万tps>3.4 消息队列削峰——从100万QPS到1万TPS</a></li><li><a href=#35-分布式事务seata-at模式>3.5 分布式事务——Seata AT模式</a></li><li><a href=#36-缓存架构多级缓存设计>3.6 缓存架构——多级缓存设计</a></li><li><a href=#37-分库分表订单表水平扩展>3.7 分库分表——订单表水平扩展</a></li></ul></li><li><a href=#四系统质量属性保障呼应第五篇>四、系统质量属性保障（呼应第五篇）</a><ul><li><a href=#41-性能保障总览>4.1 性能保障总览</a></li><li><a href=#42-可用性sentinel熔断降级>4.2 可用性——Sentinel熔断降级</a></li><li><a href=#43-安全性防刷与验证码>4.3 安全性——防刷与验证码</a></li></ul></li><li><a href=#五面试高频分布式系统核心问题>五、面试高频——分布式系统核心问题</a><ul><li><a href=#q1redis库存扣减为什么用lua脚本>Q1：Redis库存扣减为什么用Lua脚本？</a></li><li><a href=#q2100万并发请求如何做到不超卖>Q2：100万并发请求如何做到不超卖？</a></li><li><a href=#q3分布式事务seata-at模式的优缺点>Q3：分布式事务Seata AT模式的优缺点？</a></li><li><a href=#q4如何保证消息不丢失>Q4：如何保证消息不丢失？</a></li><li><a href=#q5系统设计题的答题框架面试必备>Q5：系统设计题的答题框架（面试必备）</a></li></ul></li><li><a href=#六知识总结>六、知识总结</a><ul><li><a href=#核心知识矩阵>核心知识矩阵</a></li></ul></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：结合前五篇的全部知识——从需求分析与建模（一、二）、设计模式（三）、架构设计（四）到质量属性（五），以一个高并发电商秒杀系统为例，完整走一遍"从0到1设计一个分布式系统"的全流程。从系统建模、架构选型、关键技术攻坚到代码实现，提供 Java 和 Go 双语言核心代码示例，构建端到端的分布式系统工程实践能力。</p></blockquote><hr><h2 id=一场景定义高并发电商秒杀系统>一、场景定义——高并发电商秒杀系统</h2><h3 id=11-业务需求>1.1 业务需求</h3><p><strong>核心场景</strong>：双11秒杀——100万用户同时抢购1万件商品。</p><table><thead><tr><th>维度</th><th>需求描述</th><th>量化指标</th></tr></thead><tbody><tr><td>并发量</td><td>瞬时100万并发请求</td><td>QPS峰值 > 50万</td></tr><tr><td>库存</td><td>秒杀商品库存1万件</td><td>不允许超卖</td></tr><tr><td>响应时间</td><td>用户操作需即时反馈</td><td>P99 &lt; 500ms</td></tr><tr><td>可用性</td><td>核心链路不可中断</td><td>99.99%</td></tr><tr><td>数据一致性</td><td>订单与库存严格一致</td><td>强一致性</td></tr><tr><td>安全性</td><td>防刷单、防机器人</td><td>请求限流、验证码</td></tr></tbody></table><h3 id=12-系统建模呼应第一篇静态建模>1.2 系统建模（呼应第一篇静态建模）</h3><p><strong>领域模型（UML类图核心实体）</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+</span></span><span class=line><span class=cl>│   SeckillGoods   │     │   SeckillOrder   │     │      User       │
+</span></span><span class=line><span class=cl>├─────────────────┤     ├─────────────────┤     ├─────────────────┤
+</span></span><span class=line><span class=cl>│ - goodsId: Long  │1   *│ - orderId: Long  │     │ - userId: Long  │
+</span></span><span class=line><span class=cl>│ - stock: int     │────▶│ - goodsId: Long  │     │ - phone: String │
+</span></span><span class=line><span class=cl>│ - price: BigDecimal│   │ - userId: Long   │     │ - name: String  │
+</span></span><span class=line><span class=cl>│ - startTime: Date│     │ - createTime: Date│    └─────────────────┘
+</span></span><span class=line><span class=cl>│ - endTime: Date  │     │ - status: Enum   │
+</span></span><span class=line><span class=cl>└─────────────────┘     └─────────────────┘
+</span></span></code></pre></div><p><strong>用例图——秒杀核心用例</strong>：</p><ol><li>查看秒杀商品列表</li><li>商品详情（含倒计时）</li><li><strong>执行秒杀（核心用例）</strong></li><li>查询秒杀结果</li><li>支付订单</li></ol><h3 id=13-动态行为建模呼应第二篇动态建模>1.3 动态行为建模（呼应第二篇动态建模）</h3><p><strong>秒杀核心时序图</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用户 → API网关 → 限流器 → 秒杀服务 → Redis(库存预扣) → MQ → 订单服务 → MySQL
+</span></span><span class=line><span class=cl>                ↓（限流拒绝）
+</span></span><span class=line><span class=cl>              返回&#34;活动火爆&#34;
+</span></span><span class=line><span class=cl>                         ↓（库存不足）
+</span></span><span class=line><span class=cl>                      返回&#34;已售罄&#34;
+</span></span></code></pre></div><p><strong>状态机——秒杀订单生命周期</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>创建 → 待支付 → 已支付 → 已发货 → 已完成
+</span></span><span class=line><span class=cl>  ↓       ↓        ↓
+</span></span><span class=line><span class=cl>已取消  已取消   已退款
+</span></span></code></pre></div><hr><h2 id=二架构设计从单体到分布式>二、架构设计——从单体到分布式</h2><h3 id=21-整体架构图>2.1 整体架构图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌──────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                        客户端层                            │
+</span></span><span class=line><span class=cl>│          App / H5 / 小程序（CDN静态资源加速）               │
+</span></span><span class=line><span class=cl>└─────────────────┬────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>                  │
+</span></span><span class=line><span class=cl>┌─────────────────▼────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                     接入层                                │
+</span></span><span class=line><span class=cl>│  Nginx(动静分离) → API Gateway(限流/鉴权/路由/降级)        │
+</span></span><span class=line><span class=cl>└─────────────────┬────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>                  │
+</span></span><span class=line><span class=cl>┌─────────────────▼────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                     业务层                                │
+</span></span><span class=line><span class=cl>│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐    │
+</span></span><span class=line><span class=cl>│  │秒杀服务   │ │商品服务   │ │订单服务   │ │用户服务   │    │
+</span></span><span class=line><span class=cl>│  │Seckill   │ │Product   │ │Order     │ │User       │    │
+</span></span><span class=line><span class=cl>│  └─────┬────┘ └──────────┘ └────┬─────┘ └──────────┘    │
+</span></span><span class=line><span class=cl>│        │                        │                         │
+</span></span><span class=line><span class=cl>│  ┌─────▼────────────────────────▼───────────────────┐    │
+</span></span><span class=line><span class=cl>│  │            消息队列 (RocketMQ/Kafka)              │    │
+</span></span><span class=line><span class=cl>│  │      削峰填谷 / 异步解耦 / 最终一致性              │    │
+</span></span><span class=line><span class=cl>│  └─────────────────────────────────────────────────┘    │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>                  │
+</span></span><span class=line><span class=cl>┌─────────────────▼────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                    数据层                                 │
+</span></span><span class=line><span class=cl>│  ┌──────────┐ ┌──────────┐ ┌──────────────────────────┐ │
+</span></span><span class=line><span class=cl>│  │  Redis   │ │  MySQL   │ │   搜索引擎(Elasticsearch)│ │
+</span></span><span class=line><span class=cl>│  │ 缓存/库存 │ │  持久化   │ │     商品搜索             │ │
+</span></span><span class=line><span class=cl>│  └──────────┘ └──────────┘ └──────────────────────────┘ │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=22-核心架构决策呼应第四篇架构设计>2.2 核心架构决策（呼应第四篇架构设计）</h3><table><thead><tr><th>决策点</th><th>方案</th><th>理由</th></tr></thead><tbody><tr><td>静态化</td><td>CDN + Nginx</td><td>减少后端压力，商品详情页提前静态化</td></tr><tr><td>限流</td><td>令牌桶 + 滑动窗口（双层）</td><td>API网关层令牌桶防突发，业务层滑动窗口精确控量</td></tr><tr><td>库存扣减</td><td>Redis Lua脚本原子扣减</td><td>单线程原子操作，避免超卖</td></tr><tr><td>削峰</td><td>RocketMQ异步下单</td><td>将瞬时100万请求削峰为DB能处理的速率</td></tr><tr><td>缓存策略</td><td>Redis多级缓存 + 本地Caffeine</td><td>热点数据提前预热到JVM本地缓存</td></tr><tr><td>数据一致性</td><td>分布式事务（Seata AT模式）</td><td>订单创建和库存扣减的最终一致性</td></tr><tr><td>数据库</td><td>MySQL分库分表 + 读写分离</td><td>订单表按user_id分片，水平扩展</td></tr></tbody></table><hr><h2 id=三核心技术攻坚代码实战>三、核心技术攻坚——代码实战</h2><h3 id=31-redis库存预扣防超卖的核心>3.1 Redis库存预扣——防超卖的核心</h3><p><strong>面试高频：为什么用Lua脚本？</strong></p><blockquote><p>因为Redis执行Lua脚本是原子性的，整个脚本作为一个整体执行，中间不会被其他命令插入。如果分开用GET+DECR，会有竞态条件导致超卖。</p></blockquote><p><strong>Java实现——Spring Boot + Redisson：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>SeckillService</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=nd>@Autowired</span>
@@ -312,11 +312,11 @@
 </span></span><span class=line><span class=cl>        <span class=o>}</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=34-消息队列削峰从100万qps到1万tps>3.4 消息队列削峰——从100万QPS到1万TPS</h3><p><strong>架构思路</strong>：</p><pre tabindex=0><code>瞬时100万请求 → Redis库存预扣 → 仅1万人抢到 → MQ(异步) → 订单服务 → MySQL
-                                    ↓
-                              99万人在Redis层被拦截
-                              （秒杀未开始/已售罄/重复秒杀）
-</code></pre><p><strong>RocketMQ消费者——异步创建订单：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Component</span>
+</span></span></code></pre></div><h3 id=34-消息队列削峰从100万qps到1万tps>3.4 消息队列削峰——从100万QPS到1万TPS</h3><p><strong>架构思路</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>瞬时100万请求 → Redis库存预扣 → 仅1万人抢到 → MQ(异步) → 订单服务 → MySQL
+</span></span><span class=line><span class=cl>                                    ↓
+</span></span><span class=line><span class=cl>                              99万人在Redis层被拦截
+</span></span><span class=line><span class=cl>                              （秒杀未开始/已售罄/重复秒杀）
+</span></span></code></pre></div><p><strong>RocketMQ消费者——异步创建订单：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Component</span>
 </span></span><span class=line><span class=cl><span class=nd>@RocketMQMessageListener</span><span class=o>(</span>
 </span></span><span class=line><span class=cl>    <span class=n>topic</span> <span class=o>=</span> <span class=s>&#34;seckill-order-topic&#34;</span><span class=o>,</span>
 </span></span><span class=line><span class=cl>    <span class=n>consumerGroup</span> <span class=o>=</span> <span class=s>&#34;seckill-order-consumer&#34;</span><span class=o>,</span>
@@ -377,11 +377,11 @@
 </span></span><span class=line><span class=cl>        <span class=c1>// 任何一步失败，Seata自动回滚全局事务
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>Seata AT模式原理</strong>：</p><ol><li><strong>一阶段</strong>：各服务执行本地事务，Seata记录undo_log</li><li><strong>二阶段-提交</strong>：全局事务提交，异步删除undo_log</li><li><strong>二阶段-回滚</strong>：根据undo_log逆向回滚各分支事务</li></ol><h3 id=36-缓存架构多级缓存设计>3.6 缓存架构——多级缓存设计</h3><pre tabindex=0><code>请求 → CDN(边缘节点) → Nginx本地缓存 → Caffeine(JVM本地) → Redis(分布式) → MySQL
-                             ↓                 ↓                  ↓               ↓
-                         静态HTML         热点商品详情         商品库存          持久数据
-                        (不经过后端)      (1min过期)          (实时)          (最终数据)
-</code></pre><p><strong>Caffeine + Redis多级缓存实现：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
+</span></span></code></pre></div><p><strong>Seata AT模式原理</strong>：</p><ol><li><strong>一阶段</strong>：各服务执行本地事务，Seata记录undo_log</li><li><strong>二阶段-提交</strong>：全局事务提交，异步删除undo_log</li><li><strong>二阶段-回滚</strong>：根据undo_log逆向回滚各分支事务</li></ol><h3 id=36-缓存架构多级缓存设计>3.6 缓存架构——多级缓存设计</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>请求 → CDN(边缘节点) → Nginx本地缓存 → Caffeine(JVM本地) → Redis(分布式) → MySQL
+</span></span><span class=line><span class=cl>                             ↓                 ↓                  ↓               ↓
+</span></span><span class=line><span class=cl>                         静态HTML         热点商品详情         商品库存          持久数据
+</span></span><span class=line><span class=cl>                        (不经过后端)      (1min过期)          (实时)          (最终数据)
+</span></span></code></pre></div><p><strong>Caffeine + Redis多级缓存实现：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>GoodsCacheService</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=nd>@Autowired</span>

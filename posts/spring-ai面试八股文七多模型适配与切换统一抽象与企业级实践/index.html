@@ -334,31 +334,31 @@
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl>    <span class=kd>public</span> <span class=kd>enum</span> <span class=n>EmbeddingType</span> <span class=o>{</span> <span class=n>TEXT</span><span class=o>,</span> <span class=n>CODE</span> <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>面试核心问题</strong>：向量数据库里存了不同模型生成的向量，查询时会怎样？</p><blockquote><p><strong>灾难性结果</strong>。向量数据库（如 Milvus、Pinecone）存储的是浮点数数组本身，不理解向量语义。如果索引和查询用不同模型生成：</p><ul><li>OpenAI <code>text-embedding-3-small</code> 生成 1536 维向量</li><li>国产某模型生成 1024 维向量 → 维度不匹配，报错</li><li>即使维度相同，向量空间语义不同，余弦相似度结果毫无意义</li></ul></blockquote><h2 id=六生产级架构实战>六、生产级架构实战</h2><h3 id=61-统一模型服务层设计>6.1 统一模型服务层设计</h3><p>综合以上能力，一个企业级 AI 模型服务层的典型架构：</p><pre tabindex=0><code>┌─────────────────────────────────────────────────────┐
-│                    Controller Layer                  │
-│         /api/chat  /api/embed  /api/analyze         │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│              AI Gateway (Spring Cloud Gateway)        │
-│         限流 | 认证 | 路由 | 监控 | Prompt过滤        │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│             Model Service (统一服务层)                │
-│   ┌──────────────┬──────────────┬──────────────┐    │
-│   │ ModelRouter  │ FallbackMgr  │ CostTracker  │    │
-│   │ (智能路由)    │ (降级管理)   │ (成本追踪)   │    │
-│   └──────────────┴──────────────┴──────────────┘    │
-└──────────────────────┬──────────────────────────────┘
-                       │
-          ┌────────────┼────────────┐
-          │            │            │
-    ┌─────▼────┐ ┌────▼────┐ ┌──────▼─────┐
-    │ OpenAI   │ │Anthropic│ │ 国产模型    │
-    │ ChatModel│ │ ChatModel│ │ (多厂商)   │
-    └──────────┘ └─────────┘ └────────────┘
-</code></pre><h3 id=62-关键实现代码>6.2 关键实现代码</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@RestController</span>
+</span></span></code></pre></div><p><strong>面试核心问题</strong>：向量数据库里存了不同模型生成的向量，查询时会怎样？</p><blockquote><p><strong>灾难性结果</strong>。向量数据库（如 Milvus、Pinecone）存储的是浮点数数组本身，不理解向量语义。如果索引和查询用不同模型生成：</p><ul><li>OpenAI <code>text-embedding-3-small</code> 生成 1536 维向量</li><li>国产某模型生成 1024 维向量 → 维度不匹配，报错</li><li>即使维度相同，向量空间语义不同，余弦相似度结果毫无意义</li></ul></blockquote><h2 id=六生产级架构实战>六、生产级架构实战</h2><h3 id=61-统一模型服务层设计>6.1 统一模型服务层设计</h3><p>综合以上能力，一个企业级 AI 模型服务层的典型架构：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                    Controller Layer                  │
+</span></span><span class=line><span class=cl>│         /api/chat  /api/embed  /api/analyze         │
+</span></span><span class=line><span class=cl>└──────────────────────┬──────────────────────────────┘
+</span></span><span class=line><span class=cl>                       │
+</span></span><span class=line><span class=cl>┌──────────────────────▼──────────────────────────────┐
+</span></span><span class=line><span class=cl>│              AI Gateway (Spring Cloud Gateway)        │
+</span></span><span class=line><span class=cl>│         限流 | 认证 | 路由 | 监控 | Prompt过滤        │
+</span></span><span class=line><span class=cl>└──────────────────────┬──────────────────────────────┘
+</span></span><span class=line><span class=cl>                       │
+</span></span><span class=line><span class=cl>┌──────────────────────▼──────────────────────────────┐
+</span></span><span class=line><span class=cl>│             Model Service (统一服务层)                │
+</span></span><span class=line><span class=cl>│   ┌──────────────┬──────────────┬──────────────┐    │
+</span></span><span class=line><span class=cl>│   │ ModelRouter  │ FallbackMgr  │ CostTracker  │    │
+</span></span><span class=line><span class=cl>│   │ (智能路由)    │ (降级管理)   │ (成本追踪)   │    │
+</span></span><span class=line><span class=cl>│   └──────────────┴──────────────┴──────────────┘    │
+</span></span><span class=line><span class=cl>└──────────────────────┬──────────────────────────────┘
+</span></span><span class=line><span class=cl>                       │
+</span></span><span class=line><span class=cl>          ┌────────────┼────────────┐
+</span></span><span class=line><span class=cl>          │            │            │
+</span></span><span class=line><span class=cl>    ┌─────▼────┐ ┌────▼────┐ ┌──────▼─────┐
+</span></span><span class=line><span class=cl>    │ OpenAI   │ │Anthropic│ │ 国产模型    │
+</span></span><span class=line><span class=cl>    │ ChatModel│ │ ChatModel│ │ (多厂商)   │
+</span></span><span class=line><span class=cl>    └──────────┘ └─────────┘ └────────────┘
+</span></span></code></pre></div><h3 id=62-关键实现代码>6.2 关键实现代码</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@RestController</span>
 </span></span><span class=line><span class=cl><span class=nd>@RequestMapping</span><span class=o>(</span><span class=s>&#34;/api/ai&#34;</span><span class=o>)</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>AiGatewayController</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>

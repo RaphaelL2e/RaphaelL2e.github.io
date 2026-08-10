@@ -10,444 +10,444 @@
 <span>/</span><a href=/series/system-design/>系统分析与设计</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>系统动态行为建模（二）</h1><p class=article-description>🎯 本文目标：承接《系统静态分析建模（一）》的类图建模，转向面向对象分析的动态建模。从UML时序图、状态图、活动图三大动态模型出发，结合实际案例讲解如何描述系统的动态行为与交互。 Q1: 时序图绘制时常见错误有哪些？ 以用例为起点：每个用例至少对应一张时序图 关注核心实体：只为有复杂状态的对象画状态。</p><div class=article-meta><span>发布于 <time datetime=2026-06-19>2026-06-19</time></span>
 <span>最后验证 2026-06</span>
 <span>7 分钟阅读</span>
-<span>1361 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一动态建模概述>一、动态建模概述</a><ul><li><a href=#11-静态与动态的关系>1.1 静态与动态的关系</a></li></ul></li><li><a href=#二时序图sequence-diagram>二、时序图（Sequence Diagram）</a><ul><li><a href=#21-核心概念>2.1 核心概念</a></li><li><a href=#22-实战案例用户登录时序图>2.2 实战案例：用户登录时序图</a></li><li><a href=#23-时序图绘制要点>2.3 时序图绘制要点</a></li></ul></li><li><a href=#三状态图state-chart-diagram>三、状态图（State Chart Diagram）</a><ul><li><a href=#31-核心概念>3.1 核心概念</a></li><li><a href=#32-实战案例订单状态图>3.2 实战案例：订单状态图</a></li><li><a href=#33-状态图绘制要点>3.3 状态图绘制要点</a></li></ul></li><li><a href=#四活动图activity-diagram>四、活动图（Activity Diagram）</a><ul><li><a href=#41-核心概念>4.1 核心概念</a></li><li><a href=#42-实战案例订单处理活动图>4.2 实战案例：订单处理活动图</a></li><li><a href=#43-活动图绘制要点>4.3 活动图绘制要点</a></li></ul></li><li><a href=#五三种图的关系与选择>五、三种图的关系与选择</a><ul><li><a href=#51-三种图对比>5.1 三种图对比</a></li><li><a href=#52-从用例到动态模型>5.2 从用例到动态模型</a></li></ul></li><li><a href=#六实战案例atm取款动态建模>六、实战案例：ATM取款动态建模</a><ul><li><a href=#61-时序图取款成功>6.1 时序图：取款成功</a></li><li><a href=#62-状态图atm会话状态>6.2 状态图：ATM会话状态</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接《系统静态分析建模（一）》的类图建模，转向面向对象分析的动态建模。从UML时序图、状态图、活动图三大动态模型出发，结合实际案例讲解如何描述系统的动态行为与交互。</p></blockquote><hr><h2 id=一动态建模概述>一、动态建模概述</h2><h3 id=11-静态与动态的关系>1.1 静态与动态的关系</h3><pre tabindex=0><code>面向对象建模的两个维度:
-
-静态建模 (结构):                     动态建模 (行为):
-  ┌─────────────────┐                ┌─────────────────┐
-  │     用例图       │                │     状态图       │
-  │   (Use Case)     │                │  (State Chart)   │
-  └─────────────────┘                └─────────────────┘
-  ┌─────────────────┐                ┌─────────────────┐
-  │     类图         │    ───────►    │     时序图       │
-  │   (Class)       │                │ (Sequence)      │
-  └─────────────────┘                └─────────────────┘
-  ┌─────────────────┐                ┌─────────────────┐
-  │    对象图        │                │     活动图       │
-  │   (Object)      │                │  (Activity)     │
-  └─────────────────┘                └─────────────────┘
-
-  回答: &#34;系统由什么组成?&#34;             回答: &#34;系统如何工作?&#34;
-</code></pre><p><strong>动态建模三要素：</strong></p><table><thead><tr><th>要素</th><th>问题</th><th>UML图</th></tr></thead><tbody><tr><td>交互</td><td>对象之间如何协作完成功能？</td><td>时序图、协作图</td></tr><tr><td>状态</td><td>对象在其生命周期中如何变化？</td><td>状态图</td></tr><tr><td>活动</td><td>业务流程如何流转？</td><td>活动图</td></tr></tbody></table><hr><h2 id=二时序图sequence-diagram>二、时序图（Sequence Diagram）</h2><h3 id=21-核心概念>2.1 核心概念</h3><pre tabindex=0><code>时序图: 描述对象之间的交互顺序，强调消息的时间顺序
-
-基本元素:
-  ┌─────────┐     参与者 (Actor/Object)
-  │  User   │
-  └────┬────┘
-       │          生命线 (Lifeline) ──── 虚线表示对象存在周期
-       │
-       │─────────►│  同步消息 (Sync)    实心箭头，等待返回
-       │          │
-       │- - - - -►│  异步消息 (Async)   空心箭头，不等待返回
-       │          │
-       │◄- - - - -│  返回消息 (Return)  虚线箭头
-       │          │
-       │  ╔═════╗ │  激活框 (Activation) 表示对象正在执行
-       │  ║     ║ │
-       │  ╚═════╝ │
-       │          │
-       X          X  销毁标记 (Destruction)
-</code></pre><h3 id=22-实战案例用户登录时序图>2.2 实战案例：用户登录时序图</h3><pre tabindex=0><code>┌──────┐          ┌──────────┐          ┌──────────┐          ┌──────────┐
-│ User │          │ LoginCtrl│          │ UserService│         │   User   │
-└──┬───┘          └────┬─────┘          └─────┬────┘          └────┬─────┘
-   │                   │                      │                    │
-   │ enterLogin()      │                      │                    │
-   │──────────────────►│                      │                    │
-   │                   │ validate(username,pwd)                   │
-   │                   │─────────────────────►│                    │
-   │                   │                      │ findByUsername()   │
-   │                   │                      │───────────────────►│
-   │                   │                      │                    │
-   │                   │                      │◄───────────────────│
-   │                   │                      │    User对象         │
-   │                   │                      │                    │
-   │                   │                      │ checkPassword()   │
-   │                   │                      │───────────────────►│
-   │                   │                      │◄───────────────────│
-   │                   │                      │      true/false    │
-   │                   │◄─────────────────────│                    │
-   │                   │    LoginResult       │                    │
-   │◄──────────────────│                      │                    │
-   │  显示登录结果      │                      │                    │
-   │                   │                      │                    │
-</code></pre><h3 id=23-时序图绘制要点>2.3 时序图绘制要点</h3><p><strong>Q1: 时序图绘制时常见错误有哪些？</strong></p><pre tabindex=0><code>错误1: 消息顺序混乱
-  消息必须按时间从上到下排列，不能交叉
-
-错误2: 缺少返回消息
-  虽然UML允许省略返回，但清晰起见应标注重要返回值
-
-错误3: 激活框范围不当
-  激活框应覆盖对象正在执行操作的时间段
-
-错误4: 抽象层次不一致
-  同一时序图应保持一致细节层次，避免部分过细、部分过粗
-</code></pre><p><strong>循环与条件片段：</strong></p><pre tabindex=0><code>┌─────────────────────────────────────────────┐
-│ loop [订单条目数]                             │  ← 循环片段
-│   │─────────────────────────────────────────│
-│   │  处理单个订单条目                          │
-│   │─────────────────────────────────────────│
-└─────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────┐
-│ alt [支付方式 == &#34;信用卡&#34;]                    │  ← 条件分支
-│   │─────────────────────────────────────────│
-│   │  调用信用卡支付                            │
-│   │─────────────────────────────────────────│
-│ [支付方式 == &#34;支付宝&#34;]                        │
-│   │─────────────────────────────────────────│
-│   │  调用支付宝支付                            │
-│   │─────────────────────────────────────────│
-└─────────────────────────────────────────────┘
-</code></pre><hr><h2 id=三状态图state-chart-diagram>三、状态图（State Chart Diagram）</h2><h3 id=31-核心概念>3.1 核心概念</h3><pre tabindex=0><code>状态图: 描述对象在其生命周期中的状态变化，以及触发状态变化的事件
-
-基本元素:
-
-  ○──────────►(状态1)─────────────►(状态2)
-  初始状态         事件[条件]/动作         终止状态(可选)
-                   状态
-</code></pre><p><strong>状态机三要素：</strong></p><table><thead><tr><th>要素</th><th>说明</th><th>示例</th></tr></thead><tbody><tr><td>状态</td><td>对象在某一时刻的条件</td><td>待支付、已发货</td></tr><tr><td>事件</td><td>触发状态变化的动作</td><td>支付成功、发货</td></tr><tr><td>转换</td><td>状态之间的变迁</td><td>待支付 → 已支付</td></tr></tbody></table><h3 id=32-实战案例订单状态图>3.2 实战案例：订单状态图</h3><pre tabindex=0><code>                            订单状态图
-
-         ┌─────────────────────────────────────────────────────┐
-         │                                                     │
-         ▼                                                     │
-      (创建订单)                                                 │
-         │                                                     │
-    创建订单│                                                     │
-         │                                                     │
-         ▼                                                     │
-    ┌─────────┐         支付成功          ┌─────────┐          │
-    │         │─────────────────────────►│         │          │
-    │ 待支付   │                          │  已支付  │          │
-    │         │◄─────────────────────────│         │          │
-    └─────────┘        支付失败/取消       └─────────┘          │
-         │                                   │                 │
-    取消订单│                              发货│                 │
-         │                                   │                 │
-         ▼                                   ▼                 │
-    ┌─────────┐                        ┌─────────┐             │
-    │         │                        │         │             │
-    │ 已取消   │                        │ 已发货   │             │
-    │         │                        │         │             │
-    └─────────┘                        └─────────┘             │
-         │                                   │                 │
-         │                              确认收货│                 │
-         │                                   │                 │
-         │                                   ▼                 │
-         │                             ┌─────────┐             │
-         │                             │         │             │
-         │                             │ 已完成   │             │
-         │                             │         │             │
-         │                             └─────────┘             │
-         │                                   │                 │
-         │                              申请退款│                 │
-         │                                   │                 │
-         │                                   ▼                 │
-         │                             ┌─────────┐             │
-         │                             │         │             │
-         │                             │ 退款中   │             │
-         │                             │         │             │
-         │                             └─────────┘             │
-         │                                   │                 │
-         │                              退款完成│                 │
-         │                                   │                 │
-         │                                   ▼                 │
-         │                             ┌─────────┐             │
-         │                             │         │◄────────────┘
-         └────────────────────────────►│ 已退款   │
-                                       │         │
-                                       └─────────┘
-                                            │
-                                       结束 │
-                                            ▼
-                                           (●)
-</code></pre><h3 id=33-状态图绘制要点>3.3 状态图绘制要点</h3><p><strong>Q2: 哪些对象需要画状态图？</strong></p><pre tabindex=0><code>需要状态图的对象特征:
-  1. 有明确的生命周期
-  2. 状态数量有限且重要
-  3. 状态变化由事件触发
-  4. 不同状态下行为不同
-
-适合画状态图的例子:
-  ✓ 订单 (待支付/已支付/已发货/已完成...)
-  ✓ 文档 (草稿/审核中/已发布/已归档)
-  ✓ 工单 (待处理/处理中/已解决/已关闭)
-  ✓ 用户 (未激活/正常/冻结/注销)
-
-不适合画状态图的例子:
-  ✗ 简单的DTO对象 (纯数据容器)
-  ✗ 工具类 (无状态)
-</code></pre><p><strong>状态内部结构：</strong></p><pre tabindex=0><code>┌─────────────────────────────────────┐
-│          状态名称                    │
-├─────────────────────────────────────┤
-│  entry / 进入动作 (entry动作)         │
-│  do   / 内部活动 (持续执行)            │
-│  exit / 退出动作 (exit动作)            │
-├─────────────────────────────────────┤
-│  内部转换:                           │
-│    event [条件] / 动作               │
-│    (不触发entry/exit)                │
-└─────────────────────────────────────┘
-
-示例:
-┌─────────────────────────┐
-│        已发货            │
-├─────────────────────────┤
-│  entry / 发送短信通知     │
-│  do   / 物流跟踪         │
-│  exit / 更新完成时间      │
-└─────────────────────────┘
-</code></pre><hr><h2 id=四活动图activity-diagram>四、活动图（Activity Diagram）</h2><h3 id=41-核心概念>4.1 核心概念</h3><pre tabindex=0><code>活动图: 描述业务流程或算法流程，强调活动之间的顺序与并发
-
-基本元素:
-
-  ●──────────►(活动1)──────────►(活动2)──────────►●
-  开始节点      活动节点      决策节点        结束节点
-
-  ┌─────────────┐                ┌─────────────┐
-  │  分叉条      │  (并发开始)    │   汇合条     │  (并发结束)
-  │  ─────      │                │  ─────      │
-  └─────────────┘                └─────────────┘
-</code></pre><h3 id=42-实战案例订单处理活动图>4.2 实战案例：订单处理活动图</h3><pre tabindex=0><code>                           订单处理流程
-
-                    ●
-                    │
-                    ▼
-           ┌────────────────┐
-           │   创建订单      │
-           └────────────────┘
-                    │
-                    ▼
-           ┌────────────────┐
-           │  检查库存       │
-           └────────────────┘
-                    │
-                    ◇
-           ┌───────┴───────┐
-           │               │
-       [库存充足]      [库存不足]
-           │               │
-           ▼               ▼
-           │       ┌────────────────┐
-           │       │  通知缺货       │
-           │       └────────────────┘
-           │               │
-           │               ▼
-           │               ●
-           │              (结束)
-           │
-           ▼
-           ┌────────────────┐
-           │  锁定库存       │
-           └────────────────┘
-                    │
-                    ▼
-           ┌────────────────┐
-           │   用户支付      │
-           └────────────────┘
-                    │
-                    ◇
-           ┌───────┴───────┐
-           │               │
-       [支付成功]      [支付失败]
-           │               │
-           │               ▼
-           │       ┌────────────────┐
-           │       │  释放库存       │
-           │       └────────────────┘
-           │               │
-           │               ▼
-           │               ●
-           │              (结束)
-           │
-           ▼
-           ─────┬─────
-                │        ← 分叉 (并发)
-          ┌─────┴─────┐
-          ▼           ▼
-   ┌──────────┐ ┌──────────┐
-   │ 扣减库存  │ │ 生成发货单 │
-   └──────────┘ └──────────┘
-          │           │
-          └─────┬─────┘
-                │        ← 汇合
-                ▼
-           ─────────────
-           ┌────────────────┐
-           │    发货         │
-           └────────────────┘
-                    │
-                    ▼
-                    ●
-                  (结束)
-</code></pre><h3 id=43-活动图绘制要点>4.3 活动图绘制要点</h3><p><strong>活动图vs流程图：</strong></p><table><thead><tr><th>对比维度</th><th>活动图</th><th>流程图</th></tr></thead><tbody><tr><td>抽象层次</td><td>面向对象，可关联对象</td><td>面向过程</td></tr><tr><td>并发支持</td><td>支持分叉/汇合</td><td>不支持</td></tr><tr><td>泳道</td><td>支持划分责任区域</td><td>无</td></tr><tr><td>复杂度</td><td>更适合复杂业务流程</td><td>简单流程即可</td></tr></tbody></table><p><strong>泳道（Swimlane）示例：</strong></p><pre tabindex=0><code>┌─────────────────────────────────────────────────────────┐
-│  用户      │    系统      │    库存服务   │   支付服务    │
-├────────────┼─────────────┼──────────────┼──────────────┤
-│            │             │              │              │
-│  下单      │             │              │              │
-│─────┼──────►             │              │              │
-│            │  检查库存   │              │              │
-│            │─────┼───────►              │              │
-│            │             │  返回结果    │              │
-│            │◄────┼────────              │              │
-│            │             │              │              │
-│            │  发起支付   │              │              │
-│            │─────┼──────────────────────►              │
-│            │             │              │  处理支付   │
-│            │◄────┼──────────────────────              │
-│            │             │              │              │
-│  支付结果  │             │              │              │
-│◄────┼──────             │              │              │
-│            │             │              │              │
-└────────────┴─────────────┴──────────────┴──────────────┘
-</code></pre><hr><h2 id=五三种图的关系与选择>五、三种图的关系与选择</h2><h3 id=51-三种图对比>5.1 三种图对比</h3><table><thead><tr><th>图类型</th><th>关注点</th><th>适用场景</th><th>时间维度</th></tr></thead><tbody><tr><td>时序图</td><td>对象交互顺序</td><td>分析用例实现、接口设计</td><td>单次交互流程</td></tr><tr><td>状态图</td><td>对象生命周期</td><td>分析核心实体的状态变化</td><td>对象生命全周期</td></tr><tr><td>活动图</td><td>业务流程流转</td><td>分析业务规则、工作流</td><td>完整业务流程</td></tr></tbody></table><p><strong>Q3: 什么时候用哪种图？</strong></p><pre tabindex=0><code>场景决策:
-
-需要分析&#34;用户下单&#34;用例如何实现:
-  → 时序图 (展示各对象协作顺序)
-
-需要分析&#34;订单&#34;对象的状态变化:
-  → 状态图 (订单从创建到完成/取消的全生命周期)
-
-需要分析&#34;订单处理&#34;完整业务流程:
-  → 活动图 (包含库存、支付、物流等完整流程)
-
-综合分析复杂系统:
-  → 结合使用，互为补充
-</code></pre><h3 id=52-从用例到动态模型>5.2 从用例到动态模型</h3><pre tabindex=0><code>用例驱动建模流程:
-
-  用例图
-     │
-     ▼
-  用例规约 (前置条件、后置条件、基本流程、扩展流程)
-     │
-     ▼
-  ┌───────────────────────────────────────┐
-  │  动态建模 (三种图)                       │
-  │                                       │
-  │   基本流程 → 活动图 (业务流程)          │
-  │   交互过程 → 时序图 (对象协作)          │
-  │   状态变化 → 状态图 (实体生命周期)      │
-  └───────────────────────────────────────┘
-     │
-     ▼
-  静态建模 (类图优化)
-</code></pre><hr><h2 id=六实战案例atm取款动态建模>六、实战案例：ATM取款动态建模</h2><h3 id=61-时序图取款成功>6.1 时序图：取款成功</h3><pre tabindex=0><code>┌────────┐    ┌────────┐    ┌────────┐    ┌────────┐    ┌────────┐
-│  用户   │    │ ATM界面 │    │ATM控制器│    │银行服务 │    │ 账户   │
-└───┬────┘    └───┬────┘    └───┬────┘    └───┬────┘    └───┬────┘
-    │             │              │              │              │
-    │插卡          │              │              │              │
-    │────────────►│              │              │              │
-    │             │ 读卡         │              │              │
-    │             │─────────────►│              │              │
-    │             │              │ 验证卡片      │              │
-    │             │              │─────────────►│              │
-    │             │              │              │ 查询账户      │
-    │             │              │              │─────────────►│
-    │             │              │              │◄─────────────│
-    │             │              │              │ 返回账户信息  │
-    │             │              │◄─────────────│              │
-    │             │              │ 要求输入密码  │              │
-    │             │◄─────────────│              │              │
-    │             请输入密码      │              │              │
-    │◄────────────│              │              │              │
-    │             │              │              │              │
-    │ 输入密码     │              │              │              │
-    │────────────►│              │              │              │
-    │             │ 验证密码     │              │              │
-    │             │─────────────►│              │              │
-    │             │              │ 验证密码     │              │
-    │             │              │─────────────►│              │
-    │             │              │◄─────────────│              │
-    │             │              │ 密码正确      │              │
-    │             │◄─────────────│              │              │
-    │             │ 选择取款金额  │              │              │
-    │◄────────────│              │              │              │
-    │             │              │              │              │
-    │ 选择金额     │              │              │              │
-    │────────────►│              │              │              │
-    │             │ 取款请求      │              │              │
-    │             │─────────────►│              │              │
-    │             │              │ 扣款请求      │              │
-    │             │              │─────────────►│              │
-    │             │              │              │ 扣减余额      │
-    │             │              │              │─────────────►│
-    │             │              │              │◄─────────────│
-    │             │              │              │ 扣款成功      │
-    │             │              │◄─────────────│              │
-    │             │              │ 出钞指令      │              │
-    │             │◄─────────────│              │              │
-    │             │              │              │              │
-    │ 取钞         │              │              │              │
-    │◄────────────│              │              │              │
-</code></pre><h3 id=62-状态图atm会话状态>6.2 状态图：ATM会话状态</h3><pre tabindex=0><code>                    ATM会话状态图
-
-          ○
-          │
-     插卡 │
-          ▼
-    ┌───────────┐
-    │           │
-    │  空闲      │◄─────────────────────────┐
-    │           │                          │
-    └───────────┘                          │
-          │                                │
-     插卡成功│                                │
-          ▼                                │
-    ┌───────────┐                          │
-    │           │                          │
-    │  验证卡号  │                          │
-    │           │                          │
-    └───────────┘                          │
-          │                                │
-     卡号有效│     卡号无效                   │
-          ▼          │                     │
-    ┌───────────┐    │                     │
-    │           │    │                     │
-    │  输入密码  │    │     退卡              │
-    │           │    │     ┌──────────┐     │
-    └───────────┘    └────►│          │─────┘
-          │                │  退卡中   │
-     密码正确│                │          │
-          ▼                └──────────┘
-    ┌───────────┐
-    │           │
-    │  选择操作  │◄──────────────────────────┐
-    │           │                           │
-    └───────────┘                           │
-          │                                 │
-     选择取款│     选择查询/其他               │
-          ▼          │                      │
-    ┌───────────┐    │                      │
-    │           │    │     完成操作          │
-    │  取款金额  │    │     ┌──────────┐      │
-    │           │    └────►│          │──────┘
-    └───────────┘          │  操作完成  │
-          │                │          │
-     确认取款│                └──────────┘
-          ▼
-    ┌───────────┐
-    │           │
-    │  出钞中    │
-    │           │
-    └───────────┘
-          │
-     取钞完成│
-          ▼
-    ┌───────────┐
-    │           │
-    │  打印凭条  │
-    │           │
-    └───────────┘
-          │
-     凭条打印完成│
-          ▼
-    ┌───────────┐
-    │           │
-    │  退卡中    │
-    │           │
-    └───────────┘
-          │
-     卡已退出│
-          ▼
-          ●
-</code></pre><hr><h2 id=七总结>七、总结</h2><table><thead><tr><th>动态模型</th><th>核心要素</th><th>绘制要点</th></tr></thead><tbody><tr><td>时序图</td><td>对象、生命线、消息、激活框</td><td>保持时间顺序、标注关键返回值</td></tr><tr><td>状态图</td><td>状态、事件、转换、动作</td><td>识别核心实体、覆盖完整生命周期</td></tr><tr><td>活动图</td><td>活动、决策、分叉/汇合、泳道</td><td>划分责任边界、处理并发与异常</td></tr></tbody></table><p><strong>动态建模三原则：</strong></p><ol><li><strong>以用例为起点</strong>：每个用例至少对应一张时序图</li><li><strong>关注核心实体</strong>：只为有复杂状态的对象画状态图</li><li><strong>保持一致性</strong>：三种图与类图互相验证</li></ol><hr><blockquote><p>🎯 <strong>本文是系统分析与设计系列第二篇动态建模文章。</strong> 时序图展示交互，状态图描述生命周期，活动图刻画流程——三者结合，完成系统的动态行为建模。</p></blockquote><blockquote><p>📌 <strong>下期预告</strong>：《系统设计模式实战（三）》将从系统设计视角出发，深入工厂、策略、观察者等经典设计模式在实际项目中的应用场景与实现细节，敬请期待！</p></blockquote></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E7%B3%BB%E7%BB%9F%E9%9D%99%E6%80%81%E5%88%86%E6%9E%90%E5%BB%BA%E6%A8%A1%E4%B8%80/><span>← 上一篇</span><strong>系统静态分析建模(一)</strong></a>
+<span>1361 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一动态建模概述>一、动态建模概述</a><ul><li><a href=#11-静态与动态的关系>1.1 静态与动态的关系</a></li></ul></li><li><a href=#二时序图sequence-diagram>二、时序图（Sequence Diagram）</a><ul><li><a href=#21-核心概念>2.1 核心概念</a></li><li><a href=#22-实战案例用户登录时序图>2.2 实战案例：用户登录时序图</a></li><li><a href=#23-时序图绘制要点>2.3 时序图绘制要点</a></li></ul></li><li><a href=#三状态图state-chart-diagram>三、状态图（State Chart Diagram）</a><ul><li><a href=#31-核心概念>3.1 核心概念</a></li><li><a href=#32-实战案例订单状态图>3.2 实战案例：订单状态图</a></li><li><a href=#33-状态图绘制要点>3.3 状态图绘制要点</a></li></ul></li><li><a href=#四活动图activity-diagram>四、活动图（Activity Diagram）</a><ul><li><a href=#41-核心概念>4.1 核心概念</a></li><li><a href=#42-实战案例订单处理活动图>4.2 实战案例：订单处理活动图</a></li><li><a href=#43-活动图绘制要点>4.3 活动图绘制要点</a></li></ul></li><li><a href=#五三种图的关系与选择>五、三种图的关系与选择</a><ul><li><a href=#51-三种图对比>5.1 三种图对比</a></li><li><a href=#52-从用例到动态模型>5.2 从用例到动态模型</a></li></ul></li><li><a href=#六实战案例atm取款动态建模>六、实战案例：ATM取款动态建模</a><ul><li><a href=#61-时序图取款成功>6.1 时序图：取款成功</a></li><li><a href=#62-状态图atm会话状态>6.2 状态图：ATM会话状态</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接《系统静态分析建模（一）》的类图建模，转向面向对象分析的动态建模。从UML时序图、状态图、活动图三大动态模型出发，结合实际案例讲解如何描述系统的动态行为与交互。</p></blockquote><hr><h2 id=一动态建模概述>一、动态建模概述</h2><h3 id=11-静态与动态的关系>1.1 静态与动态的关系</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>面向对象建模的两个维度:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>静态建模 (结构):                     动态建模 (行为):
+</span></span><span class=line><span class=cl>  ┌─────────────────┐                ┌─────────────────┐
+</span></span><span class=line><span class=cl>  │     用例图       │                │     状态图       │
+</span></span><span class=line><span class=cl>  │   (Use Case)     │                │  (State Chart)   │
+</span></span><span class=line><span class=cl>  └─────────────────┘                └─────────────────┘
+</span></span><span class=line><span class=cl>  ┌─────────────────┐                ┌─────────────────┐
+</span></span><span class=line><span class=cl>  │     类图         │    ───────►    │     时序图       │
+</span></span><span class=line><span class=cl>  │   (Class)       │                │ (Sequence)      │
+</span></span><span class=line><span class=cl>  └─────────────────┘                └─────────────────┘
+</span></span><span class=line><span class=cl>  ┌─────────────────┐                ┌─────────────────┐
+</span></span><span class=line><span class=cl>  │    对象图        │                │     活动图       │
+</span></span><span class=line><span class=cl>  │   (Object)      │                │  (Activity)     │
+</span></span><span class=line><span class=cl>  └─────────────────┘                └─────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  回答: &#34;系统由什么组成?&#34;             回答: &#34;系统如何工作?&#34;
+</span></span></code></pre></div><p><strong>动态建模三要素：</strong></p><table><thead><tr><th>要素</th><th>问题</th><th>UML图</th></tr></thead><tbody><tr><td>交互</td><td>对象之间如何协作完成功能？</td><td>时序图、协作图</td></tr><tr><td>状态</td><td>对象在其生命周期中如何变化？</td><td>状态图</td></tr><tr><td>活动</td><td>业务流程如何流转？</td><td>活动图</td></tr></tbody></table><hr><h2 id=二时序图sequence-diagram>二、时序图（Sequence Diagram）</h2><h3 id=21-核心概念>2.1 核心概念</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>时序图: 描述对象之间的交互顺序，强调消息的时间顺序
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>基本元素:
+</span></span><span class=line><span class=cl>  ┌─────────┐     参与者 (Actor/Object)
+</span></span><span class=line><span class=cl>  │  User   │
+</span></span><span class=line><span class=cl>  └────┬────┘
+</span></span><span class=line><span class=cl>       │          生命线 (Lifeline) ──── 虚线表示对象存在周期
+</span></span><span class=line><span class=cl>       │
+</span></span><span class=line><span class=cl>       │─────────►│  同步消息 (Sync)    实心箭头，等待返回
+</span></span><span class=line><span class=cl>       │          │
+</span></span><span class=line><span class=cl>       │- - - - -►│  异步消息 (Async)   空心箭头，不等待返回
+</span></span><span class=line><span class=cl>       │          │
+</span></span><span class=line><span class=cl>       │◄- - - - -│  返回消息 (Return)  虚线箭头
+</span></span><span class=line><span class=cl>       │          │
+</span></span><span class=line><span class=cl>       │  ╔═════╗ │  激活框 (Activation) 表示对象正在执行
+</span></span><span class=line><span class=cl>       │  ║     ║ │
+</span></span><span class=line><span class=cl>       │  ╚═════╝ │
+</span></span><span class=line><span class=cl>       │          │
+</span></span><span class=line><span class=cl>       X          X  销毁标记 (Destruction)
+</span></span></code></pre></div><h3 id=22-实战案例用户登录时序图>2.2 实战案例：用户登录时序图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌──────┐          ┌──────────┐          ┌──────────┐          ┌──────────┐
+</span></span><span class=line><span class=cl>│ User │          │ LoginCtrl│          │ UserService│         │   User   │
+</span></span><span class=line><span class=cl>└──┬───┘          └────┬─────┘          └─────┬────┘          └────┬─────┘
+</span></span><span class=line><span class=cl>   │                   │                      │                    │
+</span></span><span class=line><span class=cl>   │ enterLogin()      │                      │                    │
+</span></span><span class=line><span class=cl>   │──────────────────►│                      │                    │
+</span></span><span class=line><span class=cl>   │                   │ validate(username,pwd)                   │
+</span></span><span class=line><span class=cl>   │                   │─────────────────────►│                    │
+</span></span><span class=line><span class=cl>   │                   │                      │ findByUsername()   │
+</span></span><span class=line><span class=cl>   │                   │                      │───────────────────►│
+</span></span><span class=line><span class=cl>   │                   │                      │                    │
+</span></span><span class=line><span class=cl>   │                   │                      │◄───────────────────│
+</span></span><span class=line><span class=cl>   │                   │                      │    User对象         │
+</span></span><span class=line><span class=cl>   │                   │                      │                    │
+</span></span><span class=line><span class=cl>   │                   │                      │ checkPassword()   │
+</span></span><span class=line><span class=cl>   │                   │                      │───────────────────►│
+</span></span><span class=line><span class=cl>   │                   │                      │◄───────────────────│
+</span></span><span class=line><span class=cl>   │                   │                      │      true/false    │
+</span></span><span class=line><span class=cl>   │                   │◄─────────────────────│                    │
+</span></span><span class=line><span class=cl>   │                   │    LoginResult       │                    │
+</span></span><span class=line><span class=cl>   │◄──────────────────│                      │                    │
+</span></span><span class=line><span class=cl>   │  显示登录结果      │                      │                    │
+</span></span><span class=line><span class=cl>   │                   │                      │                    │
+</span></span></code></pre></div><h3 id=23-时序图绘制要点>2.3 时序图绘制要点</h3><p><strong>Q1: 时序图绘制时常见错误有哪些？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>错误1: 消息顺序混乱
+</span></span><span class=line><span class=cl>  消息必须按时间从上到下排列，不能交叉
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>错误2: 缺少返回消息
+</span></span><span class=line><span class=cl>  虽然UML允许省略返回，但清晰起见应标注重要返回值
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>错误3: 激活框范围不当
+</span></span><span class=line><span class=cl>  激活框应覆盖对象正在执行操作的时间段
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>错误4: 抽象层次不一致
+</span></span><span class=line><span class=cl>  同一时序图应保持一致细节层次，避免部分过细、部分过粗
+</span></span></code></pre></div><p><strong>循环与条件片段：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│ loop [订单条目数]                             │  ← 循环片段
+</span></span><span class=line><span class=cl>│   │─────────────────────────────────────────│
+</span></span><span class=line><span class=cl>│   │  处理单个订单条目                          │
+</span></span><span class=line><span class=cl>│   │─────────────────────────────────────────│
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│ alt [支付方式 == &#34;信用卡&#34;]                    │  ← 条件分支
+</span></span><span class=line><span class=cl>│   │─────────────────────────────────────────│
+</span></span><span class=line><span class=cl>│   │  调用信用卡支付                            │
+</span></span><span class=line><span class=cl>│   │─────────────────────────────────────────│
+</span></span><span class=line><span class=cl>│ [支付方式 == &#34;支付宝&#34;]                        │
+</span></span><span class=line><span class=cl>│   │─────────────────────────────────────────│
+</span></span><span class=line><span class=cl>│   │  调用支付宝支付                            │
+</span></span><span class=line><span class=cl>│   │─────────────────────────────────────────│
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────┘
+</span></span></code></pre></div><hr><h2 id=三状态图state-chart-diagram>三、状态图（State Chart Diagram）</h2><h3 id=31-核心概念>3.1 核心概念</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>状态图: 描述对象在其生命周期中的状态变化，以及触发状态变化的事件
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>基本元素:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  ○──────────►(状态1)─────────────►(状态2)
+</span></span><span class=line><span class=cl>  初始状态         事件[条件]/动作         终止状态(可选)
+</span></span><span class=line><span class=cl>                   状态
+</span></span></code></pre></div><p><strong>状态机三要素：</strong></p><table><thead><tr><th>要素</th><th>说明</th><th>示例</th></tr></thead><tbody><tr><td>状态</td><td>对象在某一时刻的条件</td><td>待支付、已发货</td></tr><tr><td>事件</td><td>触发状态变化的动作</td><td>支付成功、发货</td></tr><tr><td>转换</td><td>状态之间的变迁</td><td>待支付 → 已支付</td></tr></tbody></table><h3 id=32-实战案例订单状态图>3.2 实战案例：订单状态图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                            订单状态图
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>         ┌─────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>         │                                                     │
+</span></span><span class=line><span class=cl>         ▼                                                     │
+</span></span><span class=line><span class=cl>      (创建订单)                                                 │
+</span></span><span class=line><span class=cl>         │                                                     │
+</span></span><span class=line><span class=cl>    创建订单│                                                     │
+</span></span><span class=line><span class=cl>         │                                                     │
+</span></span><span class=line><span class=cl>         ▼                                                     │
+</span></span><span class=line><span class=cl>    ┌─────────┐         支付成功          ┌─────────┐          │
+</span></span><span class=line><span class=cl>    │         │─────────────────────────►│         │          │
+</span></span><span class=line><span class=cl>    │ 待支付   │                          │  已支付  │          │
+</span></span><span class=line><span class=cl>    │         │◄─────────────────────────│         │          │
+</span></span><span class=line><span class=cl>    └─────────┘        支付失败/取消       └─────────┘          │
+</span></span><span class=line><span class=cl>         │                                   │                 │
+</span></span><span class=line><span class=cl>    取消订单│                              发货│                 │
+</span></span><span class=line><span class=cl>         │                                   │                 │
+</span></span><span class=line><span class=cl>         ▼                                   ▼                 │
+</span></span><span class=line><span class=cl>    ┌─────────┐                        ┌─────────┐             │
+</span></span><span class=line><span class=cl>    │         │                        │         │             │
+</span></span><span class=line><span class=cl>    │ 已取消   │                        │ 已发货   │             │
+</span></span><span class=line><span class=cl>    │         │                        │         │             │
+</span></span><span class=line><span class=cl>    └─────────┘                        └─────────┘             │
+</span></span><span class=line><span class=cl>         │                                   │                 │
+</span></span><span class=line><span class=cl>         │                              确认收货│                 │
+</span></span><span class=line><span class=cl>         │                                   │                 │
+</span></span><span class=line><span class=cl>         │                                   ▼                 │
+</span></span><span class=line><span class=cl>         │                             ┌─────────┐             │
+</span></span><span class=line><span class=cl>         │                             │         │             │
+</span></span><span class=line><span class=cl>         │                             │ 已完成   │             │
+</span></span><span class=line><span class=cl>         │                             │         │             │
+</span></span><span class=line><span class=cl>         │                             └─────────┘             │
+</span></span><span class=line><span class=cl>         │                                   │                 │
+</span></span><span class=line><span class=cl>         │                              申请退款│                 │
+</span></span><span class=line><span class=cl>         │                                   │                 │
+</span></span><span class=line><span class=cl>         │                                   ▼                 │
+</span></span><span class=line><span class=cl>         │                             ┌─────────┐             │
+</span></span><span class=line><span class=cl>         │                             │         │             │
+</span></span><span class=line><span class=cl>         │                             │ 退款中   │             │
+</span></span><span class=line><span class=cl>         │                             │         │             │
+</span></span><span class=line><span class=cl>         │                             └─────────┘             │
+</span></span><span class=line><span class=cl>         │                                   │                 │
+</span></span><span class=line><span class=cl>         │                              退款完成│                 │
+</span></span><span class=line><span class=cl>         │                                   │                 │
+</span></span><span class=line><span class=cl>         │                                   ▼                 │
+</span></span><span class=line><span class=cl>         │                             ┌─────────┐             │
+</span></span><span class=line><span class=cl>         │                             │         │◄────────────┘
+</span></span><span class=line><span class=cl>         └────────────────────────────►│ 已退款   │
+</span></span><span class=line><span class=cl>                                       │         │
+</span></span><span class=line><span class=cl>                                       └─────────┘
+</span></span><span class=line><span class=cl>                                            │
+</span></span><span class=line><span class=cl>                                       结束 │
+</span></span><span class=line><span class=cl>                                            ▼
+</span></span><span class=line><span class=cl>                                           (●)
+</span></span></code></pre></div><h3 id=33-状态图绘制要点>3.3 状态图绘制要点</h3><p><strong>Q2: 哪些对象需要画状态图？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>需要状态图的对象特征:
+</span></span><span class=line><span class=cl>  1. 有明确的生命周期
+</span></span><span class=line><span class=cl>  2. 状态数量有限且重要
+</span></span><span class=line><span class=cl>  3. 状态变化由事件触发
+</span></span><span class=line><span class=cl>  4. 不同状态下行为不同
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>适合画状态图的例子:
+</span></span><span class=line><span class=cl>  ✓ 订单 (待支付/已支付/已发货/已完成...)
+</span></span><span class=line><span class=cl>  ✓ 文档 (草稿/审核中/已发布/已归档)
+</span></span><span class=line><span class=cl>  ✓ 工单 (待处理/处理中/已解决/已关闭)
+</span></span><span class=line><span class=cl>  ✓ 用户 (未激活/正常/冻结/注销)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>不适合画状态图的例子:
+</span></span><span class=line><span class=cl>  ✗ 简单的DTO对象 (纯数据容器)
+</span></span><span class=line><span class=cl>  ✗ 工具类 (无状态)
+</span></span></code></pre></div><p><strong>状态内部结构：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│          状态名称                    │
+</span></span><span class=line><span class=cl>├─────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│  entry / 进入动作 (entry动作)         │
+</span></span><span class=line><span class=cl>│  do   / 内部活动 (持续执行)            │
+</span></span><span class=line><span class=cl>│  exit / 退出动作 (exit动作)            │
+</span></span><span class=line><span class=cl>├─────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│  内部转换:                           │
+</span></span><span class=line><span class=cl>│    event [条件] / 动作               │
+</span></span><span class=line><span class=cl>│    (不触发entry/exit)                │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>示例:
+</span></span><span class=line><span class=cl>┌─────────────────────────┐
+</span></span><span class=line><span class=cl>│        已发货            │
+</span></span><span class=line><span class=cl>├─────────────────────────┤
+</span></span><span class=line><span class=cl>│  entry / 发送短信通知     │
+</span></span><span class=line><span class=cl>│  do   / 物流跟踪         │
+</span></span><span class=line><span class=cl>│  exit / 更新完成时间      │
+</span></span><span class=line><span class=cl>└─────────────────────────┘
+</span></span></code></pre></div><hr><h2 id=四活动图activity-diagram>四、活动图（Activity Diagram）</h2><h3 id=41-核心概念>4.1 核心概念</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>活动图: 描述业务流程或算法流程，强调活动之间的顺序与并发
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>基本元素:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  ●──────────►(活动1)──────────►(活动2)──────────►●
+</span></span><span class=line><span class=cl>  开始节点      活动节点      决策节点        结束节点
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  ┌─────────────┐                ┌─────────────┐
+</span></span><span class=line><span class=cl>  │  分叉条      │  (并发开始)    │   汇合条     │  (并发结束)
+</span></span><span class=line><span class=cl>  │  ─────      │                │  ─────      │
+</span></span><span class=line><span class=cl>  └─────────────┘                └─────────────┘
+</span></span></code></pre></div><h3 id=42-实战案例订单处理活动图>4.2 实战案例：订单处理活动图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                           订单处理流程
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>                    ●
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>           ┌────────────────┐
+</span></span><span class=line><span class=cl>           │   创建订单      │
+</span></span><span class=line><span class=cl>           └────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>           ┌────────────────┐
+</span></span><span class=line><span class=cl>           │  检查库存       │
+</span></span><span class=line><span class=cl>           └────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ◇
+</span></span><span class=line><span class=cl>           ┌───────┴───────┐
+</span></span><span class=line><span class=cl>           │               │
+</span></span><span class=line><span class=cl>       [库存充足]      [库存不足]
+</span></span><span class=line><span class=cl>           │               │
+</span></span><span class=line><span class=cl>           ▼               ▼
+</span></span><span class=line><span class=cl>           │       ┌────────────────┐
+</span></span><span class=line><span class=cl>           │       │  通知缺货       │
+</span></span><span class=line><span class=cl>           │       └────────────────┘
+</span></span><span class=line><span class=cl>           │               │
+</span></span><span class=line><span class=cl>           │               ▼
+</span></span><span class=line><span class=cl>           │               ●
+</span></span><span class=line><span class=cl>           │              (结束)
+</span></span><span class=line><span class=cl>           │
+</span></span><span class=line><span class=cl>           ▼
+</span></span><span class=line><span class=cl>           ┌────────────────┐
+</span></span><span class=line><span class=cl>           │  锁定库存       │
+</span></span><span class=line><span class=cl>           └────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>           ┌────────────────┐
+</span></span><span class=line><span class=cl>           │   用户支付      │
+</span></span><span class=line><span class=cl>           └────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ◇
+</span></span><span class=line><span class=cl>           ┌───────┴───────┐
+</span></span><span class=line><span class=cl>           │               │
+</span></span><span class=line><span class=cl>       [支付成功]      [支付失败]
+</span></span><span class=line><span class=cl>           │               │
+</span></span><span class=line><span class=cl>           │               ▼
+</span></span><span class=line><span class=cl>           │       ┌────────────────┐
+</span></span><span class=line><span class=cl>           │       │  释放库存       │
+</span></span><span class=line><span class=cl>           │       └────────────────┘
+</span></span><span class=line><span class=cl>           │               │
+</span></span><span class=line><span class=cl>           │               ▼
+</span></span><span class=line><span class=cl>           │               ●
+</span></span><span class=line><span class=cl>           │              (结束)
+</span></span><span class=line><span class=cl>           │
+</span></span><span class=line><span class=cl>           ▼
+</span></span><span class=line><span class=cl>           ─────┬─────
+</span></span><span class=line><span class=cl>                │        ← 分叉 (并发)
+</span></span><span class=line><span class=cl>          ┌─────┴─────┐
+</span></span><span class=line><span class=cl>          ▼           ▼
+</span></span><span class=line><span class=cl>   ┌──────────┐ ┌──────────┐
+</span></span><span class=line><span class=cl>   │ 扣减库存  │ │ 生成发货单 │
+</span></span><span class=line><span class=cl>   └──────────┘ └──────────┘
+</span></span><span class=line><span class=cl>          │           │
+</span></span><span class=line><span class=cl>          └─────┬─────┘
+</span></span><span class=line><span class=cl>                │        ← 汇合
+</span></span><span class=line><span class=cl>                ▼
+</span></span><span class=line><span class=cl>           ─────────────
+</span></span><span class=line><span class=cl>           ┌────────────────┐
+</span></span><span class=line><span class=cl>           │    发货         │
+</span></span><span class=line><span class=cl>           └────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>                    ●
+</span></span><span class=line><span class=cl>                  (结束)
+</span></span></code></pre></div><h3 id=43-活动图绘制要点>4.3 活动图绘制要点</h3><p><strong>活动图vs流程图：</strong></p><table><thead><tr><th>对比维度</th><th>活动图</th><th>流程图</th></tr></thead><tbody><tr><td>抽象层次</td><td>面向对象，可关联对象</td><td>面向过程</td></tr><tr><td>并发支持</td><td>支持分叉/汇合</td><td>不支持</td></tr><tr><td>泳道</td><td>支持划分责任区域</td><td>无</td></tr><tr><td>复杂度</td><td>更适合复杂业务流程</td><td>简单流程即可</td></tr></tbody></table><p><strong>泳道（Swimlane）示例：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  用户      │    系统      │    库存服务   │   支付服务    │
+</span></span><span class=line><span class=cl>├────────────┼─────────────┼──────────────┼──────────────┤
+</span></span><span class=line><span class=cl>│            │             │              │              │
+</span></span><span class=line><span class=cl>│  下单      │             │              │              │
+</span></span><span class=line><span class=cl>│─────┼──────►             │              │              │
+</span></span><span class=line><span class=cl>│            │  检查库存   │              │              │
+</span></span><span class=line><span class=cl>│            │─────┼───────►              │              │
+</span></span><span class=line><span class=cl>│            │             │  返回结果    │              │
+</span></span><span class=line><span class=cl>│            │◄────┼────────              │              │
+</span></span><span class=line><span class=cl>│            │             │              │              │
+</span></span><span class=line><span class=cl>│            │  发起支付   │              │              │
+</span></span><span class=line><span class=cl>│            │─────┼──────────────────────►              │
+</span></span><span class=line><span class=cl>│            │             │              │  处理支付   │
+</span></span><span class=line><span class=cl>│            │◄────┼──────────────────────              │
+</span></span><span class=line><span class=cl>│            │             │              │              │
+</span></span><span class=line><span class=cl>│  支付结果  │             │              │              │
+</span></span><span class=line><span class=cl>│◄────┼──────             │              │              │
+</span></span><span class=line><span class=cl>│            │             │              │              │
+</span></span><span class=line><span class=cl>└────────────┴─────────────┴──────────────┴──────────────┘
+</span></span></code></pre></div><hr><h2 id=五三种图的关系与选择>五、三种图的关系与选择</h2><h3 id=51-三种图对比>5.1 三种图对比</h3><table><thead><tr><th>图类型</th><th>关注点</th><th>适用场景</th><th>时间维度</th></tr></thead><tbody><tr><td>时序图</td><td>对象交互顺序</td><td>分析用例实现、接口设计</td><td>单次交互流程</td></tr><tr><td>状态图</td><td>对象生命周期</td><td>分析核心实体的状态变化</td><td>对象生命全周期</td></tr><tr><td>活动图</td><td>业务流程流转</td><td>分析业务规则、工作流</td><td>完整业务流程</td></tr></tbody></table><p><strong>Q3: 什么时候用哪种图？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>场景决策:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>需要分析&#34;用户下单&#34;用例如何实现:
+</span></span><span class=line><span class=cl>  → 时序图 (展示各对象协作顺序)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>需要分析&#34;订单&#34;对象的状态变化:
+</span></span><span class=line><span class=cl>  → 状态图 (订单从创建到完成/取消的全生命周期)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>需要分析&#34;订单处理&#34;完整业务流程:
+</span></span><span class=line><span class=cl>  → 活动图 (包含库存、支付、物流等完整流程)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>综合分析复杂系统:
+</span></span><span class=line><span class=cl>  → 结合使用，互为补充
+</span></span></code></pre></div><h3 id=52-从用例到动态模型>5.2 从用例到动态模型</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用例驱动建模流程:
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  用例图
+</span></span><span class=line><span class=cl>     │
+</span></span><span class=line><span class=cl>     ▼
+</span></span><span class=line><span class=cl>  用例规约 (前置条件、后置条件、基本流程、扩展流程)
+</span></span><span class=line><span class=cl>     │
+</span></span><span class=line><span class=cl>     ▼
+</span></span><span class=line><span class=cl>  ┌───────────────────────────────────────┐
+</span></span><span class=line><span class=cl>  │  动态建模 (三种图)                       │
+</span></span><span class=line><span class=cl>  │                                       │
+</span></span><span class=line><span class=cl>  │   基本流程 → 活动图 (业务流程)          │
+</span></span><span class=line><span class=cl>  │   交互过程 → 时序图 (对象协作)          │
+</span></span><span class=line><span class=cl>  │   状态变化 → 状态图 (实体生命周期)      │
+</span></span><span class=line><span class=cl>  └───────────────────────────────────────┘
+</span></span><span class=line><span class=cl>     │
+</span></span><span class=line><span class=cl>     ▼
+</span></span><span class=line><span class=cl>  静态建模 (类图优化)
+</span></span></code></pre></div><hr><h2 id=六实战案例atm取款动态建模>六、实战案例：ATM取款动态建模</h2><h3 id=61-时序图取款成功>6.1 时序图：取款成功</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌────────┐    ┌────────┐    ┌────────┐    ┌────────┐    ┌────────┐
+</span></span><span class=line><span class=cl>│  用户   │    │ ATM界面 │    │ATM控制器│    │银行服务 │    │ 账户   │
+</span></span><span class=line><span class=cl>└───┬────┘    └───┬────┘    └───┬────┘    └───┬────┘    └───┬────┘
+</span></span><span class=line><span class=cl>    │             │              │              │              │
+</span></span><span class=line><span class=cl>    │插卡          │              │              │              │
+</span></span><span class=line><span class=cl>    │────────────►│              │              │              │
+</span></span><span class=line><span class=cl>    │             │ 读卡         │              │              │
+</span></span><span class=line><span class=cl>    │             │─────────────►│              │              │
+</span></span><span class=line><span class=cl>    │             │              │ 验证卡片      │              │
+</span></span><span class=line><span class=cl>    │             │              │─────────────►│              │
+</span></span><span class=line><span class=cl>    │             │              │              │ 查询账户      │
+</span></span><span class=line><span class=cl>    │             │              │              │─────────────►│
+</span></span><span class=line><span class=cl>    │             │              │              │◄─────────────│
+</span></span><span class=line><span class=cl>    │             │              │              │ 返回账户信息  │
+</span></span><span class=line><span class=cl>    │             │              │◄─────────────│              │
+</span></span><span class=line><span class=cl>    │             │              │ 要求输入密码  │              │
+</span></span><span class=line><span class=cl>    │             │◄─────────────│              │              │
+</span></span><span class=line><span class=cl>    │             请输入密码      │              │              │
+</span></span><span class=line><span class=cl>    │◄────────────│              │              │              │
+</span></span><span class=line><span class=cl>    │             │              │              │              │
+</span></span><span class=line><span class=cl>    │ 输入密码     │              │              │              │
+</span></span><span class=line><span class=cl>    │────────────►│              │              │              │
+</span></span><span class=line><span class=cl>    │             │ 验证密码     │              │              │
+</span></span><span class=line><span class=cl>    │             │─────────────►│              │              │
+</span></span><span class=line><span class=cl>    │             │              │ 验证密码     │              │
+</span></span><span class=line><span class=cl>    │             │              │─────────────►│              │
+</span></span><span class=line><span class=cl>    │             │              │◄─────────────│              │
+</span></span><span class=line><span class=cl>    │             │              │ 密码正确      │              │
+</span></span><span class=line><span class=cl>    │             │◄─────────────│              │              │
+</span></span><span class=line><span class=cl>    │             │ 选择取款金额  │              │              │
+</span></span><span class=line><span class=cl>    │◄────────────│              │              │              │
+</span></span><span class=line><span class=cl>    │             │              │              │              │
+</span></span><span class=line><span class=cl>    │ 选择金额     │              │              │              │
+</span></span><span class=line><span class=cl>    │────────────►│              │              │              │
+</span></span><span class=line><span class=cl>    │             │ 取款请求      │              │              │
+</span></span><span class=line><span class=cl>    │             │─────────────►│              │              │
+</span></span><span class=line><span class=cl>    │             │              │ 扣款请求      │              │
+</span></span><span class=line><span class=cl>    │             │              │─────────────►│              │
+</span></span><span class=line><span class=cl>    │             │              │              │ 扣减余额      │
+</span></span><span class=line><span class=cl>    │             │              │              │─────────────►│
+</span></span><span class=line><span class=cl>    │             │              │              │◄─────────────│
+</span></span><span class=line><span class=cl>    │             │              │              │ 扣款成功      │
+</span></span><span class=line><span class=cl>    │             │              │◄─────────────│              │
+</span></span><span class=line><span class=cl>    │             │              │ 出钞指令      │              │
+</span></span><span class=line><span class=cl>    │             │◄─────────────│              │              │
+</span></span><span class=line><span class=cl>    │             │              │              │              │
+</span></span><span class=line><span class=cl>    │ 取钞         │              │              │              │
+</span></span><span class=line><span class=cl>    │◄────────────│              │              │              │
+</span></span></code></pre></div><h3 id=62-状态图atm会话状态>6.2 状态图：ATM会话状态</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                    ATM会话状态图
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>          ○
+</span></span><span class=line><span class=cl>          │
+</span></span><span class=line><span class=cl>     插卡 │
+</span></span><span class=line><span class=cl>          ▼
+</span></span><span class=line><span class=cl>    ┌───────────┐
+</span></span><span class=line><span class=cl>    │           │
+</span></span><span class=line><span class=cl>    │  空闲      │◄─────────────────────────┐
+</span></span><span class=line><span class=cl>    │           │                          │
+</span></span><span class=line><span class=cl>    └───────────┘                          │
+</span></span><span class=line><span class=cl>          │                                │
+</span></span><span class=line><span class=cl>     插卡成功│                                │
+</span></span><span class=line><span class=cl>          ▼                                │
+</span></span><span class=line><span class=cl>    ┌───────────┐                          │
+</span></span><span class=line><span class=cl>    │           │                          │
+</span></span><span class=line><span class=cl>    │  验证卡号  │                          │
+</span></span><span class=line><span class=cl>    │           │                          │
+</span></span><span class=line><span class=cl>    └───────────┘                          │
+</span></span><span class=line><span class=cl>          │                                │
+</span></span><span class=line><span class=cl>     卡号有效│     卡号无效                   │
+</span></span><span class=line><span class=cl>          ▼          │                     │
+</span></span><span class=line><span class=cl>    ┌───────────┐    │                     │
+</span></span><span class=line><span class=cl>    │           │    │                     │
+</span></span><span class=line><span class=cl>    │  输入密码  │    │     退卡              │
+</span></span><span class=line><span class=cl>    │           │    │     ┌──────────┐     │
+</span></span><span class=line><span class=cl>    └───────────┘    └────►│          │─────┘
+</span></span><span class=line><span class=cl>          │                │  退卡中   │
+</span></span><span class=line><span class=cl>     密码正确│                │          │
+</span></span><span class=line><span class=cl>          ▼                └──────────┘
+</span></span><span class=line><span class=cl>    ┌───────────┐
+</span></span><span class=line><span class=cl>    │           │
+</span></span><span class=line><span class=cl>    │  选择操作  │◄──────────────────────────┐
+</span></span><span class=line><span class=cl>    │           │                           │
+</span></span><span class=line><span class=cl>    └───────────┘                           │
+</span></span><span class=line><span class=cl>          │                                 │
+</span></span><span class=line><span class=cl>     选择取款│     选择查询/其他               │
+</span></span><span class=line><span class=cl>          ▼          │                      │
+</span></span><span class=line><span class=cl>    ┌───────────┐    │                      │
+</span></span><span class=line><span class=cl>    │           │    │     完成操作          │
+</span></span><span class=line><span class=cl>    │  取款金额  │    │     ┌──────────┐      │
+</span></span><span class=line><span class=cl>    │           │    └────►│          │──────┘
+</span></span><span class=line><span class=cl>    └───────────┘          │  操作完成  │
+</span></span><span class=line><span class=cl>          │                │          │
+</span></span><span class=line><span class=cl>     确认取款│                └──────────┘
+</span></span><span class=line><span class=cl>          ▼
+</span></span><span class=line><span class=cl>    ┌───────────┐
+</span></span><span class=line><span class=cl>    │           │
+</span></span><span class=line><span class=cl>    │  出钞中    │
+</span></span><span class=line><span class=cl>    │           │
+</span></span><span class=line><span class=cl>    └───────────┘
+</span></span><span class=line><span class=cl>          │
+</span></span><span class=line><span class=cl>     取钞完成│
+</span></span><span class=line><span class=cl>          ▼
+</span></span><span class=line><span class=cl>    ┌───────────┐
+</span></span><span class=line><span class=cl>    │           │
+</span></span><span class=line><span class=cl>    │  打印凭条  │
+</span></span><span class=line><span class=cl>    │           │
+</span></span><span class=line><span class=cl>    └───────────┘
+</span></span><span class=line><span class=cl>          │
+</span></span><span class=line><span class=cl>     凭条打印完成│
+</span></span><span class=line><span class=cl>          ▼
+</span></span><span class=line><span class=cl>    ┌───────────┐
+</span></span><span class=line><span class=cl>    │           │
+</span></span><span class=line><span class=cl>    │  退卡中    │
+</span></span><span class=line><span class=cl>    │           │
+</span></span><span class=line><span class=cl>    └───────────┘
+</span></span><span class=line><span class=cl>          │
+</span></span><span class=line><span class=cl>     卡已退出│
+</span></span><span class=line><span class=cl>          ▼
+</span></span><span class=line><span class=cl>          ●
+</span></span></code></pre></div><hr><h2 id=七总结>七、总结</h2><table><thead><tr><th>动态模型</th><th>核心要素</th><th>绘制要点</th></tr></thead><tbody><tr><td>时序图</td><td>对象、生命线、消息、激活框</td><td>保持时间顺序、标注关键返回值</td></tr><tr><td>状态图</td><td>状态、事件、转换、动作</td><td>识别核心实体、覆盖完整生命周期</td></tr><tr><td>活动图</td><td>活动、决策、分叉/汇合、泳道</td><td>划分责任边界、处理并发与异常</td></tr></tbody></table><p><strong>动态建模三原则：</strong></p><ol><li><strong>以用例为起点</strong>：每个用例至少对应一张时序图</li><li><strong>关注核心实体</strong>：只为有复杂状态的对象画状态图</li><li><strong>保持一致性</strong>：三种图与类图互相验证</li></ol><hr><blockquote><p>🎯 <strong>本文是系统分析与设计系列第二篇动态建模文章。</strong> 时序图展示交互，状态图描述生命周期，活动图刻画流程——三者结合，完成系统的动态行为建模。</p></blockquote><blockquote><p>📌 <strong>下期预告</strong>：《系统设计模式实战（三）》将从系统设计视角出发，深入工厂、策略、观察者等经典设计模式在实际项目中的应用场景与实现细节，敬请期待！</p></blockquote></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E7%B3%BB%E7%BB%9F%E9%9D%99%E6%80%81%E5%88%86%E6%9E%90%E5%BB%BA%E6%A8%A1%E4%B8%80/><span>← 上一篇</span><strong>系统静态分析建模(一)</strong></a>
 <a class=next href=/posts/%E7%B3%BB%E7%BB%9F%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%AE%9E%E6%88%98%E4%B8%89/><span>下一篇 →</span><strong>系统设计模式实战（三）</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/%E7%B3%BB%E7%BB%9F%E5%88%86%E6%9E%90%E4%B8%8E%E8%AE%BE%E8%AE%A1%E5%8D%81%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B%E4%B8%8E%E6%9E%B6%E6%9E%84%E5%86%B3%E7%AD%96%E5%AE%9E%E6%88%98/><span>2026-08-07</span><strong>系统分析与设计（十）——技术选型与架构决策实战</strong><p>🎯 本文目标：作为系统分析与设计系列的综合收官之作，从技术选型的系统性方法论出发，深入讲解如何评估技术方案、做出架构决策，涵盖TRIZ创新算法、成本效益分析、风险矩阵、多标准决策矩 …</p></a><a href=/posts/%E7%B3%BB%E7%BB%9F%E5%88%86%E6%9E%90%E4%B8%8E%E8%AE%BE%E8%AE%A1%E4%B9%9D%E6%8C%81%E7%BB%AD%E4%BA%A4%E4%BB%98%E4%B8%8Edevops%E5%AE%9E%E8%B7%B5/><span>2026-06-26</span><strong>系统分析与设计（九）——持续交付与DevOps实践</strong><p>🎯 本文目标：作为系统分析与设计系列的收官之作，系统讲解从代码提交到生产上线的全自动化流水线设计，涵盖CI/CD核心实践、容器化与Kubernetes编排、GitOps声明式部署、 …</p></a><a href=/posts/%E7%B3%BB%E7%BB%9F%E5%88%86%E6%9E%90%E4%B8%8E%E8%AE%BE%E8%AE%A1%E5%85%AB%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E4%B8%8E%E6%8A%80%E6%9C%AF%E5%80%BA%E5%8A%A1%E7%AE%A1%E7%90%86/><span>2026-06-26</span><strong>系统分析与设计（八）——系统重构与技术债务管理</strong><p>🎯 本文目标：从系统演进的视角，深入探讨技术债务的识别、量化与管理，系统讲解重构策略（绞杀者模式/修缮者模式/童子军规则）、代码坏味道检测与自动化治理、遗留系统现代化改造的完整路 …</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9A%E7%B3%BB%E7%BB%9F%E5%8A%A8%E6%80%81%E8%A1%8C%E4%B8%BA%E5%BB%BA%E6%A8%A1%EF%BC%88%E4%BA%8C%EF%BC%89" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一动态建模概述>一、动态建模概述</a><ul><li><a href=#11-静态与动态的关系>1.1 静态与动态的关系</a></li></ul></li><li><a href=#二时序图sequence-diagram>二、时序图（Sequence Diagram）</a><ul><li><a href=#21-核心概念>2.1 核心概念</a></li><li><a href=#22-实战案例用户登录时序图>2.2 实战案例：用户登录时序图</a></li><li><a href=#23-时序图绘制要点>2.3 时序图绘制要点</a></li></ul></li><li><a href=#三状态图state-chart-diagram>三、状态图（State Chart Diagram）</a><ul><li><a href=#31-核心概念>3.1 核心概念</a></li><li><a href=#32-实战案例订单状态图>3.2 实战案例：订单状态图</a></li><li><a href=#33-状态图绘制要点>3.3 状态图绘制要点</a></li></ul></li><li><a href=#四活动图activity-diagram>四、活动图（Activity Diagram）</a><ul><li><a href=#41-核心概念>4.1 核心概念</a></li><li><a href=#42-实战案例订单处理活动图>4.2 实战案例：订单处理活动图</a></li><li><a href=#43-活动图绘制要点>4.3 活动图绘制要点</a></li></ul></li><li><a href=#五三种图的关系与选择>五、三种图的关系与选择</a><ul><li><a href=#51-三种图对比>5.1 三种图对比</a></li><li><a href=#52-从用例到动态模型>5.2 从用例到动态模型</a></li></ul></li><li><a href=#六实战案例atm取款动态建模>六、实战案例：ATM取款动态建模</a><ul><li><a href=#61-时序图取款成功>6.1 时序图：取款成功</a></li><li><a href=#62-状态图atm会话状态>6.2 状态图：ATM会话状态</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
 <a href=mailto:liyafei.work@foxmail.com>邮箱</a>
 <a href=/index.xml>RSS</a>

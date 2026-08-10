@@ -45,23 +45,23 @@
 </span></span><span class=line><span class=cl>        <span class=o>}</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>核心业务逻辑只占3行，剩下80%都是横切关注点代码</strong> → 这就是AOP要解决的问题。</p><p><strong>AOP的核心思想：</strong></p><pre tabindex=0><code>横切关注点（Cross-cutting Concerns）：
-┌─────────────────────────────────────────────────┐
-│  日志    安全    事务    性能监控    异常处理      │  ← 散落在所有方法中
-└─────────────────────────────────────────────────┘
-         ↓ AOP把它们抽离成&#34;切面&#34;集中管理
-
-┌─────────────────────────────────────────────────┐
-│                 业务逻辑（纯粹！）                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
-│  │ 创建订单  │  │ 取消订单  │  │ 查询订单  │      │
-│  └──────────┘  └──────────┘  └──────────┘      │
-└─────────────────────────────────────────────────┘
-         ↑ 切面在适当的时机织入
-┌─────────────────────────────────────────────────┐
-│  日志切面    安全切面    事务切面    监控切面       │
-└─────────────────────────────────────────────────┘
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 有AOP：业务代码前所未有的干净
+</span></span></code></pre></div><p><strong>核心业务逻辑只占3行，剩下80%都是横切关注点代码</strong> → 这就是AOP要解决的问题。</p><p><strong>AOP的核心思想：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>横切关注点（Cross-cutting Concerns）：
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  日志    安全    事务    性能监控    异常处理      │  ← 散落在所有方法中
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>         ↓ AOP把它们抽离成&#34;切面&#34;集中管理
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                 业务逻辑（纯粹！）                  │
+</span></span><span class=line><span class=cl>│  ┌──────────┐  ┌──────────┐  ┌──────────┐      │
+</span></span><span class=line><span class=cl>│  │ 创建订单  │  │ 取消订单  │  │ 查询订单  │      │
+</span></span><span class=line><span class=cl>│  └──────────┘  └──────────┘  └──────────┘      │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>         ↑ 切面在适当的时机织入
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  日志切面    安全切面    事务切面    监控切面       │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────┘
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 有AOP：业务代码前所未有的干净
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Service</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>OrderService</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
@@ -75,27 +75,27 @@
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=c1>// 日志和性能监控通过全局切面统一处理，一行注解都不用加！
-</span></span></span></code></pre></div><h3 id=12-aop核心概念>1.2 AOP核心概念</h3><table><thead><tr><th>概念</th><th>说明</th><th>生活类比</th></tr></thead><tbody><tr><td><strong>切面（Aspect）</strong></td><td>横切关注点的模块化类</td><td>&ldquo;安全检查规范手册&rdquo;</td></tr><tr><td><strong>连接点（Join Point）</strong></td><td>程序执行过程中的某个点</td><td>&ldquo;进入每个房间的门口&rdquo;</td></tr><tr><td><strong>切入点（Pointcut）</strong></td><td>匹配连接点的表达式</td><td>&ldquo;所有VIP房间的门口&rdquo;</td></tr><tr><td><strong>通知（Advice）</strong></td><td>在切入点执行的动作</td><td>&ldquo;在VIP门口进行安检&rdquo;</td></tr><tr><td><strong>目标对象（Target）</strong></td><td>被代理的原始对象</td><td>&ldquo;VIP房间的客人&rdquo;</td></tr><tr><td><strong>织入（Weaving）</strong></td><td>将切面应用到目标对象的过程</td><td>&ldquo;把安检规范应用于每个VIP房间&rdquo;</td></tr></tbody></table><pre tabindex=0><code>一个典型的切面：
-
-@Aspect          ← 这是一个切面
-@Component
-public class SecurityAspect {
-    
-    @Before(&#34;execution(* com.example.service..*(..))&#34;)  ← 切入点是service包下所有方法
-    public void checkPermission(JoinPoint joinPoint) {        ← 通知：在方法执行前
-        // 检查权限的逻辑
-    }
-}
-
-织入后的效果：
-┌──────────────────────────────────────┐
-│  checkPermission()  ← 切面逻辑      │
-│  ─────────────────────              │
-│  原始业务方法()        ← 目标对象     │
-│  ─────────────────────              │
-│  记录日志()           ← 另一个切面   │
-└──────────────────────────────────────┘
-</code></pre><hr><h2 id=二代理机制jdk动态代理-vs-cglib>二、代理机制——JDK动态代理 vs CGLIB</h2><h3 id=21-jdk动态代理>2.1 JDK动态代理</h3><p><strong>Q: JDK动态代理的原理是什么？有什么限制？</strong></p><p><strong>核心类</strong>：<code>java.lang.reflect.Proxy</code> + <code>InvocationHandler</code></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 步骤1：定义接口（JDK代理的前提——必须要有接口！）
+</span></span></span></code></pre></div><h3 id=12-aop核心概念>1.2 AOP核心概念</h3><table><thead><tr><th>概念</th><th>说明</th><th>生活类比</th></tr></thead><tbody><tr><td><strong>切面（Aspect）</strong></td><td>横切关注点的模块化类</td><td>&ldquo;安全检查规范手册&rdquo;</td></tr><tr><td><strong>连接点（Join Point）</strong></td><td>程序执行过程中的某个点</td><td>&ldquo;进入每个房间的门口&rdquo;</td></tr><tr><td><strong>切入点（Pointcut）</strong></td><td>匹配连接点的表达式</td><td>&ldquo;所有VIP房间的门口&rdquo;</td></tr><tr><td><strong>通知（Advice）</strong></td><td>在切入点执行的动作</td><td>&ldquo;在VIP门口进行安检&rdquo;</td></tr><tr><td><strong>目标对象（Target）</strong></td><td>被代理的原始对象</td><td>&ldquo;VIP房间的客人&rdquo;</td></tr><tr><td><strong>织入（Weaving）</strong></td><td>将切面应用到目标对象的过程</td><td>&ldquo;把安检规范应用于每个VIP房间&rdquo;</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>一个典型的切面：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>@Aspect          ← 这是一个切面
+</span></span><span class=line><span class=cl>@Component
+</span></span><span class=line><span class=cl>public class SecurityAspect {
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    @Before(&#34;execution(* com.example.service..*(..))&#34;)  ← 切入点是service包下所有方法
+</span></span><span class=line><span class=cl>    public void checkPermission(JoinPoint joinPoint) {        ← 通知：在方法执行前
+</span></span><span class=line><span class=cl>        // 检查权限的逻辑
+</span></span><span class=line><span class=cl>    }
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>织入后的效果：
+</span></span><span class=line><span class=cl>┌──────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  checkPermission()  ← 切面逻辑      │
+</span></span><span class=line><span class=cl>│  ─────────────────────              │
+</span></span><span class=line><span class=cl>│  原始业务方法()        ← 目标对象     │
+</span></span><span class=line><span class=cl>│  ─────────────────────              │
+</span></span><span class=line><span class=cl>│  记录日志()           ← 另一个切面   │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────┘
+</span></span></code></pre></div><hr><h2 id=二代理机制jdk动态代理-vs-cglib>二、代理机制——JDK动态代理 vs CGLIB</h2><h3 id=21-jdk动态代理>2.1 JDK动态代理</h3><p><strong>Q: JDK动态代理的原理是什么？有什么限制？</strong></p><p><strong>核心类</strong>：<code>java.lang.reflect.Proxy</code> + <code>InvocationHandler</code></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 步骤1：定义接口（JDK代理的前提——必须要有接口！）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>interface</span> <span class=nc>UserService</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>save</span><span class=o>(</span><span class=n>User</span> <span class=n>user</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=n>User</span> <span class=nf>findById</span><span class=o>(</span><span class=n>Long</span> <span class=n>id</span><span class=o>);</span>
@@ -130,21 +130,21 @@ public class SecurityAspect {
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>new</span> <span class=n>LogInvocationHandler</span><span class=o>(</span><span class=n>target</span><span class=o>)</span>     <span class=c1>// 调用处理器
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=o>);</span>
 </span></span><span class=line><span class=cl><span class=n>proxy</span><span class=o>.</span><span class=na>save</span><span class=o>(</span><span class=k>new</span> <span class=n>User</span><span class=o>());</span> <span class=c1>// 实际调用的是invoke()方法
-</span></span></span></code></pre></div><p><strong>JDK动态代理工作原理：</strong></p><pre tabindex=0><code>运行时动态生成代理类（$Proxy0）：
-
-public final class $Proxy0 extends Proxy implements UserService {
-    
-    public void save(User user) {
-        // 调用 InvocationHandler.invoke()
-        super.h.invoke(this, m3, new Object[]{user});
-    }
-    
-    // m3 是在静态代码块中通过反射获取的Method对象
-    static {
-        m3 = Class.forName(&#34;com.example.UserService&#34;).getMethod(&#34;save&#34;, User.class);
-    }
-}
-</code></pre><p><strong>JDK代理的限制</strong>：</p><ul><li>❌ <strong>必须有接口</strong>（基于接口代理）</li><li>❌ 只能代理接口中定义的方法</li><li>✅ JDK自带，无需第三方依赖</li><li>✅ 代理对象的性能好（直接方法调用）</li></ul><h3 id=22-cglib动态代理>2.2 CGLIB动态代理</h3><p><strong>Q: CGLIB和JDK代理有什么区别？Spring如何选择？</strong></p><p><strong>CGLIB（Code Generation Library）<strong>是基于ASM字节码框架的代理实现，通过</strong>生成目标类的子类</strong>来实现代理。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// CGLIB不需要接口！可以直接代理类
+</span></span></span></code></pre></div><p><strong>JDK动态代理工作原理：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>运行时动态生成代理类（$Proxy0）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>public final class $Proxy0 extends Proxy implements UserService {
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    public void save(User user) {
+</span></span><span class=line><span class=cl>        // 调用 InvocationHandler.invoke()
+</span></span><span class=line><span class=cl>        super.h.invoke(this, m3, new Object[]{user});
+</span></span><span class=line><span class=cl>    }
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    // m3 是在静态代码块中通过反射获取的Method对象
+</span></span><span class=line><span class=cl>    static {
+</span></span><span class=line><span class=cl>        m3 = Class.forName(&#34;com.example.UserService&#34;).getMethod(&#34;save&#34;, User.class);
+</span></span><span class=line><span class=cl>    }
+</span></span><span class=line><span class=cl>}
+</span></span></code></pre></div><p><strong>JDK代理的限制</strong>：</p><ul><li>❌ <strong>必须有接口</strong>（基于接口代理）</li><li>❌ 只能代理接口中定义的方法</li><li>✅ JDK自带，无需第三方依赖</li><li>✅ 代理对象的性能好（直接方法调用）</li></ul><h3 id=22-cglib动态代理>2.2 CGLIB动态代理</h3><p><strong>Q: CGLIB和JDK代理有什么区别？Spring如何选择？</strong></p><p><strong>CGLIB（Code Generation Library）<strong>是基于ASM字节码框架的代理实现，通过</strong>生成目标类的子类</strong>来实现代理。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// CGLIB不需要接口！可以直接代理类
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>class</span> <span class=nc>UserServiceImpl</span> <span class=o>{</span> <span class=c1>// 没有实现接口
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kd>public</span> <span class=kt>void</span> <span class=nf>save</span><span class=o>(</span><span class=n>User</span> <span class=n>user</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>        <span class=n>System</span><span class=o>.</span><span class=na>out</span><span class=o>.</span><span class=na>println</span><span class=o>(</span><span class=s>&#34;保存用户: &#34;</span> <span class=o>+</span> <span class=n>user</span><span class=o>);</span>
@@ -175,29 +175,29 @@ public final class $Proxy0 extends Proxy implements UserService {
 </span></span><span class=line><span class=cl><span class=n>enhancer</span><span class=o>.</span><span class=na>setSuperclass</span><span class=o>(</span><span class=n>UserServiceImpl</span><span class=o>.</span><span class=na>class</span><span class=o>);</span> <span class=c1>// 设置父类（目标类）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>enhancer</span><span class=o>.</span><span class=na>setCallback</span><span class=o>(</span><span class=k>new</span> <span class=n>LogMethodInterceptor</span><span class=o>());</span>
 </span></span><span class=line><span class=cl><span class=n>UserServiceImpl</span> <span class=n>proxy</span> <span class=o>=</span> <span class=o>(</span><span class=n>UserServiceImpl</span><span class=o>)</span> <span class=n>enhancer</span><span class=o>.</span><span class=na>create</span><span class=o>();</span>
-</span></span></code></pre></div><p><strong>CGLIB生成的代理类结构：</strong></p><pre tabindex=0><code>目标类                           CGLIB代理类
-UserServiceImpl              UserServiceImpl$$EnhancerByCGLIB$$xxxxx
-    ↑                                   ↑
-    │                                extends
-    │                                   │
-实现了业务逻辑                  重写所有非final方法
-                                    ├── save() → intercept() → super.save()
-                                    └── findById() → intercept() → super.findById()
-</code></pre><p><strong>CGLIB的限制</strong>：</p><ul><li>❌ 无法代理 <code>final</code> 类（无法继承）</li><li>❌ 无法代理 <code>final</code> 方法（无法重写）</li><li>❌ 无法代理 <code>private</code> 方法（无法重写）</li><li>❌ 需要额外引入CGLIB依赖</li><li>✅ 代理创建速度慢于JDK代理（但执行速度更快）</li></ul><h3 id=23-spring的选择策略>2.3 Spring的选择策略</h3><p><strong>Q: Spring什么时候用JDK代理，什么时候用CGLIB？</strong></p><pre tabindex=0><code>Spring AOP代理选择策略（ProxyTargetClass）：
-
-┌─────────────────────────────────────────────────┐
-│  目标类是否实现了接口？                            │
-│    │                                              │
-│    ├── 是 → 默认使用 JDK动态代理                   │
-│    │         (proxyTargetClass=false)             │
-│    │                                              │
-│    └── 否 → 使用 CGLIB代理                        │
-│                                                  │
-│  Spring Boot 默认行为（@EnableAspectJAutoProxy）： │
-│    - 如果没有手动配置，默认 proxyTargetClass=true  │
-│    - 也就是说 Spring Boot 默认使用 CGLIB！         │
-└─────────────────────────────────────────────────┘
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 强制使用CGLIB（Spring Boot中默认行为）
+</span></span></code></pre></div><p><strong>CGLIB生成的代理类结构：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>目标类                           CGLIB代理类
+</span></span><span class=line><span class=cl>UserServiceImpl              UserServiceImpl$$EnhancerByCGLIB$$xxxxx
+</span></span><span class=line><span class=cl>    ↑                                   ↑
+</span></span><span class=line><span class=cl>    │                                extends
+</span></span><span class=line><span class=cl>    │                                   │
+</span></span><span class=line><span class=cl>实现了业务逻辑                  重写所有非final方法
+</span></span><span class=line><span class=cl>                                    ├── save() → intercept() → super.save()
+</span></span><span class=line><span class=cl>                                    └── findById() → intercept() → super.findById()
+</span></span></code></pre></div><p><strong>CGLIB的限制</strong>：</p><ul><li>❌ 无法代理 <code>final</code> 类（无法继承）</li><li>❌ 无法代理 <code>final</code> 方法（无法重写）</li><li>❌ 无法代理 <code>private</code> 方法（无法重写）</li><li>❌ 需要额外引入CGLIB依赖</li><li>✅ 代理创建速度慢于JDK代理（但执行速度更快）</li></ul><h3 id=23-spring的选择策略>2.3 Spring的选择策略</h3><p><strong>Q: Spring什么时候用JDK代理，什么时候用CGLIB？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Spring AOP代理选择策略（ProxyTargetClass）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  目标类是否实现了接口？                            │
+</span></span><span class=line><span class=cl>│    │                                              │
+</span></span><span class=line><span class=cl>│    ├── 是 → 默认使用 JDK动态代理                   │
+</span></span><span class=line><span class=cl>│    │         (proxyTargetClass=false)             │
+</span></span><span class=line><span class=cl>│    │                                              │
+</span></span><span class=line><span class=cl>│    └── 否 → 使用 CGLIB代理                        │
+</span></span><span class=line><span class=cl>│                                                  │
+</span></span><span class=line><span class=cl>│  Spring Boot 默认行为（@EnableAspectJAutoProxy）： │
+</span></span><span class=line><span class=cl>│    - 如果没有手动配置，默认 proxyTargetClass=true  │
+</span></span><span class=line><span class=cl>│    - 也就是说 Spring Boot 默认使用 CGLIB！         │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────┘
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 强制使用CGLIB（Spring Boot中默认行为）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@EnableAspectJAutoProxy</span><span class=o>(</span><span class=n>proxyTargetClass</span> <span class=o>=</span> <span class=kc>true</span><span class=o>)</span>
 </span></span><span class=line><span class=cl><span class=nd>@SpringBootApplication</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>Application</span> <span class=o>{</span> <span class=o>}</span>
@@ -251,21 +251,21 @@ UserServiceImpl              UserServiceImpl$$EnhancerByCGLIB$$xxxxx
 </span></span><span class=line><span class=cl>    <span class=nd>@Transactional</span><span class=o>(</span><span class=n>propagation</span> <span class=o>=</span> <span class=n>Propagation</span><span class=o>.</span><span class=na>REQUIRES_NEW</span><span class=o>)</span>
 </span></span><span class=line><span class=cl>    <span class=kd>public</span> <span class=kt>void</span> <span class=nf>doInternal</span><span class=o>()</span> <span class=o>{</span> <span class=o>...</span> <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>为什么this调用失效？</strong></p><pre tabindex=0><code>外部调用：
-  caller → proxy.doInternal() → AOP切面 → target.doInternal() ✅ 经过代理
-
-内部this调用：
-  target.doSomething() → this.doInternal() ❌ 直接调用原始对象，绕过代理
-</code></pre><hr><h2 id=三切点表达式精确匹配的艺术>三、切点表达式——精确匹配的艺术</h2><h3 id=31-execution表达式全解>3.1 execution表达式全解</h3><p><strong>Q: 如何写出精准的切点表达式？</strong></p><p><code>execution</code> 是最常用的切点指示器，语法如下：</p><pre tabindex=0><code>execution(modifiers-pattern? ret-type-pattern declaring-type-pattern?
-          name-pattern(param-pattern) throws-pattern?)
-</code></pre><pre tabindex=0><code>execution(* com.example.service.OrderService.createOrder(..))
-
-┌─────────┬──────────────────────────────────────┬─────────────────┬────┐
-│ 修饰符   │         返回类型 + 全限定类名          │   方法名          │ 参数│
-│   *     │  com.example.service.OrderService    │  createOrder     │ .. │
-│ (任意)   │  (OrderService类)                    │  (方法名精确匹配)  │(任意参数)│
-└─────────┴──────────────────────────────────────┴─────────────────┴────┘
-</code></pre><p><strong>常用切点表达式汇总：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 1. 匹配特定包下所有类的所有方法
+</span></span></code></pre></div><p><strong>为什么this调用失效？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>外部调用：
+</span></span><span class=line><span class=cl>  caller → proxy.doInternal() → AOP切面 → target.doInternal() ✅ 经过代理
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>内部this调用：
+</span></span><span class=line><span class=cl>  target.doSomething() → this.doInternal() ❌ 直接调用原始对象，绕过代理
+</span></span></code></pre></div><hr><h2 id=三切点表达式精确匹配的艺术>三、切点表达式——精确匹配的艺术</h2><h3 id=31-execution表达式全解>3.1 execution表达式全解</h3><p><strong>Q: 如何写出精准的切点表达式？</strong></p><p><code>execution</code> 是最常用的切点指示器，语法如下：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>execution(modifiers-pattern? ret-type-pattern declaring-type-pattern?
+</span></span><span class=line><span class=cl>          name-pattern(param-pattern) throws-pattern?)
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>execution(* com.example.service.OrderService.createOrder(..))
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌─────────┬──────────────────────────────────────┬─────────────────┬────┐
+</span></span><span class=line><span class=cl>│ 修饰符   │         返回类型 + 全限定类名          │   方法名          │ 参数│
+</span></span><span class=line><span class=cl>│   *     │  com.example.service.OrderService    │  createOrder     │ .. │
+</span></span><span class=line><span class=cl>│ (任意)   │  (OrderService类)                    │  (方法名精确匹配)  │(任意参数)│
+</span></span><span class=line><span class=cl>└─────────┴──────────────────────────────────────┴─────────────────┴────┘
+</span></span></code></pre></div><p><strong>常用切点表达式汇总：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 1. 匹配特定包下所有类的所有方法
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Pointcut</span><span class=o>(</span><span class=s>&#34;execution(* com.example.service.*.*(..))&#34;</span><span class=o>)</span>
 </span></span><span class=line><span class=cl><span class=c1>//         ↑返回类型        ↑包      ↑类  ↑方法 ↑参数
 </span></span></span><span class=line><span class=cl><span class=c1></span>
@@ -389,22 +389,22 @@ UserServiceImpl              UserServiceImpl$$EnhancerByCGLIB$$xxxxx
 </span></span></span><span class=line><span class=cl><span class=c1></span>
 </span></span><span class=line><span class=cl><span class=c1>// 异常情况执行顺序：
 </span></span></span><span class=line><span class=cl><span class=c1>// 1. @Before → 2. 目标方法(抛异常) → 3. @AfterThrowing → 4. @After
-</span></span></span></code></pre></div><h3 id=43-多个切面的执行顺序>4.3 多个切面的执行顺序</h3><p><strong>Q: 多个切面同时作用于同一个方法，执行顺序如何确定？</strong></p><pre tabindex=0><code>多个切面的执行顺序（洋葱模型）：
-
-┌─────────────────────────────────────────┐
-│           Aspect-A @Before              │
-│  ┌─────────────────────────────────┐    │
-│  │       Aspect-B @Before          │    │
-│  │  ┌─────────────────────────┐    │    │
-│  │  │      目标方法              │    │    │
-│  │  └─────────────────────────┘    │    │
-│  │       Aspect-B @After           │    │
-│  └─────────────────────────────────┘    │
-│           Aspect-A @After               │
-└─────────────────────────────────────────┘
-
-执行顺序：A-Before → B-Before → 目标方法 → B-After → A-After
-</code></pre><p><strong>控制切面顺序：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 方式1：@Order注解（值越小越先执行）
+</span></span></span></code></pre></div><h3 id=43-多个切面的执行顺序>4.3 多个切面的执行顺序</h3><p><strong>Q: 多个切面同时作用于同一个方法，执行顺序如何确定？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>多个切面的执行顺序（洋葱模型）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│           Aspect-A @Before              │
+</span></span><span class=line><span class=cl>│  ┌─────────────────────────────────┐    │
+</span></span><span class=line><span class=cl>│  │       Aspect-B @Before          │    │
+</span></span><span class=line><span class=cl>│  │  ┌─────────────────────────┐    │    │
+</span></span><span class=line><span class=cl>│  │  │      目标方法              │    │    │
+</span></span><span class=line><span class=cl>│  │  └─────────────────────────┘    │    │
+</span></span><span class=line><span class=cl>│  │       Aspect-B @After           │    │
+</span></span><span class=line><span class=cl>│  └─────────────────────────────────┘    │
+</span></span><span class=line><span class=cl>│           Aspect-A @After               │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>执行顺序：A-Before → B-Before → 目标方法 → B-After → A-After
+</span></span></code></pre></div><p><strong>控制切面顺序：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 方式1：@Order注解（值越小越先执行）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Aspect</span>
 </span></span><span class=line><span class=cl><span class=nd>@Component</span>
 </span></span><span class=line><span class=cl><span class=nd>@Order</span><span class=o>(</span><span class=mi>1</span><span class=o>)</span>  <span class=c1>// 先执行
@@ -462,22 +462,22 @@ UserServiceImpl              UserServiceImpl$$EnhancerByCGLIB$$xxxxx
 </span></span><span class=line><span class=cl>        <span class=c1>// 即使这里抛异常，也不会回滚外层事务！
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>REQUIRED vs REQUIRES_NEW vs NESTED 本质区别：</strong></p><pre tabindex=0><code>REQUIRED（加入）：
-  ServiceA.method() ───── 事务1 ─────
-    ServiceB.method() ───── 还是事务1 ─────
-  ↓ B回滚 → A也回滚（共享同一事务）
-
-REQUIRES_NEW（独立）：
-  ServiceA.method() ───── 事务1 ─────
-    ServiceB.method() ───── 事务2（独立）─────
-  ↓ B回滚 → 只回滚事务2，A的事务1不受影响
-
-NESTED（嵌套+保存点）：
-  ServiceA.method() ───── 事务1 ─────
-    savepoint1
-    ServiceB.method() ───── 嵌套在事务1 ─────
-  ↓ B回滚 → 回滚到savepoint1，AI继续执行
-</code></pre><h3 id=54-事务隔离级别>5.4 事务隔离级别</h3><table><thead><tr><th>隔离级别</th><th>脏读</th><th>不可重复读</th><th>幻读</th><th>并发性能</th></tr></thead><tbody><tr><td><strong>READ_UNCOMMITTED</strong></td><td>❌ 可能</td><td>❌ 可能</td><td>❌ 可能</td><td>最高</td></tr><tr><td><strong>READ_COMMITTED</strong></td><td>✅ 避免</td><td>❌ 可能</td><td>❌ 可能</td><td>高</td></tr><tr><td><strong>REPEATABLE_READ</strong></td><td>✅ 避免</td><td>✅ 避免</td><td>❌ 可能（MySQL通过间隙锁解决）</td><td>中</td></tr><tr><td><strong>SERIALIZABLE</strong></td><td>✅ 避免</td><td>✅ 避免</td><td>✅ 避免</td><td>最低</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Transactional</span><span class=o>(</span><span class=n>isolation</span> <span class=o>=</span> <span class=n>Isolation</span><span class=o>.</span><span class=na>READ_COMMITTED</span><span class=o>)</span>
+</span></span></code></pre></div><p><strong>REQUIRED vs REQUIRES_NEW vs NESTED 本质区别：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>REQUIRED（加入）：
+</span></span><span class=line><span class=cl>  ServiceA.method() ───── 事务1 ─────
+</span></span><span class=line><span class=cl>    ServiceB.method() ───── 还是事务1 ─────
+</span></span><span class=line><span class=cl>  ↓ B回滚 → A也回滚（共享同一事务）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>REQUIRES_NEW（独立）：
+</span></span><span class=line><span class=cl>  ServiceA.method() ───── 事务1 ─────
+</span></span><span class=line><span class=cl>    ServiceB.method() ───── 事务2（独立）─────
+</span></span><span class=line><span class=cl>  ↓ B回滚 → 只回滚事务2，A的事务1不受影响
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>NESTED（嵌套+保存点）：
+</span></span><span class=line><span class=cl>  ServiceA.method() ───── 事务1 ─────
+</span></span><span class=line><span class=cl>    savepoint1
+</span></span><span class=line><span class=cl>    ServiceB.method() ───── 嵌套在事务1 ─────
+</span></span><span class=line><span class=cl>  ↓ B回滚 → 回滚到savepoint1，AI继续执行
+</span></span></code></pre></div><h3 id=54-事务隔离级别>5.4 事务隔离级别</h3><table><thead><tr><th>隔离级别</th><th>脏读</th><th>不可重复读</th><th>幻读</th><th>并发性能</th></tr></thead><tbody><tr><td><strong>READ_UNCOMMITTED</strong></td><td>❌ 可能</td><td>❌ 可能</td><td>❌ 可能</td><td>最高</td></tr><tr><td><strong>READ_COMMITTED</strong></td><td>✅ 避免</td><td>❌ 可能</td><td>❌ 可能</td><td>高</td></tr><tr><td><strong>REPEATABLE_READ</strong></td><td>✅ 避免</td><td>✅ 避免</td><td>❌ 可能（MySQL通过间隙锁解决）</td><td>中</td></tr><tr><td><strong>SERIALIZABLE</strong></td><td>✅ 避免</td><td>✅ 避免</td><td>✅ 避免</td><td>最低</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Transactional</span><span class=o>(</span><span class=n>isolation</span> <span class=o>=</span> <span class=n>Isolation</span><span class=o>.</span><span class=na>READ_COMMITTED</span><span class=o>)</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kt>void</span> <span class=nf>transfer</span><span class=o>(</span><span class=n>Long</span> <span class=n>fromId</span><span class=o>,</span> <span class=n>Long</span> <span class=n>toId</span><span class=o>,</span> <span class=n>BigDecimal</span> <span class=n>amount</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// MySQL默认REPEATABLE_READ，但这个场景READ_COMMITTED就够了
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>accountDao</span><span class=o>.</span><span class=na>debit</span><span class=o>(</span><span class=n>fromId</span><span class=o>,</span> <span class=n>amount</span><span class=o>);</span> <span class=c1>// 扣款
@@ -567,25 +567,25 @@ NESTED（嵌套+保存点）：
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 主线程事务提交了，但子线程的库存扣减不在事务中
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=o>}</span>
-</span></span></code></pre></div><p><strong>事务失效六大场景速查表：</strong></p><table><thead><tr><th>场景</th><th>原因</th><th>解决方案</th></tr></thead><tbody><tr><td>方法非public</td><td>AOP只能拦截public方法</td><td>改为public</td></tr><tr><td>this调用</td><td>绕过代理对象</td><td>注入自身/getBean/抽出新Service</td></tr><tr><td>异常被吞</td><td>Spring感知不到异常</td><td>重新抛出或手动setRollbackOnly</td></tr><tr><td>rollbackFor不当</td><td>默认为RuntimeException</td><td>设置<code>rollbackFor = Exception.class</code></td></tr><tr><td>final方法</td><td>CGLIB无法重写</td><td>去掉final或改用接口代理</td></tr><tr><td>多线程</td><td>事务在线程间不传播</td><td>使用分布式事务或单独事务管理</td></tr></tbody></table><hr><h2 id=七面试高频真题>七、面试高频真题</h2><h3 id=q1-spring-aop和aspectj有什么区别>Q1: Spring AOP和AspectJ有什么区别？</h3><table><thead><tr><th>对比维度</th><th>Spring AOP</th><th>AspectJ</th></tr></thead><tbody><tr><td>实现方式</td><td>运行时动态代理</td><td>编译时/类加载时字节码修改（织入）</td></tr><tr><td>织入时机</td><td>运行时</td><td>编译期 / 类加载期 / 编译后</td></tr><tr><td>性能</td><td>稍慢（代理开销）</td><td>更快（无代理，直接修改字节码）</td></tr><tr><td>功能完整度</td><td>仅支持方法级连接点</td><td>支持字段、构造器、静态初始化等</td></tr><tr><td>使用复杂度</td><td>简单，注解即可</td><td>复杂，需要特殊编译器或agent</td></tr><tr><td>依赖</td><td>spring-aop</td><td>aspectjweaver.jar</td></tr></tbody></table><h3 id=q2-spring-aop的底层实现原理简述>Q2: Spring AOP的底层实现原理简述</h3><pre tabindex=0><code>1. @EnableAspectJAutoProxy 注册了 AnnotationAwareAspectJAutoProxyCreator
-2. 这是一个 BeanPostProcessor，在每个Bean初始化后进行处理
-3. 检查Bean是否匹配任何切面（通过切点表达式）
-4. 如果匹配，创建代理对象（JDK或CGLIB）
-5. 将代理对象替换原始Bean放入容器
-6. 后续调用时，通过代理对象执行切面逻辑链
-</code></pre><h3 id=q3-spring事务和数据库事务是什么关系>Q3: Spring事务和数据库事务是什么关系？</h3><pre tabindex=0><code>Spring事务（逻辑层）:
-    @Transactional
-    ↓
-    通过 PlatformTransactionManager 管理
-    ↓
-数据库事务（物理层）:
-    conn.setAutoCommit(false);  // 开启
-    执行SQL...
-    conn.commit(); / conn.rollback();  // 提交或回滚
-
-关键：Spring事务本质是对JDBC事务的封装，通过AOP在方法前后
-      调用conn.setAutoCommit/commit/rollback
-</code></pre><h3 id=q4-大事务有什么问题如何优化>Q4: 大事务有什么问题？如何优化？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ❌ 大事务——锁持有时间长、回滚代价大
+</span></span></code></pre></div><p><strong>事务失效六大场景速查表：</strong></p><table><thead><tr><th>场景</th><th>原因</th><th>解决方案</th></tr></thead><tbody><tr><td>方法非public</td><td>AOP只能拦截public方法</td><td>改为public</td></tr><tr><td>this调用</td><td>绕过代理对象</td><td>注入自身/getBean/抽出新Service</td></tr><tr><td>异常被吞</td><td>Spring感知不到异常</td><td>重新抛出或手动setRollbackOnly</td></tr><tr><td>rollbackFor不当</td><td>默认为RuntimeException</td><td>设置<code>rollbackFor = Exception.class</code></td></tr><tr><td>final方法</td><td>CGLIB无法重写</td><td>去掉final或改用接口代理</td></tr><tr><td>多线程</td><td>事务在线程间不传播</td><td>使用分布式事务或单独事务管理</td></tr></tbody></table><hr><h2 id=七面试高频真题>七、面试高频真题</h2><h3 id=q1-spring-aop和aspectj有什么区别>Q1: Spring AOP和AspectJ有什么区别？</h3><table><thead><tr><th>对比维度</th><th>Spring AOP</th><th>AspectJ</th></tr></thead><tbody><tr><td>实现方式</td><td>运行时动态代理</td><td>编译时/类加载时字节码修改（织入）</td></tr><tr><td>织入时机</td><td>运行时</td><td>编译期 / 类加载期 / 编译后</td></tr><tr><td>性能</td><td>稍慢（代理开销）</td><td>更快（无代理，直接修改字节码）</td></tr><tr><td>功能完整度</td><td>仅支持方法级连接点</td><td>支持字段、构造器、静态初始化等</td></tr><tr><td>使用复杂度</td><td>简单，注解即可</td><td>复杂，需要特殊编译器或agent</td></tr><tr><td>依赖</td><td>spring-aop</td><td>aspectjweaver.jar</td></tr></tbody></table><h3 id=q2-spring-aop的底层实现原理简述>Q2: Spring AOP的底层实现原理简述</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. @EnableAspectJAutoProxy 注册了 AnnotationAwareAspectJAutoProxyCreator
+</span></span><span class=line><span class=cl>2. 这是一个 BeanPostProcessor，在每个Bean初始化后进行处理
+</span></span><span class=line><span class=cl>3. 检查Bean是否匹配任何切面（通过切点表达式）
+</span></span><span class=line><span class=cl>4. 如果匹配，创建代理对象（JDK或CGLIB）
+</span></span><span class=line><span class=cl>5. 将代理对象替换原始Bean放入容器
+</span></span><span class=line><span class=cl>6. 后续调用时，通过代理对象执行切面逻辑链
+</span></span></code></pre></div><h3 id=q3-spring事务和数据库事务是什么关系>Q3: Spring事务和数据库事务是什么关系？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Spring事务（逻辑层）:
+</span></span><span class=line><span class=cl>    @Transactional
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>    通过 PlatformTransactionManager 管理
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>数据库事务（物理层）:
+</span></span><span class=line><span class=cl>    conn.setAutoCommit(false);  // 开启
+</span></span><span class=line><span class=cl>    执行SQL...
+</span></span><span class=line><span class=cl>    conn.commit(); / conn.rollback();  // 提交或回滚
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>关键：Spring事务本质是对JDBC事务的封装，通过AOP在方法前后
+</span></span><span class=line><span class=cl>      调用conn.setAutoCommit/commit/rollback
+</span></span></code></pre></div><h3 id=q4-大事务有什么问题如何优化>Q4: 大事务有什么问题？如何优化？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ❌ 大事务——锁持有时间长、回滚代价大
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Transactional</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kt>void</span> <span class=nf>processOrder</span><span class=o>(</span><span class=n>Order</span> <span class=n>order</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 1. 远程调用（耗时2s）

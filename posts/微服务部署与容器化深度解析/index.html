@@ -9,28 +9,28 @@
 <a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>微服务部署与容器化深度解析</h1><p class=article-description>微服务架构带来了灵活性，也带来了部署复杂性。从单体应用的一键部署，到微服务的几十个服务独立部署、滚动更新、蓝绿发布，部署策略变得至关重要。 本文将从微服务部署的挑战出发，深度解析容器化技术（Docker、Kubernetes）和CI/CD流水线，探讨生产环境中的部署最佳实践和面试高频问题。 多层构建。</p><div class=article-meta><span>发布于 <time datetime=2026-05-15>2026-05-15</time></span>
 <span>最后验证 2026-05</span>
 <span>11 分钟阅读</span>
-<span>2174 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a><ul><li><a href=#单体-vs-微服务部署对比>单体 vs 微服务部署对比</a></li></ul></li><li><a href=#二docker-深度解析>二、Docker 深度解析</a><ul><li><a href=#21-docker-核心概念>2.1 Docker 核心概念</a></li><li><a href=#22-dockerfile-深度解析>2.2 Dockerfile 深度解析</a></li><li><a href=#23-docker-compose-深度解析>2.3 Docker Compose 深度解析</a></li><li><a href=#24-docker-网络深度解析>2.4 Docker 网络深度解析</a></li></ul></li><li><a href=#三kubernetes-深度解析>三、Kubernetes 深度解析</a><ul><li><a href=#31-kubernetes-架构设计>3.1 Kubernetes 架构设计</a></li><li><a href=#32-pod-深度解析>3.2 Pod 深度解析</a></li><li><a href=#33-deployment-深度解析>3.3 Deployment 深度解析</a></li><li><a href=#34-service-深度解析>3.4 Service 深度解析</a></li><li><a href=#35-ingress-深度解析>3.5 Ingress 深度解析</a></li></ul></li><li><a href=#四cicd-深度解析>四、CI/CD 深度解析</a><ul><li><a href=#41-cicd-流水线设计>4.1 CI/CD 流水线设计</a></li><li><a href=#42-jenkins-pipeline-深度解析>4.2 Jenkins Pipeline 深度解析</a></li><li><a href=#43-github-actions-深度解析>4.3 GitHub Actions 深度解析</a></li></ul></li><li><a href=#五部署策略深度解析>五、部署策略深度解析</a><ul><li><a href=#51-滚动更新rolling-update>5.1 滚动更新（Rolling Update）</a></li><li><a href=#52-蓝绿部署blue-green-deployment>5.2 蓝绿部署（Blue-Green Deployment）</a></li><li><a href=#53-金丝雀发布canary-release>5.3 金丝雀发布（Canary Release）</a></li><li><a href=#54-部署策略对比>5.4 部署策略对比</a></li></ul></li><li><a href=#六面试高频问题>六、面试高频问题</a><ul><li><a href=#q1docker和虚拟机的区别>Q1：Docker和虚拟机的区别？</a></li><li><a href=#q2kubernetes的service和ingress的区别>Q2：Kubernetes的Service和Ingress的区别？</a></li><li><a href=#q3kubernetes的滚动更新和蓝绿部署的区别>Q3：Kubernetes的滚动更新和蓝绿部署的区别？</a></li><li><a href=#q4如何实现kubernetes的健康检查>Q4：如何实现Kubernetes的健康检查？</a></li><li><a href=#q5cicd的核心价值是什么>Q5：CI/CD的核心价值是什么？</a></li><li><a href=#q6docker镜像分层存储的原理>Q6：Docker镜像分层存储的原理？</a></li><li><a href=#q7kubernetes的资源限制requests-vs-limits>Q7：Kubernetes的资源限制（requests vs limits）？</a></li><li><a href=#q8如何实现微服务的配置管理configmapsecret>Q8：如何实现微服务的配置管理（ConfigMap/Secret）？</a></li></ul></li><li><a href=#七总结>七、总结</a><ul><li><a href=#核心要点>核心要点</a></li><li><a href=#技术选型>技术选型</a></li><li><a href=#面试速记口诀>面试速记口诀</a></li><li><a href=#下一步学习方向>下一步学习方向</a></li></ul></li></ul></nav></details><div class=post-content data-article-content><h2 id=一引言>一、引言</h2><p>微服务架构带来了灵活性，也带来了部署复杂性。从单体应用的一键部署，到微服务的几十个服务独立部署、滚动更新、蓝绿发布，部署策略变得至关重要。</p><p>本文将从微服务部署的挑战出发，深度解析容器化技术（Docker、Kubernetes）和CI/CD流水线，探讨生产环境中的部署最佳实践和面试高频问题。</p><h3 id=单体-vs-微服务部署对比>单体 vs 微服务部署对比</h3><pre tabindex=0><code>单体应用部署
-┌─────────────────────────────────┐
-│        monolith.war             │
-│  （所有功能打包在一个包）        │
-└──────────────┬──────────────────┘
-               │ 部署
-               ▼
-┌─────────────────────────────────┐
-│     Tomcat/Jetty               │
-│  （一个容器运行）               │
-└─────────────────────────────────┘
-优势：部署简单（一次打包，到处运行）
-问题：修改一行代码，需要重新部署整个应用
-
-微服务部署
-┌────┐  ┌────┐  ┌────┐  ┌────┐
-│Service A│  │Service B│  │Service C│  │Service D│
-│ 独立部署  │  │ 独立部署  │  │ 独立部署  │  │ 独立部署  │
-└────┘  └────┘  └────┘  └────┘
-优势：独立部署、独立扩展、技术栈灵活
-问题：部署复杂性指数级上升（几十个服务如何管理？）
-</code></pre><h2 id=二docker-深度解析>二、Docker 深度解析</h2><h3 id=21-docker-核心概念>2.1 Docker 核心概念</h3><table><thead><tr><th>概念</th><th>说明</th><th>类比</th></tr></thead><tbody><tr><td><strong>镜像（Image）</strong></td><td>只读模板</td><td>类（Class）</td></tr><tr><td><strong>容器（Container）</strong></td><td>运行中的镜像</td><td>对象（Object）</td></tr><tr><td><strong>仓库（Registry）</strong></td><td>镜像存储中心</td><td>Maven仓库</td></tr><tr><td><strong>Dockerfile</strong></td><td>镜像构建脚本</td><td>Makefile</td></tr><tr><td><strong>Volume</strong></td><td>数据持久化</td><td>硬盘</td></tr><tr><td><strong>Network</strong></td><td>容器网络</td><td>交换机</td></tr></tbody></table><h3 id=22-dockerfile-深度解析>2.2 Dockerfile 深度解析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># 多层构建（减小镜像体积）</span><span class=err>
+<span>2174 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a><ul><li><a href=#单体-vs-微服务部署对比>单体 vs 微服务部署对比</a></li></ul></li><li><a href=#二docker-深度解析>二、Docker 深度解析</a><ul><li><a href=#21-docker-核心概念>2.1 Docker 核心概念</a></li><li><a href=#22-dockerfile-深度解析>2.2 Dockerfile 深度解析</a></li><li><a href=#23-docker-compose-深度解析>2.3 Docker Compose 深度解析</a></li><li><a href=#24-docker-网络深度解析>2.4 Docker 网络深度解析</a></li></ul></li><li><a href=#三kubernetes-深度解析>三、Kubernetes 深度解析</a><ul><li><a href=#31-kubernetes-架构设计>3.1 Kubernetes 架构设计</a></li><li><a href=#32-pod-深度解析>3.2 Pod 深度解析</a></li><li><a href=#33-deployment-深度解析>3.3 Deployment 深度解析</a></li><li><a href=#34-service-深度解析>3.4 Service 深度解析</a></li><li><a href=#35-ingress-深度解析>3.5 Ingress 深度解析</a></li></ul></li><li><a href=#四cicd-深度解析>四、CI/CD 深度解析</a><ul><li><a href=#41-cicd-流水线设计>4.1 CI/CD 流水线设计</a></li><li><a href=#42-jenkins-pipeline-深度解析>4.2 Jenkins Pipeline 深度解析</a></li><li><a href=#43-github-actions-深度解析>4.3 GitHub Actions 深度解析</a></li></ul></li><li><a href=#五部署策略深度解析>五、部署策略深度解析</a><ul><li><a href=#51-滚动更新rolling-update>5.1 滚动更新（Rolling Update）</a></li><li><a href=#52-蓝绿部署blue-green-deployment>5.2 蓝绿部署（Blue-Green Deployment）</a></li><li><a href=#53-金丝雀发布canary-release>5.3 金丝雀发布（Canary Release）</a></li><li><a href=#54-部署策略对比>5.4 部署策略对比</a></li></ul></li><li><a href=#六面试高频问题>六、面试高频问题</a><ul><li><a href=#q1docker和虚拟机的区别>Q1：Docker和虚拟机的区别？</a></li><li><a href=#q2kubernetes的service和ingress的区别>Q2：Kubernetes的Service和Ingress的区别？</a></li><li><a href=#q3kubernetes的滚动更新和蓝绿部署的区别>Q3：Kubernetes的滚动更新和蓝绿部署的区别？</a></li><li><a href=#q4如何实现kubernetes的健康检查>Q4：如何实现Kubernetes的健康检查？</a></li><li><a href=#q5cicd的核心价值是什么>Q5：CI/CD的核心价值是什么？</a></li><li><a href=#q6docker镜像分层存储的原理>Q6：Docker镜像分层存储的原理？</a></li><li><a href=#q7kubernetes的资源限制requests-vs-limits>Q7：Kubernetes的资源限制（requests vs limits）？</a></li><li><a href=#q8如何实现微服务的配置管理configmapsecret>Q8：如何实现微服务的配置管理（ConfigMap/Secret）？</a></li></ul></li><li><a href=#七总结>七、总结</a><ul><li><a href=#核心要点>核心要点</a></li><li><a href=#技术选型>技术选型</a></li><li><a href=#面试速记口诀>面试速记口诀</a></li><li><a href=#下一步学习方向>下一步学习方向</a></li></ul></li></ul></nav></details><div class=post-content data-article-content><h2 id=一引言>一、引言</h2><p>微服务架构带来了灵活性，也带来了部署复杂性。从单体应用的一键部署，到微服务的几十个服务独立部署、滚动更新、蓝绿发布，部署策略变得至关重要。</p><p>本文将从微服务部署的挑战出发，深度解析容器化技术（Docker、Kubernetes）和CI/CD流水线，探讨生产环境中的部署最佳实践和面试高频问题。</p><h3 id=单体-vs-微服务部署对比>单体 vs 微服务部署对比</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>单体应用部署
+</span></span><span class=line><span class=cl>┌─────────────────────────────────┐
+</span></span><span class=line><span class=cl>│        monolith.war             │
+</span></span><span class=line><span class=cl>│  （所有功能打包在一个包）        │
+</span></span><span class=line><span class=cl>└──────────────┬──────────────────┘
+</span></span><span class=line><span class=cl>               │ 部署
+</span></span><span class=line><span class=cl>               ▼
+</span></span><span class=line><span class=cl>┌─────────────────────────────────┐
+</span></span><span class=line><span class=cl>│     Tomcat/Jetty               │
+</span></span><span class=line><span class=cl>│  （一个容器运行）               │
+</span></span><span class=line><span class=cl>└─────────────────────────────────┘
+</span></span><span class=line><span class=cl>优势：部署简单（一次打包，到处运行）
+</span></span><span class=line><span class=cl>问题：修改一行代码，需要重新部署整个应用
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>微服务部署
+</span></span><span class=line><span class=cl>┌────┐  ┌────┐  ┌────┐  ┌────┐
+</span></span><span class=line><span class=cl>│Service A│  │Service B│  │Service C│  │Service D│
+</span></span><span class=line><span class=cl>│ 独立部署  │  │ 独立部署  │  │ 独立部署  │  │ 独立部署  │
+</span></span><span class=line><span class=cl>└────┘  └────┘  └────┘  └────┘
+</span></span><span class=line><span class=cl>优势：独立部署、独立扩展、技术栈灵活
+</span></span><span class=line><span class=cl>问题：部署复杂性指数级上升（几十个服务如何管理？）
+</span></span></code></pre></div><h2 id=二docker-深度解析>二、Docker 深度解析</h2><h3 id=21-docker-核心概念>2.1 Docker 核心概念</h3><table><thead><tr><th>概念</th><th>说明</th><th>类比</th></tr></thead><tbody><tr><td><strong>镜像（Image）</strong></td><td>只读模板</td><td>类（Class）</td></tr><tr><td><strong>容器（Container）</strong></td><td>运行中的镜像</td><td>对象（Object）</td></tr><tr><td><strong>仓库（Registry）</strong></td><td>镜像存储中心</td><td>Maven仓库</td></tr><tr><td><strong>Dockerfile</strong></td><td>镜像构建脚本</td><td>Makefile</td></tr><tr><td><strong>Volume</strong></td><td>数据持久化</td><td>硬盘</td></tr><tr><td><strong>Network</strong></td><td>容器网络</td><td>交换机</td></tr></tbody></table><h3 id=22-dockerfile-深度解析>2.2 Dockerfile 深度解析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-dockerfile data-lang=dockerfile><span class=line><span class=cl><span class=c># 多层构建（减小镜像体积）</span><span class=err>
 </span></span></span><span class=line><span class=cl><span class=err></span><span class=c># 第一阶段：构建</span><span class=err>
 </span></span></span><span class=line><span class=cl><span class=err></span><span class=k>FROM</span><span class=s> maven:3.8-openjdk-17 AS builder</span><span class=err>
 </span></span></span><span class=line><span class=cl><span class=err></span><span class=k>WORKDIR</span><span class=s> /app</span><span class=err>
@@ -162,63 +162,63 @@
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>mysql-data</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>redis-data</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>rabbitmq-data</span><span class=p>:</span><span class=w>
-</span></span></span></code></pre></div><h3 id=24-docker-网络深度解析>2.4 Docker 网络深度解析</h3><pre tabindex=0><code>Docker 网络模式
-┌───────────────────────────────────────────────┐
-│               Host 机器                       │
-│  ┌─────────────────────────────────────┐  │
-│  │        docker0 (网桥)                │  │
-│  │    172.17.0.1/16                    │  │
-│  └──┬──────────┬──────────┬────────────┘  │
-│     │          │          │               │
-│     ▼          ▼          ▼               │
-│  ┌─────┐   ┌─────┐   ┌─────┐          │
-│  │Container│ │Container│ │Container│       │
-│  │172.17.│ │172.17.│ │172.17.│          │
-│  │  0.2  │ │  0.3  │ │  0.4  │          │
-│  └─────┘   └─────┘   └─────┘          │
-│     │          │          │               │
-│     └──────────┼──────────┘               │
-│                │                            │
-│                ▼                            │
-│         External Network                    │
-└───────────────────────────────────────────────┘
-
-四种网络模式：
-1. Bridge（桥接模式）：默认，容器通过docker0网桥通信
-2. Host（主机模式）：容器直接使用主机网络（性能最好）
-3. None（无网络）：容器没有网络（安全场景）
-4. Container（容器模式）：多个容器共享网络命名空间
-</code></pre><h2 id=三kubernetes-深度解析>三、Kubernetes 深度解析</h2><h3 id=31-kubernetes-架构设计>3.1 Kubernetes 架构设计</h3><pre tabindex=0><code>Kubernetes 架构
-┌───────────────────────────────────────────────┐
-│              Control Plane                    │
-│  ┌────────────┐  ┌────────────┐           │
-│  │   API      │  │  etcd      │           │
-│  │  Server    │  │  (存储)    │           │
-│  └─────┬──────┘  └─────┬──────┘           │
-│        │                │                   │
-│  ┌─────▼──────┐  ┌─────▼──────┐           │
-│  │ Scheduler   │  │Controller  │           │
-│  │ (调度器)    │  │ Manager    │           │
-│  └────────────┘  └─────┬──────┘           │
-│                         │                   │
-└─────────────────────────┼───────────────────┘
-                          │
-        ┌─────────────────┼─────────────────┐
-        ▼                 ▼                 ▼
-┌────────────┐  ┌────────────┐  ┌────────────┐
-│   Worker   │  │   Worker   │  │   Worker   │
-│   Node 1   │  │   Node 2   │  │   Node 3   │
-│┌──────────┐│  │┌──────────┐│  │┌──────────┐│
-││ Kubelet  ││  ││ Kubelet  ││  ││ Kubelet  ││
-│├──────────┤│  │├──────────┤│  │├──────────┤│
-││ Kube-    ││  ││ Kube-    ││  ││ Kube-    ││
-││ proxy     ││  ││ proxy     ││  ││ proxy     ││
-│├──────────┤│  │├──────────┤│  │├──────────┤│
-││ Container ││  ││ Container ││  ││ Container ││
-││ Runtime   ││  ││ Runtime   ││  ││ Runtime   ││
-│└──────────┘│  │└──────────┘│  │└──────────┘│
-└────────────┘  └────────────┘  └────────────┘
-</code></pre><h3 id=32-pod-深度解析>3.2 Pod 深度解析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Pod 定义</span><span class=w>
+</span></span></span></code></pre></div><h3 id=24-docker-网络深度解析>2.4 Docker 网络深度解析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Docker 网络模式
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│               Host 机器                       │
+</span></span><span class=line><span class=cl>│  ┌─────────────────────────────────────┐  │
+</span></span><span class=line><span class=cl>│  │        docker0 (网桥)                │  │
+</span></span><span class=line><span class=cl>│  │    172.17.0.1/16                    │  │
+</span></span><span class=line><span class=cl>│  └──┬──────────┬──────────┬────────────┘  │
+</span></span><span class=line><span class=cl>│     │          │          │               │
+</span></span><span class=line><span class=cl>│     ▼          ▼          ▼               │
+</span></span><span class=line><span class=cl>│  ┌─────┐   ┌─────┐   ┌─────┐          │
+</span></span><span class=line><span class=cl>│  │Container│ │Container│ │Container│       │
+</span></span><span class=line><span class=cl>│  │172.17.│ │172.17.│ │172.17.│          │
+</span></span><span class=line><span class=cl>│  │  0.2  │ │  0.3  │ │  0.4  │          │
+</span></span><span class=line><span class=cl>│  └─────┘   └─────┘   └─────┘          │
+</span></span><span class=line><span class=cl>│     │          │          │               │
+</span></span><span class=line><span class=cl>│     └──────────┼──────────┘               │
+</span></span><span class=line><span class=cl>│                │                            │
+</span></span><span class=line><span class=cl>│                ▼                            │
+</span></span><span class=line><span class=cl>│         External Network                    │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>四种网络模式：
+</span></span><span class=line><span class=cl>1. Bridge（桥接模式）：默认，容器通过docker0网桥通信
+</span></span><span class=line><span class=cl>2. Host（主机模式）：容器直接使用主机网络（性能最好）
+</span></span><span class=line><span class=cl>3. None（无网络）：容器没有网络（安全场景）
+</span></span><span class=line><span class=cl>4. Container（容器模式）：多个容器共享网络命名空间
+</span></span></code></pre></div><h2 id=三kubernetes-深度解析>三、Kubernetes 深度解析</h2><h3 id=31-kubernetes-架构设计>3.1 Kubernetes 架构设计</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Kubernetes 架构
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│              Control Plane                    │
+</span></span><span class=line><span class=cl>│  ┌────────────┐  ┌────────────┐           │
+</span></span><span class=line><span class=cl>│  │   API      │  │  etcd      │           │
+</span></span><span class=line><span class=cl>│  │  Server    │  │  (存储)    │           │
+</span></span><span class=line><span class=cl>│  └─────┬──────┘  └─────┬──────┘           │
+</span></span><span class=line><span class=cl>│        │                │                   │
+</span></span><span class=line><span class=cl>│  ┌─────▼──────┐  ┌─────▼──────┐           │
+</span></span><span class=line><span class=cl>│  │ Scheduler   │  │Controller  │           │
+</span></span><span class=line><span class=cl>│  │ (调度器)    │  │ Manager    │           │
+</span></span><span class=line><span class=cl>│  └────────────┘  └─────┬──────┘           │
+</span></span><span class=line><span class=cl>│                         │                   │
+</span></span><span class=line><span class=cl>└─────────────────────────┼───────────────────┘
+</span></span><span class=line><span class=cl>                          │
+</span></span><span class=line><span class=cl>        ┌─────────────────┼─────────────────┐
+</span></span><span class=line><span class=cl>        ▼                 ▼                 ▼
+</span></span><span class=line><span class=cl>┌────────────┐  ┌────────────┐  ┌────────────┐
+</span></span><span class=line><span class=cl>│   Worker   │  │   Worker   │  │   Worker   │
+</span></span><span class=line><span class=cl>│   Node 1   │  │   Node 2   │  │   Node 3   │
+</span></span><span class=line><span class=cl>│┌──────────┐│  │┌──────────┐│  │┌──────────┐│
+</span></span><span class=line><span class=cl>││ Kubelet  ││  ││ Kubelet  ││  ││ Kubelet  ││
+</span></span><span class=line><span class=cl>│├──────────┤│  │├──────────┤│  │├──────────┤│
+</span></span><span class=line><span class=cl>││ Kube-    ││  ││ Kube-    ││  ││ Kube-    ││
+</span></span><span class=line><span class=cl>││ proxy     ││  ││ proxy     ││  ││ proxy     ││
+</span></span><span class=line><span class=cl>│├──────────┤│  │├──────────┤│  │├──────────┤│
+</span></span><span class=line><span class=cl>││ Container ││  ││ Container ││  ││ Container ││
+</span></span><span class=line><span class=cl>││ Runtime   ││  ││ Runtime   ││  ││ Runtime   ││
+</span></span><span class=line><span class=cl>│└──────────┘│  │└──────────┘│  │└──────────┘│
+</span></span><span class=line><span class=cl>└────────────┘  └────────────┘  └────────────┘
+</span></span></code></pre></div><h3 id=32-pod-深度解析>3.2 Pod 深度解析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Pod 定义</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Pod</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
@@ -379,28 +379,28 @@
 </span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>httpGet</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>/actuator/health</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>8080</span><span class=w>
-</span></span></span></code></pre></div><p><strong>滚动更新过程</strong>：</p><pre tabindex=0><code>初始状态（3个Pod，版本v1）
-┌─────────┐  ┌─────────┐  ┌─────────┐
-│ Pod v1  │  │ Pod v1  │  │ Pod v1  │
-└─────────┘  └─────────┘  └─────────┘
-
-Step 1: 创建1个v2 Pod（maxSurge=1）
-┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
-│ Pod v1  │  │ Pod v1  │  │ Pod v1  │  │ Pod v2  │
-└─────────┘  └─────────┘  └─────────┘  └─────────┘
-                                           ↑ 就绪后
-
-Step 2: 删除1个v1 Pod（maxUnavailable=0）
-┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
-│ Pod v1  │  │ Pod v1  │  │ Pod v2  │  │ Pod v2  │
-└─────────┘  └─────────┘  └─────────┘  └─────────┘
-                 ↑ 删除
-
-Step 3: 重复直到所有Pod都是v2
-┌─────────┐  ┌─────────┐  ┌─────────┐
-│ Pod v2  │  │ Pod v2  │  │ Pod v2  │
-└─────────┘  └─────────┘  └─────────┘
-</code></pre><h3 id=34-service-深度解析>3.4 Service 深度解析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Service（服务发现）</span><span class=w>
+</span></span></span></code></pre></div><p><strong>滚动更新过程</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>初始状态（3个Pod，版本v1）
+</span></span><span class=line><span class=cl>┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>│ Pod v1  │  │ Pod v1  │  │ Pod v1  │
+</span></span><span class=line><span class=cl>└─────────┘  └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 1: 创建1个v2 Pod（maxSurge=1）
+</span></span><span class=line><span class=cl>┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>│ Pod v1  │  │ Pod v1  │  │ Pod v1  │  │ Pod v2  │
+</span></span><span class=line><span class=cl>└─────────┘  └─────────┘  └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>                                           ↑ 就绪后
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 2: 删除1个v1 Pod（maxUnavailable=0）
+</span></span><span class=line><span class=cl>┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>│ Pod v1  │  │ Pod v1  │  │ Pod v2  │  │ Pod v2  │
+</span></span><span class=line><span class=cl>└─────────┘  └─────────┘  └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>                 ↑ 删除
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 3: 重复直到所有Pod都是v2
+</span></span><span class=line><span class=cl>┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>│ Pod v2  │  │ Pod v2  │  │ Pod v2  │
+</span></span><span class=line><span class=cl>└─────────┘  └─────────┘  └─────────┘
+</span></span></code></pre></div><h3 id=34-service-深度解析>3.4 Service 深度解析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Service（服务发现）</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Service</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
@@ -460,40 +460,40 @@ Step 3: 重复直到所有Pod都是v2
 </span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>order-service</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>port</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>number</span><span class=p>:</span><span class=w> </span><span class=m>80</span><span class=w>
-</span></span></span></code></pre></div><pre tabindex=0><code>Ingress 流量路由
-┌─────────┐
-│  Client  │
-└────┬─────┘
-     │ HTTPS (443)
-     ▼
-┌──────────────┐
-│   Ingress    │
-│  Controller  │
-│  (Nginx)     │
-└────┬─────────┘
-     │ 路由规则
-     ├──────────────► user-service:80 /users/*
-     └──────────────► order-service:80 /orders/*
-</code></pre><h2 id=四cicd-深度解析>四、CI/CD 深度解析</h2><h3 id=41-cicd-流水线设计>4.1 CI/CD 流水线设计</h3><pre tabindex=0><code>完整的CI/CD流水线
-┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
-│  Code   │───►│  Build  │───►│  Test   │───►│ Deploy  │
-│ (提交)   │    │ (构建)   │    │ (测试)   │    │ (部署)   │
-└─────────┘    └────┬────┘    └────┬────┘    └────┬────┘
-                    │              │              │
-                    ▼              ▼              ▼
-               ┌─────────┐    ┌─────────┐    ┌─────────┐
-               │ Maven   │    │ JUnit   │    │ Kubernetes│
-               │ 构建    │    │ 测试    │    │ 部署    │
-               └─────────┘    └─────────┘    └─────────┘
-                                                   │
-                   ┌───────────────────────────────┘
-                   │
-                   ▼
-              ┌─────────┐
-              │ Monitor  │
-              │ (监控)   │
-              └─────────┘
-</code></pre><h3 id=42-jenkins-pipeline-深度解析>4.2 Jenkins Pipeline 深度解析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-groovy data-lang=groovy><span class=line><span class=cl><span class=c1>// Jenkinsfile（声明式Pipeline）
+</span></span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Ingress 流量路由
+</span></span><span class=line><span class=cl>┌─────────┐
+</span></span><span class=line><span class=cl>│  Client  │
+</span></span><span class=line><span class=cl>└────┬─────┘
+</span></span><span class=line><span class=cl>     │ HTTPS (443)
+</span></span><span class=line><span class=cl>     ▼
+</span></span><span class=line><span class=cl>┌──────────────┐
+</span></span><span class=line><span class=cl>│   Ingress    │
+</span></span><span class=line><span class=cl>│  Controller  │
+</span></span><span class=line><span class=cl>│  (Nginx)     │
+</span></span><span class=line><span class=cl>└────┬─────────┘
+</span></span><span class=line><span class=cl>     │ 路由规则
+</span></span><span class=line><span class=cl>     ├──────────────► user-service:80 /users/*
+</span></span><span class=line><span class=cl>     └──────────────► order-service:80 /orders/*
+</span></span></code></pre></div><h2 id=四cicd-深度解析>四、CI/CD 深度解析</h2><h3 id=41-cicd-流水线设计>4.1 CI/CD 流水线设计</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>完整的CI/CD流水线
+</span></span><span class=line><span class=cl>┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
+</span></span><span class=line><span class=cl>│  Code   │───►│  Build  │───►│  Test   │───►│ Deploy  │
+</span></span><span class=line><span class=cl>│ (提交)   │    │ (构建)   │    │ (测试)   │    │ (部署)   │
+</span></span><span class=line><span class=cl>└─────────┘    └────┬────┘    └────┬────┘    └────┬────┘
+</span></span><span class=line><span class=cl>                    │              │              │
+</span></span><span class=line><span class=cl>                    ▼              ▼              ▼
+</span></span><span class=line><span class=cl>               ┌─────────┐    ┌─────────┐    ┌─────────┐
+</span></span><span class=line><span class=cl>               │ Maven   │    │ JUnit   │    │ Kubernetes│
+</span></span><span class=line><span class=cl>               │ 构建    │    │ 测试    │    │ 部署    │
+</span></span><span class=line><span class=cl>               └─────────┘    └─────────┘    └─────────┘
+</span></span><span class=line><span class=cl>                                                   │
+</span></span><span class=line><span class=cl>                   ┌───────────────────────────────┘
+</span></span><span class=line><span class=cl>                   │
+</span></span><span class=line><span class=cl>                   ▼
+</span></span><span class=line><span class=cl>              ┌─────────┐
+</span></span><span class=line><span class=cl>              │ Monitor  │
+</span></span><span class=line><span class=cl>              │ (监控)   │
+</span></span><span class=line><span class=cl>              └─────────┘
+</span></span></code></pre></div><h3 id=42-jenkins-pipeline-深度解析>4.2 Jenkins Pipeline 深度解析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-groovy data-lang=groovy><span class=line><span class=cl><span class=c1>// Jenkinsfile（声明式Pipeline）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>pipeline</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 1. 代理（运行环境）
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>agent</span> <span class=o>{</span>
@@ -722,90 +722,90 @@ Step 3: 重复直到所有Pod都是v2
 </span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>Verify deployment</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>run</span><span class=p>:</span><span class=w> </span><span class=p>|</span><span class=sd>
 </span></span></span><span class=line><span class=cl><span class=sd>        kubectl get pods -n prod -l app=user-service</span><span class=w>        
-</span></span></span></code></pre></div><h2 id=五部署策略深度解析>五、部署策略深度解析</h2><h3 id=51-滚动更新rolling-update>5.1 滚动更新（Rolling Update）</h3><pre tabindex=0><code>滚动更新策略
-初始状态（3个Pod，版本v1）
-┌─────────┐  ┌─────────┐  ┌─────────┐
-│ Pod v1  │  │ Pod v1  │  │ Pod v1  │
-└─────────┘  └─────────┘  └─────────┘
-
-更新过程（逐个替换）
-Step 1: 创建1个v2，删除1个v1
-┌─────────┐  ┌─────────┐  ┌─────────┐
-│ Pod v2  │  │ Pod v1  │  │ Pod v1  │
-└─────────┘  └─────────┘  └─────────┘
-
-Step 2: 创建1个v2，删除1个v1
-┌─────────┐  ┌─────────┐  ┌─────────┐
-│ Pod v2  │  │ Pod v2  │  │ Pod v1  │
-└─────────┘  └─────────┘  └─────────┘
-
-Step 3: 创建1个v2，删除1个v1
-┌─────────┐  ┌─────────┐  ┌─────────┐
-│ Pod v2  │  │ Pod v2  │  │ Pod v2  │
-└─────────┘  └─────────┘  └─────────┘
-
-优势：零停机、渐进式更新
-问题：更新过程慢、两个版本共存可能不兼容
-</code></pre><h3 id=52-蓝绿部署blue-green-deployment>5.2 蓝绿部署（Blue-Green Deployment）</h3><pre tabindex=0><code>蓝绿部署策略
-┌─────────┐
-│  Client  │
-└────┬─────┘
-     │
-     ▼
-┌──────────────┐
-│  Load       │
-│  Balancer   │
-└────┬─────────┘
-     │
-     ├────────────► 蓝环境（v1，当前生产）
-     │             ┌─────────┐  ┌─────────┐
-     │             │ Pod v1  │  │ Pod v1  │
-     │             └─────────┘  └─────────┘
-     │
-     └────────────► 绿环境（v2，新版本）
-                   ┌─────────┐  ┌─────────┐
-                   │ Pod v2  │  │ Pod v2  │
-                   └─────────┘  └─────────┘
-
-部署过程：
-1. 在绿环境部署v2
-2. 测试绿环境（内部测试）
-3. 切换Load Balancer到绿环境（瞬间切换）
-4. 蓝环境保留（快速回滚）
-
-优势：瞬间切换、快速回滚
-问题：需要双倍资源
-</code></pre><h3 id=53-金丝雀发布canary-release>5.3 金丝雀发布（Canary Release）</h3><pre tabindex=0><code>金丝雀发布策略
-┌─────────┐
-│  Client  │
-└────┬─────┘
-     │
-     ▼
-┌──────────────┐
-│  Ingress     │
-│  Controller  │
-└────┬─────────┘
-     │
-     ├────────────► 生产环境（v1，95%流量）
-     │             ┌─────────┐  ┌─────────┐  ┌─────────┐
-     │             │ Pod v1  │  │ Pod v1  │  │ Pod v1  │
-     │             └─────────┘  └─────────┘  └─────────┘
-     │
-     └────────────► 金丝雀环境（v2，5%流量）
-                   ┌─────────┐
-                   │ Pod v2  │
-                   └─────────┘
-
-部署过程：
-1. 部署v2到金丝雀环境
-2. 将5%流量路由到v2
-3. 监控v2的性能和错误率
-4. 如果OK，逐步增加流量（10% → 50% → 100%）
-5. 如果失败，快速回滚（0%流量）
-
-优势：渐进式发布、风险可控
-问题：需要流量分割能力（Istio/Linkerd）
-</code></pre><h3 id=54-部署策略对比>5.4 部署策略对比</h3><table><thead><tr><th>策略</th><th>零停机</th><th>快速回滚</th><th>资源开销</th><th>风险</th><th>适用场景</th></tr></thead><tbody><tr><td><strong>滚动更新</strong></td><td>✅</td><td>❌（慢）</td><td>低</td><td>中</td><td>大多数场景</td></tr><tr><td><strong>蓝绿部署</strong></td><td>✅</td><td>✅</td><td>高（双倍）</td><td>低</td><td>关键业务</td></tr><tr><td><strong>金丝雀发布</strong></td><td>✅</td><td>✅</td><td>中</td><td>极低</td><td>高风险变更</td></tr><tr><td><strong>重建部署</strong></td><td>❌</td><td>❌</td><td>低</td><td>高</td><td>开发/测试环境</td></tr></tbody></table><h2 id=六面试高频问题>六、面试高频问题</h2><h3 id=q1docker和虚拟机的区别>Q1：Docker和虚拟机的区别？</h3><p><strong>答</strong>：</p><table><thead><tr><th>维度</th><th>Docker</th><th>虚拟机</th></tr></thead><tbody><tr><td><strong>隔离级别</strong></td><td>进程级（共享内核）</td><td>系统级（独立内核）</td></tr><tr><td><strong>启动速度</strong></td><td>秒级</td><td>分钟级</td></tr><tr><td><strong>资源开销</strong></td><td>低（MB级）</td><td>高（GB级）</td></tr><tr><td><strong>性能</strong></td><td>接近原生</td><td>有损耗</td></tr><tr><td><strong>镜像大小</strong></td><td>MB级</td><td>GB级</td></tr></tbody></table><p><strong>核心区别</strong>：Docker是容器化技术（进程隔离），虚拟机是虚拟化技术（硬件虚拟化）。</p><h3 id=q2kubernetes的service和ingress的区别>Q2：Kubernetes的Service和Ingress的区别？</h3><p><strong>答</strong>：</p><ul><li><strong>Service</strong>：L4层（TCP/UDP）服务发现，提供稳定的虚拟IP和DNS</li><li><strong>Ingress</strong>：L7层（HTTP/HTTPS）路由，基于域名和URL路径路由</li></ul><p>关系：Ingress → Service → Pod</p><h3 id=q3kubernetes的滚动更新和蓝绿部署的区别>Q3：Kubernetes的滚动更新和蓝绿部署的区别？</h3><p><strong>答</strong>：</p><ul><li><strong>滚动更新</strong>：逐步替换Pod，零停机但更新慢，两个版本可能共存</li><li><strong>蓝绿部署</strong>：瞬间切换流量，快速回滚但需要双倍资源</li></ul><p><strong>选择</strong>：</p><ul><li>大多数场景用滚动更新</li><li>关键业务用蓝绿部署</li></ul><h3 id=q4如何实现kubernetes的健康检查>Q4：如何实现Kubernetes的健康检查？</h3><p><strong>答</strong>：三种探针：</p><ol><li><strong>livenessProbe</strong>（存活探针）：检测容器是否存活，失败则重启容器</li><li><strong>readinessProbe</strong>（就绪探针）：检测容器是否就绪，失败则从Service endpoints移除</li><li><strong>startupProbe</strong>（启动探针）：检测慢启动容器，在启动阶段禁用其他探针</li></ol><h3 id=q5cicd的核心价值是什么>Q5：CI/CD的核心价值是什么？</h3><p><strong>答</strong>：</p><ol><li><strong>自动化</strong>：减少人工操作，降低错误率</li><li><strong>快速反馈</strong>：提交代码后立即得到构建和测试反馈</li><li><strong>频繁发布</strong>：小步快跑，降低发布风险</li><li><strong>可追溯</strong>：每次构建都有记录，方便回滚和审计</li></ol><h3 id=q6docker镜像分层存储的原理>Q6：Docker镜像分层存储的原理？</h3><p><strong>答</strong>：Docker镜像采用分层存储（UnionFS）：</p><ul><li>每一层只读</li><li>容器层可写（Copy-on-Write）</li><li>共享相同层（节省存储和传输）</li></ul><p><strong>优势</strong>：</p><ul><li>构建缓存（相同层复用）</li><li>增量传输（只传输变化的层）</li><li>节省存储（相同层只存一份）</li></ul><h3 id=q7kubernetes的资源限制requests-vs-limits>Q7：Kubernetes的资源限制（requests vs limits）？</h3><p><strong>答</strong>：</p><ul><li><strong>requests</strong>：调度依据（保证最小资源）</li><li><strong>limits</strong>：硬限制（最多使用多少资源）</li></ul><p><strong>QoS等级</strong>（根据requests和limits）：</p><ol><li><strong>Guaranteed</strong>：requests = limits → 最高优先级</li><li><strong>Burstable</strong>：requests &lt; limits → 中优先级</li><li><strong>BestEffort</strong>：无requests/limits → 最低优先级</li></ol><p><strong>驱逐顺序</strong>：BestEffort → Burstable → Guaranteed</p><h3 id=q8如何实现微服务的配置管理configmapsecret>Q8：如何实现微服务的配置管理（ConfigMap/Secret）？</h3><p><strong>答</strong>：</p><ul><li><strong>ConfigMap</strong>：存储非敏感配置（配置文件、环境变量）</li><li><strong>Secret</strong>：存储敏感配置（密码、Token、密钥）</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># ConfigMap</span><span class=w>
+</span></span></span></code></pre></div><h2 id=五部署策略深度解析>五、部署策略深度解析</h2><h3 id=51-滚动更新rolling-update>5.1 滚动更新（Rolling Update）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>滚动更新策略
+</span></span><span class=line><span class=cl>初始状态（3个Pod，版本v1）
+</span></span><span class=line><span class=cl>┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>│ Pod v1  │  │ Pod v1  │  │ Pod v1  │
+</span></span><span class=line><span class=cl>└─────────┘  └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>更新过程（逐个替换）
+</span></span><span class=line><span class=cl>Step 1: 创建1个v2，删除1个v1
+</span></span><span class=line><span class=cl>┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>│ Pod v2  │  │ Pod v1  │  │ Pod v1  │
+</span></span><span class=line><span class=cl>└─────────┘  └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 2: 创建1个v2，删除1个v1
+</span></span><span class=line><span class=cl>┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>│ Pod v2  │  │ Pod v2  │  │ Pod v1  │
+</span></span><span class=line><span class=cl>└─────────┘  └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 3: 创建1个v2，删除1个v1
+</span></span><span class=line><span class=cl>┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>│ Pod v2  │  │ Pod v2  │  │ Pod v2  │
+</span></span><span class=line><span class=cl>└─────────┘  └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>优势：零停机、渐进式更新
+</span></span><span class=line><span class=cl>问题：更新过程慢、两个版本共存可能不兼容
+</span></span></code></pre></div><h3 id=52-蓝绿部署blue-green-deployment>5.2 蓝绿部署（Blue-Green Deployment）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>蓝绿部署策略
+</span></span><span class=line><span class=cl>┌─────────┐
+</span></span><span class=line><span class=cl>│  Client  │
+</span></span><span class=line><span class=cl>└────┬─────┘
+</span></span><span class=line><span class=cl>     │
+</span></span><span class=line><span class=cl>     ▼
+</span></span><span class=line><span class=cl>┌──────────────┐
+</span></span><span class=line><span class=cl>│  Load       │
+</span></span><span class=line><span class=cl>│  Balancer   │
+</span></span><span class=line><span class=cl>└────┬─────────┘
+</span></span><span class=line><span class=cl>     │
+</span></span><span class=line><span class=cl>     ├────────────► 蓝环境（v1，当前生产）
+</span></span><span class=line><span class=cl>     │             ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>     │             │ Pod v1  │  │ Pod v1  │
+</span></span><span class=line><span class=cl>     │             └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>     │
+</span></span><span class=line><span class=cl>     └────────────► 绿环境（v2，新版本）
+</span></span><span class=line><span class=cl>                   ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>                   │ Pod v2  │  │ Pod v2  │
+</span></span><span class=line><span class=cl>                   └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>部署过程：
+</span></span><span class=line><span class=cl>1. 在绿环境部署v2
+</span></span><span class=line><span class=cl>2. 测试绿环境（内部测试）
+</span></span><span class=line><span class=cl>3. 切换Load Balancer到绿环境（瞬间切换）
+</span></span><span class=line><span class=cl>4. 蓝环境保留（快速回滚）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>优势：瞬间切换、快速回滚
+</span></span><span class=line><span class=cl>问题：需要双倍资源
+</span></span></code></pre></div><h3 id=53-金丝雀发布canary-release>5.3 金丝雀发布（Canary Release）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>金丝雀发布策略
+</span></span><span class=line><span class=cl>┌─────────┐
+</span></span><span class=line><span class=cl>│  Client  │
+</span></span><span class=line><span class=cl>└────┬─────┘
+</span></span><span class=line><span class=cl>     │
+</span></span><span class=line><span class=cl>     ▼
+</span></span><span class=line><span class=cl>┌──────────────┐
+</span></span><span class=line><span class=cl>│  Ingress     │
+</span></span><span class=line><span class=cl>│  Controller  │
+</span></span><span class=line><span class=cl>└────┬─────────┘
+</span></span><span class=line><span class=cl>     │
+</span></span><span class=line><span class=cl>     ├────────────► 生产环境（v1，95%流量）
+</span></span><span class=line><span class=cl>     │             ┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>     │             │ Pod v1  │  │ Pod v1  │  │ Pod v1  │
+</span></span><span class=line><span class=cl>     │             └─────────┘  └─────────┘  └─────────┘
+</span></span><span class=line><span class=cl>     │
+</span></span><span class=line><span class=cl>     └────────────► 金丝雀环境（v2，5%流量）
+</span></span><span class=line><span class=cl>                   ┌─────────┐
+</span></span><span class=line><span class=cl>                   │ Pod v2  │
+</span></span><span class=line><span class=cl>                   └─────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>部署过程：
+</span></span><span class=line><span class=cl>1. 部署v2到金丝雀环境
+</span></span><span class=line><span class=cl>2. 将5%流量路由到v2
+</span></span><span class=line><span class=cl>3. 监控v2的性能和错误率
+</span></span><span class=line><span class=cl>4. 如果OK，逐步增加流量（10% → 50% → 100%）
+</span></span><span class=line><span class=cl>5. 如果失败，快速回滚（0%流量）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>优势：渐进式发布、风险可控
+</span></span><span class=line><span class=cl>问题：需要流量分割能力（Istio/Linkerd）
+</span></span></code></pre></div><h3 id=54-部署策略对比>5.4 部署策略对比</h3><table><thead><tr><th>策略</th><th>零停机</th><th>快速回滚</th><th>资源开销</th><th>风险</th><th>适用场景</th></tr></thead><tbody><tr><td><strong>滚动更新</strong></td><td>✅</td><td>❌（慢）</td><td>低</td><td>中</td><td>大多数场景</td></tr><tr><td><strong>蓝绿部署</strong></td><td>✅</td><td>✅</td><td>高（双倍）</td><td>低</td><td>关键业务</td></tr><tr><td><strong>金丝雀发布</strong></td><td>✅</td><td>✅</td><td>中</td><td>极低</td><td>高风险变更</td></tr><tr><td><strong>重建部署</strong></td><td>❌</td><td>❌</td><td>低</td><td>高</td><td>开发/测试环境</td></tr></tbody></table><h2 id=六面试高频问题>六、面试高频问题</h2><h3 id=q1docker和虚拟机的区别>Q1：Docker和虚拟机的区别？</h3><p><strong>答</strong>：</p><table><thead><tr><th>维度</th><th>Docker</th><th>虚拟机</th></tr></thead><tbody><tr><td><strong>隔离级别</strong></td><td>进程级（共享内核）</td><td>系统级（独立内核）</td></tr><tr><td><strong>启动速度</strong></td><td>秒级</td><td>分钟级</td></tr><tr><td><strong>资源开销</strong></td><td>低（MB级）</td><td>高（GB级）</td></tr><tr><td><strong>性能</strong></td><td>接近原生</td><td>有损耗</td></tr><tr><td><strong>镜像大小</strong></td><td>MB级</td><td>GB级</td></tr></tbody></table><p><strong>核心区别</strong>：Docker是容器化技术（进程隔离），虚拟机是虚拟化技术（硬件虚拟化）。</p><h3 id=q2kubernetes的service和ingress的区别>Q2：Kubernetes的Service和Ingress的区别？</h3><p><strong>答</strong>：</p><ul><li><strong>Service</strong>：L4层（TCP/UDP）服务发现，提供稳定的虚拟IP和DNS</li><li><strong>Ingress</strong>：L7层（HTTP/HTTPS）路由，基于域名和URL路径路由</li></ul><p>关系：Ingress → Service → Pod</p><h3 id=q3kubernetes的滚动更新和蓝绿部署的区别>Q3：Kubernetes的滚动更新和蓝绿部署的区别？</h3><p><strong>答</strong>：</p><ul><li><strong>滚动更新</strong>：逐步替换Pod，零停机但更新慢，两个版本可能共存</li><li><strong>蓝绿部署</strong>：瞬间切换流量，快速回滚但需要双倍资源</li></ul><p><strong>选择</strong>：</p><ul><li>大多数场景用滚动更新</li><li>关键业务用蓝绿部署</li></ul><h3 id=q4如何实现kubernetes的健康检查>Q4：如何实现Kubernetes的健康检查？</h3><p><strong>答</strong>：三种探针：</p><ol><li><strong>livenessProbe</strong>（存活探针）：检测容器是否存活，失败则重启容器</li><li><strong>readinessProbe</strong>（就绪探针）：检测容器是否就绪，失败则从Service endpoints移除</li><li><strong>startupProbe</strong>（启动探针）：检测慢启动容器，在启动阶段禁用其他探针</li></ol><h3 id=q5cicd的核心价值是什么>Q5：CI/CD的核心价值是什么？</h3><p><strong>答</strong>：</p><ol><li><strong>自动化</strong>：减少人工操作，降低错误率</li><li><strong>快速反馈</strong>：提交代码后立即得到构建和测试反馈</li><li><strong>频繁发布</strong>：小步快跑，降低发布风险</li><li><strong>可追溯</strong>：每次构建都有记录，方便回滚和审计</li></ol><h3 id=q6docker镜像分层存储的原理>Q6：Docker镜像分层存储的原理？</h3><p><strong>答</strong>：Docker镜像采用分层存储（UnionFS）：</p><ul><li>每一层只读</li><li>容器层可写（Copy-on-Write）</li><li>共享相同层（节省存储和传输）</li></ul><p><strong>优势</strong>：</p><ul><li>构建缓存（相同层复用）</li><li>增量传输（只传输变化的层）</li><li>节省存储（相同层只存一份）</li></ul><h3 id=q7kubernetes的资源限制requests-vs-limits>Q7：Kubernetes的资源限制（requests vs limits）？</h3><p><strong>答</strong>：</p><ul><li><strong>requests</strong>：调度依据（保证最小资源）</li><li><strong>limits</strong>：硬限制（最多使用多少资源）</li></ul><p><strong>QoS等级</strong>（根据requests和limits）：</p><ol><li><strong>Guaranteed</strong>：requests = limits → 最高优先级</li><li><strong>Burstable</strong>：requests &lt; limits → 中优先级</li><li><strong>BestEffort</strong>：无requests/limits → 最低优先级</li></ol><p><strong>驱逐顺序</strong>：BestEffort → Burstable → Guaranteed</p><h3 id=q8如何实现微服务的配置管理configmapsecret>Q8：如何实现微服务的配置管理（ConfigMap/Secret）？</h3><p><strong>答</strong>：</p><ul><li><strong>ConfigMap</strong>：存储非敏感配置（配置文件、环境变量）</li><li><strong>Secret</strong>：存储敏感配置（密码、Token、密钥）</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># ConfigMap</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ConfigMap</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
@@ -823,29 +823,29 @@ Step 3: 创建1个v2，删除1个v1
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>Opaque</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>data</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>mysql.password</span><span class=p>:</span><span class=w> </span><span class=l>cm9vdDEyMw== </span><span class=w> </span><span class=c># base64编码</span><span class=w>
-</span></span></span></code></pre></div><p>使用方式：</p><ol><li>环境变量</li><li>文件挂载（Volume）</li></ol><h2 id=七总结>七、总结</h2><h3 id=核心要点>核心要点</h3><ol><li><strong>Docker核心价值</strong>：标准化交付、环境一致性、资源隔离</li><li><strong>Kubernetes核心能力</strong>：服务编排、自动恢复、弹性伸缩</li><li><strong>CI/CD核心价值</strong>：自动化、快速反馈、频繁发布</li><li><strong>部署策略选择</strong>：滚动更新（大多数场景）、蓝绿部署（关键业务）、金丝雀发布（高风险变更）</li></ol><h3 id=技术选型>技术选型</h3><pre tabindex=0><code>选型决策树
-
-需要容器化？
-    │
-    ├─ 否 → 直接部署到物理机/虚拟机
-    │
-    └─ 是 ─→ 需要编排？
-              │
-              ├─ 否 → Docker Compose（单机）
-              │
-              └─ 是 ──→ 规模？
-                        │
-                        ├─ 小（&lt;10节点）→ Docker Swarm（简单）
-                        │
-                        └─ 大（&gt;10节点）→ Kubernetes（标准）
-</code></pre><h3 id=面试速记口诀>面试速记口诀</h3><pre tabindex=0><code>Docker容器真方便，镜像分层存
-Kubernetes编排强，Pod Service加Deployment
-CI/CD自动化，构建测试加部署
-滚动更新零停机，蓝绿部署秒切换
-金丝雀发布控风险，监控指标不能少
-配置管理用ConfigMap，敏感信息用Secret
-健康检查三探针，资源限制要合理
-</code></pre><h3 id=下一步学习方向>下一步学习方向</h3><ol><li><strong>深入原理</strong>：Kubernetes调度器、etcd、CNI/CSI/CRI</li><li><strong>服务网格</strong>：Istio、Linkerd（流量管理、安全、可观测性）</li><li><strong>GitOps</strong>：ArgoCD、Flux（声明式部署）</li><li><strong>可观测性</strong>：Prometheus + Grafana + ELK</li><li><strong>安全</strong>：镜像扫描、Pod安全策略、Network Policy</li></ol></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E5%88%86%E5%B8%83%E5%BC%8F%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>← 上一篇</span><strong>分布式链路追踪深度解析</strong></a>
+</span></span></span></code></pre></div><p>使用方式：</p><ol><li>环境变量</li><li>文件挂载（Volume）</li></ol><h2 id=七总结>七、总结</h2><h3 id=核心要点>核心要点</h3><ol><li><strong>Docker核心价值</strong>：标准化交付、环境一致性、资源隔离</li><li><strong>Kubernetes核心能力</strong>：服务编排、自动恢复、弹性伸缩</li><li><strong>CI/CD核心价值</strong>：自动化、快速反馈、频繁发布</li><li><strong>部署策略选择</strong>：滚动更新（大多数场景）、蓝绿部署（关键业务）、金丝雀发布（高风险变更）</li></ol><h3 id=技术选型>技术选型</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>选型决策树
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>需要容器化？
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ├─ 否 → 直接部署到物理机/虚拟机
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └─ 是 ─→ 需要编排？
+</span></span><span class=line><span class=cl>              │
+</span></span><span class=line><span class=cl>              ├─ 否 → Docker Compose（单机）
+</span></span><span class=line><span class=cl>              │
+</span></span><span class=line><span class=cl>              └─ 是 ──→ 规模？
+</span></span><span class=line><span class=cl>                        │
+</span></span><span class=line><span class=cl>                        ├─ 小（&lt;10节点）→ Docker Swarm（简单）
+</span></span><span class=line><span class=cl>                        │
+</span></span><span class=line><span class=cl>                        └─ 大（&gt;10节点）→ Kubernetes（标准）
+</span></span></code></pre></div><h3 id=面试速记口诀>面试速记口诀</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Docker容器真方便，镜像分层存
+</span></span><span class=line><span class=cl>Kubernetes编排强，Pod Service加Deployment
+</span></span><span class=line><span class=cl>CI/CD自动化，构建测试加部署
+</span></span><span class=line><span class=cl>滚动更新零停机，蓝绿部署秒切换
+</span></span><span class=line><span class=cl>金丝雀发布控风险，监控指标不能少
+</span></span><span class=line><span class=cl>配置管理用ConfigMap，敏感信息用Secret
+</span></span><span class=line><span class=cl>健康检查三探针，资源限制要合理
+</span></span></code></pre></div><h3 id=下一步学习方向>下一步学习方向</h3><ol><li><strong>深入原理</strong>：Kubernetes调度器、etcd、CNI/CSI/CRI</li><li><strong>服务网格</strong>：Istio、Linkerd（流量管理、安全、可观测性）</li><li><strong>GitOps</strong>：ArgoCD、Flux（声明式部署）</li><li><strong>可观测性</strong>：Prometheus + Grafana + ELK</li><li><strong>安全</strong>：镜像扫描、Pod安全策略、Network Policy</li></ol></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E5%88%86%E5%B8%83%E5%BC%8F%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>← 上一篇</span><strong>分布式链路追踪深度解析</strong></a>
 <a class=next href=/posts/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E5%AE%89%E5%85%A8%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>下一篇 →</span><strong>微服务安全深度解析</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%AB%E7%94%9F%E4%BA%A7%E7%BA%A7%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E7%81%BE%E5%A4%87/><span>2026-08-09</span><strong>Kubernetes与云原生面试八股文（八）——生产级高可用与灾备</strong><p>面试高频问题：Kubernetes 生产集群如何实现高可用？etcd 如何做备份与恢复？多集群联邦如何设计？灾备策略有哪些？RPO/RTO 如何权衡？本文系统讲解 K8s 生产级高 …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/><span>2026-08-08</span><strong>Kubernetes与云原生面试八股文（七）——可观测性与故障排查</strong><p>面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/><span>2026-08-06</span><strong>Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps</strong><p>面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD …</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9A%E5%BE%AE%E6%9C%8D%E5%8A%A1%E9%83%A8%E7%BD%B2%E4%B8%8E%E5%AE%B9%E5%99%A8%E5%8C%96%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a><ul><li><a href=#单体-vs-微服务部署对比>单体 vs 微服务部署对比</a></li></ul></li><li><a href=#二docker-深度解析>二、Docker 深度解析</a><ul><li><a href=#21-docker-核心概念>2.1 Docker 核心概念</a></li><li><a href=#22-dockerfile-深度解析>2.2 Dockerfile 深度解析</a></li><li><a href=#23-docker-compose-深度解析>2.3 Docker Compose 深度解析</a></li><li><a href=#24-docker-网络深度解析>2.4 Docker 网络深度解析</a></li></ul></li><li><a href=#三kubernetes-深度解析>三、Kubernetes 深度解析</a><ul><li><a href=#31-kubernetes-架构设计>3.1 Kubernetes 架构设计</a></li><li><a href=#32-pod-深度解析>3.2 Pod 深度解析</a></li><li><a href=#33-deployment-深度解析>3.3 Deployment 深度解析</a></li><li><a href=#34-service-深度解析>3.4 Service 深度解析</a></li><li><a href=#35-ingress-深度解析>3.5 Ingress 深度解析</a></li></ul></li><li><a href=#四cicd-深度解析>四、CI/CD 深度解析</a><ul><li><a href=#41-cicd-流水线设计>4.1 CI/CD 流水线设计</a></li><li><a href=#42-jenkins-pipeline-深度解析>4.2 Jenkins Pipeline 深度解析</a></li><li><a href=#43-github-actions-深度解析>4.3 GitHub Actions 深度解析</a></li></ul></li><li><a href=#五部署策略深度解析>五、部署策略深度解析</a><ul><li><a href=#51-滚动更新rolling-update>5.1 滚动更新（Rolling Update）</a></li><li><a href=#52-蓝绿部署blue-green-deployment>5.2 蓝绿部署（Blue-Green Deployment）</a></li><li><a href=#53-金丝雀发布canary-release>5.3 金丝雀发布（Canary Release）</a></li><li><a href=#54-部署策略对比>5.4 部署策略对比</a></li></ul></li><li><a href=#六面试高频问题>六、面试高频问题</a><ul><li><a href=#q1docker和虚拟机的区别>Q1：Docker和虚拟机的区别？</a></li><li><a href=#q2kubernetes的service和ingress的区别>Q2：Kubernetes的Service和Ingress的区别？</a></li><li><a href=#q3kubernetes的滚动更新和蓝绿部署的区别>Q3：Kubernetes的滚动更新和蓝绿部署的区别？</a></li><li><a href=#q4如何实现kubernetes的健康检查>Q4：如何实现Kubernetes的健康检查？</a></li><li><a href=#q5cicd的核心价值是什么>Q5：CI/CD的核心价值是什么？</a></li><li><a href=#q6docker镜像分层存储的原理>Q6：Docker镜像分层存储的原理？</a></li><li><a href=#q7kubernetes的资源限制requests-vs-limits>Q7：Kubernetes的资源限制（requests vs limits）？</a></li><li><a href=#q8如何实现微服务的配置管理configmapsecret>Q8：如何实现微服务的配置管理（ConfigMap/Secret）？</a></li></ul></li><li><a href=#七总结>七、总结</a><ul><li><a href=#核心要点>核心要点</a></li><li><a href=#技术选型>技术选型</a></li><li><a href=#面试速记口诀>面试速记口诀</a></li><li><a href=#下一步学习方向>下一步学习方向</a></li></ul></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
 <a href=mailto:liyafei.work@foxmail.com>邮箱</a>
 <a href=/index.xml>RSS</a>

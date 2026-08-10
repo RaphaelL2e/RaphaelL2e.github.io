@@ -9,78 +9,78 @@
 <a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Spring Cloud 全家桶深度解析</h1><p class=article-description>Spring Cloud 是目前最主流的微服务框架，提供了一站式微服务解决方案。理解 Spring Cloud 的各个组件及其作用，是微服务开发和面试的必备技能。 Spring Cloud 生态全景 Spring Cloud Alibaba 组件 版本选择（Hoxton、2020.0.x、2022.</p><div class=article-meta><span>发布于 <time datetime=2026-05-14>2026-05-14</time></span>
 <span>最后验证 2026-05</span>
 <span>6 分钟阅读</span>
-<span>1147 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a></li><li><a href=#二spring-cloud-生态全景>二、Spring Cloud 生态全景</a><ul><li><a href=#21-什么是-spring-cloud>2.1 什么是 Spring Cloud？</a></li><li><a href=#22-核心组件架构图>2.2 核心组件架构图</a></li></ul></li><li><a href=#三核心组件详解>三、核心组件详解</a><ul><li><a href=#31-服务注册与发现>3.1 服务注册与发现</a></li><li><a href=#32-负载均衡>3.2 负载均衡</a></li><li><a href=#33-服务调用>3.3 服务调用</a></li><li><a href=#34-熔断器>3.4 熔断器</a></li><li><a href=#35-api-网关>3.5 API 网关</a></li><li><a href=#36-配置中心>3.6 配置中心</a></li></ul></li><li><a href=#四spring-cloud-alibaba-组件>四、Spring Cloud Alibaba 组件</a><ul><li><a href=#41-为什么需要-spring-cloud-alibaba>4.1 为什么需要 Spring Cloud Alibaba？</a></li><li><a href=#42-核心组件>4.2 核心组件</a></li><li><a href=#43-版本对应关系>4.3 版本对应关系</a></li></ul></li><li><a href=#五版本选择>五、版本选择</a><ul><li><a href=#51-spring-cloud-版本命名>5.1 Spring Cloud 版本命名</a></li><li><a href=#52-组件版本对应表>5.2 组件版本对应表</a></li></ul></li><li><a href=#六各组件对比与选型>六、各组件对比与选型</a><ul><li><a href=#61-注册中心选型>6.1 注册中心选型</a></li><li><a href=#62-配置中心选型>6.2 配置中心选型</a></li><li><a href=#63-熔断器选型>6.3 熔断器选型</a></li></ul></li><li><a href=#七spring-cloud-微服务架构最佳实践>七、Spring Cloud 微服务架构最佳实践</a><ul><li><a href=#71-技术栈选型2024-推荐>7.1 技术栈选型（2024 推荐）</a></li><li><a href=#72-项目结构>7.2 项目结构</a></li><li><a href=#73-踩坑经验>7.3 踩坑经验</a></li></ul></li><li><a href=#八面试高频问题>八、面试高频问题</a><ul><li><a href=#q1-spring-cloud-和-dubbo-的区别>Q1: Spring Cloud 和 Dubbo 的区别？</a></li><li><a href=#q2-说说-eureka-和-nacos-的区别>Q2: 说说 Eureka 和 Nacos 的区别？</a></li><li><a href=#q3-spring-cloud-gateway-和-zuul-的区别>Q3: Spring Cloud Gateway 和 Zuul 的区别？</a></li><li><a href=#q4-说说-sentinel-和-hystrix-的区别>Q4: 说说 Sentinel 和 Hystrix 的区别？</a></li><li><a href=#q5-微服务架构中如何做权限控制>Q5: 微服务架构中，如何做权限控制？</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=一引言>一、引言</h2><p>Spring Cloud 是目前最主流的微服务框架，提供了一站式微服务解决方案。理解 Spring Cloud 的各个组件及其作用，是微服务开发和面试的必备技能。</p><p><strong>本文要点</strong>：</p><ol><li>Spring Cloud 生态全景</li><li>核心组件详解</li><li>Spring Cloud Alibaba 组件</li><li>版本选择（Hoxton、2020.0.x、2022.0.x）</li><li>各组件对比与选型</li><li>面试高频问题</li></ol><hr><h2 id=二spring-cloud-生态全景>二、Spring Cloud 生态全景</h2><h3 id=21-什么是-spring-cloud>2.1 什么是 Spring Cloud？</h3><pre tabindex=0><code>Spring Cloud = 分布式系统工具集（基于 Spring Boot）
-
-核心功能：
-  ✓ 服务注册与发现
-  ✓ 配置管理
-  ✓ 服务通信（负载均衡、熔断、降级）
-  ✓ API 网关
-  ✓ 分布式追踪
-  ✓ 消息总线
-  ✓ 分布式锁、分布式任务
-</code></pre><h3 id=22-核心组件架构图>2.2 核心组件架构图</h3><pre tabindex=0><code>                ┌─────────────────────────────────────────┐
-                │          Config Server                 │
-                │       (配置中心 / Apollo/Nacos)        │
-                └─────────────────────────────────────────┘
-                                │
-                    ┌───────────┴───────────┐
-                    ↓                       ↓
-┌───────────┐  ┌───────────┐       ┌───────────┐
-│  Service A │  │  Service B │  ...  │  Service N │
-└─────┬─────┘  └─────┬─────┘       └─────┬─────┘
-      │               │                   │
-      └───────────────┴───────────────────┘
-                          │
-                ┌─────────┴─────────┐
-                │   Eureka/Nacos     │  ← 注册中心
-                │   (服务发现)        │
-                └────────────────────┘
-                          │
-                ┌─────────┴─────────┐
-                │  Ribbon/LoadBalancer│  ← 负载均衡
-                └────────────────────┘
-                          │
-                ┌─────────┴─────────┐
-                │  Feign/OpenFeign   │  ← 声明式调用
-                └────────────────────┘
-                          │
-                ┌─────────┴─────────┐
-                │  Hystrix/Sentinel  │  ← 熔断降级
-                └────────────────────┘
-                          │
-                ┌─────────┴─────────┐
-                │  Gateway/Zuul      │  ← API 网关
-                └────────────────────┘
-                          │
-                ┌─────────┴─────────┐
-                │  Sleuth/Zipkin     │  ← 链路追踪
-                └────────────────────┘
-</code></pre><hr><h2 id=三核心组件详解>三、核心组件详解</h2><h3 id=31-服务注册与发现>3.1 服务注册与发现</h3><p><strong>Eureka（Netflix，已进入维护模式）</strong></p><pre tabindex=0><code>角色：
-  - Eureka Server：服务注册中心
-  - Eureka Client：服务提供者/消费者
-
-工作流程：
-  1. 服务启动 → 注册到 Eureka Server
-  2. 每 30 秒发送心跳
-  3. 超过 90 秒未收到心跳 → 剔除服务
-  4. 服务消费者从 Eureka 获取服务列表
-
-特点：
-  ✓ AP 系统（高可用 + 分区容错）
-  ✗ 不包含最新维护（Spring Cloud Hoxton 后不推荐）
-</code></pre><p><strong>Nacos（阿里，推荐）</strong></p><pre tabindex=0><code>功能：
-  ✓ 服务注册与发现
-  ✓ 配置管理（替代 Config）
-  ✓ 动态配置刷新
-  ✓ 服务健康检查
-
-优势：
-  - 比 Eureka 功能更强
-  - 同时支持 CP 和 AP 模式
-  - 中文文档完善
-  - 阿里生产级验证
-</code></pre><h3 id=32-负载均衡>3.2 负载均衡</h3><p><strong>Ribbon（Netflix，已进入维护模式）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 使用 RestTemplate + Ribbon
+<span>1147 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a></li><li><a href=#二spring-cloud-生态全景>二、Spring Cloud 生态全景</a><ul><li><a href=#21-什么是-spring-cloud>2.1 什么是 Spring Cloud？</a></li><li><a href=#22-核心组件架构图>2.2 核心组件架构图</a></li></ul></li><li><a href=#三核心组件详解>三、核心组件详解</a><ul><li><a href=#31-服务注册与发现>3.1 服务注册与发现</a></li><li><a href=#32-负载均衡>3.2 负载均衡</a></li><li><a href=#33-服务调用>3.3 服务调用</a></li><li><a href=#34-熔断器>3.4 熔断器</a></li><li><a href=#35-api-网关>3.5 API 网关</a></li><li><a href=#36-配置中心>3.6 配置中心</a></li></ul></li><li><a href=#四spring-cloud-alibaba-组件>四、Spring Cloud Alibaba 组件</a><ul><li><a href=#41-为什么需要-spring-cloud-alibaba>4.1 为什么需要 Spring Cloud Alibaba？</a></li><li><a href=#42-核心组件>4.2 核心组件</a></li><li><a href=#43-版本对应关系>4.3 版本对应关系</a></li></ul></li><li><a href=#五版本选择>五、版本选择</a><ul><li><a href=#51-spring-cloud-版本命名>5.1 Spring Cloud 版本命名</a></li><li><a href=#52-组件版本对应表>5.2 组件版本对应表</a></li></ul></li><li><a href=#六各组件对比与选型>六、各组件对比与选型</a><ul><li><a href=#61-注册中心选型>6.1 注册中心选型</a></li><li><a href=#62-配置中心选型>6.2 配置中心选型</a></li><li><a href=#63-熔断器选型>6.3 熔断器选型</a></li></ul></li><li><a href=#七spring-cloud-微服务架构最佳实践>七、Spring Cloud 微服务架构最佳实践</a><ul><li><a href=#71-技术栈选型2024-推荐>7.1 技术栈选型（2024 推荐）</a></li><li><a href=#72-项目结构>7.2 项目结构</a></li><li><a href=#73-踩坑经验>7.3 踩坑经验</a></li></ul></li><li><a href=#八面试高频问题>八、面试高频问题</a><ul><li><a href=#q1-spring-cloud-和-dubbo-的区别>Q1: Spring Cloud 和 Dubbo 的区别？</a></li><li><a href=#q2-说说-eureka-和-nacos-的区别>Q2: 说说 Eureka 和 Nacos 的区别？</a></li><li><a href=#q3-spring-cloud-gateway-和-zuul-的区别>Q3: Spring Cloud Gateway 和 Zuul 的区别？</a></li><li><a href=#q4-说说-sentinel-和-hystrix-的区别>Q4: 说说 Sentinel 和 Hystrix 的区别？</a></li><li><a href=#q5-微服务架构中如何做权限控制>Q5: 微服务架构中，如何做权限控制？</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=一引言>一、引言</h2><p>Spring Cloud 是目前最主流的微服务框架，提供了一站式微服务解决方案。理解 Spring Cloud 的各个组件及其作用，是微服务开发和面试的必备技能。</p><p><strong>本文要点</strong>：</p><ol><li>Spring Cloud 生态全景</li><li>核心组件详解</li><li>Spring Cloud Alibaba 组件</li><li>版本选择（Hoxton、2020.0.x、2022.0.x）</li><li>各组件对比与选型</li><li>面试高频问题</li></ol><hr><h2 id=二spring-cloud-生态全景>二、Spring Cloud 生态全景</h2><h3 id=21-什么是-spring-cloud>2.1 什么是 Spring Cloud？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Spring Cloud = 分布式系统工具集（基于 Spring Boot）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>核心功能：
+</span></span><span class=line><span class=cl>  ✓ 服务注册与发现
+</span></span><span class=line><span class=cl>  ✓ 配置管理
+</span></span><span class=line><span class=cl>  ✓ 服务通信（负载均衡、熔断、降级）
+</span></span><span class=line><span class=cl>  ✓ API 网关
+</span></span><span class=line><span class=cl>  ✓ 分布式追踪
+</span></span><span class=line><span class=cl>  ✓ 消息总线
+</span></span><span class=line><span class=cl>  ✓ 分布式锁、分布式任务
+</span></span></code></pre></div><h3 id=22-核心组件架构图>2.2 核心组件架构图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                ┌─────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>                │          Config Server                 │
+</span></span><span class=line><span class=cl>                │       (配置中心 / Apollo/Nacos)        │
+</span></span><span class=line><span class=cl>                └─────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>                                │
+</span></span><span class=line><span class=cl>                    ┌───────────┴───────────┐
+</span></span><span class=line><span class=cl>                    ↓                       ↓
+</span></span><span class=line><span class=cl>┌───────────┐  ┌───────────┐       ┌───────────┐
+</span></span><span class=line><span class=cl>│  Service A │  │  Service B │  ...  │  Service N │
+</span></span><span class=line><span class=cl>└─────┬─────┘  └─────┬─────┘       └─────┬─────┘
+</span></span><span class=line><span class=cl>      │               │                   │
+</span></span><span class=line><span class=cl>      └───────────────┴───────────────────┘
+</span></span><span class=line><span class=cl>                          │
+</span></span><span class=line><span class=cl>                ┌─────────┴─────────┐
+</span></span><span class=line><span class=cl>                │   Eureka/Nacos     │  ← 注册中心
+</span></span><span class=line><span class=cl>                │   (服务发现)        │
+</span></span><span class=line><span class=cl>                └────────────────────┘
+</span></span><span class=line><span class=cl>                          │
+</span></span><span class=line><span class=cl>                ┌─────────┴─────────┐
+</span></span><span class=line><span class=cl>                │  Ribbon/LoadBalancer│  ← 负载均衡
+</span></span><span class=line><span class=cl>                └────────────────────┘
+</span></span><span class=line><span class=cl>                          │
+</span></span><span class=line><span class=cl>                ┌─────────┴─────────┐
+</span></span><span class=line><span class=cl>                │  Feign/OpenFeign   │  ← 声明式调用
+</span></span><span class=line><span class=cl>                └────────────────────┘
+</span></span><span class=line><span class=cl>                          │
+</span></span><span class=line><span class=cl>                ┌─────────┴─────────┐
+</span></span><span class=line><span class=cl>                │  Hystrix/Sentinel  │  ← 熔断降级
+</span></span><span class=line><span class=cl>                └────────────────────┘
+</span></span><span class=line><span class=cl>                          │
+</span></span><span class=line><span class=cl>                ┌─────────┴─────────┐
+</span></span><span class=line><span class=cl>                │  Gateway/Zuul      │  ← API 网关
+</span></span><span class=line><span class=cl>                └────────────────────┘
+</span></span><span class=line><span class=cl>                          │
+</span></span><span class=line><span class=cl>                ┌─────────┴─────────┐
+</span></span><span class=line><span class=cl>                │  Sleuth/Zipkin     │  ← 链路追踪
+</span></span><span class=line><span class=cl>                └────────────────────┘
+</span></span></code></pre></div><hr><h2 id=三核心组件详解>三、核心组件详解</h2><h3 id=31-服务注册与发现>3.1 服务注册与发现</h3><p><strong>Eureka（Netflix，已进入维护模式）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>角色：
+</span></span><span class=line><span class=cl>  - Eureka Server：服务注册中心
+</span></span><span class=line><span class=cl>  - Eureka Client：服务提供者/消费者
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>工作流程：
+</span></span><span class=line><span class=cl>  1. 服务启动 → 注册到 Eureka Server
+</span></span><span class=line><span class=cl>  2. 每 30 秒发送心跳
+</span></span><span class=line><span class=cl>  3. 超过 90 秒未收到心跳 → 剔除服务
+</span></span><span class=line><span class=cl>  4. 服务消费者从 Eureka 获取服务列表
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>特点：
+</span></span><span class=line><span class=cl>  ✓ AP 系统（高可用 + 分区容错）
+</span></span><span class=line><span class=cl>  ✗ 不包含最新维护（Spring Cloud Hoxton 后不推荐）
+</span></span></code></pre></div><p><strong>Nacos（阿里，推荐）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>功能：
+</span></span><span class=line><span class=cl>  ✓ 服务注册与发现
+</span></span><span class=line><span class=cl>  ✓ 配置管理（替代 Config）
+</span></span><span class=line><span class=cl>  ✓ 动态配置刷新
+</span></span><span class=line><span class=cl>  ✓ 服务健康检查
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>优势：
+</span></span><span class=line><span class=cl>  - 比 Eureka 功能更强
+</span></span><span class=line><span class=cl>  - 同时支持 CP 和 AP 模式
+</span></span><span class=line><span class=cl>  - 中文文档完善
+</span></span><span class=line><span class=cl>  - 阿里生产级验证
+</span></span></code></pre></div><h3 id=32-负载均衡>3.2 负载均衡</h3><p><strong>Ribbon（Netflix，已进入维护模式）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 使用 RestTemplate + Ribbon
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Bean</span>
 </span></span><span class=line><span class=cl><span class=nd>@LoadBalanced</span>  <span class=c1>// ← 开启负载均衡
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=n>RestTemplate</span> <span class=nf>restTemplate</span><span class=o>()</span> <span class=o>{</span>
@@ -158,10 +158,10 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>rules</span><span class=o>.</span><span class=na>add</span><span class=o>(</span><span class=n>rule</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=n>FlowRuleManager</span><span class=o>.</span><span class=na>loadRules</span><span class=o>(</span><span class=n>rules</span><span class=o>);</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>Sentinel vs Hystrix</strong></p><table><thead><tr><th>对比项</th><th>Sentinel</th><th>Hystrix</th></tr></thead><tbody><tr><td><strong>维护性</strong></td><td>活跃</td><td>已停维</td></tr><tr><td><strong>功能</strong></td><td>限流、熔断、降级、系统保护</td><td>熔断、降级</td></tr><tr><td><strong>控制台</strong></td><td>有（Sentinel Dashboard）</td><td>无</td></tr><tr><td><strong>动态配置</strong></td><td>支持</td><td>不支持</td></tr><tr><td><strong>推荐度</strong></td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐</td></tr></tbody></table><h3 id=35-api-网关>3.5 API 网关</h3><p><strong>Zuul（Netflix，已进入维护模式）</strong></p><pre tabindex=0><code>基于 Servlet，阻塞 I/O
-性能一般
-Spring Cloud Gateway 推出后不再推荐
-</code></pre><p><strong>Spring Cloud Gateway（推荐）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 路由配置（Java DSL）
+</span></span></code></pre></div><p><strong>Sentinel vs Hystrix</strong></p><table><thead><tr><th>对比项</th><th>Sentinel</th><th>Hystrix</th></tr></thead><tbody><tr><td><strong>维护性</strong></td><td>活跃</td><td>已停维</td></tr><tr><td><strong>功能</strong></td><td>限流、熔断、降级、系统保护</td><td>熔断、降级</td></tr><tr><td><strong>控制台</strong></td><td>有（Sentinel Dashboard）</td><td>无</td></tr><tr><td><strong>动态配置</strong></td><td>支持</td><td>不支持</td></tr><tr><td><strong>推荐度</strong></td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐</td></tr></tbody></table><h3 id=35-api-网关>3.5 API 网关</h3><p><strong>Zuul（Netflix，已进入维护模式）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>基于 Servlet，阻塞 I/O
+</span></span><span class=line><span class=cl>性能一般
+</span></span><span class=line><span class=cl>Spring Cloud Gateway 推出后不再推荐
+</span></span></code></pre></div><p><strong>Spring Cloud Gateway（推荐）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 路由配置（Java DSL）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Bean</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=n>RouteLocator</span> <span class=nf>customRouteLocator</span><span class=o>(</span><span class=n>RouteLocatorBuilder</span> <span class=n>builder</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>builder</span><span class=o>.</span><span class=na>routes</span><span class=o>()</span>
@@ -192,111 +192,111 @@ Spring Cloud Gateway 推出后不再推荐
 </span></span><span class=line><span class=cl>            <span class=o>-</span> <span class=n>Path</span><span class=o>=/</span><span class=n>api</span><span class=o>/</span><span class=n>users</span><span class=o>/**</span>
 </span></span><span class=line><span class=cl>          <span class=n>filters</span><span class=o>:</span>
 </span></span><span class=line><span class=cl>            <span class=o>-</span> <span class=n>StripPrefix</span><span class=o>=</span><span class=mi>1</span>
-</span></span></code></pre></div><p><strong>Gateway vs Zuul</strong></p><table><thead><tr><th>对比项</th><th>Gateway</th><th>Zuul</th></tr></thead><tbody><tr><td><strong>I/O 模型</strong></td><td>异步非阻塞（WebFlux）</td><td>阻塞 I/O</td></tr><tr><td><strong>性能</strong></td><td>高</td><td>中</td></tr><tr><td><strong>功能</strong></td><td>路由、过滤、限流</td><td>路由、过滤</td></tr><tr><td><strong>维护性</strong></td><td>活跃</td><td>维护模式</td></tr><tr><td><strong>推荐度</strong></td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐</td></tr></tbody></table><h3 id=36-配置中心>3.6 配置中心</h3><p><strong>Spring Cloud Config（旧版）</strong></p><pre tabindex=0><code>架构：
-  Config Server → Git 仓库（存储配置）
-  Config Client → Config Server（拉取配置）
-
-缺点：
-  - 配置变更需要手动刷新（/actuator/refresh）
-  - 没有可视化界面
-  - 不支持配置回滚
-</code></pre><p><strong>Apollo（携程，推荐）</strong></p><pre tabindex=0><code>功能：
-  ✓ 图形化配置管理
-  ✓ 配置实时推送（长轮询）
-  ✓ 配置回滚
-  ✓ 灰度发布
-  ✓ 权限管理
-  ✓ 支持 K8s、Spring Boot
-
-架构：
-  Apollo Client → Apollo Server → MySQL（配置存储）
-                  ↓
-            Config Service（配置读取）
-            Admin Service（配置管理）
-</code></pre><p><strong>Nacos（阿里，推荐）</strong></p><pre tabindex=0><code>功能：
-  ✓ 服务注册与发现
-  ✓ 配置管理（替代 Config）
-  ✓ 配置动态刷新
-  ✓ 配置回滚
-  ✓ 支持 K8s、Spring Cloud
-
-优势：
-  - 同时支持服务发现和配置管理
-  - 简化架构（不再需要 Eureka + Config）
-</code></pre><hr><h2 id=四spring-cloud-alibaba-组件>四、Spring Cloud Alibaba 组件</h2><h3 id=41-为什么需要-spring-cloud-alibaba>4.1 为什么需要 Spring Cloud Alibaba？</h3><pre tabindex=0><code>Spring Cloud Netflix（Eureka、Ribbon、Hystrix、Zuul）
-  → 多个组件进入维护模式或停止维护
-
-Spring Cloud Alibaba 提供替代方案：
-  ✓ Nacos：替代 Eureka + Config
-  ✓ Sentinel：替代 Hystrix
-  ✓ RocketMQ：消息队列（替代 RabbitMQ）
-  ✓ Dubbo：RPC 框架（可选）
-  ✓ Seata：分布式事务
-</code></pre><h3 id=42-核心组件>4.2 核心组件</h3><table><thead><tr><th>组件</th><th>功能</th><th>替代</th></tr></thead><tbody><tr><td><strong>Nacos</strong></td><td>服务注册 + 配置中心</td><td>Eureka + Config</td></tr><tr><td><strong>Sentinel</strong></td><td>限流 + 熔断 + 降级</td><td>Hystrix</td></tr><tr><td><strong>RocketMQ</strong></td><td>消息队列</td><td>RabbitMQ</td></tr><tr><td><strong>Dubbo</strong></td><td>RPC 框架</td><td>Feign（可选）</td></tr><tr><td><strong>Seata</strong></td><td>分布式事务</td><td>-</td></tr><tr><td><strong>Alibaba Cloud</strong></td><td>阿里云服务（OSS、SMS 等）</td><td>-</td></tr></tbody></table><h3 id=43-版本对应关系>4.3 版本对应关系</h3><pre tabindex=0><code>Spring Cloud Alibaba 版本选择非常重要！
-
-版本对应（2024 年）：
-  Spring Cloud Alibaba 2022.0.0.0
-  ↔ Spring Cloud 2022.0.0
-  ↔ Spring Boot 3.0.x
-  ↔ Spring Cloud Netflix EOL
-
-查看官方版本说明：
-  https://github.com/alibaba/spring-cloud-alibaba/wiki/版本说明
-</code></pre><hr><h2 id=五版本选择>五、版本选择</h2><h3 id=51-spring-cloud-版本命名>5.1 Spring Cloud 版本命名</h3><pre tabindex=0><code>旧版：伦敦地铁站名（Angel、Brixton、Camden、Dalston、Edgware、Finchley、Greenwich、Hoxton）
-新版：年月制（2020.0.x、2021.0.x、2022.0.x）
-
-推荐版本（2024）：
-  - Spring Boot 3.0.x + Spring Cloud 2022.0.x（新项目）
-  - Spring Boot 2.7.x + Spring Cloud 2021.0.x（老项目维护）
-</code></pre><h3 id=52-组件版本对应表>5.2 组件版本对应表</h3><pre tabindex=0><code>Spring Boot 3.0.x:
-  - Spring Cloud 2022.0.x
-  - Spring Cloud Alibaba 2022.0.0.0
-  - Nacos 2.2.x
-  - Sentinel 1.8.x
-  - Seata 1.6.x
-
-Spring Boot 2.7.x:
-  - Spring Cloud 2021.0.x
-  - Spring Cloud Alibaba 2021.0.5.0
-  - Nacos 2.1.x
-  - Sentinel 1.8.x
-</code></pre><hr><h2 id=六各组件对比与选型>六、各组件对比与选型</h2><h3 id=61-注册中心选型>6.1 注册中心选型</h3><table><thead><tr><th>组件</th><th>CAP</th><th>功能</th><th>推荐场景</th></tr></thead><tbody><tr><td><strong>Eureka</strong></td><td>AP</td><td>基础服务发现</td><td>老项目（不推荐新项目）</td></tr><tr><td><strong>Nacos</strong></td><td>CP/AP</td><td>服务发现 + 配置中心</td><td>新项目（推荐）</td></tr><tr><td><strong>Consul</strong></td><td>CP</td><td>服务发现 + 配置 + 多数据中心</td><td>多数据中心</td></tr><tr><td><strong>ZooKeeper</strong></td><td>CP</td><td>分布式协调</td><td>Dubbo 生态</td></tr></tbody></table><p><strong>推荐</strong>：<strong>Nacos</strong>（功能最强，同时支持 CP 和 AP）</p><h3 id=62-配置中心选型>6.2 配置中心选型</h3><table><thead><tr><th>组件</th><th>实时推送</th><th>灰度发布</th><th>图形化</th><th>推荐场景</th></tr></thead><tbody><tr><td><strong>Spring Cloud Config</strong></td><td>否（需手动刷新）</td><td>否</td><td>否</td><td>不推荐</td></tr><tr><td><strong>Apollo</strong></td><td>是</td><td>是</td><td>是</td><td>复杂配置管理</td></tr><tr><td><strong>Nacos</strong></td><td>是</td><td>是</td><td>是</td><td>简化架构（推荐）</td></tr></tbody></table><p><strong>推荐</strong>：<strong>Nacos</strong>（如果已用 Nacos 做注册中心）或 <strong>Apollo</strong>（独立配置中心）</p><h3 id=63-熔断器选型>6.3 熔断器选型</h3><table><thead><tr><th>组件</th><th>维护性</th><th>功能</th><th>控制台</th><th>推荐场景</th></tr></thead><tbody><tr><td><strong>Hystrix</strong></td><td>已停维</td><td>熔断、降级</td><td>无</td><td>不推荐</td></tr><tr><td><strong>Sentinel</strong></td><td>活跃</td><td>限流、熔断、降级、系统保护</td><td>有</td><td>所有场景（推荐）</td></tr><tr><td><strong>Resilience4j</strong></td><td>活跃</td><td>熔断、限流、重试</td><td>无</td><td>轻量级（推荐）</td></tr></tbody></table><p><strong>推荐</strong>：<strong>Sentinel</strong>（功能最全，有控制台）</p><hr><h2 id=七spring-cloud-微服务架构最佳实践>七、Spring Cloud 微服务架构最佳实践</h2><h3 id=71-技术栈选型2024-推荐>7.1 技术栈选型（2024 推荐）</h3><pre tabindex=0><code>✓ Spring Boot 3.0.x
-✓ Spring Cloud 2022.0.x
-✓ Spring Cloud Alibaba 2022.0.0.0
-✓ Nacos（注册中心 + 配置中心）
-✓ Sentinel（熔断降级）
-✓ Spring Cloud Gateway（API 网关）
-✓ OpenFeign（服务调用）
-✓ Seata（分布式事务，可选）
-✓ RocketMQ（消息队列，可选）
-</code></pre><h3 id=72-项目结构>7.2 项目结构</h3><pre tabindex=0><code>e-commerce-platform/
-├── e-commerce-common/          ← 公共模块
-├── e-commerce-gateway/         ← API 网关
-├── e-commerce-user-service/    ← 用户服务
-├── e-commerce-order-service/   ← 订单服务
-├── e-commerce-product-service/ ← 商品服务
-├── e-commerce-config/          ← 配置中心（如果用 Config）
-└── pom.xml                    ← 父 POM（依赖管理）
-</code></pre><h3 id=73-踩坑经验>7.3 踩坑经验</h3><pre tabindex=0><code>1. 版本对应问题
-   → 严格按官方版本说明选择
-   → 使用 dependencyManagement 统一管理版本
-
-2. 配置加载顺序
-   → bootstrap.yml（最高优先级，配置中心连接信息）
-   → application.yml
-
-3. 服务发现慢
-   → 调整 Eureka/Nacos 心跳间隔
-   → 使用 IP 地址而非主机名
-
-4. Feign 首次调用慢
-   → 开启 Hystrix 超时（或关闭 Hystrix）
-   → 调整 Ribbon 连接超时
-
-5. Sentinel 规则丢失
-   → 使用 Nacos/Apollo 持久化规则
-   → 不用默认的内存存储
-</code></pre><hr><h2 id=八面试高频问题>八、面试高频问题</h2><h3 id=q1-spring-cloud-和-dubbo-的区别>Q1: Spring Cloud 和 Dubbo 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>Spring Cloud：基于 HTTP（REST），轻量级，生态完善</li><li>Dubbo：基于 RPC（Dubbo 协议），性能高，需配合其他组件</li><li>Spring Cloud 更适合快速开发，Dubbo 更适合高性能场景</li></ul><h3 id=q2-说说-eureka-和-nacos-的区别>Q2: 说说 Eureka 和 Nacos 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>Eureka：AP 系统，功能简单，已停止维护</li><li>Nacos：同时支持 CP 和 AP，功能全面（服务发现 + 配置中心）</li><li>Nacos 是 Eureka 的更好替代</li></ul><h3 id=q3-spring-cloud-gateway-和-zuul-的区别>Q3: Spring Cloud Gateway 和 Zuul 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>Gateway：异步非阻塞（WebFlux），性能高</li><li>Zuul：阻塞 I/O，性能一般</li><li>Gateway 是 Zuul 的替代</li></ul><h3 id=q4-说说-sentinel-和-hystrix-的区别>Q4: 说说 Sentinel 和 Hystrix 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>Sentinel：功能全（限流、熔断、降级、系统保护），有控制台，活跃维护</li><li>Hystrix：功能少（熔断、降级），无控制台，已停止维护</li><li>Sentinel 是 Hystrix 的替代</li></ul><h3 id=q5-微服务架构中如何做权限控制>Q5: 微服务架构中，如何做权限控制？</h3><p><strong>答案要点</strong>：</p><ul><li>方案 1：API 网关统一鉴权（JWT/OAuth2）</li><li>方案 2：每个服务自己鉴权（Spring Security）</li><li>推荐：网关统一鉴权 + 服务内部信任（去掉鉴权）</li></ul><hr><h2 id=九总结>九、总结</h2><p>本文系统梳理了 Spring Cloud 全家桶的核心知识：</p><ol><li><strong>服务注册与发现</strong>：Nacos（推荐）> Eureka（旧）</li><li><strong>负载均衡</strong>：Spring Cloud LoadBalancer（推荐）> Ribbon（旧）</li><li><strong>服务调用</strong>：OpenFeign（推荐）</li><li><strong>熔断器</strong>：Sentinel（推荐）> Hystrix（停维）</li><li><strong>API 网关</strong>：Spring Cloud Gateway（推荐）> Zuul（旧）</li><li><strong>配置中心</strong>：Nacos / Apollo（推荐）> Config（旧）</li></ol><p><strong>核心记忆</strong>：</p><ul><li>Spring Cloud Netflix 多个组件进入维护模式，新项目用 Spring Cloud Alibaba</li><li>Nacos = Eureka + Config（二合一，强烈推荐）</li><li>Sentinel = Hystrix + 限流 + 控制台（功能更强）</li><li>Spring Cloud Gateway 性能远超 Zuul（异步非阻塞）</li><li>版本选择非常重要！严格按官方对应表</li></ul><p>下一篇将深入 <strong>服务注册与发现深度解析（Eureka/Nacos）</strong>，包括注册流程、心跳机制、自我保护、Nacos CP/AP 模式切换等，敬请期待。</p><hr><p><em>作者：李亚飞 · Raphael Lab</em></p></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%9E%B6%E6%9E%84%E7%90%86%E8%AE%BA%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>← 上一篇</span><strong>微服务架构理论深度解析</strong></a>
+</span></span></code></pre></div><p><strong>Gateway vs Zuul</strong></p><table><thead><tr><th>对比项</th><th>Gateway</th><th>Zuul</th></tr></thead><tbody><tr><td><strong>I/O 模型</strong></td><td>异步非阻塞（WebFlux）</td><td>阻塞 I/O</td></tr><tr><td><strong>性能</strong></td><td>高</td><td>中</td></tr><tr><td><strong>功能</strong></td><td>路由、过滤、限流</td><td>路由、过滤</td></tr><tr><td><strong>维护性</strong></td><td>活跃</td><td>维护模式</td></tr><tr><td><strong>推荐度</strong></td><td>⭐⭐⭐⭐⭐</td><td>⭐⭐</td></tr></tbody></table><h3 id=36-配置中心>3.6 配置中心</h3><p><strong>Spring Cloud Config（旧版）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>架构：
+</span></span><span class=line><span class=cl>  Config Server → Git 仓库（存储配置）
+</span></span><span class=line><span class=cl>  Config Client → Config Server（拉取配置）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>缺点：
+</span></span><span class=line><span class=cl>  - 配置变更需要手动刷新（/actuator/refresh）
+</span></span><span class=line><span class=cl>  - 没有可视化界面
+</span></span><span class=line><span class=cl>  - 不支持配置回滚
+</span></span></code></pre></div><p><strong>Apollo（携程，推荐）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>功能：
+</span></span><span class=line><span class=cl>  ✓ 图形化配置管理
+</span></span><span class=line><span class=cl>  ✓ 配置实时推送（长轮询）
+</span></span><span class=line><span class=cl>  ✓ 配置回滚
+</span></span><span class=line><span class=cl>  ✓ 灰度发布
+</span></span><span class=line><span class=cl>  ✓ 权限管理
+</span></span><span class=line><span class=cl>  ✓ 支持 K8s、Spring Boot
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>架构：
+</span></span><span class=line><span class=cl>  Apollo Client → Apollo Server → MySQL（配置存储）
+</span></span><span class=line><span class=cl>                  ↓
+</span></span><span class=line><span class=cl>            Config Service（配置读取）
+</span></span><span class=line><span class=cl>            Admin Service（配置管理）
+</span></span></code></pre></div><p><strong>Nacos（阿里，推荐）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>功能：
+</span></span><span class=line><span class=cl>  ✓ 服务注册与发现
+</span></span><span class=line><span class=cl>  ✓ 配置管理（替代 Config）
+</span></span><span class=line><span class=cl>  ✓ 配置动态刷新
+</span></span><span class=line><span class=cl>  ✓ 配置回滚
+</span></span><span class=line><span class=cl>  ✓ 支持 K8s、Spring Cloud
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>优势：
+</span></span><span class=line><span class=cl>  - 同时支持服务发现和配置管理
+</span></span><span class=line><span class=cl>  - 简化架构（不再需要 Eureka + Config）
+</span></span></code></pre></div><hr><h2 id=四spring-cloud-alibaba-组件>四、Spring Cloud Alibaba 组件</h2><h3 id=41-为什么需要-spring-cloud-alibaba>4.1 为什么需要 Spring Cloud Alibaba？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Spring Cloud Netflix（Eureka、Ribbon、Hystrix、Zuul）
+</span></span><span class=line><span class=cl>  → 多个组件进入维护模式或停止维护
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Spring Cloud Alibaba 提供替代方案：
+</span></span><span class=line><span class=cl>  ✓ Nacos：替代 Eureka + Config
+</span></span><span class=line><span class=cl>  ✓ Sentinel：替代 Hystrix
+</span></span><span class=line><span class=cl>  ✓ RocketMQ：消息队列（替代 RabbitMQ）
+</span></span><span class=line><span class=cl>  ✓ Dubbo：RPC 框架（可选）
+</span></span><span class=line><span class=cl>  ✓ Seata：分布式事务
+</span></span></code></pre></div><h3 id=42-核心组件>4.2 核心组件</h3><table><thead><tr><th>组件</th><th>功能</th><th>替代</th></tr></thead><tbody><tr><td><strong>Nacos</strong></td><td>服务注册 + 配置中心</td><td>Eureka + Config</td></tr><tr><td><strong>Sentinel</strong></td><td>限流 + 熔断 + 降级</td><td>Hystrix</td></tr><tr><td><strong>RocketMQ</strong></td><td>消息队列</td><td>RabbitMQ</td></tr><tr><td><strong>Dubbo</strong></td><td>RPC 框架</td><td>Feign（可选）</td></tr><tr><td><strong>Seata</strong></td><td>分布式事务</td><td>-</td></tr><tr><td><strong>Alibaba Cloud</strong></td><td>阿里云服务（OSS、SMS 等）</td><td>-</td></tr></tbody></table><h3 id=43-版本对应关系>4.3 版本对应关系</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Spring Cloud Alibaba 版本选择非常重要！
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>版本对应（2024 年）：
+</span></span><span class=line><span class=cl>  Spring Cloud Alibaba 2022.0.0.0
+</span></span><span class=line><span class=cl>  ↔ Spring Cloud 2022.0.0
+</span></span><span class=line><span class=cl>  ↔ Spring Boot 3.0.x
+</span></span><span class=line><span class=cl>  ↔ Spring Cloud Netflix EOL
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>查看官方版本说明：
+</span></span><span class=line><span class=cl>  https://github.com/alibaba/spring-cloud-alibaba/wiki/版本说明
+</span></span></code></pre></div><hr><h2 id=五版本选择>五、版本选择</h2><h3 id=51-spring-cloud-版本命名>5.1 Spring Cloud 版本命名</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>旧版：伦敦地铁站名（Angel、Brixton、Camden、Dalston、Edgware、Finchley、Greenwich、Hoxton）
+</span></span><span class=line><span class=cl>新版：年月制（2020.0.x、2021.0.x、2022.0.x）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>推荐版本（2024）：
+</span></span><span class=line><span class=cl>  - Spring Boot 3.0.x + Spring Cloud 2022.0.x（新项目）
+</span></span><span class=line><span class=cl>  - Spring Boot 2.7.x + Spring Cloud 2021.0.x（老项目维护）
+</span></span></code></pre></div><h3 id=52-组件版本对应表>5.2 组件版本对应表</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Spring Boot 3.0.x:
+</span></span><span class=line><span class=cl>  - Spring Cloud 2022.0.x
+</span></span><span class=line><span class=cl>  - Spring Cloud Alibaba 2022.0.0.0
+</span></span><span class=line><span class=cl>  - Nacos 2.2.x
+</span></span><span class=line><span class=cl>  - Sentinel 1.8.x
+</span></span><span class=line><span class=cl>  - Seata 1.6.x
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Spring Boot 2.7.x:
+</span></span><span class=line><span class=cl>  - Spring Cloud 2021.0.x
+</span></span><span class=line><span class=cl>  - Spring Cloud Alibaba 2021.0.5.0
+</span></span><span class=line><span class=cl>  - Nacos 2.1.x
+</span></span><span class=line><span class=cl>  - Sentinel 1.8.x
+</span></span></code></pre></div><hr><h2 id=六各组件对比与选型>六、各组件对比与选型</h2><h3 id=61-注册中心选型>6.1 注册中心选型</h3><table><thead><tr><th>组件</th><th>CAP</th><th>功能</th><th>推荐场景</th></tr></thead><tbody><tr><td><strong>Eureka</strong></td><td>AP</td><td>基础服务发现</td><td>老项目（不推荐新项目）</td></tr><tr><td><strong>Nacos</strong></td><td>CP/AP</td><td>服务发现 + 配置中心</td><td>新项目（推荐）</td></tr><tr><td><strong>Consul</strong></td><td>CP</td><td>服务发现 + 配置 + 多数据中心</td><td>多数据中心</td></tr><tr><td><strong>ZooKeeper</strong></td><td>CP</td><td>分布式协调</td><td>Dubbo 生态</td></tr></tbody></table><p><strong>推荐</strong>：<strong>Nacos</strong>（功能最强，同时支持 CP 和 AP）</p><h3 id=62-配置中心选型>6.2 配置中心选型</h3><table><thead><tr><th>组件</th><th>实时推送</th><th>灰度发布</th><th>图形化</th><th>推荐场景</th></tr></thead><tbody><tr><td><strong>Spring Cloud Config</strong></td><td>否（需手动刷新）</td><td>否</td><td>否</td><td>不推荐</td></tr><tr><td><strong>Apollo</strong></td><td>是</td><td>是</td><td>是</td><td>复杂配置管理</td></tr><tr><td><strong>Nacos</strong></td><td>是</td><td>是</td><td>是</td><td>简化架构（推荐）</td></tr></tbody></table><p><strong>推荐</strong>：<strong>Nacos</strong>（如果已用 Nacos 做注册中心）或 <strong>Apollo</strong>（独立配置中心）</p><h3 id=63-熔断器选型>6.3 熔断器选型</h3><table><thead><tr><th>组件</th><th>维护性</th><th>功能</th><th>控制台</th><th>推荐场景</th></tr></thead><tbody><tr><td><strong>Hystrix</strong></td><td>已停维</td><td>熔断、降级</td><td>无</td><td>不推荐</td></tr><tr><td><strong>Sentinel</strong></td><td>活跃</td><td>限流、熔断、降级、系统保护</td><td>有</td><td>所有场景（推荐）</td></tr><tr><td><strong>Resilience4j</strong></td><td>活跃</td><td>熔断、限流、重试</td><td>无</td><td>轻量级（推荐）</td></tr></tbody></table><p><strong>推荐</strong>：<strong>Sentinel</strong>（功能最全，有控制台）</p><hr><h2 id=七spring-cloud-微服务架构最佳实践>七、Spring Cloud 微服务架构最佳实践</h2><h3 id=71-技术栈选型2024-推荐>7.1 技术栈选型（2024 推荐）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>✓ Spring Boot 3.0.x
+</span></span><span class=line><span class=cl>✓ Spring Cloud 2022.0.x
+</span></span><span class=line><span class=cl>✓ Spring Cloud Alibaba 2022.0.0.0
+</span></span><span class=line><span class=cl>✓ Nacos（注册中心 + 配置中心）
+</span></span><span class=line><span class=cl>✓ Sentinel（熔断降级）
+</span></span><span class=line><span class=cl>✓ Spring Cloud Gateway（API 网关）
+</span></span><span class=line><span class=cl>✓ OpenFeign（服务调用）
+</span></span><span class=line><span class=cl>✓ Seata（分布式事务，可选）
+</span></span><span class=line><span class=cl>✓ RocketMQ（消息队列，可选）
+</span></span></code></pre></div><h3 id=72-项目结构>7.2 项目结构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>e-commerce-platform/
+</span></span><span class=line><span class=cl>├── e-commerce-common/          ← 公共模块
+</span></span><span class=line><span class=cl>├── e-commerce-gateway/         ← API 网关
+</span></span><span class=line><span class=cl>├── e-commerce-user-service/    ← 用户服务
+</span></span><span class=line><span class=cl>├── e-commerce-order-service/   ← 订单服务
+</span></span><span class=line><span class=cl>├── e-commerce-product-service/ ← 商品服务
+</span></span><span class=line><span class=cl>├── e-commerce-config/          ← 配置中心（如果用 Config）
+</span></span><span class=line><span class=cl>└── pom.xml                    ← 父 POM（依赖管理）
+</span></span></code></pre></div><h3 id=73-踩坑经验>7.3 踩坑经验</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. 版本对应问题
+</span></span><span class=line><span class=cl>   → 严格按官方版本说明选择
+</span></span><span class=line><span class=cl>   → 使用 dependencyManagement 统一管理版本
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>2. 配置加载顺序
+</span></span><span class=line><span class=cl>   → bootstrap.yml（最高优先级，配置中心连接信息）
+</span></span><span class=line><span class=cl>   → application.yml
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>3. 服务发现慢
+</span></span><span class=line><span class=cl>   → 调整 Eureka/Nacos 心跳间隔
+</span></span><span class=line><span class=cl>   → 使用 IP 地址而非主机名
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>4. Feign 首次调用慢
+</span></span><span class=line><span class=cl>   → 开启 Hystrix 超时（或关闭 Hystrix）
+</span></span><span class=line><span class=cl>   → 调整 Ribbon 连接超时
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>5. Sentinel 规则丢失
+</span></span><span class=line><span class=cl>   → 使用 Nacos/Apollo 持久化规则
+</span></span><span class=line><span class=cl>   → 不用默认的内存存储
+</span></span></code></pre></div><hr><h2 id=八面试高频问题>八、面试高频问题</h2><h3 id=q1-spring-cloud-和-dubbo-的区别>Q1: Spring Cloud 和 Dubbo 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>Spring Cloud：基于 HTTP（REST），轻量级，生态完善</li><li>Dubbo：基于 RPC（Dubbo 协议），性能高，需配合其他组件</li><li>Spring Cloud 更适合快速开发，Dubbo 更适合高性能场景</li></ul><h3 id=q2-说说-eureka-和-nacos-的区别>Q2: 说说 Eureka 和 Nacos 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>Eureka：AP 系统，功能简单，已停止维护</li><li>Nacos：同时支持 CP 和 AP，功能全面（服务发现 + 配置中心）</li><li>Nacos 是 Eureka 的更好替代</li></ul><h3 id=q3-spring-cloud-gateway-和-zuul-的区别>Q3: Spring Cloud Gateway 和 Zuul 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>Gateway：异步非阻塞（WebFlux），性能高</li><li>Zuul：阻塞 I/O，性能一般</li><li>Gateway 是 Zuul 的替代</li></ul><h3 id=q4-说说-sentinel-和-hystrix-的区别>Q4: 说说 Sentinel 和 Hystrix 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>Sentinel：功能全（限流、熔断、降级、系统保护），有控制台，活跃维护</li><li>Hystrix：功能少（熔断、降级），无控制台，已停止维护</li><li>Sentinel 是 Hystrix 的替代</li></ul><h3 id=q5-微服务架构中如何做权限控制>Q5: 微服务架构中，如何做权限控制？</h3><p><strong>答案要点</strong>：</p><ul><li>方案 1：API 网关统一鉴权（JWT/OAuth2）</li><li>方案 2：每个服务自己鉴权（Spring Security）</li><li>推荐：网关统一鉴权 + 服务内部信任（去掉鉴权）</li></ul><hr><h2 id=九总结>九、总结</h2><p>本文系统梳理了 Spring Cloud 全家桶的核心知识：</p><ol><li><strong>服务注册与发现</strong>：Nacos（推荐）> Eureka（旧）</li><li><strong>负载均衡</strong>：Spring Cloud LoadBalancer（推荐）> Ribbon（旧）</li><li><strong>服务调用</strong>：OpenFeign（推荐）</li><li><strong>熔断器</strong>：Sentinel（推荐）> Hystrix（停维）</li><li><strong>API 网关</strong>：Spring Cloud Gateway（推荐）> Zuul（旧）</li><li><strong>配置中心</strong>：Nacos / Apollo（推荐）> Config（旧）</li></ol><p><strong>核心记忆</strong>：</p><ul><li>Spring Cloud Netflix 多个组件进入维护模式，新项目用 Spring Cloud Alibaba</li><li>Nacos = Eureka + Config（二合一，强烈推荐）</li><li>Sentinel = Hystrix + 限流 + 控制台（功能更强）</li><li>Spring Cloud Gateway 性能远超 Zuul（异步非阻塞）</li><li>版本选择非常重要！严格按官方对应表</li></ul><p>下一篇将深入 <strong>服务注册与发现深度解析（Eureka/Nacos）</strong>，包括注册流程、心跳机制、自我保护、Nacos CP/AP 模式切换等，敬请期待。</p><hr><p><em>作者：李亚飞 · Raphael Lab</em></p></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%9E%B6%E6%9E%84%E7%90%86%E8%AE%BA%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>← 上一篇</span><strong>微服务架构理论深度解析</strong></a>
 <a class=next href=/posts/%E6%9C%8D%E5%8A%A1%E6%B3%A8%E5%86%8C%E4%B8%8E%E5%8F%91%E7%8E%B0%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>下一篇 →</span><strong>服务注册与发现深度解析</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%AB%E7%94%9F%E4%BA%A7%E7%BA%A7%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E7%81%BE%E5%A4%87/><span>2026-08-09</span><strong>Kubernetes与云原生面试八股文（八）——生产级高可用与灾备</strong><p>面试高频问题：Kubernetes 生产集群如何实现高可用？etcd 如何做备份与恢复？多集群联邦如何设计？灾备策略有哪些？RPO/RTO 如何权衡？本文系统讲解 K8s 生产级高 …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/><span>2026-08-08</span><strong>Kubernetes与云原生面试八股文（七）——可观测性与故障排查</strong><p>面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/><span>2026-08-06</span><strong>Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps</strong><p>面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD …</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9ASpring+Cloud+%E5%85%A8%E5%AE%B6%E6%A1%B6%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a></li><li><a href=#二spring-cloud-生态全景>二、Spring Cloud 生态全景</a><ul><li><a href=#21-什么是-spring-cloud>2.1 什么是 Spring Cloud？</a></li><li><a href=#22-核心组件架构图>2.2 核心组件架构图</a></li></ul></li><li><a href=#三核心组件详解>三、核心组件详解</a><ul><li><a href=#31-服务注册与发现>3.1 服务注册与发现</a></li><li><a href=#32-负载均衡>3.2 负载均衡</a></li><li><a href=#33-服务调用>3.3 服务调用</a></li><li><a href=#34-熔断器>3.4 熔断器</a></li><li><a href=#35-api-网关>3.5 API 网关</a></li><li><a href=#36-配置中心>3.6 配置中心</a></li></ul></li><li><a href=#四spring-cloud-alibaba-组件>四、Spring Cloud Alibaba 组件</a><ul><li><a href=#41-为什么需要-spring-cloud-alibaba>4.1 为什么需要 Spring Cloud Alibaba？</a></li><li><a href=#42-核心组件>4.2 核心组件</a></li><li><a href=#43-版本对应关系>4.3 版本对应关系</a></li></ul></li><li><a href=#五版本选择>五、版本选择</a><ul><li><a href=#51-spring-cloud-版本命名>5.1 Spring Cloud 版本命名</a></li><li><a href=#52-组件版本对应表>5.2 组件版本对应表</a></li></ul></li><li><a href=#六各组件对比与选型>六、各组件对比与选型</a><ul><li><a href=#61-注册中心选型>6.1 注册中心选型</a></li><li><a href=#62-配置中心选型>6.2 配置中心选型</a></li><li><a href=#63-熔断器选型>6.3 熔断器选型</a></li></ul></li><li><a href=#七spring-cloud-微服务架构最佳实践>七、Spring Cloud 微服务架构最佳实践</a><ul><li><a href=#71-技术栈选型2024-推荐>7.1 技术栈选型（2024 推荐）</a></li><li><a href=#72-项目结构>7.2 项目结构</a></li><li><a href=#73-踩坑经验>7.3 踩坑经验</a></li></ul></li><li><a href=#八面试高频问题>八、面试高频问题</a><ul><li><a href=#q1-spring-cloud-和-dubbo-的区别>Q1: Spring Cloud 和 Dubbo 的区别？</a></li><li><a href=#q2-说说-eureka-和-nacos-的区别>Q2: 说说 Eureka 和 Nacos 的区别？</a></li><li><a href=#q3-spring-cloud-gateway-和-zuul-的区别>Q3: Spring Cloud Gateway 和 Zuul 的区别？</a></li><li><a href=#q4-说说-sentinel-和-hystrix-的区别>Q4: 说说 Sentinel 和 Hystrix 的区别？</a></li><li><a href=#q5-微服务架构中如何做权限控制>Q5: 微服务架构中，如何做权限控制？</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
 <a href=mailto:liyafei.work@foxmail.com>邮箱</a>
 <a href=/index.xml>RSS</a>

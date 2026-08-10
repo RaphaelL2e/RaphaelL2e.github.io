@@ -28,31 +28,31 @@
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 查看 Release 内容（base64解码）</span>
 </span></span><span class=line><span class=cl>kubectl get secret sh.helm.release.v1.myapp.v1 -n default -o <span class=nv>jsonpath</span><span class=o>=</span><span class=s1>&#39;{.data.release}&#39;</span> <span class=p>|</span> base64 -d <span class=p>|</span> gzip -d <span class=p>|</span> jq .
-</span></span></code></pre></div><p><strong>面试要点</strong>：</p><ul><li>Release 存储格式：<code>sh.helm.release.v1.{release_name}.v{revision}</code></li><li>每次 <code>helm install/upgrade/rollback</code> 都会创建新版本</li><li>默认保留最近 10 个版本（可通过 <code>--history-max</code> 配置）</li><li>Release 数据包含完整的渲染后资源和 Chart 元数据</li></ul><hr><h2 id=二chart-结构详解>二、Chart 结构详解</h2><h3 id=21-标准-chart-目录结构>2.1 标准 Chart 目录结构</h3><p><strong>Q: 一个标准的 Helm Chart 结构是怎样的？</strong></p><pre tabindex=0><code>myapp/
-├── Chart.yaml              # Chart 元信息（名称、版本、描述）
-├── values.yaml             # 默认配置值
-├── values-prod.yaml        # 环境覆盖值（自定义）
-├── charts/                 # 依赖的子 Chart
-│   └── redis/
-│       ├── Chart.yaml
-│       └── values.yaml
-├── templates/              # Kubernetes 资源模板
-│   ├── _helpers.tpl        # 模板辅助函数
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   ├── ingress.yaml
-│   ├── configmap.yaml
-│   ├── hpa.yaml
-│   ├── NOTES.txt           # 安装后提示信息
-│   └── tests/              # 测试模板
-│       └── test-connection.yaml
-├── crds/                   # CustomResourceDefinitions
-│   └── crd.yaml
-├── templates/             # 模板目录
-├── README.md              # Chart 说明
-├── LICENSE                # 许可证
-└── .helmignore            # Helm 打包忽略文件
-</code></pre><h3 id=22-chartyaml-详解>2.2 Chart.yaml 详解</h3><p><strong>Q: Chart.yaml 有哪些关键字段？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v2               </span><span class=w> </span><span class=c># Chart API 版本（v2 = Helm 3）</span><span class=w>
+</span></span></code></pre></div><p><strong>面试要点</strong>：</p><ul><li>Release 存储格式：<code>sh.helm.release.v1.{release_name}.v{revision}</code></li><li>每次 <code>helm install/upgrade/rollback</code> 都会创建新版本</li><li>默认保留最近 10 个版本（可通过 <code>--history-max</code> 配置）</li><li>Release 数据包含完整的渲染后资源和 Chart 元数据</li></ul><hr><h2 id=二chart-结构详解>二、Chart 结构详解</h2><h3 id=21-标准-chart-目录结构>2.1 标准 Chart 目录结构</h3><p><strong>Q: 一个标准的 Helm Chart 结构是怎样的？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>myapp/
+</span></span><span class=line><span class=cl>├── Chart.yaml              # Chart 元信息（名称、版本、描述）
+</span></span><span class=line><span class=cl>├── values.yaml             # 默认配置值
+</span></span><span class=line><span class=cl>├── values-prod.yaml        # 环境覆盖值（自定义）
+</span></span><span class=line><span class=cl>├── charts/                 # 依赖的子 Chart
+</span></span><span class=line><span class=cl>│   └── redis/
+</span></span><span class=line><span class=cl>│       ├── Chart.yaml
+</span></span><span class=line><span class=cl>│       └── values.yaml
+</span></span><span class=line><span class=cl>├── templates/              # Kubernetes 资源模板
+</span></span><span class=line><span class=cl>│   ├── _helpers.tpl        # 模板辅助函数
+</span></span><span class=line><span class=cl>│   ├── deployment.yaml
+</span></span><span class=line><span class=cl>│   ├── service.yaml
+</span></span><span class=line><span class=cl>│   ├── ingress.yaml
+</span></span><span class=line><span class=cl>│   ├── configmap.yaml
+</span></span><span class=line><span class=cl>│   ├── hpa.yaml
+</span></span><span class=line><span class=cl>│   ├── NOTES.txt           # 安装后提示信息
+</span></span><span class=line><span class=cl>│   └── tests/              # 测试模板
+</span></span><span class=line><span class=cl>│       └── test-connection.yaml
+</span></span><span class=line><span class=cl>├── crds/                   # CustomResourceDefinitions
+</span></span><span class=line><span class=cl>│   └── crd.yaml
+</span></span><span class=line><span class=cl>├── templates/             # 模板目录
+</span></span><span class=line><span class=cl>├── README.md              # Chart 说明
+</span></span><span class=line><span class=cl>├── LICENSE                # 许可证
+</span></span><span class=line><span class=cl>└── .helmignore            # Helm 打包忽略文件
+</span></span></code></pre></div><h3 id=22-chartyaml-详解>2.2 Chart.yaml 详解</h3><p><strong>Q: Chart.yaml 有哪些关键字段？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v2               </span><span class=w> </span><span class=c># Chart API 版本（v2 = Helm 3）</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>myapp                  </span><span class=w> </span><span class=c># Chart 名称</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=l>A Helm chart for MyApp </span><span class=w> </span><span class=c># 描述</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>application            </span><span class=w> </span><span class=c># application 或 library</span><span class=w>
@@ -327,34 +327,34 @@
 </span></span><span class=line><span class=cl><span class=c1># 在 Helm 中启用验证（Helm 3.13+）</span>
 </span></span><span class=line><span class=cl><span class=nb>export</span> <span class=nv>HELM_EXPERIMENTAL_OCI</span><span class=o>=</span><span class=m>1</span>
 </span></span><span class=line><span class=cl>helm pull oci://registry.example.com/charts/myapp --version 0.1.0 --verify
-</span></span></code></pre></div><hr><h2 id=五gitops-工作流>五、GitOps 工作流</h2><h3 id=51-gitops-核心理念>5.1 GitOps 核心理念</h3><p><strong>Q: 什么是 GitOps？它和传统 CI/CD 有什么区别？</strong></p><p>GitOps 的核心思想：<strong>Git 仓库是系统期望状态的唯一真实来源</strong>（Single Source of Truth）。</p><table><thead><tr><th>特性</th><th>传统 CI/CD</th><th>GitOps</th></tr></thead><tbody><tr><td>状态来源</td><td>CI 流水线脚本</td><td>Git 仓库</td></tr><tr><td>部署方向</td><td>Push（CI→集群）</td><td>Pull（集群←Git）</td></tr><tr><td>状态审计</td><td>查看CI日志</td><td>Git commit history</td></tr><tr><td>回滚</td><td>重新执行流水线</td><td><code>git revert</code> + 自动同步</td></tr><tr><td>权限</td><td>CI 需要集群凭据</td><td>集群内 Agent 拉取</td></tr><tr><td>多环境</td><td>CI 脚本判断</td><td>Git 分支/目录策略</td></tr><tr><td>漂移检测</td><td>无</td><td>自动检测并告警</td></tr></tbody></table><p><strong>GitOps 四原则</strong>（由 Weaveworks 提出）：</p><ol><li><strong>声明式</strong>：系统状态用声明式描述（YAML）</li><li><strong>版本控制</strong>：所有状态存储在 Git（不可变历史）</li><li><strong>自动拉取</strong>：Agent 自动拉取 Git 变更</li><li><strong>持续协调</strong>：Agent 持续对比实际状态与期望状态</li></ol><h3 id=52-argocd-深入>5.2 ArgoCD 深入</h3><p><strong>Q: ArgoCD 的架构和工作原理是什么？</strong></p><p>ArgoCD 架构组件：</p><pre tabindex=0><code>┌─────────────────────────────────────────────┐
-│                  ArgoCD                      │
-│                                               │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐ │
-│  │ API Server│  │ Controller│  │ Repo     │ │
-│  │ (gRPC/REST)│  │  Manager │  │ Server   │ │
-│  └──────────┘  └──────────┘  └──────────┘ │
-│                      │                       │
-│              ┌──────────────┐                │
-│              │  Application │                │
-│              │  Controller  │                │
-│              └──────────────┘                │
-│                      │                       │
-│              ┌──────────────┐                │
-│              │   State      │                │
-│              │   Sync       │                │
-│              └──────────────┘                │
-│                                               │
-│  ┌──────────────────────────────────────┐   │
-│  │         Redis (缓存/状态)             │   │
-│  └──────────────────────────────────────┘   │
-└─────────────────────────────────────────────┘
-        │                       │
-    ┌────────┐            ┌──────────┐
-    │ Git    │            │ Cluster  │
-    │ Repo   │            │ (K8s)    │
-    └────────┘            └──────────┘
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># ArgoCD Application CRD 示例</span><span class=w>
+</span></span></code></pre></div><hr><h2 id=五gitops-工作流>五、GitOps 工作流</h2><h3 id=51-gitops-核心理念>5.1 GitOps 核心理念</h3><p><strong>Q: 什么是 GitOps？它和传统 CI/CD 有什么区别？</strong></p><p>GitOps 的核心思想：<strong>Git 仓库是系统期望状态的唯一真实来源</strong>（Single Source of Truth）。</p><table><thead><tr><th>特性</th><th>传统 CI/CD</th><th>GitOps</th></tr></thead><tbody><tr><td>状态来源</td><td>CI 流水线脚本</td><td>Git 仓库</td></tr><tr><td>部署方向</td><td>Push（CI→集群）</td><td>Pull（集群←Git）</td></tr><tr><td>状态审计</td><td>查看CI日志</td><td>Git commit history</td></tr><tr><td>回滚</td><td>重新执行流水线</td><td><code>git revert</code> + 自动同步</td></tr><tr><td>权限</td><td>CI 需要集群凭据</td><td>集群内 Agent 拉取</td></tr><tr><td>多环境</td><td>CI 脚本判断</td><td>Git 分支/目录策略</td></tr><tr><td>漂移检测</td><td>无</td><td>自动检测并告警</td></tr></tbody></table><p><strong>GitOps 四原则</strong>（由 Weaveworks 提出）：</p><ol><li><strong>声明式</strong>：系统状态用声明式描述（YAML）</li><li><strong>版本控制</strong>：所有状态存储在 Git（不可变历史）</li><li><strong>自动拉取</strong>：Agent 自动拉取 Git 变更</li><li><strong>持续协调</strong>：Agent 持续对比实际状态与期望状态</li></ol><h3 id=52-argocd-深入>5.2 ArgoCD 深入</h3><p><strong>Q: ArgoCD 的架构和工作原理是什么？</strong></p><p>ArgoCD 架构组件：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                  ArgoCD                      │
+</span></span><span class=line><span class=cl>│                                               │
+</span></span><span class=line><span class=cl>│  ┌──────────┐  ┌──────────┐  ┌──────────┐ │
+</span></span><span class=line><span class=cl>│  │ API Server│  │ Controller│  │ Repo     │ │
+</span></span><span class=line><span class=cl>│  │ (gRPC/REST)│  │  Manager │  │ Server   │ │
+</span></span><span class=line><span class=cl>│  └──────────┘  └──────────┘  └──────────┘ │
+</span></span><span class=line><span class=cl>│                      │                       │
+</span></span><span class=line><span class=cl>│              ┌──────────────┐                │
+</span></span><span class=line><span class=cl>│              │  Application │                │
+</span></span><span class=line><span class=cl>│              │  Controller  │                │
+</span></span><span class=line><span class=cl>│              └──────────────┘                │
+</span></span><span class=line><span class=cl>│                      │                       │
+</span></span><span class=line><span class=cl>│              ┌──────────────┐                │
+</span></span><span class=line><span class=cl>│              │   State      │                │
+</span></span><span class=line><span class=cl>│              │   Sync       │                │
+</span></span><span class=line><span class=cl>│              └──────────────┘                │
+</span></span><span class=line><span class=cl>│                                               │
+</span></span><span class=line><span class=cl>│  ┌──────────────────────────────────────┐   │
+</span></span><span class=line><span class=cl>│  │         Redis (缓存/状态)             │   │
+</span></span><span class=line><span class=cl>│  └──────────────────────────────────────┘   │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>        │                       │
+</span></span><span class=line><span class=cl>    ┌────────┐            ┌──────────┐
+</span></span><span class=line><span class=cl>    │ Git    │            │ Cluster  │
+</span></span><span class=line><span class=cl>    │ Repo   │            │ (K8s)    │
+</span></span><span class=line><span class=cl>    └────────┘            └──────────┘
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># ArgoCD Application CRD 示例</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>argoproj.io/v1alpha1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Application</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
@@ -410,29 +410,29 @@
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>automated</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>prune</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>selfHeal</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
-</span></span></span></code></pre></div><h3 id=53-fluxcd-深入>5.3 FluxCD 深入</h3><p><strong>Q: FluxCD 的架构和核心组件有哪些？</strong></p><p>Flux v2（Flux CLI）采用模块化设计：</p><pre tabindex=0><code>┌─────────────────────────────────────────────┐
-│                 Flux v2                       │
-│                                               │
-│  ┌─────────────┐  ┌──────────────┐          │
-│  │ source-      │  │ kustomize-   │          │
-│  │ controller   │  │ controller   │          │
-│  │ (Git/Helm/OCI)│  │ (渲染YAML)    │          │
-│  └─────────────┘  └──────────────┘          │
-│                                               │
-│  ┌─────────────┐  ┌──────────────┐          │
-│  │ helm-       │  │ notification- │          │
-│  │ controller  │  │ controller    │          │
-│  │ (Helm部署)   │  │ (告警通知)    │          │
-│  └─────────────┘  └──────────────┘          │
-│                                               │
-│  ┌─────────────┐  ┌──────────────┐          │
-│  │ image-      │  │ image-reflector│         │
-│  │ automation-  │  │ controller    │          │
-│  │ controller  │  │ (镜像扫描)     │          │
-│  │ (自动更新)   │  │              │          │
-│  └─────────────┘  └──────────────┘          │
-└─────────────────────────────────────────────┘
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Flux GitRepository 源</span><span class=w>
+</span></span></span></code></pre></div><h3 id=53-fluxcd-深入>5.3 FluxCD 深入</h3><p><strong>Q: FluxCD 的架构和核心组件有哪些？</strong></p><p>Flux v2（Flux CLI）采用模块化设计：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                 Flux v2                       │
+</span></span><span class=line><span class=cl>│                                               │
+</span></span><span class=line><span class=cl>│  ┌─────────────┐  ┌──────────────┐          │
+</span></span><span class=line><span class=cl>│  │ source-      │  │ kustomize-   │          │
+</span></span><span class=line><span class=cl>│  │ controller   │  │ controller   │          │
+</span></span><span class=line><span class=cl>│  │ (Git/Helm/OCI)│  │ (渲染YAML)    │          │
+</span></span><span class=line><span class=cl>│  └─────────────┘  └──────────────┘          │
+</span></span><span class=line><span class=cl>│                                               │
+</span></span><span class=line><span class=cl>│  ┌─────────────┐  ┌──────────────┐          │
+</span></span><span class=line><span class=cl>│  │ helm-       │  │ notification- │          │
+</span></span><span class=line><span class=cl>│  │ controller  │  │ controller    │          │
+</span></span><span class=line><span class=cl>│  │ (Helm部署)   │  │ (告警通知)    │          │
+</span></span><span class=line><span class=cl>│  └─────────────┘  └──────────────┘          │
+</span></span><span class=line><span class=cl>│                                               │
+</span></span><span class=line><span class=cl>│  ┌─────────────┐  ┌──────────────┐          │
+</span></span><span class=line><span class=cl>│  │ image-      │  │ image-reflector│         │
+</span></span><span class=line><span class=cl>│  │ automation-  │  │ controller    │          │
+</span></span><span class=line><span class=cl>│  │ controller  │  │ (镜像扫描)     │          │
+</span></span><span class=line><span class=cl>│  │ (自动更新)   │  │              │          │
+</span></span><span class=line><span class=cl>│  └─────────────┘  └──────────────┘          │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────┘
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Flux GitRepository 源</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>source.toolkit.fluxcd.io/v1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>GitRepository</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
@@ -490,37 +490,37 @@
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># OCI Registry</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># type: oci</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># url: oci://registry.example.com/charts</span><span class=w>
-</span></span></span></code></pre></div><h3 id=54-argocd-vs-fluxcd>5.4 ArgoCD vs FluxCD</h3><p><strong>Q: ArgoCD 和 FluxCD 有什么区别？如何选择？</strong></p><table><thead><tr><th>维度</th><th>ArgoCD</th><th>FluxCD</th></tr></thead><tbody><tr><td>部署模型</td><td>集中部署，多集群管理</td><td>每集群一个 Agent</td></tr><tr><td>UI</td><td>✅ 优秀 Web UI</td><td>❌ 纯 CLI（有可选 UI）</td></tr><tr><td>多租户</td><td>Project 隔离</td><td>Namespace 隔离</td></tr><tr><td>集成</td><td>Git/Helm/Kustomize/OCI</td><td>Git/Helm/Kustomize/OCI</td></tr><tr><td>镜像更新</td><td>Image Updater（附加）</td><td>内置 Image Automation</td></tr><tr><td>通知</td><td>内置 + 通知控制器</td><td>内置通知控制器</td></tr><tr><td>状态可见性</td><td>实时同步状态 UI</td><td>CRD 状态字段</td></tr><tr><td>回滚</td><td>UI 一键回滚</td><td>Git revert 自动</td></tr><tr><td>学习曲线</td><td>较低（UI 直观）</td><td>较高（纯声明式）</td></tr><tr><td>成熟度</td><td>CNCF Graduated</td><td>CNCF Graduated</td></tr><tr><td>适用场景</td><td>需要UI、多应用管理</td><td>纯GitOps、自动化优先</td></tr></tbody></table><p><strong>选择建议</strong>：</p><ul><li>团队需要 UI 可视化 → ArgoCD</li><li>纯 GitOps 自动化、镜像自动更新 → FluxCD</li><li>多集群集中管理 → ArgoCD（Application Cluster 模式）</li><li>轻量级、Git原生 → FluxCD</li><li>很多团队两者混用：ArgoCD 管理 UI，FluxCD 做自动化</li></ul><hr><h2 id=六多环境配置管理>六、多环境配置管理</h2><h3 id=61-git-目录结构策略>6.1 Git 目录结构策略</h3><p><strong>Q: 多环境 GitOps 的 Git 仓库结构有哪些方案？</strong></p><p><strong>方案一：单仓库多目录（Kubernetes 风格）</strong></p><pre tabindex=0><code>gitops-repo/
-├── base/                    # 共享基础配置
-│   ├── myapp/
-│   │   ├── deployment.yaml
-│   │   ├── service.yaml
-│   │   └── kustomization.yaml
-│   └── redis/
-│       └── ...
-├── overlays/                # 环境覆盖
-│   ├── dev/
-│   │   ├── myapp/
-│   │   │   ├── patches.yaml
-│   │   │   └── kustomization.yaml
-│   │   └── kustomization.yaml
-│   ├── staging/
-│   │   └── ...
-│   └── prod/
-│       └── ...
-└── apps/                    # ArgoCD Application 定义
-    ├── dev-apps.yaml
-    ├── staging-apps.yaml
-    └── prod-apps.yaml
-</code></pre><p><strong>方案二：单仓库多分支</strong></p><pre tabindex=0><code>main ──────────────── (dev)
-   │
-   └── staging ─────── (staging)
-       │
-       └── production ─ (prod)
-</code></pre><p><strong>方案三：多仓库</strong></p><pre tabindex=0><code>fleet-infra/         # ArgoCD/Flux 配置
-app-manifests/       # 应用清单
-app-charts/          # Helm Charts
-</code></pre><p><strong>方案对比</strong>：</p><table><thead><tr><th>方案</th><th>优点</th><th>缺点</th><th>适用场景</th></tr></thead><tbody><tr><td>单仓库多目录</td><td>环境一致性保证，Kustomize 天然支持</td><td>仓库较大</td><td>中小团队</td></tr><tr><td>单仓库多分支</td><td>分支策略清晰</td><td>合并冲突，状态分散</td><td>Git Flow 团队</td></tr><tr><td>多仓库</td><td>隔离性好，权限清晰</td><td>跨仓库引用复杂</td><td>大团队</td></tr></tbody></table><h3 id=62-helm-多环境配置>6.2 Helm 多环境配置</h3><p><strong>Q: Helm 如何管理多环境配置？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 方案：分层 values 文件</span><span class=w>
+</span></span></span></code></pre></div><h3 id=54-argocd-vs-fluxcd>5.4 ArgoCD vs FluxCD</h3><p><strong>Q: ArgoCD 和 FluxCD 有什么区别？如何选择？</strong></p><table><thead><tr><th>维度</th><th>ArgoCD</th><th>FluxCD</th></tr></thead><tbody><tr><td>部署模型</td><td>集中部署，多集群管理</td><td>每集群一个 Agent</td></tr><tr><td>UI</td><td>✅ 优秀 Web UI</td><td>❌ 纯 CLI（有可选 UI）</td></tr><tr><td>多租户</td><td>Project 隔离</td><td>Namespace 隔离</td></tr><tr><td>集成</td><td>Git/Helm/Kustomize/OCI</td><td>Git/Helm/Kustomize/OCI</td></tr><tr><td>镜像更新</td><td>Image Updater（附加）</td><td>内置 Image Automation</td></tr><tr><td>通知</td><td>内置 + 通知控制器</td><td>内置通知控制器</td></tr><tr><td>状态可见性</td><td>实时同步状态 UI</td><td>CRD 状态字段</td></tr><tr><td>回滚</td><td>UI 一键回滚</td><td>Git revert 自动</td></tr><tr><td>学习曲线</td><td>较低（UI 直观）</td><td>较高（纯声明式）</td></tr><tr><td>成熟度</td><td>CNCF Graduated</td><td>CNCF Graduated</td></tr><tr><td>适用场景</td><td>需要UI、多应用管理</td><td>纯GitOps、自动化优先</td></tr></tbody></table><p><strong>选择建议</strong>：</p><ul><li>团队需要 UI 可视化 → ArgoCD</li><li>纯 GitOps 自动化、镜像自动更新 → FluxCD</li><li>多集群集中管理 → ArgoCD（Application Cluster 模式）</li><li>轻量级、Git原生 → FluxCD</li><li>很多团队两者混用：ArgoCD 管理 UI，FluxCD 做自动化</li></ul><hr><h2 id=六多环境配置管理>六、多环境配置管理</h2><h3 id=61-git-目录结构策略>6.1 Git 目录结构策略</h3><p><strong>Q: 多环境 GitOps 的 Git 仓库结构有哪些方案？</strong></p><p><strong>方案一：单仓库多目录（Kubernetes 风格）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>gitops-repo/
+</span></span><span class=line><span class=cl>├── base/                    # 共享基础配置
+</span></span><span class=line><span class=cl>│   ├── myapp/
+</span></span><span class=line><span class=cl>│   │   ├── deployment.yaml
+</span></span><span class=line><span class=cl>│   │   ├── service.yaml
+</span></span><span class=line><span class=cl>│   │   └── kustomization.yaml
+</span></span><span class=line><span class=cl>│   └── redis/
+</span></span><span class=line><span class=cl>│       └── ...
+</span></span><span class=line><span class=cl>├── overlays/                # 环境覆盖
+</span></span><span class=line><span class=cl>│   ├── dev/
+</span></span><span class=line><span class=cl>│   │   ├── myapp/
+</span></span><span class=line><span class=cl>│   │   │   ├── patches.yaml
+</span></span><span class=line><span class=cl>│   │   │   └── kustomization.yaml
+</span></span><span class=line><span class=cl>│   │   └── kustomization.yaml
+</span></span><span class=line><span class=cl>│   ├── staging/
+</span></span><span class=line><span class=cl>│   │   └── ...
+</span></span><span class=line><span class=cl>│   └── prod/
+</span></span><span class=line><span class=cl>│       └── ...
+</span></span><span class=line><span class=cl>└── apps/                    # ArgoCD Application 定义
+</span></span><span class=line><span class=cl>    ├── dev-apps.yaml
+</span></span><span class=line><span class=cl>    ├── staging-apps.yaml
+</span></span><span class=line><span class=cl>    └── prod-apps.yaml
+</span></span></code></pre></div><p><strong>方案二：单仓库多分支</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>main ──────────────── (dev)
+</span></span><span class=line><span class=cl>   │
+</span></span><span class=line><span class=cl>   └── staging ─────── (staging)
+</span></span><span class=line><span class=cl>       │
+</span></span><span class=line><span class=cl>       └── production ─ (prod)
+</span></span></code></pre></div><p><strong>方案三：多仓库</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>fleet-infra/         # ArgoCD/Flux 配置
+</span></span><span class=line><span class=cl>app-manifests/       # 应用清单
+</span></span><span class=line><span class=cl>app-charts/          # Helm Charts
+</span></span></code></pre></div><p><strong>方案对比</strong>：</p><table><thead><tr><th>方案</th><th>优点</th><th>缺点</th><th>适用场景</th></tr></thead><tbody><tr><td>单仓库多目录</td><td>环境一致性保证，Kustomize 天然支持</td><td>仓库较大</td><td>中小团队</td></tr><tr><td>单仓库多分支</td><td>分支策略清晰</td><td>合并冲突，状态分散</td><td>Git Flow 团队</td></tr><tr><td>多仓库</td><td>隔离性好，权限清晰</td><td>跨仓库引用复杂</td><td>大团队</td></tr></tbody></table><h3 id=62-helm-多环境配置>6.2 Helm 多环境配置</h3><p><strong>Q: Helm 如何管理多环境配置？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 方案：分层 values 文件</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c># values.yaml（默认）</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>replicaCount</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
@@ -848,35 +848,35 @@ app-charts/          # Helm Charts
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 使用 fullnameOverride 避免冲突</span>
 </span></span><span class=line><span class=cl>helm install app1 ./myapp --set <span class=nv>fullnameOverride</span><span class=o>=</span>app1
-</span></span></code></pre></div><hr><h2 id=九面试高频综合题>九、面试高频综合题</h2><h3 id=91-综合场景题>9.1 综合场景题</h3><p><strong>Q: 你的团队需要管理 3 个环境（dev/staging/prod）的 10 个微服务，如何设计 GitOps 方案？</strong></p><p><strong>推荐方案：单仓库多目录 + ArgoCD App-of-Apps + Kustomize</strong></p><pre tabindex=0><code>gitops-repo/
-├── base/                         # 10个微服务的基础配置
-│   ├── service-a/
-│   │   ├── deployment.yaml
-│   │   ├── service.yaml
-│   │   └── kustomization.yaml
-│   ├── service-b/
-│   └── ...
-├── overlays/
-│   ├── dev/
-│   │   ├── service-a/           # 覆盖副本数、镜像tag
-│   │   │   ├── patch.yaml
-│   │   │   └── kustomization.yaml
-│   │   └── kustomization.yaml
-│   ├── staging/
-│   └── prod/
-├── apps/
-│   ├── dev/                      # ArgoCD Application
-│   │   ├── service-a.yaml
-│   │   ├── service-b.yaml
-│   │   └── app-of-apps.yaml
-│   ├── staging/
-│   └── prod/
-└── argocd/
-    └── projects/                 # ArgoCD AppProject
-        ├── dev.yaml
-        ├── staging.yaml
-        └── prod.yaml
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># apps/dev/app-of-apps.yaml - 管理dev环境所有应用</span><span class=w>
+</span></span></code></pre></div><hr><h2 id=九面试高频综合题>九、面试高频综合题</h2><h3 id=91-综合场景题>9.1 综合场景题</h3><p><strong>Q: 你的团队需要管理 3 个环境（dev/staging/prod）的 10 个微服务，如何设计 GitOps 方案？</strong></p><p><strong>推荐方案：单仓库多目录 + ArgoCD App-of-Apps + Kustomize</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>gitops-repo/
+</span></span><span class=line><span class=cl>├── base/                         # 10个微服务的基础配置
+</span></span><span class=line><span class=cl>│   ├── service-a/
+</span></span><span class=line><span class=cl>│   │   ├── deployment.yaml
+</span></span><span class=line><span class=cl>│   │   ├── service.yaml
+</span></span><span class=line><span class=cl>│   │   └── kustomization.yaml
+</span></span><span class=line><span class=cl>│   ├── service-b/
+</span></span><span class=line><span class=cl>│   └── ...
+</span></span><span class=line><span class=cl>├── overlays/
+</span></span><span class=line><span class=cl>│   ├── dev/
+</span></span><span class=line><span class=cl>│   │   ├── service-a/           # 覆盖副本数、镜像tag
+</span></span><span class=line><span class=cl>│   │   │   ├── patch.yaml
+</span></span><span class=line><span class=cl>│   │   │   └── kustomization.yaml
+</span></span><span class=line><span class=cl>│   │   └── kustomization.yaml
+</span></span><span class=line><span class=cl>│   ├── staging/
+</span></span><span class=line><span class=cl>│   └── prod/
+</span></span><span class=line><span class=cl>├── apps/
+</span></span><span class=line><span class=cl>│   ├── dev/                      # ArgoCD Application
+</span></span><span class=line><span class=cl>│   │   ├── service-a.yaml
+</span></span><span class=line><span class=cl>│   │   ├── service-b.yaml
+</span></span><span class=line><span class=cl>│   │   └── app-of-apps.yaml
+</span></span><span class=line><span class=cl>│   ├── staging/
+</span></span><span class=line><span class=cl>│   └── prod/
+</span></span><span class=line><span class=cl>└── argocd/
+</span></span><span class=line><span class=cl>    └── projects/                 # ArgoCD AppProject
+</span></span><span class=line><span class=cl>        ├── dev.yaml
+</span></span><span class=line><span class=cl>        ├── staging.yaml
+</span></span><span class=line><span class=cl>        └── prod.yaml
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># apps/dev/app-of-apps.yaml - 管理dev环境所有应用</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>argoproj.io/v1alpha1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Application</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>

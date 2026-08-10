@@ -41,14 +41,14 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>LongAdder</span> <span class=n>adder</span> <span class=o>=</span> <span class=k>new</span> <span class=n>LongAdder</span><span class=o>();</span>
 </span></span><span class=line><span class=cl><span class=n>adder</span><span class=o>.</span><span class=na>increment</span><span class=o>();</span> <span class=c1>// 分散到多个Cell，减少竞争
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>adder</span><span class=o>.</span><span class=na>sum</span><span class=o>();</span>       <span class=c1>// 最终一致性读取
-</span></span></span></code></pre></div><table><thead><tr><th>特性</th><th>AtomicLong</th><th>LongAdder</th></tr></thead><tbody><tr><td>原理</td><td>单值CAS</td><td>分散热点+Cell数组</td></tr><tr><td>高并发性能</td><td>较差（竞争激烈）</td><td>优秀（分散竞争）</td></tr><tr><td>空间开销</td><td>小</td><td>较大（Cell数组）</td></tr><tr><td>适用场景</td><td>低竞争、需要精确值</td><td>高竞争、允许最终一致</td></tr></tbody></table><hr><h2 id=二并发容器>二、并发容器</h2><h3 id=21-concurrenthashmap>2.1 ConcurrentHashMap</h3><p><strong>Q: ConcurrentHashMap的实现原理？JDK7和JDK8的区别？</strong></p><p>A:</p><p><strong>JDK7实现</strong>（分段锁）：</p><pre tabindex=0><code>Segment[] segments  // 16个Segment
-每个Segment是一个ReentrantLock
-每个Segment维护一个HashEntry数组
-</code></pre><p><strong>JDK8实现</strong>（CAS+synchronized）：</p><pre tabindex=0><code>Node[] table
-- 空桶：CAS插入
-- 有节点：synchronized锁定链表头/树根
-- 链表长度&gt;8：转红黑树
-</code></pre><table><thead><tr><th>版本</th><th>锁粒度</th><th>并发度</th><th>数据结构</th></tr></thead><tbody><tr><td>JDK7</td><td>Segment级别</td><td>固定16</td><td>HashEntry数组+链表</td></tr><tr><td>JDK8</td><td>Node级别</td><td>动态</td><td>Node数组+链表+红黑树</td></tr></tbody></table><p><strong>核心方法</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// put流程
+</span></span></span></code></pre></div><table><thead><tr><th>特性</th><th>AtomicLong</th><th>LongAdder</th></tr></thead><tbody><tr><td>原理</td><td>单值CAS</td><td>分散热点+Cell数组</td></tr><tr><td>高并发性能</td><td>较差（竞争激烈）</td><td>优秀（分散竞争）</td></tr><tr><td>空间开销</td><td>小</td><td>较大（Cell数组）</td></tr><tr><td>适用场景</td><td>低竞争、需要精确值</td><td>高竞争、允许最终一致</td></tr></tbody></table><hr><h2 id=二并发容器>二、并发容器</h2><h3 id=21-concurrenthashmap>2.1 ConcurrentHashMap</h3><p><strong>Q: ConcurrentHashMap的实现原理？JDK7和JDK8的区别？</strong></p><p>A:</p><p><strong>JDK7实现</strong>（分段锁）：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Segment[] segments  // 16个Segment
+</span></span><span class=line><span class=cl>每个Segment是一个ReentrantLock
+</span></span><span class=line><span class=cl>每个Segment维护一个HashEntry数组
+</span></span></code></pre></div><p><strong>JDK8实现</strong>（CAS+synchronized）：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Node[] table
+</span></span><span class=line><span class=cl>- 空桶：CAS插入
+</span></span><span class=line><span class=cl>- 有节点：synchronized锁定链表头/树根
+</span></span><span class=line><span class=cl>- 链表长度&gt;8：转红黑树
+</span></span></code></pre></div><table><thead><tr><th>版本</th><th>锁粒度</th><th>并发度</th><th>数据结构</th></tr></thead><tbody><tr><td>JDK7</td><td>Segment级别</td><td>固定16</td><td>HashEntry数组+链表</td></tr><tr><td>JDK8</td><td>Node级别</td><td>动态</td><td>Node数组+链表+红黑树</td></tr></tbody></table><p><strong>核心方法</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// put流程
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>final</span> <span class=n>V</span> <span class=nf>putVal</span><span class=o>(</span><span class=n>K</span> <span class=n>key</span><span class=o>,</span> <span class=n>V</span> <span class=n>value</span><span class=o>,</span> <span class=kt>boolean</span> <span class=n>onlyIfAbsent</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 1. 计算hash
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kt>int</span> <span class=n>hash</span> <span class=o>=</span> <span class=n>spread</span><span class=o>(</span><span class=n>key</span><span class=o>.</span><span class=na>hashCode</span><span class=o>());</span>
@@ -187,19 +187,19 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>ThreadFactory</span> <span class=n>threadFactory</span><span class=o>,</span>        <span class=c1>// 线程工厂
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>RejectedExecutionHandler</span> <span class=n>handler</span>    <span class=c1>// 拒绝策略
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=o>)</span>
-</span></span></code></pre></div><p><strong>参数详解</strong>：</p><table><thead><tr><th>参数</th><th>说明</th></tr></thead><tbody><tr><td>corePoolSize</td><td>核心线程数，常驻线程</td></tr><tr><td>maximumPoolSize</td><td>最大线程数，包含核心+临时线程</td></tr><tr><td>keepAliveTime</td><td>临时线程空闲存活时间</td></tr><tr><td>workQueue</td><td>任务队列，存储待执行任务</td></tr><tr><td>threadFactory</td><td>创建线程的工厂</td></tr><tr><td>handler</td><td>拒绝策略</td></tr></tbody></table><h3 id=42-任务执行流程>4.2 任务执行流程</h3><p><strong>Q: 线程池如何执行任务？</strong></p><p>A:</p><pre tabindex=0><code>提交任务
-    │
-    ├─ 核心线程数未满？
-    │     └─ 是 → 创建核心线程执行
-    │
-    ├─ 队列未满？
-    │     └─ 是 → 加入队列等待
-    │
-    ├─ 最大线程数未满？
-    │     └─ 是 → 创建临时线程执行
-    │
-    └─ 执行拒绝策略
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kt>void</span> <span class=nf>execute</span><span class=o>(</span><span class=n>Runnable</span> <span class=n>command</span><span class=o>)</span> <span class=o>{</span>
+</span></span></code></pre></div><p><strong>参数详解</strong>：</p><table><thead><tr><th>参数</th><th>说明</th></tr></thead><tbody><tr><td>corePoolSize</td><td>核心线程数，常驻线程</td></tr><tr><td>maximumPoolSize</td><td>最大线程数，包含核心+临时线程</td></tr><tr><td>keepAliveTime</td><td>临时线程空闲存活时间</td></tr><tr><td>workQueue</td><td>任务队列，存储待执行任务</td></tr><tr><td>threadFactory</td><td>创建线程的工厂</td></tr><tr><td>handler</td><td>拒绝策略</td></tr></tbody></table><h3 id=42-任务执行流程>4.2 任务执行流程</h3><p><strong>Q: 线程池如何执行任务？</strong></p><p>A:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>提交任务
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ├─ 核心线程数未满？
+</span></span><span class=line><span class=cl>    │     └─ 是 → 创建核心线程执行
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ├─ 队列未满？
+</span></span><span class=line><span class=cl>    │     └─ 是 → 加入队列等待
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ├─ 最大线程数未满？
+</span></span><span class=line><span class=cl>    │     └─ 是 → 创建临时线程执行
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └─ 执行拒绝策略
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kt>void</span> <span class=nf>execute</span><span class=o>(</span><span class=n>Runnable</span> <span class=n>command</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=o>(</span><span class=n>workerCountOf</span><span class=o>(</span><span class=n>ctl</span><span class=o>.</span><span class=na>get</span><span class=o>())</span> <span class=o>&lt;</span> <span class=n>corePoolSize</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=o>(</span><span class=n>addWorker</span><span class=o>(</span><span class=n>command</span><span class=o>,</span> <span class=kc>true</span><span class=o>))</span>  <span class=c1>// 创建核心线程
 </span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=k>return</span><span class=o>;</span>
@@ -240,9 +240,9 @@
 </span></span><span class=line><span class=cl>    <span class=n>log</span><span class=o>.</span><span class=na>warn</span><span class=o>(</span><span class=s>&#34;任务被拒绝，记录日志或持久化&#34;</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 可以存储到MQ或数据库稍后重试
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=o>});</span>
-</span></span></code></pre></div><h3 id=45-线程池大小设置>4.5 线程池大小设置</h3><p><strong>Q: 如何设置线程池大小？</strong></p><p>A:</p><p><strong>CPU密集型</strong>：</p><pre tabindex=0><code>线程数 = CPU核数 + 1
-</code></pre><p><strong>IO密集型</strong>：</p><pre tabindex=0><code>线程数 = CPU核数 × (1 + 平均等待时间/平均工作时间)
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// CPU密集型
+</span></span></code></pre></div><h3 id=45-线程池大小设置>4.5 线程池大小设置</h3><p><strong>Q: 如何设置线程池大小？</strong></p><p>A:</p><p><strong>CPU密集型</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>线程数 = CPU核数 + 1
+</span></span></code></pre></div><p><strong>IO密集型</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>线程数 = CPU核数 × (1 + 平均等待时间/平均工作时间)
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// CPU密集型
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=n>cpuCount</span> <span class=o>=</span> <span class=n>Runtime</span><span class=o>.</span><span class=na>getRuntime</span><span class=o>().</span><span class=na>availableProcessors</span><span class=o>();</span>
 </span></span><span class=line><span class=cl><span class=n>ThreadPoolExecutor</span> <span class=n>cpuPool</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ThreadPoolExecutor</span><span class=o>(</span>
 </span></span><span class=line><span class=cl>    <span class=n>cpuCount</span> <span class=o>+</span> <span class=mi>1</span><span class=o>,</span> <span class=n>cpuCount</span> <span class=o>+</span> <span class=mi>1</span><span class=o>,</span>
@@ -299,11 +299,11 @@
 </span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>Long</span><span class=o>.</span><span class=na>compare</span><span class=o>(</span><span class=n>time</span><span class=o>,</span> <span class=o>((</span><span class=n>ScheduledFutureTask</span><span class=o>)</span><span class=n>other</span><span class=o>).</span><span class=na>time</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><hr><h2 id=六forkjoinpool>六、ForkJoinPool</h2><h3 id=61-工作窃取算法>6.1 工作窃取算法</h3><p><strong>Q: ForkJoinPool的特点？什么是工作窃取？</strong></p><p>A:</p><pre tabindex=0><code>Thread1: [Task1][Task2][Task3]
-Thread2: [Task4]         ↑
-              └─────────┘
-              窃取Thread1的任务
-</code></pre><p><strong>特点</strong>：</p><ul><li>分治任务，大任务拆分为小任务</li><li>每个线程维护自己的双端队列</li><li>空闲线程从其他线程队列尾部窃取任务</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>ForkJoinDemo</span> <span class=o>{</span>
+</span></span></code></pre></div><hr><h2 id=六forkjoinpool>六、ForkJoinPool</h2><h3 id=61-工作窃取算法>6.1 工作窃取算法</h3><p><strong>Q: ForkJoinPool的特点？什么是工作窃取？</strong></p><p>A:</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Thread1: [Task1][Task2][Task3]
+</span></span><span class=line><span class=cl>Thread2: [Task4]         ↑
+</span></span><span class=line><span class=cl>              └─────────┘
+</span></span><span class=line><span class=cl>              窃取Thread1的任务
+</span></span></code></pre></div><p><strong>特点</strong>：</p><ul><li>分治任务，大任务拆分为小任务</li><li>每个线程维护自己的双端队列</li><li>空闲线程从其他线程队列尾部窃取任务</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>ForkJoinDemo</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>static</span> <span class=kd>class</span> <span class=nc>SumTask</span> <span class=kd>extends</span> <span class=n>RecursiveTask</span><span class=o>&lt;</span><span class=n>Long</span><span class=o>&gt;</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>        <span class=kd>private</span> <span class=kd>final</span> <span class=kt>long</span><span class=o>[]</span> <span class=n>array</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>        <span class=kd>private</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>start</span><span class=o>,</span> <span class=n>end</span><span class=o>;</span>

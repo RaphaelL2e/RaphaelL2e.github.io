@@ -18,30 +18,30 @@
 </span></span></span><span class=line><span class=cl><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 如果中间任何一步失败
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>ROLLBACK</span><span class=p>;</span><span class=w>
-</span></span></span></code></pre></div><p><strong>事务的生命周期</strong>：</p><pre tabindex=0><code>START TRANSACTION / BEGIN
-    → SQL1
-    → SQL2
-    → SQL3
-    → COMMIT（提交）或 ROLLBACK（回滚）
-</code></pre><blockquote><p>💡 <strong>注意</strong>：DDL语句（CREATE、ALTER、DROP）会隐式提交事务，无法回滚。</p></blockquote><h2 id=acid特性详解>ACID特性详解</h2><p>ACID是事务的四大特性，面试必考！</p><h3 id=原子性atomicity>原子性（Atomicity）</h3><p><strong>定义</strong>：事务中的所有操作要么全部执行成功，要么全部不执行，不存在部分执行的状态。</p><p><strong>实现原理</strong>：<strong>undo log（回滚日志）</strong></p><pre tabindex=0><code>事务执行过程：
-INSERT → undo log记录DELETE操作
-UPDATE → undo log记录反向UPDATE（旧值）
-DELETE → undo log记录INSERT操作
-
-回滚时：
-按undo log的逆序执行，恢复到事务开始前的状态
-</code></pre><p><strong>面试追问</strong>：如果事务执行到一半MySQL崩溃了怎么办？
-→ 重启时，未提交的事务通过undo log回滚，保证原子性。</p><h3 id=一致性consistency>一致性（Consistency）</h3><p><strong>定义</strong>：事务执行前后，数据库从一个一致性状态转换到另一个一致性状态。</p><p><strong>理解</strong>：一致性是ACID的<strong>最终目标</strong>，原子性、隔离性、持久性都是为了保证一致性。</p><p><strong>示例</strong>：</p><pre tabindex=0><code>转账前：A有2000，B有3000，总计5000（一致性状态）
-转账后：A有1000，B有4000，总计5000（一致性状态）
-如果A扣了钱但B没加钱：A有1000，B有3000，总计4000（不一致状态）→ 违反一致性
-</code></pre><p><strong>一致性的保障</strong>：</p><ul><li>原子性 → 保证事务不会部分执行</li><li>隔离性 → 保证并发事务不会互相干扰</li><li>持久性 → 保证已提交的数据不会丢失</li><li>业务约束 → 主键、外键、唯一约束、CHECK约束</li></ul><h3 id=隔离性isolation>隔离性（Isolation）</h3><p><strong>定义</strong>：并发执行的多个事务之间互不干扰，一个事务的中间状态对其他事务不可见。</p><p><strong>实现原理</strong>：<strong>锁 + MVCC</strong></p><p>隔离性是最复杂的特性，后续"隔离级别"和"MVCC"章节会详细讲解。</p><h3 id=持久性durability>持久性（Durability）</h3><p><strong>定义</strong>：事务一旦提交，对数据的修改就是永久的，即使系统崩溃也不会丢失。</p><p><strong>实现原理</strong>：<strong>redo log（重做日志）</strong></p><pre tabindex=0><code>事务提交时：
-1. 将修改记录写入redo log buffer
-2. 根据innodb_flush_log_at_trx_commit配置刷盘
-3. 返回提交成功
-
-即使Buffer Pool中的脏页还没刷盘：
-→ MySQL崩溃后，通过redo log恢复已提交的数据
-</code></pre><p><strong>关键配置</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 最安全（默认）：每次提交都刷盘
+</span></span></span></code></pre></div><p><strong>事务的生命周期</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>START TRANSACTION / BEGIN
+</span></span><span class=line><span class=cl>    → SQL1
+</span></span><span class=line><span class=cl>    → SQL2
+</span></span><span class=line><span class=cl>    → SQL3
+</span></span><span class=line><span class=cl>    → COMMIT（提交）或 ROLLBACK（回滚）
+</span></span></code></pre></div><blockquote><p>💡 <strong>注意</strong>：DDL语句（CREATE、ALTER、DROP）会隐式提交事务，无法回滚。</p></blockquote><h2 id=acid特性详解>ACID特性详解</h2><p>ACID是事务的四大特性，面试必考！</p><h3 id=原子性atomicity>原子性（Atomicity）</h3><p><strong>定义</strong>：事务中的所有操作要么全部执行成功，要么全部不执行，不存在部分执行的状态。</p><p><strong>实现原理</strong>：<strong>undo log（回滚日志）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>事务执行过程：
+</span></span><span class=line><span class=cl>INSERT → undo log记录DELETE操作
+</span></span><span class=line><span class=cl>UPDATE → undo log记录反向UPDATE（旧值）
+</span></span><span class=line><span class=cl>DELETE → undo log记录INSERT操作
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>回滚时：
+</span></span><span class=line><span class=cl>按undo log的逆序执行，恢复到事务开始前的状态
+</span></span></code></pre></div><p><strong>面试追问</strong>：如果事务执行到一半MySQL崩溃了怎么办？
+→ 重启时，未提交的事务通过undo log回滚，保证原子性。</p><h3 id=一致性consistency>一致性（Consistency）</h3><p><strong>定义</strong>：事务执行前后，数据库从一个一致性状态转换到另一个一致性状态。</p><p><strong>理解</strong>：一致性是ACID的<strong>最终目标</strong>，原子性、隔离性、持久性都是为了保证一致性。</p><p><strong>示例</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>转账前：A有2000，B有3000，总计5000（一致性状态）
+</span></span><span class=line><span class=cl>转账后：A有1000，B有4000，总计5000（一致性状态）
+</span></span><span class=line><span class=cl>如果A扣了钱但B没加钱：A有1000，B有3000，总计4000（不一致状态）→ 违反一致性
+</span></span></code></pre></div><p><strong>一致性的保障</strong>：</p><ul><li>原子性 → 保证事务不会部分执行</li><li>隔离性 → 保证并发事务不会互相干扰</li><li>持久性 → 保证已提交的数据不会丢失</li><li>业务约束 → 主键、外键、唯一约束、CHECK约束</li></ul><h3 id=隔离性isolation>隔离性（Isolation）</h3><p><strong>定义</strong>：并发执行的多个事务之间互不干扰，一个事务的中间状态对其他事务不可见。</p><p><strong>实现原理</strong>：<strong>锁 + MVCC</strong></p><p>隔离性是最复杂的特性，后续"隔离级别"和"MVCC"章节会详细讲解。</p><h3 id=持久性durability>持久性（Durability）</h3><p><strong>定义</strong>：事务一旦提交，对数据的修改就是永久的，即使系统崩溃也不会丢失。</p><p><strong>实现原理</strong>：<strong>redo log（重做日志）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>事务提交时：
+</span></span><span class=line><span class=cl>1. 将修改记录写入redo log buffer
+</span></span><span class=line><span class=cl>2. 根据innodb_flush_log_at_trx_commit配置刷盘
+</span></span><span class=line><span class=cl>3. 返回提交成功
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>即使Buffer Pool中的脏页还没刷盘：
+</span></span><span class=line><span class=cl>→ MySQL崩溃后，通过redo log恢复已提交的数据
+</span></span></code></pre></div><p><strong>关键配置</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 最安全（默认）：每次提交都刷盘
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>innodb_flush_log_at_trx_commit</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>1</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 折中：每次提交写OS缓存，每秒刷盘
@@ -50,27 +50,27 @@ DELETE → undo log记录INSERT操作
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 最快：后台每秒刷盘（可能丢失1秒数据）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>innodb_flush_log_at_trx_commit</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=mi>0</span><span class=w>
 </span></span></span></code></pre></div><blockquote><p>💡 <strong>面试常问</strong>：为什么不直接写数据文件而要写redo log？
-→ redo log是<strong>顺序IO</strong>（追加写入），数据文件是<strong>随机IO</strong>（需要定位页），顺序IO比随机IO快很多。</p></blockquote><h2 id=并发事务带来的问题>并发事务带来的问题</h2><p>在没有隔离性的情况下，并发事务会导致以下问题：</p><h3 id=脏读dirty-read>脏读（Dirty Read）</h3><p><strong>一个事务读到了另一个事务未提交的数据</strong>。</p><pre tabindex=0><code>时间线    事务A                        事务B
-  T1      BEGIN;
-  T2      UPDATE account SET balance = balance - 1000 WHERE id = 1;
-  T3                                   BEGIN;
-  T4                                   SELECT balance FROM account WHERE id = 1;  → 读到-1000后的值（脏数据）
-  T5      ROLLBACK;  ← A回滚了，B读到的数据是无效的！
-</code></pre><h3 id=不可重复读non-repeatable-read>不可重复读（Non-Repeatable Read）</h3><p><strong>一个事务内，两次读取同一行数据的结果不同</strong>（被其他事务修改了）。</p><pre tabindex=0><code>时间线    事务A                        事务B
-  T1      BEGIN;
-  T2      SELECT balance FROM account WHERE id = 1;  → 2000
-  T3                                   BEGIN;
-  T4                                   UPDATE account SET balance = 1000 WHERE id = 1;
-  T5                                   COMMIT;
-  T6      SELECT balance FROM account WHERE id = 1;  → 1000（两次读的结果不同！）
-</code></pre><h3 id=幻读phantom-read>幻读（Phantom Read）</h3><p><strong>一个事务内，两次执行相同的范围查询，结果集的行数不同</strong>（被其他事务插入或删除了行）。</p><pre tabindex=0><code>时间线    事务A                        事务B
-  T1      BEGIN;
-  T2      SELECT * FROM account WHERE balance &gt; 1000;  → 5行
-  T3                                   BEGIN;
-  T4                                   INSERT INTO account VALUES(6, &#39;新用户&#39;, 3000);
-  T5                                   COMMIT;
-  T6      SELECT * FROM account WHERE balance &gt; 1000;  → 6行（多了一行&#34;幻影&#34;！）
-</code></pre><h3 id=三者的区别>三者的区别</h3><table><thead><tr><th>问题</th><th>原因</th><th>影响</th></tr></thead><tbody><tr><td>脏读</td><td>读到未提交的数据</td><td>数据可能是错误的</td></tr><tr><td>不可重复读</td><td>其他事务修改了数据</td><td>同一事务内前后读取不一致</td></tr><tr><td>幻读</td><td>其他事务插入/删除了行</td><td>同一事务内范围查询结果不同</td></tr></tbody></table><blockquote><p>💡 <strong>记忆技巧</strong>：脏读→读未提交，不可重复读→读已提交但被改，幻读→读已提交但被增删。问题严重程度递减：脏读 > 不可重复读 > 幻读。</p></blockquote><h2 id=四大隔离级别>四大隔离级别</h2><p>SQL标准定义了四个隔离级别，从低到高：</p><table><thead><tr><th>隔离级别</th><th>脏读</th><th>不可重复读</th><th>幻读</th><th>性能</th></tr></thead><tbody><tr><td>读未提交（Read Uncommitted）</td><td>❌ 可能</td><td>❌ 可能</td><td>❌ 可能</td><td>最高</td></tr><tr><td>读已提交（Read Committed, RC）</td><td>✅ 避免</td><td>❌ 可能</td><td>❌ 可能</td><td>高</td></tr><tr><td>可重复读（Repeatable Read, RR）</td><td>✅ 避免</td><td>✅ 避免</td><td>❌ 可能*</td><td>中</td></tr><tr><td>串行化（Serializable）</td><td>✅ 避免</td><td>✅ 避免</td><td>✅ 避免</td><td>最低</td></tr></tbody></table><p>*注：InnoDB的RR级别通过<strong>间隙锁（Gap Lock）+ MVCC</strong>在一定程度上避免了幻读。</p><h3 id=查看和设置隔离级别>查看和设置隔离级别</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 查看全局隔离级别
+→ redo log是<strong>顺序IO</strong>（追加写入），数据文件是<strong>随机IO</strong>（需要定位页），顺序IO比随机IO快很多。</p></blockquote><h2 id=并发事务带来的问题>并发事务带来的问题</h2><p>在没有隔离性的情况下，并发事务会导致以下问题：</p><h3 id=脏读dirty-read>脏读（Dirty Read）</h3><p><strong>一个事务读到了另一个事务未提交的数据</strong>。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>时间线    事务A                        事务B
+</span></span><span class=line><span class=cl>  T1      BEGIN;
+</span></span><span class=line><span class=cl>  T2      UPDATE account SET balance = balance - 1000 WHERE id = 1;
+</span></span><span class=line><span class=cl>  T3                                   BEGIN;
+</span></span><span class=line><span class=cl>  T4                                   SELECT balance FROM account WHERE id = 1;  → 读到-1000后的值（脏数据）
+</span></span><span class=line><span class=cl>  T5      ROLLBACK;  ← A回滚了，B读到的数据是无效的！
+</span></span></code></pre></div><h3 id=不可重复读non-repeatable-read>不可重复读（Non-Repeatable Read）</h3><p><strong>一个事务内，两次读取同一行数据的结果不同</strong>（被其他事务修改了）。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>时间线    事务A                        事务B
+</span></span><span class=line><span class=cl>  T1      BEGIN;
+</span></span><span class=line><span class=cl>  T2      SELECT balance FROM account WHERE id = 1;  → 2000
+</span></span><span class=line><span class=cl>  T3                                   BEGIN;
+</span></span><span class=line><span class=cl>  T4                                   UPDATE account SET balance = 1000 WHERE id = 1;
+</span></span><span class=line><span class=cl>  T5                                   COMMIT;
+</span></span><span class=line><span class=cl>  T6      SELECT balance FROM account WHERE id = 1;  → 1000（两次读的结果不同！）
+</span></span></code></pre></div><h3 id=幻读phantom-read>幻读（Phantom Read）</h3><p><strong>一个事务内，两次执行相同的范围查询，结果集的行数不同</strong>（被其他事务插入或删除了行）。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>时间线    事务A                        事务B
+</span></span><span class=line><span class=cl>  T1      BEGIN;
+</span></span><span class=line><span class=cl>  T2      SELECT * FROM account WHERE balance &gt; 1000;  → 5行
+</span></span><span class=line><span class=cl>  T3                                   BEGIN;
+</span></span><span class=line><span class=cl>  T4                                   INSERT INTO account VALUES(6, &#39;新用户&#39;, 3000);
+</span></span><span class=line><span class=cl>  T5                                   COMMIT;
+</span></span><span class=line><span class=cl>  T6      SELECT * FROM account WHERE balance &gt; 1000;  → 6行（多了一行&#34;幻影&#34;！）
+</span></span></code></pre></div><h3 id=三者的区别>三者的区别</h3><table><thead><tr><th>问题</th><th>原因</th><th>影响</th></tr></thead><tbody><tr><td>脏读</td><td>读到未提交的数据</td><td>数据可能是错误的</td></tr><tr><td>不可重复读</td><td>其他事务修改了数据</td><td>同一事务内前后读取不一致</td></tr><tr><td>幻读</td><td>其他事务插入/删除了行</td><td>同一事务内范围查询结果不同</td></tr></tbody></table><blockquote><p>💡 <strong>记忆技巧</strong>：脏读→读未提交，不可重复读→读已提交但被改，幻读→读已提交但被增删。问题严重程度递减：脏读 > 不可重复读 > 幻读。</p></blockquote><h2 id=四大隔离级别>四大隔离级别</h2><p>SQL标准定义了四个隔离级别，从低到高：</p><table><thead><tr><th>隔离级别</th><th>脏读</th><th>不可重复读</th><th>幻读</th><th>性能</th></tr></thead><tbody><tr><td>读未提交（Read Uncommitted）</td><td>❌ 可能</td><td>❌ 可能</td><td>❌ 可能</td><td>最高</td></tr><tr><td>读已提交（Read Committed, RC）</td><td>✅ 避免</td><td>❌ 可能</td><td>❌ 可能</td><td>高</td></tr><tr><td>可重复读（Repeatable Read, RR）</td><td>✅ 避免</td><td>✅ 避免</td><td>❌ 可能*</td><td>中</td></tr><tr><td>串行化（Serializable）</td><td>✅ 避免</td><td>✅ 避免</td><td>✅ 避免</td><td>最低</td></tr></tbody></table><p>*注：InnoDB的RR级别通过<strong>间隙锁（Gap Lock）+ MVCC</strong>在一定程度上避免了幻读。</p><h3 id=查看和设置隔离级别>查看和设置隔离级别</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 查看全局隔离级别
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>SELECT</span><span class=w> </span><span class=o>@@</span><span class=k>global</span><span class=p>.</span><span class=n>transaction_isolation</span><span class=p>;</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 查看当前会话隔离级别
@@ -79,65 +79,65 @@ DELETE → undo log记录INSERT操作
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 设置隔离级别
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>SET</span><span class=w> </span><span class=k>GLOBAL</span><span class=w> </span><span class=k>TRANSACTION</span><span class=w> </span><span class=k>ISOLATION</span><span class=w> </span><span class=k>LEVEL</span><span class=w> </span><span class=k>READ</span><span class=w> </span><span class=k>COMMITTED</span><span class=p>;</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=k>SET</span><span class=w> </span><span class=k>SESSION</span><span class=w> </span><span class=k>TRANSACTION</span><span class=w> </span><span class=k>ISOLATION</span><span class=w> </span><span class=k>LEVEL</span><span class=w> </span><span class=k>READ</span><span class=w> </span><span class=k>COMMITTED</span><span class=p>;</span><span class=w>
-</span></span></span></code></pre></div><h3 id=读未提交read-uncommitted>读未提交（Read Uncommitted）</h3><p>最低的隔离级别，一个事务可以读到另一个事务未提交的数据。</p><ul><li>实现方式：不加任何锁，直接读最新数据</li><li>实际项目中<strong>几乎不使用</strong></li></ul><h3 id=读已提交read-committed-rc>读已提交（Read Committed, RC）</h3><p>一个事务只能读到另一个事务<strong>已提交</strong>的数据。</p><p><strong>实现方式：MVCC + 临时读视图</strong></p><ul><li>每次SELECT都会创建一个新的Read View</li><li>所以同一事务内，两次SELECT可能读到不同的数据（不可重复读）</li></ul><pre tabindex=0><code>RC级别下的Read View生成时机：
-SELECT 1 → 创建Read View 1 → 读到某版本
-（其他事务提交了修改）
-SELECT 2 → 创建Read View 2 → 读到新版本
-</code></pre><p><strong>Oracle和PostgreSQL的默认隔离级别</strong>。</p><h3 id=可重复读repeatable-read-rr>可重复读（Repeatable Read, RR）</h3><p><strong>MySQL的默认隔离级别</strong>。一个事务内，多次读取同一数据结果相同。</p><p><strong>实现方式：MVCC + 第一次SELECT时创建Read View</strong></p><ul><li>事务内第一次SELECT时创建Read View，后续SELECT复用同一个</li><li>因此同一事务内，多次读取的结果一致</li></ul><pre tabindex=0><code>RR级别下的Read View生成时机：
-BEGIN;
-SELECT 1 → 创建Read View（整个事务共用）
-（其他事务提交了修改）
-SELECT 2 → 复用同一个Read View → 读到的还是旧版本
-</code></pre><p><strong>InnoDB如何在一定程度上避免幻读</strong>：</p><ol><li><strong>快照读</strong>（普通SELECT）：通过MVCC的Read View，始终读到事务开始时的快照</li><li><strong>当前读</strong>（SELECT &mldr; FOR UPDATE / INSERT / UPDATE / DELETE）：通过<strong>间隙锁（Gap Lock）</strong> 阻止其他事务在范围内插入新行</li></ol><blockquote><p>⚠️ <strong>注意</strong>：RR级别下，先快照读后当前读，仍可能出现幻读！因为当前读读的是最新数据，不是快照。</p></blockquote><h3 id=串行化serializable>串行化（Serializable）</h3><p>最高的隔离级别，所有事务串行执行。</p><ul><li>实现方式：所有SELECT自动加<strong>共享锁</strong>（LOCK IN SHARE MODE）</li><li>性能最差，实际项目中<strong>几乎不使用</strong></li></ul><h2 id=mvcc深度解析>MVCC深度解析</h2><p><strong>MVCC（Multi-Version Concurrency Control，多版本并发控制）</strong> 是InnoDB实现高并发的核心机制，让<strong>读不阻塞写，写不阻塞读</strong>。</p><h3 id=隐藏列>隐藏列</h3><p>每行数据有两个隐藏列：</p><table><thead><tr><th>隐藏列</th><th>大小</th><th>说明</th></tr></thead><tbody><tr><td>DB_TRX_ID</td><td>6字节</td><td>最后修改该行的事务ID</td></tr><tr><td>DB_ROLL_PTR</td><td>7字节</td><td>回滚指针，指向undo log中的上一个版本</td></tr></tbody></table><h3 id=undo-log版本链>undo log版本链</h3><p>每次修改数据时，旧版本存入undo log，通过DB_ROLL_PTR形成版本链：</p><pre tabindex=0><code>当前行：{id=1, name=&#39;王五&#39;, DB_TRX_ID=300, DB_ROLL_PTR→undo2}
-
-undo2：{id=1, name=&#39;李四&#39;, DB_TRX_ID=200, DB_ROLL_PTR→undo1}
-
-undo1：{id=1, name=&#39;张三&#39;, DB_TRX_ID=100, DB_ROLL_PTR→NULL}
-</code></pre><h3 id=read-view>Read View</h3><p>Read View是事务在进行<strong>快照读</strong>时创建的"可见性判断规则"。</p><p><strong>Read View的四个核心字段</strong>：</p><table><thead><tr><th>字段</th><th>说明</th></tr></thead><tbody><tr><td>m_ids</td><td>创建Read View时，当前所有活跃（未提交）事务的ID列表</td></tr><tr><td>min_trx_id</td><td>m_ids中的最小值</td></tr><tr><td>max_trx_id</td><td>创建Read View时系统应该分配给下一个事务的ID</td></tr><tr><td>creator_trx_id</td><td>创建该Read View的事务ID</td></tr></tbody></table><p><strong>可见性判断规则</strong>：</p><pre tabindex=0><code>对于版本链中的某个版本（其DB_TRX_ID = trx_id）：
-
-1. trx_id == creator_trx_id → 可见（自己修改的）
-2. trx_id &lt; min_trx_id → 可见（在Read View创建前已提交）
-3. trx_id &gt;= max_trx_id → 不可见（在Read View创建后才开始的事务）
-4. min_trx_id &lt;= trx_id &lt; max_trx_id：
-   - 如果trx_id在m_ids中 → 不可见（事务还未提交）
-   - 如果trx_id不在m_ids中 → 可见（事务已提交）
-5. 如果不可见，沿DB_ROLL_PTR找上一个版本，重复判断
-</code></pre><h3 id=rc和rr的区别>RC和RR的区别</h3><table><thead><tr><th>隔离级别</th><th>Read View生成时机</th><th>效果</th></tr></thead><tbody><tr><td>RC</td><td>每次SELECT都生成新的</td><td>能看到其他事务已提交的最新数据</td></tr><tr><td>RR</td><td>事务内第一次SELECT时生成</td><td>始终看到事务开始时的快照</td></tr></tbody></table><h3 id=mvcc完整示例>MVCC完整示例</h3><pre tabindex=0><code>假设事务ID递增：100, 200, 300...
-
-初始数据：
-  {id=1, balance=1000, DB_TRX_ID=100, DB_ROLL_PTR=NULL}
-
-T1: 事务A (trx_id=200) BEGIN
-T2: 事务B (trx_id=300) BEGIN
-T3: 事务B UPDATE account SET balance=500 WHERE id=1
-    → 当前行：{balance=500, DB_TRX_ID=300, DB_ROLL_PTR→undo}
-    → undo：{balance=1000, DB_TRX_ID=100, DB_ROLL_PTR=NULL}
-T4: 事务A SELECT balance FROM account WHERE id=1
-
-  RR级别：事务A创建Read View
-    m_ids = [200, 300]（A和B都未提交）
-    min_trx_id = 200
-    max_trx_id = 301
-
-  判断当前行（DB_TRX_ID=300）：
-    300在m_ids中 → 不可见
-  沿ROLL_PTR找到undo版本（DB_TRX_ID=100）：
-    100 &lt; min_trx_id(200) → 可见！
-  
-  → 事务A读到 balance=1000 ✅
-
-T5: 事务B COMMIT
-T6: 事务A 再次 SELECT balance FROM account WHERE id=1
-
-  RR级别：复用同一个Read View
-  → 还是读到 balance=1000 ✅（可重复读）
-
-  RC级别：创建新的Read View
-    m_ids = [200]（B已提交，只有A活跃）
-  判断当前行（DB_TRX_ID=300）：
-    300不在m_ids中 → 可见！
-  → 事务A读到 balance=500 ✅（不可重复读，但避免了脏读）
-</code></pre><h2 id=当前读-vs-快照读>当前读 vs 快照读</h2><table><thead><tr><th>类型</th><th>SQL</th><th>说明</th></tr></thead><tbody><tr><td>快照读</td><td>普通SELECT</td><td>读MVCC快照，不加锁</td></tr><tr><td>当前读</td><td>SELECT &mldr; FOR UPDATE</td><td>读最新数据，加X锁</td></tr><tr><td>当前读</td><td>SELECT &mldr; LOCK IN SHARE MODE</td><td>读最新数据，加S锁</td></tr><tr><td>当前读</td><td>INSERT / UPDATE / DELETE</td><td>操作最新数据，加锁</td></tr></tbody></table><p><strong>当前读为什么不使用MVCC</strong>：</p><ul><li>修改数据必须基于最新版本，否则会覆盖其他事务的修改</li><li>通过加锁保证当前读的正确性</li></ul><h2 id=事务的传播行为spring>事务的传播行为（Spring）</h2><p>在Spring框架中，事务还有传播行为的概念（面试常问）：</p><table><thead><tr><th>传播行为</th><th>说明</th></tr></thead><tbody><tr><td>REQUIRED（默认）</td><td>有事务就加入，没有就新建</td></tr><tr><td>REQUIRES_NEW</td><td>总是新建事务，挂起当前事务</td></tr><tr><td>NESTED</td><td>嵌套事务（保存点），外层回滚内层也回滚</td></tr><tr><td>SUPPORTS</td><td>有事务就加入，没有就非事务执行</td></tr><tr><td>NOT_SUPPORTED</td><td>总是非事务执行，挂起当前事务</td></tr><tr><td>MANDATORY</td><td>必须在事务中，否则抛异常</td></tr><tr><td>NEVER</td><td>必须不在事务中，否则抛异常</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
+</span></span></span></code></pre></div><h3 id=读未提交read-uncommitted>读未提交（Read Uncommitted）</h3><p>最低的隔离级别，一个事务可以读到另一个事务未提交的数据。</p><ul><li>实现方式：不加任何锁，直接读最新数据</li><li>实际项目中<strong>几乎不使用</strong></li></ul><h3 id=读已提交read-committed-rc>读已提交（Read Committed, RC）</h3><p>一个事务只能读到另一个事务<strong>已提交</strong>的数据。</p><p><strong>实现方式：MVCC + 临时读视图</strong></p><ul><li>每次SELECT都会创建一个新的Read View</li><li>所以同一事务内，两次SELECT可能读到不同的数据（不可重复读）</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>RC级别下的Read View生成时机：
+</span></span><span class=line><span class=cl>SELECT 1 → 创建Read View 1 → 读到某版本
+</span></span><span class=line><span class=cl>（其他事务提交了修改）
+</span></span><span class=line><span class=cl>SELECT 2 → 创建Read View 2 → 读到新版本
+</span></span></code></pre></div><p><strong>Oracle和PostgreSQL的默认隔离级别</strong>。</p><h3 id=可重复读repeatable-read-rr>可重复读（Repeatable Read, RR）</h3><p><strong>MySQL的默认隔离级别</strong>。一个事务内，多次读取同一数据结果相同。</p><p><strong>实现方式：MVCC + 第一次SELECT时创建Read View</strong></p><ul><li>事务内第一次SELECT时创建Read View，后续SELECT复用同一个</li><li>因此同一事务内，多次读取的结果一致</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>RR级别下的Read View生成时机：
+</span></span><span class=line><span class=cl>BEGIN;
+</span></span><span class=line><span class=cl>SELECT 1 → 创建Read View（整个事务共用）
+</span></span><span class=line><span class=cl>（其他事务提交了修改）
+</span></span><span class=line><span class=cl>SELECT 2 → 复用同一个Read View → 读到的还是旧版本
+</span></span></code></pre></div><p><strong>InnoDB如何在一定程度上避免幻读</strong>：</p><ol><li><strong>快照读</strong>（普通SELECT）：通过MVCC的Read View，始终读到事务开始时的快照</li><li><strong>当前读</strong>（SELECT &mldr; FOR UPDATE / INSERT / UPDATE / DELETE）：通过<strong>间隙锁（Gap Lock）</strong> 阻止其他事务在范围内插入新行</li></ol><blockquote><p>⚠️ <strong>注意</strong>：RR级别下，先快照读后当前读，仍可能出现幻读！因为当前读读的是最新数据，不是快照。</p></blockquote><h3 id=串行化serializable>串行化（Serializable）</h3><p>最高的隔离级别，所有事务串行执行。</p><ul><li>实现方式：所有SELECT自动加<strong>共享锁</strong>（LOCK IN SHARE MODE）</li><li>性能最差，实际项目中<strong>几乎不使用</strong></li></ul><h2 id=mvcc深度解析>MVCC深度解析</h2><p><strong>MVCC（Multi-Version Concurrency Control，多版本并发控制）</strong> 是InnoDB实现高并发的核心机制，让<strong>读不阻塞写，写不阻塞读</strong>。</p><h3 id=隐藏列>隐藏列</h3><p>每行数据有两个隐藏列：</p><table><thead><tr><th>隐藏列</th><th>大小</th><th>说明</th></tr></thead><tbody><tr><td>DB_TRX_ID</td><td>6字节</td><td>最后修改该行的事务ID</td></tr><tr><td>DB_ROLL_PTR</td><td>7字节</td><td>回滚指针，指向undo log中的上一个版本</td></tr></tbody></table><h3 id=undo-log版本链>undo log版本链</h3><p>每次修改数据时，旧版本存入undo log，通过DB_ROLL_PTR形成版本链：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>当前行：{id=1, name=&#39;王五&#39;, DB_TRX_ID=300, DB_ROLL_PTR→undo2}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>undo2：{id=1, name=&#39;李四&#39;, DB_TRX_ID=200, DB_ROLL_PTR→undo1}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>undo1：{id=1, name=&#39;张三&#39;, DB_TRX_ID=100, DB_ROLL_PTR→NULL}
+</span></span></code></pre></div><h3 id=read-view>Read View</h3><p>Read View是事务在进行<strong>快照读</strong>时创建的"可见性判断规则"。</p><p><strong>Read View的四个核心字段</strong>：</p><table><thead><tr><th>字段</th><th>说明</th></tr></thead><tbody><tr><td>m_ids</td><td>创建Read View时，当前所有活跃（未提交）事务的ID列表</td></tr><tr><td>min_trx_id</td><td>m_ids中的最小值</td></tr><tr><td>max_trx_id</td><td>创建Read View时系统应该分配给下一个事务的ID</td></tr><tr><td>creator_trx_id</td><td>创建该Read View的事务ID</td></tr></tbody></table><p><strong>可见性判断规则</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>对于版本链中的某个版本（其DB_TRX_ID = trx_id）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>1. trx_id == creator_trx_id → 可见（自己修改的）
+</span></span><span class=line><span class=cl>2. trx_id &lt; min_trx_id → 可见（在Read View创建前已提交）
+</span></span><span class=line><span class=cl>3. trx_id &gt;= max_trx_id → 不可见（在Read View创建后才开始的事务）
+</span></span><span class=line><span class=cl>4. min_trx_id &lt;= trx_id &lt; max_trx_id：
+</span></span><span class=line><span class=cl>   - 如果trx_id在m_ids中 → 不可见（事务还未提交）
+</span></span><span class=line><span class=cl>   - 如果trx_id不在m_ids中 → 可见（事务已提交）
+</span></span><span class=line><span class=cl>5. 如果不可见，沿DB_ROLL_PTR找上一个版本，重复判断
+</span></span></code></pre></div><h3 id=rc和rr的区别>RC和RR的区别</h3><table><thead><tr><th>隔离级别</th><th>Read View生成时机</th><th>效果</th></tr></thead><tbody><tr><td>RC</td><td>每次SELECT都生成新的</td><td>能看到其他事务已提交的最新数据</td></tr><tr><td>RR</td><td>事务内第一次SELECT时生成</td><td>始终看到事务开始时的快照</td></tr></tbody></table><h3 id=mvcc完整示例>MVCC完整示例</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>假设事务ID递增：100, 200, 300...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>初始数据：
+</span></span><span class=line><span class=cl>  {id=1, balance=1000, DB_TRX_ID=100, DB_ROLL_PTR=NULL}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>T1: 事务A (trx_id=200) BEGIN
+</span></span><span class=line><span class=cl>T2: 事务B (trx_id=300) BEGIN
+</span></span><span class=line><span class=cl>T3: 事务B UPDATE account SET balance=500 WHERE id=1
+</span></span><span class=line><span class=cl>    → 当前行：{balance=500, DB_TRX_ID=300, DB_ROLL_PTR→undo}
+</span></span><span class=line><span class=cl>    → undo：{balance=1000, DB_TRX_ID=100, DB_ROLL_PTR=NULL}
+</span></span><span class=line><span class=cl>T4: 事务A SELECT balance FROM account WHERE id=1
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  RR级别：事务A创建Read View
+</span></span><span class=line><span class=cl>    m_ids = [200, 300]（A和B都未提交）
+</span></span><span class=line><span class=cl>    min_trx_id = 200
+</span></span><span class=line><span class=cl>    max_trx_id = 301
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  判断当前行（DB_TRX_ID=300）：
+</span></span><span class=line><span class=cl>    300在m_ids中 → 不可见
+</span></span><span class=line><span class=cl>  沿ROLL_PTR找到undo版本（DB_TRX_ID=100）：
+</span></span><span class=line><span class=cl>    100 &lt; min_trx_id(200) → 可见！
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>  → 事务A读到 balance=1000 ✅
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>T5: 事务B COMMIT
+</span></span><span class=line><span class=cl>T6: 事务A 再次 SELECT balance FROM account WHERE id=1
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  RR级别：复用同一个Read View
+</span></span><span class=line><span class=cl>  → 还是读到 balance=1000 ✅（可重复读）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>  RC级别：创建新的Read View
+</span></span><span class=line><span class=cl>    m_ids = [200]（B已提交，只有A活跃）
+</span></span><span class=line><span class=cl>  判断当前行（DB_TRX_ID=300）：
+</span></span><span class=line><span class=cl>    300不在m_ids中 → 可见！
+</span></span><span class=line><span class=cl>  → 事务A读到 balance=500 ✅（不可重复读，但避免了脏读）
+</span></span></code></pre></div><h2 id=当前读-vs-快照读>当前读 vs 快照读</h2><table><thead><tr><th>类型</th><th>SQL</th><th>说明</th></tr></thead><tbody><tr><td>快照读</td><td>普通SELECT</td><td>读MVCC快照，不加锁</td></tr><tr><td>当前读</td><td>SELECT &mldr; FOR UPDATE</td><td>读最新数据，加X锁</td></tr><tr><td>当前读</td><td>SELECT &mldr; LOCK IN SHARE MODE</td><td>读最新数据，加S锁</td></tr><tr><td>当前读</td><td>INSERT / UPDATE / DELETE</td><td>操作最新数据，加锁</td></tr></tbody></table><p><strong>当前读为什么不使用MVCC</strong>：</p><ul><li>修改数据必须基于最新版本，否则会覆盖其他事务的修改</li><li>通过加锁保证当前读的正确性</li></ul><h2 id=事务的传播行为spring>事务的传播行为（Spring）</h2><p>在Spring框架中，事务还有传播行为的概念（面试常问）：</p><table><thead><tr><th>传播行为</th><th>说明</th></tr></thead><tbody><tr><td>REQUIRED（默认）</td><td>有事务就加入，没有就新建</td></tr><tr><td>REQUIRES_NEW</td><td>总是新建事务，挂起当前事务</td></tr><tr><td>NESTED</td><td>嵌套事务（保存点），外层回滚内层也回滚</td></tr><tr><td>SUPPORTS</td><td>有事务就加入，没有就非事务执行</td></tr><tr><td>NOT_SUPPORTED</td><td>总是非事务执行，挂起当前事务</td></tr><tr><td>MANDATORY</td><td>必须在事务中，否则抛异常</td></tr><tr><td>NEVER</td><td>必须不在事务中，否则抛异常</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>OrderService</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=nd>@Transactional</span><span class=o>(</span><span class=n>propagation</span> <span class=o>=</span> <span class=n>Propagation</span><span class=o>.</span><span class=na>REQUIRED</span><span class=o>)</span>

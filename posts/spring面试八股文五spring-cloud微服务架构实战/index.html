@@ -10,19 +10,19 @@
 <span>/</span><a href=/series/spring-interview/>Spring 面试与实战</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Spring面试八股文（五）——Spring Cloud微服务架构实战</h1><p class=article-description>🎯 本文目标：在Spring Boot的基础上，深入解析Spring Cloud Alibaba生态的核心组件——服务注册发现Nacos、服务调用OpenFeign、负载均衡LoadBalancer、服务容错Sentinel、API网关Gateway，并结合实战经验构建微服务架构能力体系。 最佳实践。</p><div class=article-meta><span>发布于 <time datetime=2026-07-08>2026-07-08</time></span>
 <span>最后验证 2026-07</span>
 <span>7 分钟阅读</span>
-<span>1455 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一spring-cloud-vs-spring-cloud-alibaba>一、Spring Cloud vs Spring Cloud Alibaba</a><ul><li><a href=#11-面试高频问题>1.1 面试高频问题</a></li><li><a href=#12-组件对比表>1.2 组件对比表</a></li></ul></li><li><a href=#二nacos服务注册与配置中心>二、Nacos：服务注册与配置中心</a><ul><li><a href=#21-面试高频问题>2.1 面试高频问题</a></li><li><a href=#22-nacos注册中心原理>2.2 Nacos注册中心原理</a></li><li><a href=#23-nacos配置中心热更新原理>2.3 Nacos配置中心热更新原理</a></li><li><a href=#24-nacos集群部署>2.4 Nacos集群部署</a></li></ul></li><li><a href=#三openfeign声明式服务调用>三、OpenFeign：声明式服务调用</a><ul><li><a href=#31-面试高频问题>3.1 面试高频问题</a></li><li><a href=#32-openfeign核心原理>3.2 OpenFeign核心原理</a></li><li><a href=#33-openfeign最佳实践>3.3 OpenFeign最佳实践</a></li></ul></li><li><a href=#四sentinel服务容错与限流熔断>四、Sentinel：服务容错与限流熔断</a><ul><li><a href=#41-面试高频问题>4.1 面试高频问题</a></li><li><a href=#42-sentinel核心概念>4.2 Sentinel核心概念</a></li><li><a href=#43-限流规则详解>4.3 限流规则详解</a></li><li><a href=#44-熔断降级规则>4.4 熔断降级规则</a></li><li><a href=#45-热点参数限流>4.5 热点参数限流</a></li></ul></li><li><a href=#五spring-cloud-gatewayapi网关>五、Spring Cloud Gateway：API网关</a><ul><li><a href=#51-面试高频问题>5.1 面试高频问题</a></li><li><a href=#52-gateway核心架构>5.2 Gateway核心架构</a></li><li><a href=#53-路由配置详解>5.3 路由配置详解</a></li><li><a href=#54-全局过滤器实现>5.4 全局过滤器实现</a></li></ul></li><li><a href=#六微服务架构最佳实践>六、微服务架构最佳实践</a><ul><li><a href=#61-服务拆分原则>6.1 服务拆分原则</a></li><li><a href=#62-分布式事务处理>6.2 分布式事务处理</a></li><li><a href=#63-链路追踪集成>6.3 链路追踪集成</a></li></ul></li><li><a href=#七面试高频综合题>七、面试高频综合题</a><ul><li><a href=#q1-微服务如何保证数据一致性>Q1: 微服务如何保证数据一致性？</a></li><li><a href=#q2-微服务如何设计灰度发布>Q2: 微服务如何设计灰度发布？</a></li><li><a href=#q3-如何设计一个高可用的微服务架构>Q3: 如何设计一个高可用的微服务架构？</a></li></ul></li><li><a href=#八总结>八、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：在Spring Boot的基础上，深入解析Spring Cloud Alibaba生态的核心组件——服务注册发现Nacos、服务调用OpenFeign、负载均衡LoadBalancer、服务容错Sentinel、API网关Gateway，并结合实战经验构建微服务架构能力体系。</p></blockquote><hr><h2 id=一spring-cloud-vs-spring-cloud-alibaba>一、Spring Cloud vs Spring Cloud Alibaba</h2><h3 id=11-面试高频问题>1.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Spring Cloud和Spring Cloud Alibaba的区别？</td><td>⭐⭐⭐⭐⭐</td><td>SC是Netflix组件（部分停更），SCA是阿里生态，国内主流</td></tr><tr><td>2</td><td>Spring Cloud版本号怎么理解？</td><td>⭐⭐⭐</td><td>使用发布名称（2022.0.x），非数字版本号</td></tr><tr><td>3</td><td>Spring Cloud Alibaba有哪些核心组件？</td><td>⭐⭐⭐⭐⭐</td><td>Nacos注册中心+配置中心、Sentinel限流熔断、Seata分布式事务</td></tr><tr><td>4</td><td>微服务拆分的原则是什么？</td><td>⭐⭐⭐⭐</td><td>业务边界清晰、高内聚低耦合、独立部署、数据隔离</td></tr></tbody></table><h3 id=12-组件对比表>1.2 组件对比表</h3><table><thead><tr><th>功能领域</th><th>Spring Cloud Netflix</th><th>Spring Cloud Alibaba</th><th>推荐选择</th></tr></thead><tbody><tr><td>服务注册发现</td><td>Eureka（停更）</td><td>Nacos</td><td>✅ Nacos</td></tr><tr><td>配置中心</td><td>Spring Cloud Config</td><td>Nacos</td><td>✅ Nacos</td></tr><tr><td>负载均衡</td><td>Ribbon（停更）</td><td>LoadBalancer</td><td>✅ LoadBalancer</td></tr><tr><td>服务调用</td><td>Feign（停更）</td><td>OpenFeign</td><td>✅ OpenFeign</td></tr><tr><td>熔断降级</td><td>Hystrix（停更）</td><td>Sentinel</td><td>✅ Sentinel</td></tr><tr><td>API网关</td><td>Zuul（停更）</td><td>Spring Cloud Gateway</td><td>✅ Gateway</td></tr><tr><td>分布式事务</td><td>-</td><td>Seata</td><td>✅ Seata</td></tr></tbody></table><p><strong>最佳实践</strong>：新项目直接使用 <strong>Spring Cloud Alibaba + Spring Cloud</strong> 组合（Nacos + Sentinel + Gateway + OpenFeign）。</p><hr><h2 id=二nacos服务注册与配置中心>二、Nacos：服务注册与配置中心</h2><h3 id=21-面试高频问题>2.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Nacos作为注册中心的原理？</td><td>⭐⭐⭐⭐⭐</td><td>服务注册→心跳续约→服务发现→健康检查</td></tr><tr><td>2</td><td>Nacos如何保证高可用？</td><td>⭐⭐⭐⭐</td><td>集群部署（3节点起步）+ Raft协议 + MySQL持久化</td></tr><tr><td>3</td><td>Nacos的AP和CP模式怎么切换？</td><td>⭐⭐⭐⭐</td><td>临时实例AP（默认）、持久化实例CP</td></tr><tr><td>4</td><td>Nacos配置中心的热更新机制？</td><td>⭐⭐⭐⭐⭐</td><td>长轮询机制 + @RefreshScope</td></tr><tr><td>5</td><td>Nacos和Eureka的区别？</td><td>⭐⭐⭐⭐</td><td>Nacos支持CP/AP切换、支持配置中心、健康检查更丰富</td></tr></tbody></table><h3 id=22-nacos注册中心原理>2.2 Nacos注册中心原理</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────┐
-│                       Nacos Server                           │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │  注册表      │  │  健康检查   │  │  配置管理   │        │
-│  │  (Map)      │  │  (定时任务)  │  │  (MySQL)    │        │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
-└─────────┼────────────────┼────────────────┼────────────────┘
-          │                │                │
-    ┌─────▼─────┐    ┌────▼────┐    ┌──────▼──────┐
-    │ Provider  │    │ Consumer│    │ Admin控制台  │
-    │ 心跳续约   │    │ 订阅服务 │    │ 配置下发     │
-    └───────────┘    └─────────┘    └─────────────┘
-</code></pre><p><strong>服务注册流程</strong>：</p><ol><li>Provider启动 → 向Nacos发送注册请求（POST /nacos/v1/ns/instance）</li><li>Nacos维护注册表：<code>Map&lt;namespace, Map&lt;group::serviceName, Service>></code></li><li>Provider每5秒发送心跳（PUT /nacos/v1/ns/instance/beat）</li><li>Nacos超时未收到心跳（默认15秒）→ 标记为不健康 → 30秒后剔除</li><li>Consumer订阅服务 → Nacos推送服务列表变更</li></ol><h3 id=23-nacos配置中心热更新原理>2.3 Nacos配置中心热更新原理</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 1. Bootstrap配置（bootstrap.yml）
+<span>1455 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一spring-cloud-vs-spring-cloud-alibaba>一、Spring Cloud vs Spring Cloud Alibaba</a><ul><li><a href=#11-面试高频问题>1.1 面试高频问题</a></li><li><a href=#12-组件对比表>1.2 组件对比表</a></li></ul></li><li><a href=#二nacos服务注册与配置中心>二、Nacos：服务注册与配置中心</a><ul><li><a href=#21-面试高频问题>2.1 面试高频问题</a></li><li><a href=#22-nacos注册中心原理>2.2 Nacos注册中心原理</a></li><li><a href=#23-nacos配置中心热更新原理>2.3 Nacos配置中心热更新原理</a></li><li><a href=#24-nacos集群部署>2.4 Nacos集群部署</a></li></ul></li><li><a href=#三openfeign声明式服务调用>三、OpenFeign：声明式服务调用</a><ul><li><a href=#31-面试高频问题>3.1 面试高频问题</a></li><li><a href=#32-openfeign核心原理>3.2 OpenFeign核心原理</a></li><li><a href=#33-openfeign最佳实践>3.3 OpenFeign最佳实践</a></li></ul></li><li><a href=#四sentinel服务容错与限流熔断>四、Sentinel：服务容错与限流熔断</a><ul><li><a href=#41-面试高频问题>4.1 面试高频问题</a></li><li><a href=#42-sentinel核心概念>4.2 Sentinel核心概念</a></li><li><a href=#43-限流规则详解>4.3 限流规则详解</a></li><li><a href=#44-熔断降级规则>4.4 熔断降级规则</a></li><li><a href=#45-热点参数限流>4.5 热点参数限流</a></li></ul></li><li><a href=#五spring-cloud-gatewayapi网关>五、Spring Cloud Gateway：API网关</a><ul><li><a href=#51-面试高频问题>5.1 面试高频问题</a></li><li><a href=#52-gateway核心架构>5.2 Gateway核心架构</a></li><li><a href=#53-路由配置详解>5.3 路由配置详解</a></li><li><a href=#54-全局过滤器实现>5.4 全局过滤器实现</a></li></ul></li><li><a href=#六微服务架构最佳实践>六、微服务架构最佳实践</a><ul><li><a href=#61-服务拆分原则>6.1 服务拆分原则</a></li><li><a href=#62-分布式事务处理>6.2 分布式事务处理</a></li><li><a href=#63-链路追踪集成>6.3 链路追踪集成</a></li></ul></li><li><a href=#七面试高频综合题>七、面试高频综合题</a><ul><li><a href=#q1-微服务如何保证数据一致性>Q1: 微服务如何保证数据一致性？</a></li><li><a href=#q2-微服务如何设计灰度发布>Q2: 微服务如何设计灰度发布？</a></li><li><a href=#q3-如何设计一个高可用的微服务架构>Q3: 如何设计一个高可用的微服务架构？</a></li></ul></li><li><a href=#八总结>八、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：在Spring Boot的基础上，深入解析Spring Cloud Alibaba生态的核心组件——服务注册发现Nacos、服务调用OpenFeign、负载均衡LoadBalancer、服务容错Sentinel、API网关Gateway，并结合实战经验构建微服务架构能力体系。</p></blockquote><hr><h2 id=一spring-cloud-vs-spring-cloud-alibaba>一、Spring Cloud vs Spring Cloud Alibaba</h2><h3 id=11-面试高频问题>1.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Spring Cloud和Spring Cloud Alibaba的区别？</td><td>⭐⭐⭐⭐⭐</td><td>SC是Netflix组件（部分停更），SCA是阿里生态，国内主流</td></tr><tr><td>2</td><td>Spring Cloud版本号怎么理解？</td><td>⭐⭐⭐</td><td>使用发布名称（2022.0.x），非数字版本号</td></tr><tr><td>3</td><td>Spring Cloud Alibaba有哪些核心组件？</td><td>⭐⭐⭐⭐⭐</td><td>Nacos注册中心+配置中心、Sentinel限流熔断、Seata分布式事务</td></tr><tr><td>4</td><td>微服务拆分的原则是什么？</td><td>⭐⭐⭐⭐</td><td>业务边界清晰、高内聚低耦合、独立部署、数据隔离</td></tr></tbody></table><h3 id=12-组件对比表>1.2 组件对比表</h3><table><thead><tr><th>功能领域</th><th>Spring Cloud Netflix</th><th>Spring Cloud Alibaba</th><th>推荐选择</th></tr></thead><tbody><tr><td>服务注册发现</td><td>Eureka（停更）</td><td>Nacos</td><td>✅ Nacos</td></tr><tr><td>配置中心</td><td>Spring Cloud Config</td><td>Nacos</td><td>✅ Nacos</td></tr><tr><td>负载均衡</td><td>Ribbon（停更）</td><td>LoadBalancer</td><td>✅ LoadBalancer</td></tr><tr><td>服务调用</td><td>Feign（停更）</td><td>OpenFeign</td><td>✅ OpenFeign</td></tr><tr><td>熔断降级</td><td>Hystrix（停更）</td><td>Sentinel</td><td>✅ Sentinel</td></tr><tr><td>API网关</td><td>Zuul（停更）</td><td>Spring Cloud Gateway</td><td>✅ Gateway</td></tr><tr><td>分布式事务</td><td>-</td><td>Seata</td><td>✅ Seata</td></tr></tbody></table><p><strong>最佳实践</strong>：新项目直接使用 <strong>Spring Cloud Alibaba + Spring Cloud</strong> 组合（Nacos + Sentinel + Gateway + OpenFeign）。</p><hr><h2 id=二nacos服务注册与配置中心>二、Nacos：服务注册与配置中心</h2><h3 id=21-面试高频问题>2.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Nacos作为注册中心的原理？</td><td>⭐⭐⭐⭐⭐</td><td>服务注册→心跳续约→服务发现→健康检查</td></tr><tr><td>2</td><td>Nacos如何保证高可用？</td><td>⭐⭐⭐⭐</td><td>集群部署（3节点起步）+ Raft协议 + MySQL持久化</td></tr><tr><td>3</td><td>Nacos的AP和CP模式怎么切换？</td><td>⭐⭐⭐⭐</td><td>临时实例AP（默认）、持久化实例CP</td></tr><tr><td>4</td><td>Nacos配置中心的热更新机制？</td><td>⭐⭐⭐⭐⭐</td><td>长轮询机制 + @RefreshScope</td></tr><tr><td>5</td><td>Nacos和Eureka的区别？</td><td>⭐⭐⭐⭐</td><td>Nacos支持CP/AP切换、支持配置中心、健康检查更丰富</td></tr></tbody></table><h3 id=22-nacos注册中心原理>2.2 Nacos注册中心原理</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                       Nacos Server                           │
+</span></span><span class=line><span class=cl>│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+</span></span><span class=line><span class=cl>│  │  注册表      │  │  健康检查   │  │  配置管理   │        │
+</span></span><span class=line><span class=cl>│  │  (Map)      │  │  (定时任务)  │  │  (MySQL)    │        │
+</span></span><span class=line><span class=cl>│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘        │
+</span></span><span class=line><span class=cl>└─────────┼────────────────┼────────────────┼────────────────┘
+</span></span><span class=line><span class=cl>          │                │                │
+</span></span><span class=line><span class=cl>    ┌─────▼─────┐    ┌────▼────┐    ┌──────▼──────┐
+</span></span><span class=line><span class=cl>    │ Provider  │    │ Consumer│    │ Admin控制台  │
+</span></span><span class=line><span class=cl>    │ 心跳续约   │    │ 订阅服务 │    │ 配置下发     │
+</span></span><span class=line><span class=cl>    └───────────┘    └─────────┘    └─────────────┘
+</span></span></code></pre></div><p><strong>服务注册流程</strong>：</p><ol><li>Provider启动 → 向Nacos发送注册请求（POST /nacos/v1/ns/instance）</li><li>Nacos维护注册表：<code>Map&lt;namespace, Map&lt;group::serviceName, Service>></code></li><li>Provider每5秒发送心跳（PUT /nacos/v1/ns/instance/beat）</li><li>Nacos超时未收到心跳（默认15秒）→ 标记为不健康 → 30秒后剔除</li><li>Consumer订阅服务 → Nacos推送服务列表变更</li></ol><h3 id=23-nacos配置中心热更新原理>2.3 Nacos配置中心热更新原理</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 1. Bootstrap配置（bootstrap.yml）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nl>spring:</span>
 </span></span><span class=line><span class=cl>  <span class=n>cloud</span><span class=o>:</span>
 </span></span><span class=line><span class=cl>    <span class=n>nacos</span><span class=o>:</span>
@@ -70,24 +70,24 @@
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=l>nacos.datasource.url=jdbc:mysql://192.168.1.100:3306/nacos</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=l>nacos.datasource.username=nacos</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=l>nacos.datasource.password=nacos</span><span class=w>
-</span></span></span></code></pre></div><hr><h2 id=三openfeign声明式服务调用>三、OpenFeign：声明式服务调用</h2><h3 id=31-面试高频问题>3.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>OpenFeign的工作原理？</td><td>⭐⭐⭐⭐⭐</td><td>动态代理 + Ribbon/LoadBalancer + HTTP客户端</td></tr><tr><td>2</td><td>OpenFeign如何实现负载均衡？</td><td>⭐⭐⭐⭐</td><td>集成LoadBalancer，默认轮询策略</td></tr><tr><td>3</td><td>OpenFeign的超时和重试机制？</td><td>⭐⭐⭐⭐</td><td>connectTimeout + readTimeout，默认无重试</td></tr><tr><td>4</td><td>OpenFeign如何传递Header？</td><td>⭐⭐⭐</td><td>@RequestHeader注解 + RequestInterceptor</td></tr><tr><td>5</td><td>OpenFeign和Dubbo的区别？</td><td>⭐⭐⭐⭐</td><td>HTTP vs RPC，轻量级 vs 高性能</td></tr></tbody></table><h3 id=32-openfeign核心原理>3.2 OpenFeign核心原理</h3><pre tabindex=0><code>@FeignClient(&#34;user-service&#34;)
-public interface UserClient {
-    @GetMapping(&#34;/user/{id}&#34;)
-    User getUser(@PathVariable(&#34;id&#34;) Long id);
-}
-
-调用流程：
-┌─────────┐     ┌──────────────┐     ┌─────────────┐     ┌──────────────┐
-│ Controller │ → │  UserClient$Proxy │ → │ LoadBalancer │ → │ user-service │
-│ userClient.getUser(1) │     │ (JDK动态代理)      │     │ (选择实例)    │     │ (真实服务)    │
-└─────────┘     └──────────────┘     └─────────────┘     └──────────────┘
-                        │
-                        ↓
-                ┌──────────────────┐
-                │  RequestTemplate │
-                │  (封装HTTP请求)    │
-                └──────────────────┘
-</code></pre><p><strong>动态代理创建流程</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// FeignClientFactoryBean 核心逻辑
+</span></span></span></code></pre></div><hr><h2 id=三openfeign声明式服务调用>三、OpenFeign：声明式服务调用</h2><h3 id=31-面试高频问题>3.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>OpenFeign的工作原理？</td><td>⭐⭐⭐⭐⭐</td><td>动态代理 + Ribbon/LoadBalancer + HTTP客户端</td></tr><tr><td>2</td><td>OpenFeign如何实现负载均衡？</td><td>⭐⭐⭐⭐</td><td>集成LoadBalancer，默认轮询策略</td></tr><tr><td>3</td><td>OpenFeign的超时和重试机制？</td><td>⭐⭐⭐⭐</td><td>connectTimeout + readTimeout，默认无重试</td></tr><tr><td>4</td><td>OpenFeign如何传递Header？</td><td>⭐⭐⭐</td><td>@RequestHeader注解 + RequestInterceptor</td></tr><tr><td>5</td><td>OpenFeign和Dubbo的区别？</td><td>⭐⭐⭐⭐</td><td>HTTP vs RPC，轻量级 vs 高性能</td></tr></tbody></table><h3 id=32-openfeign核心原理>3.2 OpenFeign核心原理</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>@FeignClient(&#34;user-service&#34;)
+</span></span><span class=line><span class=cl>public interface UserClient {
+</span></span><span class=line><span class=cl>    @GetMapping(&#34;/user/{id}&#34;)
+</span></span><span class=line><span class=cl>    User getUser(@PathVariable(&#34;id&#34;) Long id);
+</span></span><span class=line><span class=cl>}
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>调用流程：
+</span></span><span class=line><span class=cl>┌─────────┐     ┌──────────────┐     ┌─────────────┐     ┌──────────────┐
+</span></span><span class=line><span class=cl>│ Controller │ → │  UserClient$Proxy │ → │ LoadBalancer │ → │ user-service │
+</span></span><span class=line><span class=cl>│ userClient.getUser(1) │     │ (JDK动态代理)      │     │ (选择实例)    │     │ (真实服务)    │
+</span></span><span class=line><span class=cl>└─────────┘     └──────────────┘     └─────────────┘     └──────────────┘
+</span></span><span class=line><span class=cl>                        │
+</span></span><span class=line><span class=cl>                        ↓
+</span></span><span class=line><span class=cl>                ┌──────────────────┐
+</span></span><span class=line><span class=cl>                │  RequestTemplate │
+</span></span><span class=line><span class=cl>                │  (封装HTTP请求)    │
+</span></span><span class=line><span class=cl>                └──────────────────┘
+</span></span></code></pre></div><p><strong>动态代理创建流程</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// FeignClientFactoryBean 核心逻辑
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=n>Object</span> <span class=nf>getObject</span><span class=o>()</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>feign</span><span class=o>(</span><span class=n>target</span><span class=o>);</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
@@ -161,22 +161,22 @@ public interface UserClient {
 </span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=o>};</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><hr><h2 id=四sentinel服务容错与限流熔断>四、Sentinel：服务容错与限流熔断</h2><h3 id=41-面试高频问题>4.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Sentinel和Hystrix的区别？</td><td>⭐⭐⭐⭐⭐</td><td>Sentinel支持实时监控、规则动态推送、控制台可视化</td></tr><tr><td>2</td><td>Sentinel的限流算法有哪些？</td><td>⭐⭐⭐⭐⭐</td><td>QPS限流、线程数限流、滑动窗口、漏桶、令牌桶</td></tr><tr><td>3</td><td>熔断降级的三种策略？</td><td>⭐⭐⭐⭐</td><td>慢调用比例、异常比例、异常数</td></tr><tr><td>4</td><td>Sentinel如何实现热点参数限流？</td><td>⭐⭐⭐⭐</td><td>@SentinelResource + 参数索引配置</td></tr><tr><td>5</td><td>Sentinel集群流控怎么实现？</td><td>⭐⭐⭐</td><td>Token Server统一管理令牌</td></tr></tbody></table><h3 id=42-sentinel核心概念>4.2 Sentinel核心概念</h3><pre tabindex=0><code>资源：要保护的对象（接口、方法、代码块）
-规则：保护策略（限流、熔断、系统保护、热点参数）
-入口：Entry entry = SphU.entry(&#34;资源名&#34;);
-
-┌─────────────────────────────────────────────────────┐
-│                  Sentinel 工作流程                   │
-│                                                     │
-│  请求 → 创建Entry → 责任链检查 → 业务执行 → 退出Entry  │
-│           │              │                          │
-│           ↓              ↓                          │
-│      NodeSelectorSlot   FlowSlot（限流）             │
-│      ClusterBuilderSlot DegradeSlot（熔断）          │
-│      StatisticSlot      SystemSlot（系统保护）        │
-│      ParamFlowSlot      AuthoritySlot（授权）        │
-└─────────────────────────────────────────────────────┘
-</code></pre><h3 id=43-限流规则详解>4.3 限流规则详解</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 1. QPS限流（每秒请求数）
+</span></span></code></pre></div><hr><h2 id=四sentinel服务容错与限流熔断>四、Sentinel：服务容错与限流熔断</h2><h3 id=41-面试高频问题>4.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Sentinel和Hystrix的区别？</td><td>⭐⭐⭐⭐⭐</td><td>Sentinel支持实时监控、规则动态推送、控制台可视化</td></tr><tr><td>2</td><td>Sentinel的限流算法有哪些？</td><td>⭐⭐⭐⭐⭐</td><td>QPS限流、线程数限流、滑动窗口、漏桶、令牌桶</td></tr><tr><td>3</td><td>熔断降级的三种策略？</td><td>⭐⭐⭐⭐</td><td>慢调用比例、异常比例、异常数</td></tr><tr><td>4</td><td>Sentinel如何实现热点参数限流？</td><td>⭐⭐⭐⭐</td><td>@SentinelResource + 参数索引配置</td></tr><tr><td>5</td><td>Sentinel集群流控怎么实现？</td><td>⭐⭐⭐</td><td>Token Server统一管理令牌</td></tr></tbody></table><h3 id=42-sentinel核心概念>4.2 Sentinel核心概念</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>资源：要保护的对象（接口、方法、代码块）
+</span></span><span class=line><span class=cl>规则：保护策略（限流、熔断、系统保护、热点参数）
+</span></span><span class=line><span class=cl>入口：Entry entry = SphU.entry(&#34;资源名&#34;);
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                  Sentinel 工作流程                   │
+</span></span><span class=line><span class=cl>│                                                     │
+</span></span><span class=line><span class=cl>│  请求 → 创建Entry → 责任链检查 → 业务执行 → 退出Entry  │
+</span></span><span class=line><span class=cl>│           │              │                          │
+</span></span><span class=line><span class=cl>│           ↓              ↓                          │
+</span></span><span class=line><span class=cl>│      NodeSelectorSlot   FlowSlot（限流）             │
+</span></span><span class=line><span class=cl>│      ClusterBuilderSlot DegradeSlot（熔断）          │
+</span></span><span class=line><span class=cl>│      StatisticSlot      SystemSlot（系统保护）        │
+</span></span><span class=line><span class=cl>│      ParamFlowSlot      AuthoritySlot（授权）        │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=43-限流规则详解>4.3 限流规则详解</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 1. QPS限流（每秒请求数）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>FlowRule</span> <span class=n>qpsRule</span> <span class=o>=</span> <span class=k>new</span> <span class=n>FlowRule</span><span class=o>(</span><span class=s>&#34;getUser&#34;</span><span class=o>)</span>
 </span></span><span class=line><span class=cl>    <span class=o>.</span><span class=na>setCount</span><span class=o>(</span><span class=mi>100</span><span class=o>)</span>                      <span class=c1>// QPS阈值
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=o>.</span><span class=na>setGrade</span><span class=o>(</span><span class=n>RuleConstant</span><span class=o>.</span><span class=na>FLOW_GRADE_QPS</span><span class=o>)</span>
@@ -259,34 +259,34 @@ public interface UserClient {
 </span></span><span class=line><span class=cl>    <span class=o>.</span><span class=na>setCount</span><span class=o>(</span><span class=mi>500</span><span class=o>);</span>                     <span class=c1>// 该商品限流500
 </span></span></span><span class=line><span class=cl><span class=c1></span>
 </span></span><span class=line><span class=cl><span class=n>rule</span><span class=o>.</span><span class=na>setParamFlowItemList</span><span class=o>(</span><span class=n>Collections</span><span class=o>.</span><span class=na>singletonList</span><span class=o>(</span><span class=n>item</span><span class=o>));</span>
-</span></span></code></pre></div><hr><h2 id=五spring-cloud-gatewayapi网关>五、Spring Cloud Gateway：API网关</h2><h3 id=51-面试高频问题>5.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Gateway的核心组件？</td><td>⭐⭐⭐⭐⭐</td><td>Route（路由）、Predicate（断言）、Filter（过滤器）</td></tr><tr><td>2</td><td>Gateway的工作流程？</td><td>⭐⭐⭐⭐⭐</td><td>请求→RoutePredicateHandlerMapping→FilteringWebHandler→Filters→服务</td></tr><tr><td>3</td><td>Gateway如何实现跨域？</td><td>⭐⭐⭐</td><td>配置CorsWebFilter或全局Filter</td></tr><tr><td>4</td><td>Gateway如何实现统一认证？</td><td>⭐⭐⭐⭐</td><td>GlobalFilter + JWT验证</td></tr><tr><td>5</td><td>Gateway如何实现限流？</td><td>⭐⭐⭐⭐</td><td>RequestRateLimiter过滤器 + Redis令牌桶</td></tr></tbody></table><h3 id=52-gateway核心架构>5.2 Gateway核心架构</h3><pre tabindex=0><code>                    ┌───────────────────────────────────────┐
-                    │          Spring Cloud Gateway         │
-                    │                                       │
-客户端请求 ────────→│  RoutePredicateHandlerMapping         │
-                    │         │                             │
-                    │         ↓                             │
-                    │  FilteringWebHandler                  │
-                    │         │                             │
-                    │         ↓                             │
-                    │  ┌─────────────────────────────────┐ │
-                    │  │ Global Filters (全局过滤器)       │ │
-                    │  │ - 认证鉴权                        │ │
-                    │  │ - 限流熔断                        │ │
-                    │  │ - 日志追踪                        │ │
-                    │  └─────────────────────────────────┘ │
-                    │         │                             │
-                    │         ↓                             │
-                    │  ┌─────────────────────────────────┐ │
-                    │  │ Gateway Filters (网关过滤器)     │ │
-                    │  │ - AddRequestHeader               │ │
-                    │  │ - RewritePath                    │ │
-                    │  │ - RequestRateLimiter             │ │
-                    │  └─────────────────────────────────┘ │
-                    │         │                             │
-                    └─────────┼─────────────────────────────────┘
-                              ↓
-                        微服务实例
-</code></pre><h3 id=53-路由配置详解>5.3 路由配置详解</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>spring</span><span class=p>:</span><span class=w>
+</span></span></code></pre></div><hr><h2 id=五spring-cloud-gatewayapi网关>五、Spring Cloud Gateway：API网关</h2><h3 id=51-面试高频问题>5.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Gateway的核心组件？</td><td>⭐⭐⭐⭐⭐</td><td>Route（路由）、Predicate（断言）、Filter（过滤器）</td></tr><tr><td>2</td><td>Gateway的工作流程？</td><td>⭐⭐⭐⭐⭐</td><td>请求→RoutePredicateHandlerMapping→FilteringWebHandler→Filters→服务</td></tr><tr><td>3</td><td>Gateway如何实现跨域？</td><td>⭐⭐⭐</td><td>配置CorsWebFilter或全局Filter</td></tr><tr><td>4</td><td>Gateway如何实现统一认证？</td><td>⭐⭐⭐⭐</td><td>GlobalFilter + JWT验证</td></tr><tr><td>5</td><td>Gateway如何实现限流？</td><td>⭐⭐⭐⭐</td><td>RequestRateLimiter过滤器 + Redis令牌桶</td></tr></tbody></table><h3 id=52-gateway核心架构>5.2 Gateway核心架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                    ┌───────────────────────────────────────┐
+</span></span><span class=line><span class=cl>                    │          Spring Cloud Gateway         │
+</span></span><span class=line><span class=cl>                    │                                       │
+</span></span><span class=line><span class=cl>客户端请求 ────────→│  RoutePredicateHandlerMapping         │
+</span></span><span class=line><span class=cl>                    │         │                             │
+</span></span><span class=line><span class=cl>                    │         ↓                             │
+</span></span><span class=line><span class=cl>                    │  FilteringWebHandler                  │
+</span></span><span class=line><span class=cl>                    │         │                             │
+</span></span><span class=line><span class=cl>                    │         ↓                             │
+</span></span><span class=line><span class=cl>                    │  ┌─────────────────────────────────┐ │
+</span></span><span class=line><span class=cl>                    │  │ Global Filters (全局过滤器)       │ │
+</span></span><span class=line><span class=cl>                    │  │ - 认证鉴权                        │ │
+</span></span><span class=line><span class=cl>                    │  │ - 限流熔断                        │ │
+</span></span><span class=line><span class=cl>                    │  │ - 日志追踪                        │ │
+</span></span><span class=line><span class=cl>                    │  └─────────────────────────────────┘ │
+</span></span><span class=line><span class=cl>                    │         │                             │
+</span></span><span class=line><span class=cl>                    │         ↓                             │
+</span></span><span class=line><span class=cl>                    │  ┌─────────────────────────────────┐ │
+</span></span><span class=line><span class=cl>                    │  │ Gateway Filters (网关过滤器)     │ │
+</span></span><span class=line><span class=cl>                    │  │ - AddRequestHeader               │ │
+</span></span><span class=line><span class=cl>                    │  │ - RewritePath                    │ │
+</span></span><span class=line><span class=cl>                    │  │ - RequestRateLimiter             │ │
+</span></span><span class=line><span class=cl>                    │  └─────────────────────────────────┘ │
+</span></span><span class=line><span class=cl>                    │         │                             │
+</span></span><span class=line><span class=cl>                    └─────────┼─────────────────────────────────┘
+</span></span><span class=line><span class=cl>                              ↓
+</span></span><span class=line><span class=cl>                        微服务实例
+</span></span></code></pre></div><h3 id=53-路由配置详解>5.3 路由配置详解</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>spring</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>cloud</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>gateway</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>routes</span><span class=p>:</span><span class=w>

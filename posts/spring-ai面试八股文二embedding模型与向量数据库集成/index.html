@@ -480,21 +480,21 @@
 </span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>alpha</span> <span class=o>*</span> <span class=n>vectorScore</span> <span class=o>+</span> <span class=o>(</span><span class=mi>1</span> <span class=o>-</span> <span class=n>alpha</span><span class=o>)</span> <span class=o>*</span> <span class=n>keywordScore</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><hr><h2 id=五向量索引与性能优化>五、向量索引与性能优化</h2><h3 id=51-索引类型对比>5.1 索引类型对比</h3><table><thead><tr><th>索引类型</th><th>原理</th><th>适用规模</th><th>精度</th><th>构建速度</th><th>查询速度</th><th>内存占用</th></tr></thead><tbody><tr><td><strong>FLAT</strong></td><td>暴力搜索</td><td>&lt;10万</td><td>100%</td><td>无需构建</td><td>慢</td><td>无额外</td></tr><tr><td><strong>IVF_FLAT</strong></td><td>聚类+暴力搜索</td><td>100万-1亿</td><td>高</td><td>快</td><td>中</td><td>中</td></tr><tr><td><strong>IVF_PQ</strong></td><td>聚类+压缩</td><td>亿级+</td><td>中</td><td>快</td><td>快</td><td>低（压缩）</td></tr><tr><td><strong>HNSW</strong></td><td>图索引</td><td>10万-10亿</td><td>最高</td><td>慢</td><td>最快</td><td>高</td></tr><tr><td><strong>DiskANN</strong></td><td>图+磁盘</td><td>十亿级+</td><td>高</td><td>中</td><td>快</td><td>低（磁盘）</td></tr></tbody></table><p><strong>面试高频问题</strong>：</p><p><strong>Q: HNSW 索引的原理是什么？</strong></p><p>A: HNSW（Hierarchical Navigable Small World）是一种基于图的近似最近邻搜索算法：</p><pre tabindex=0><code>核心思想：构建多层图，上层稀疏、下层稠密，搜索时从上层快速定位大致区域，再逐层细化
-
-构建过程：
-1. 初始化多层图（L0 到 L_max）
-2. 每个向量随机分配层数（越高层节点越少）
-3. 高层用于快速导航，低层用于精确定位
-4. 连接同层最近邻节点（通常使用贪心+改进的贪心）
-
-搜索过程：
-1. 从最高层入口节点开始
-2. 贪心搜索找到当前层最近邻
-3. 下降到下一层，从上层的最近邻开始搜索
-4. 重复直到最底层
-5. 返回最终最近邻
-</code></pre><h3 id=52-生产环境索引配置>5.2 生产环境索引配置</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Configuration</span>
+</span></span></code></pre></div><hr><h2 id=五向量索引与性能优化>五、向量索引与性能优化</h2><h3 id=51-索引类型对比>5.1 索引类型对比</h3><table><thead><tr><th>索引类型</th><th>原理</th><th>适用规模</th><th>精度</th><th>构建速度</th><th>查询速度</th><th>内存占用</th></tr></thead><tbody><tr><td><strong>FLAT</strong></td><td>暴力搜索</td><td>&lt;10万</td><td>100%</td><td>无需构建</td><td>慢</td><td>无额外</td></tr><tr><td><strong>IVF_FLAT</strong></td><td>聚类+暴力搜索</td><td>100万-1亿</td><td>高</td><td>快</td><td>中</td><td>中</td></tr><tr><td><strong>IVF_PQ</strong></td><td>聚类+压缩</td><td>亿级+</td><td>中</td><td>快</td><td>快</td><td>低（压缩）</td></tr><tr><td><strong>HNSW</strong></td><td>图索引</td><td>10万-10亿</td><td>最高</td><td>慢</td><td>最快</td><td>高</td></tr><tr><td><strong>DiskANN</strong></td><td>图+磁盘</td><td>十亿级+</td><td>高</td><td>中</td><td>快</td><td>低（磁盘）</td></tr></tbody></table><p><strong>面试高频问题</strong>：</p><p><strong>Q: HNSW 索引的原理是什么？</strong></p><p>A: HNSW（Hierarchical Navigable Small World）是一种基于图的近似最近邻搜索算法：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>核心思想：构建多层图，上层稀疏、下层稠密，搜索时从上层快速定位大致区域，再逐层细化
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>构建过程：
+</span></span><span class=line><span class=cl>1. 初始化多层图（L0 到 L_max）
+</span></span><span class=line><span class=cl>2. 每个向量随机分配层数（越高层节点越少）
+</span></span><span class=line><span class=cl>3. 高层用于快速导航，低层用于精确定位
+</span></span><span class=line><span class=cl>4. 连接同层最近邻节点（通常使用贪心+改进的贪心）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>搜索过程：
+</span></span><span class=line><span class=cl>1. 从最高层入口节点开始
+</span></span><span class=line><span class=cl>2. 贪心搜索找到当前层最近邻
+</span></span><span class=line><span class=cl>3. 下降到下一层，从上层的最近邻开始搜索
+</span></span><span class=line><span class=cl>4. 重复直到最底层
+</span></span><span class=line><span class=cl>5. 返回最终最近邻
+</span></span></code></pre></div><h3 id=52-生产环境索引配置>5.2 生产环境索引配置</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Configuration</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>VectorIndexConfig</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=nd>@Bean</span>
@@ -682,23 +682,23 @@
 </span></span><span class=line><span class=cl>        <span class=n>log</span><span class=o>.</span><span class=na>info</span><span class=o>(</span><span class=s>&#34;全量重建完成&#34;</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><hr><h2 id=七面试高频问题汇总>七、面试高频问题汇总</h2><h3 id=q1-向量数据库和传统数据库有什么区别>Q1: 向量数据库和传统数据库有什么区别？</h3><table><thead><tr><th>维度</th><th>传统关系型/NoSQL</th><th>向量数据库</th></tr></thead><tbody><tr><td>数据类型</td><td>结构化/半结构化</td><td>高维向量</td></tr><tr><td>检索方式</td><td>精确匹配、关键词</td><td>近似最近邻（ANN）</td></tr><tr><td>相似度度量</td><td>=, >, &lt;</td><td>COSINE/DOT_PRODUCT/EUCLIDEAN</td></tr><tr><td>索引</td><td>B+Tree, Hash</td><td>HNSW, IVF, PQ</td></tr><tr><td>适用场景</td><td>事务处理</td><td>语义搜索、推荐</td></tr></tbody></table><h3 id=q2-如何选择向量数据库>Q2: 如何选择向量数据库？</h3><p><strong>选择决策树</strong>：</p><pre tabindex=0><code>数据规模 &lt; 10万？
-├── 是 → Chroma（轻量，易用）或 Pgvector（已有PostgreSQL）
-└── 否 → 规模预估？
-
-数据规模 100万-1亿？
-├── 已有PostgreSQL？ → Pgvector
-└── 无 → Milvus/Qdrant
-
-数据规模 &gt; 1亿？
-├── 低延迟需求 → Qdrant
-└── 高吞吐量 → Milvus
-
-特殊需求？
-├── 原生混合搜索 → Weaviate
-├── 已有Elasticsearch → ES向量搜索
-└── 完全本地/离线 → Qdrant/Milvus本地部署
-</code></pre><h3 id=q3-向量召回率低怎么排查>Q3: 向量召回率低怎么排查？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
+</span></span></code></pre></div><hr><h2 id=七面试高频问题汇总>七、面试高频问题汇总</h2><h3 id=q1-向量数据库和传统数据库有什么区别>Q1: 向量数据库和传统数据库有什么区别？</h3><table><thead><tr><th>维度</th><th>传统关系型/NoSQL</th><th>向量数据库</th></tr></thead><tbody><tr><td>数据类型</td><td>结构化/半结构化</td><td>高维向量</td></tr><tr><td>检索方式</td><td>精确匹配、关键词</td><td>近似最近邻（ANN）</td></tr><tr><td>相似度度量</td><td>=, >, &lt;</td><td>COSINE/DOT_PRODUCT/EUCLIDEAN</td></tr><tr><td>索引</td><td>B+Tree, Hash</td><td>HNSW, IVF, PQ</td></tr><tr><td>适用场景</td><td>事务处理</td><td>语义搜索、推荐</td></tr></tbody></table><h3 id=q2-如何选择向量数据库>Q2: 如何选择向量数据库？</h3><p><strong>选择决策树</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>数据规模 &lt; 10万？
+</span></span><span class=line><span class=cl>├── 是 → Chroma（轻量，易用）或 Pgvector（已有PostgreSQL）
+</span></span><span class=line><span class=cl>└── 否 → 规模预估？
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>数据规模 100万-1亿？
+</span></span><span class=line><span class=cl>├── 已有PostgreSQL？ → Pgvector
+</span></span><span class=line><span class=cl>└── 无 → Milvus/Qdrant
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>数据规模 &gt; 1亿？
+</span></span><span class=line><span class=cl>├── 低延迟需求 → Qdrant
+</span></span><span class=line><span class=cl>└── 高吞吐量 → Milvus
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>特殊需求？
+</span></span><span class=line><span class=cl>├── 原生混合搜索 → Weaviate
+</span></span><span class=line><span class=cl>├── 已有Elasticsearch → ES向量搜索
+</span></span><span class=line><span class=cl>└── 完全本地/离线 → Qdrant/Milvus本地部署
+</span></span></code></pre></div><h3 id=q3-向量召回率低怎么排查>Q3: 向量召回率低怎么排查？</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
 </span></span><span class=line><span class=cl><span class=nd>@RequiredArgsConstructor</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>VectorQualityMonitor</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    

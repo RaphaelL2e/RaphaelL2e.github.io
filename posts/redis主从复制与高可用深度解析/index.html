@@ -9,28 +9,28 @@
 <a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Redis 主从复制与高可用深度解析</h1><p class=article-description>前面两篇我们分别深入探讨了 Redis 的数据结构、持久化机制和内存管理策略。在生产环境中，单节点 Redis 往往面临单点故障风险，无法满足高可用需求。本文将深入解析 Redis 的主从复制机制、哨兵高可用方案以及 Redis Cluster 分布式集群，帮助你在面试中系统回答 Redis 高可用。</p><div class=article-meta><span>发布于 <time datetime=2026-05-13>2026-05-13</time></span>
 <span>最后验证 2026-05</span>
 <span>7 分钟阅读</span>
-<span>1466 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a></li><li><a href=#二主从复制master-slave-replication>二、主从复制（Master-Slave Replication）</a><ul><li><a href=#21-为什么需要主从复制>2.1 为什么需要主从复制</a></li><li><a href=#22-主从复制原理>2.2 主从复制原理</a></li><li><a href=#23-主从复制配置>2.3 主从复制配置</a></li><li><a href=#24-主从复制的演进>2.4 主从复制的演进</a></li><li><a href=#25-主从复制的问题>2.5 主从复制的问题</a></li></ul></li><li><a href=#三哨兵机制redis-sentinel>三、哨兵机制（Redis Sentinel）</a><ul><li><a href=#31-为什么需要哨兵>3.1 为什么需要哨兵</a></li><li><a href=#32-哨兵架构>3.2 哨兵架构</a></li><li><a href=#33-哨兵核心原理>3.3 哨兵核心原理</a></li><li><a href=#34-哨兵配置与实践>3.4 哨兵配置与实践</a></li><li><a href=#35-哨兵机制的不足>3.5 哨兵机制的不足</a></li></ul></li><li><a href=#四redis-cluster-分布式集群>四、Redis Cluster 分布式集群</a><ul><li><a href=#41-为什么需要-redis-cluster>4.1 为什么需要 Redis Cluster</a></li><li><a href=#42-redis-cluster-架构>4.2 Redis Cluster 架构</a></li><li><a href=#43-数据分片原理>4.3 数据分片原理</a></li><li><a href=#44-请求路由与重定向>4.4 请求路由与重定向</a></li><li><a href=#45-集群管理>4.5 集群管理</a></li><li><a href=#46-故障转移>4.6 故障转移</a></li><li><a href=#47-redis-cluster-的限制>4.7 Redis Cluster 的限制</a></li></ul></li><li><a href=#五高可用架构选型>五、高可用架构选型</a><ul><li><a href=#51-主从复制--哨兵-vs-redis-cluster>5.1 主从复制 + 哨兵 vs Redis Cluster</a></li><li><a href=#52-实践建议>5.2 实践建议</a></li></ul></li><li><a href=#六面试高频问题>六、面试高频问题</a><ul><li><a href=#q1-主从复制和哨兵的区别>Q1: 主从复制和哨兵的区别？</a></li><li><a href=#q2-哨兵选举-leader-的过程>Q2: 哨兵选举 Leader 的过程？</a></li><li><a href=#q3-redis-cluster-的槽位为什么是-16384>Q3: Redis Cluster 的槽位为什么是 16384？</a></li><li><a href=#q4-moved-和-ask-的区别>Q4: MOVED 和 ASK 的区别？</a></li><li><a href=#q5-redis-cluster-为什么不支持多键操作>Q5: Redis Cluster 为什么不支持多键操作？</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=一引言>一、引言</h2><p>前面两篇我们分别深入探讨了 Redis 的数据结构、持久化机制和内存管理策略。在生产环境中，单节点 Redis 往往面临单点故障风险，无法满足高可用需求。本文将深入解析 Redis 的主从复制机制、哨兵高可用方案以及 Redis Cluster 分布式集群，帮助你在面试中系统回答 Redis 高可用相关问题。</p><p><strong>本文要点</strong>：</p><ol><li>主从复制的原理与实现</li><li>哨兵（Sentinel）机制详解</li><li>Redis Cluster 分布式方案</li><li>高可用架构选型与实践</li></ol><hr><h2 id=二主从复制master-slave-replication>二、主从复制（Master-Slave Replication）</h2><h3 id=21-为什么需要主从复制>2.1 为什么需要主从复制</h3><p><strong>单节点 Redis 的问题</strong>：</p><ul><li><strong>单点故障</strong>：主节点宕机，服务完全不可用</li><li><strong>性能瓶颈</strong>：单节点读写压力大，QPS 有限</li><li><strong>数据安全</strong>：无数据冗余，磁盘损坏导致数据丢失</li></ul><p><strong>主从复制的价值</strong>：</p><pre tabindex=0><code>主节点（Master）  →  负责写操作
-       ↓ 复制
-从节点（Slave）   →  负责读操作（分担压力）
-</code></pre><p><strong>核心作用</strong>：</p><ol><li><strong>数据冗余</strong>：从节点备份主节点数据</li><li><strong>读写分离</strong>：主写从读，提升整体性能</li><li><strong>高可用基础</strong>：主节点故障，从节点可提升为主节点</li><li><strong>负载均衡</strong>：多个从节点分担读请求</li></ol><hr><h3 id=22-主从复制原理>2.2 主从复制原理</h3><h4 id=221-复制流程>2.2.1 复制流程</h4><p>Redis 主从复制分为两个阶段：</p><p><strong>阶段一：全量复制（Full Resynchronization）</strong></p><pre tabindex=0><code>从节点启动 → 发送 PSYNC ? -1 → 主节点回复 FULLRESYNC &lt;runid&gt; &lt;offset&gt;
-       ↓
-主节点执行 BGSAVE → 生成 RDB 文件
-       ↓
-主节点将 RDB 文件发送给从节点
-       ↓
-从节点清空旧数据 → 加载 RDB 文件
-       ↓
-主节点将缓冲区（replication buffer）中的写命令发送给从节点
-       ↓
-从节点执行这些写命令，完成同步
-</code></pre><p><strong>阶段二：部分复制（Partial Resynchronization）</strong></p><pre tabindex=0><code>主从连接断开 → 从节点重连 → 发送 PSYNC &lt;runid&gt; &lt;offset&gt;
-       ↓
-主节点检查复制积压缓冲区（replication backlog）
-       ↓
-如果 offset 在 backlog 范围内 → 发送 +CONTINUE，只同步断开期间的增量数据
-       ↓
-如果 offset 不在 backlog 范围内 → 发送 +FULLRESYNC，触发全量复制
-</code></pre><h4 id=222-核心概念>2.2.2 核心概念</h4><p><strong>1. runid（运行 ID）</strong></p><ul><li>每个 Redis 节点启动时会生成一个 40 位的随机字符串作为 runid</li><li>从节点通过 runid 识别主节点是否发生变化</li><li>如果主节点重启，runid 变化，触发全量复制</li></ul><p><strong>查看 runid</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>redis-cli INFO server <span class=p>|</span> grep run_id
+<span>1466 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a></li><li><a href=#二主从复制master-slave-replication>二、主从复制（Master-Slave Replication）</a><ul><li><a href=#21-为什么需要主从复制>2.1 为什么需要主从复制</a></li><li><a href=#22-主从复制原理>2.2 主从复制原理</a></li><li><a href=#23-主从复制配置>2.3 主从复制配置</a></li><li><a href=#24-主从复制的演进>2.4 主从复制的演进</a></li><li><a href=#25-主从复制的问题>2.5 主从复制的问题</a></li></ul></li><li><a href=#三哨兵机制redis-sentinel>三、哨兵机制（Redis Sentinel）</a><ul><li><a href=#31-为什么需要哨兵>3.1 为什么需要哨兵</a></li><li><a href=#32-哨兵架构>3.2 哨兵架构</a></li><li><a href=#33-哨兵核心原理>3.3 哨兵核心原理</a></li><li><a href=#34-哨兵配置与实践>3.4 哨兵配置与实践</a></li><li><a href=#35-哨兵机制的不足>3.5 哨兵机制的不足</a></li></ul></li><li><a href=#四redis-cluster-分布式集群>四、Redis Cluster 分布式集群</a><ul><li><a href=#41-为什么需要-redis-cluster>4.1 为什么需要 Redis Cluster</a></li><li><a href=#42-redis-cluster-架构>4.2 Redis Cluster 架构</a></li><li><a href=#43-数据分片原理>4.3 数据分片原理</a></li><li><a href=#44-请求路由与重定向>4.4 请求路由与重定向</a></li><li><a href=#45-集群管理>4.5 集群管理</a></li><li><a href=#46-故障转移>4.6 故障转移</a></li><li><a href=#47-redis-cluster-的限制>4.7 Redis Cluster 的限制</a></li></ul></li><li><a href=#五高可用架构选型>五、高可用架构选型</a><ul><li><a href=#51-主从复制--哨兵-vs-redis-cluster>5.1 主从复制 + 哨兵 vs Redis Cluster</a></li><li><a href=#52-实践建议>5.2 实践建议</a></li></ul></li><li><a href=#六面试高频问题>六、面试高频问题</a><ul><li><a href=#q1-主从复制和哨兵的区别>Q1: 主从复制和哨兵的区别？</a></li><li><a href=#q2-哨兵选举-leader-的过程>Q2: 哨兵选举 Leader 的过程？</a></li><li><a href=#q3-redis-cluster-的槽位为什么是-16384>Q3: Redis Cluster 的槽位为什么是 16384？</a></li><li><a href=#q4-moved-和-ask-的区别>Q4: MOVED 和 ASK 的区别？</a></li><li><a href=#q5-redis-cluster-为什么不支持多键操作>Q5: Redis Cluster 为什么不支持多键操作？</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=一引言>一、引言</h2><p>前面两篇我们分别深入探讨了 Redis 的数据结构、持久化机制和内存管理策略。在生产环境中，单节点 Redis 往往面临单点故障风险，无法满足高可用需求。本文将深入解析 Redis 的主从复制机制、哨兵高可用方案以及 Redis Cluster 分布式集群，帮助你在面试中系统回答 Redis 高可用相关问题。</p><p><strong>本文要点</strong>：</p><ol><li>主从复制的原理与实现</li><li>哨兵（Sentinel）机制详解</li><li>Redis Cluster 分布式方案</li><li>高可用架构选型与实践</li></ol><hr><h2 id=二主从复制master-slave-replication>二、主从复制（Master-Slave Replication）</h2><h3 id=21-为什么需要主从复制>2.1 为什么需要主从复制</h3><p><strong>单节点 Redis 的问题</strong>：</p><ul><li><strong>单点故障</strong>：主节点宕机，服务完全不可用</li><li><strong>性能瓶颈</strong>：单节点读写压力大，QPS 有限</li><li><strong>数据安全</strong>：无数据冗余，磁盘损坏导致数据丢失</li></ul><p><strong>主从复制的价值</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>主节点（Master）  →  负责写操作
+</span></span><span class=line><span class=cl>       ↓ 复制
+</span></span><span class=line><span class=cl>从节点（Slave）   →  负责读操作（分担压力）
+</span></span></code></pre></div><p><strong>核心作用</strong>：</p><ol><li><strong>数据冗余</strong>：从节点备份主节点数据</li><li><strong>读写分离</strong>：主写从读，提升整体性能</li><li><strong>高可用基础</strong>：主节点故障，从节点可提升为主节点</li><li><strong>负载均衡</strong>：多个从节点分担读请求</li></ol><hr><h3 id=22-主从复制原理>2.2 主从复制原理</h3><h4 id=221-复制流程>2.2.1 复制流程</h4><p>Redis 主从复制分为两个阶段：</p><p><strong>阶段一：全量复制（Full Resynchronization）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>从节点启动 → 发送 PSYNC ? -1 → 主节点回复 FULLRESYNC &lt;runid&gt; &lt;offset&gt;
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>主节点执行 BGSAVE → 生成 RDB 文件
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>主节点将 RDB 文件发送给从节点
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>从节点清空旧数据 → 加载 RDB 文件
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>主节点将缓冲区（replication buffer）中的写命令发送给从节点
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>从节点执行这些写命令，完成同步
+</span></span></code></pre></div><p><strong>阶段二：部分复制（Partial Resynchronization）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>主从连接断开 → 从节点重连 → 发送 PSYNC &lt;runid&gt; &lt;offset&gt;
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>主节点检查复制积压缓冲区（replication backlog）
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>如果 offset 在 backlog 范围内 → 发送 +CONTINUE，只同步断开期间的增量数据
+</span></span><span class=line><span class=cl>       ↓
+</span></span><span class=line><span class=cl>如果 offset 不在 backlog 范围内 → 发送 +FULLRESYNC，触发全量复制
+</span></span></code></pre></div><h4 id=222-核心概念>2.2.2 核心概念</h4><p><strong>1. runid（运行 ID）</strong></p><ul><li>每个 Redis 节点启动时会生成一个 40 位的随机字符串作为 runid</li><li>从节点通过 runid 识别主节点是否发生变化</li><li>如果主节点重启，runid 变化，触发全量复制</li></ul><p><strong>查看 runid</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>redis-cli INFO server <span class=p>|</span> grep run_id
 </span></span><span class=line><span class=cl><span class=c1># run_id: e7b1b9e3f8a5c6d7e8f9a0b1c2d3e4f5a6b7c8</span>
 </span></span></code></pre></div><p><strong>2. 复制偏移量（replication offset）</strong></p><ul><li>主节点和从节点都维护一个复制偏移量</li><li>主节点每次向从节点发送 N 字节数据，offset +N</li><li>从节点每次接收 N 字节数据，offset +N</li><li>通过对比 offset 判断主从数据是否一致</li></ul><p><strong>查看 offset</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 主节点</span>
 </span></span><span class=line><span class=cl>redis-cli INFO replication <span class=p>|</span> grep master_repl_offset
@@ -58,50 +58,50 @@
 </span></span><span class=line><span class=cl><span class=c1># 限制从节点数量（可选）</span>
 </span></span><span class=line><span class=cl>repl-diskless-sync no       <span class=c1># 是否启用无盘复制（直接通过网络发送 RDB）</span>
 </span></span><span class=line><span class=cl>repl-diskless-sync-delay <span class=m>5</span>  <span class=c1># 无盘复制延迟（等待更多从节点连接）</span>
-</span></span></code></pre></div><hr><h3 id=24-主从复制的演进>2.4 主从复制的演进</h3><h4 id=241-redis-28-之前sync-命令>2.4.1 Redis 2.8 之前（SYNC 命令）</h4><p><strong>问题</strong>：每次重连都触发全量复制，效率低。</p><pre tabindex=0><code>从节点发送 SYNC → 主节点 BGSAVE → 传输 RDB → 传输缓冲区命令
-</code></pre><p><strong>缺点</strong>：</p><ul><li>无论网络断开多久，都全量复制</li><li>主节点频繁 BGSAVE，消耗 CPU 和内存</li><li>网络闪断也会导致全量复制</li></ul><h4 id=242-redis-28psync-命令>2.4.2 Redis 2.8+（PSYNC 命令）</h4><p>引入 <code>PSYNC</code> 命令，支持部分复制：</p><pre tabindex=0><code>PSYNC &lt;runid&gt; &lt;offset&gt;
-
-# 首次复制：PSYNC ? -1
-# 断线重连：PSYNC &lt;runid&gt; &lt;offset&gt;
-</code></pre><p><strong>核心改进</strong>：</p><ul><li>通过 runid + offset 判断是否支持部分复制</li><li>利用 replication backlog 缓冲区实现增量同步</li><li>只有 offset 不在 backlog 中时才触发全量复制</li></ul><hr><h3 id=25-主从复制的问题>2.5 主从复制的问题</h3><p><strong>1. 手动故障转移</strong></p><ul><li>主节点故障后，需要手动将一个从节点提升为主节点</li><li>需要修改应用侧的连接配置</li><li>故障恢复时间长</li></ul><p><strong>2. 写能力受限</strong></p><ul><li>主从复制只有主节点可写</li><li>写 QPS 受限于单节点性能</li></ul><p><strong>3. 存储容量受限</strong></p><ul><li>所有节点存储相同的数据</li><li>无法扩展存储容量</li></ul><p><strong>解决方案</strong>：引入哨兵机制实现自动故障转移，引入 Redis Cluster 实现分布式存储。</p><hr><h2 id=三哨兵机制redis-sentinel>三、哨兵机制（Redis Sentinel）</h2><h3 id=31-为什么需要哨兵>3.1 为什么需要哨兵</h3><p>主从复制解决了数据冗余和读写分离，但<strong>无法实现自动故障转移</strong>。哨兵（Sentinel）是 Redis 官方提供的高可用方案。</p><p><strong>哨兵的核心功能</strong>：</p><ol><li><strong>监控（Monitoring）</strong>：定期检查主从节点是否正常运行</li><li><strong>通知（Notification）</strong>：当节点故障时，发送通知</li><li><strong>自动故障转移（Automatic Failover）</strong>：主节点故障时，自动提升从节点为主节点</li><li><strong>配置提供者（Configuration Provider）</strong>：客户端通过哨兵获取当前主节点地址</li></ol><hr><h3 id=32-哨兵架构>3.2 哨兵架构</h3><pre tabindex=0><code>                ┌─────────┐
-                │ Sentinel │
-                │  集群   │
-                └────┬────┘
-                     │ 监控
-         ┌───────────┼───────────┐
-         ↓           ↓           ↓
-    ┌─────────┐ ┌─────────┐ ┌─────────┐
-    │ Master  │ │ Slave 1 │ │ Slave 2 │
-    │  (主)   │ │  (从)   │ │  (从)   │
-    └─────────┘ └─────────┘ └─────────┘
-</code></pre><p><strong>关键点</strong>：</p><ul><li>哨兵本身也是一个分布式系统，通常部署 <strong>3 个或奇数个</strong>节点</li><li>哨兵之间也会互相监控，形成哨兵集群</li><li>客户端不直接连接 Redis，而是先连接哨兵获取主节点地址</li></ul><hr><h3 id=33-哨兵核心原理>3.3 哨兵核心原理</h3><h4 id=331-主观下线与客观下线>3.3.1 主观下线与客观下线</h4><p><strong>主观下线（Subjectively Down, SDOWN）</strong>：</p><ul><li>单个哨兵认为主节点不可用</li><li>哨兵每秒向主节点发送 PING 命令</li><li>如果 <code>down-after-milliseconds</code> 毫秒内未收到有效回复，标记为主观下线</li></ul><p><strong>客观下线（Objectively Down, ODOWN）</strong>：</p><ul><li>多个哨兵（达到 <code>quorum</code> 配置）都认为主节点不可用</li><li>哨兵之间通过 <code>SENTINEL is-master-down-by-addr</code> 命令互相确认</li><li>只有达到客观下线，才会触发故障转移</li></ul><p><strong>配置示例</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># sentinel.conf</span>
+</span></span></code></pre></div><hr><h3 id=24-主从复制的演进>2.4 主从复制的演进</h3><h4 id=241-redis-28-之前sync-命令>2.4.1 Redis 2.8 之前（SYNC 命令）</h4><p><strong>问题</strong>：每次重连都触发全量复制，效率低。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>从节点发送 SYNC → 主节点 BGSAVE → 传输 RDB → 传输缓冲区命令
+</span></span></code></pre></div><p><strong>缺点</strong>：</p><ul><li>无论网络断开多久，都全量复制</li><li>主节点频繁 BGSAVE，消耗 CPU 和内存</li><li>网络闪断也会导致全量复制</li></ul><h4 id=242-redis-28psync-命令>2.4.2 Redis 2.8+（PSYNC 命令）</h4><p>引入 <code>PSYNC</code> 命令，支持部分复制：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>PSYNC &lt;runid&gt; &lt;offset&gt;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl># 首次复制：PSYNC ? -1
+</span></span><span class=line><span class=cl># 断线重连：PSYNC &lt;runid&gt; &lt;offset&gt;
+</span></span></code></pre></div><p><strong>核心改进</strong>：</p><ul><li>通过 runid + offset 判断是否支持部分复制</li><li>利用 replication backlog 缓冲区实现增量同步</li><li>只有 offset 不在 backlog 中时才触发全量复制</li></ul><hr><h3 id=25-主从复制的问题>2.5 主从复制的问题</h3><p><strong>1. 手动故障转移</strong></p><ul><li>主节点故障后，需要手动将一个从节点提升为主节点</li><li>需要修改应用侧的连接配置</li><li>故障恢复时间长</li></ul><p><strong>2. 写能力受限</strong></p><ul><li>主从复制只有主节点可写</li><li>写 QPS 受限于单节点性能</li></ul><p><strong>3. 存储容量受限</strong></p><ul><li>所有节点存储相同的数据</li><li>无法扩展存储容量</li></ul><p><strong>解决方案</strong>：引入哨兵机制实现自动故障转移，引入 Redis Cluster 实现分布式存储。</p><hr><h2 id=三哨兵机制redis-sentinel>三、哨兵机制（Redis Sentinel）</h2><h3 id=31-为什么需要哨兵>3.1 为什么需要哨兵</h3><p>主从复制解决了数据冗余和读写分离，但<strong>无法实现自动故障转移</strong>。哨兵（Sentinel）是 Redis 官方提供的高可用方案。</p><p><strong>哨兵的核心功能</strong>：</p><ol><li><strong>监控（Monitoring）</strong>：定期检查主从节点是否正常运行</li><li><strong>通知（Notification）</strong>：当节点故障时，发送通知</li><li><strong>自动故障转移（Automatic Failover）</strong>：主节点故障时，自动提升从节点为主节点</li><li><strong>配置提供者（Configuration Provider）</strong>：客户端通过哨兵获取当前主节点地址</li></ol><hr><h3 id=32-哨兵架构>3.2 哨兵架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                ┌─────────┐
+</span></span><span class=line><span class=cl>                │ Sentinel │
+</span></span><span class=line><span class=cl>                │  集群   │
+</span></span><span class=line><span class=cl>                └────┬────┘
+</span></span><span class=line><span class=cl>                     │ 监控
+</span></span><span class=line><span class=cl>         ┌───────────┼───────────┐
+</span></span><span class=line><span class=cl>         ↓           ↓           ↓
+</span></span><span class=line><span class=cl>    ┌─────────┐ ┌─────────┐ ┌─────────┐
+</span></span><span class=line><span class=cl>    │ Master  │ │ Slave 1 │ │ Slave 2 │
+</span></span><span class=line><span class=cl>    │  (主)   │ │  (从)   │ │  (从)   │
+</span></span><span class=line><span class=cl>    └─────────┘ └─────────┘ └─────────┘
+</span></span></code></pre></div><p><strong>关键点</strong>：</p><ul><li>哨兵本身也是一个分布式系统，通常部署 <strong>3 个或奇数个</strong>节点</li><li>哨兵之间也会互相监控，形成哨兵集群</li><li>客户端不直接连接 Redis，而是先连接哨兵获取主节点地址</li></ul><hr><h3 id=33-哨兵核心原理>3.3 哨兵核心原理</h3><h4 id=331-主观下线与客观下线>3.3.1 主观下线与客观下线</h4><p><strong>主观下线（Subjectively Down, SDOWN）</strong>：</p><ul><li>单个哨兵认为主节点不可用</li><li>哨兵每秒向主节点发送 PING 命令</li><li>如果 <code>down-after-milliseconds</code> 毫秒内未收到有效回复，标记为主观下线</li></ul><p><strong>客观下线（Objectively Down, ODOWN）</strong>：</p><ul><li>多个哨兵（达到 <code>quorum</code> 配置）都认为主节点不可用</li><li>哨兵之间通过 <code>SENTINEL is-master-down-by-addr</code> 命令互相确认</li><li>只有达到客观下线，才会触发故障转移</li></ul><p><strong>配置示例</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># sentinel.conf</span>
 </span></span><span class=line><span class=cl>sentinel monitor mymaster 192.168.1.100 <span class=m>6379</span> <span class=m>2</span>
 </span></span><span class=line><span class=cl><span class=c1># ↑ 监控名为 mymaster 的主节点，2 表示 quorum=2（至少 2 个哨兵确认才能客观下线）</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl>sentinel down-after-milliseconds mymaster <span class=m>5000</span>
 </span></span><span class=line><span class=cl><span class=c1># ↑ 5 秒无响应判定为下线</span>
-</span></span></code></pre></div><h4 id=332-哨兵领导者选举>3.3.2 哨兵领导者选举</h4><p>当主节点被判定为客观下线后，哨兵集群需要选举一个**领导者（Leader）**来执行故障转移。</p><p><strong>选举算法：Raft 协议</strong></p><pre tabindex=0><code>1. 每个哨兵都有资格成为 Leader
-2. 哨兵 A 向其他哨兵发送 `is-master-down-by-addr` 命令，要求投票
-3. 每个哨兵只能投一次票（先到先得）
-4. 获得多数票（majority）的哨兵成为 Leader
-5. 如果没有哨兵获得多数票，等待随机时间后重新选举
-</code></pre><p><strong>majority 计算</strong>：</p><pre tabindex=0><code>哨兵总数 = 3，majority = 2
-哨兵总数 = 4，majority = 3
-哨兵总数 = 5，majority = 3
-</code></pre><h4 id=333-故障转移流程>3.3.3 故障转移流程</h4><pre tabindex=0><code>1. 哨兵 Leader 从从节点中选出一个作为新主节点
-   选择优先级：
-   a. 排除不健康的从节点（下线、断线）
-   b. 选择 replication offset 最大的从节点（数据最新）
-   c. 如果 offset 相同，选择 runid 字典序最小的
-
-2. Leader 向选中的从节点发送 SLAVEOF NO ONE 命令，使其成为主节点
-
-3. Leader 向其他从节点发送 SLAVEOF &lt;new-master-ip&gt; &lt;new-master-port&gt;
-
-4. Leader 更新哨兵配置，将旧主节点标记为从节点（旧主恢复后可自动同步新主）
-
-5. Leader 通过 Pub/Sub 通知客户端主节点变更
-</code></pre><hr><h3 id=34-哨兵配置与实践>3.4 哨兵配置与实践</h3><h4 id=341-哨兵配置文件>3.4.1 哨兵配置文件</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># sentinel.conf</span>
+</span></span></code></pre></div><h4 id=332-哨兵领导者选举>3.3.2 哨兵领导者选举</h4><p>当主节点被判定为客观下线后，哨兵集群需要选举一个**领导者（Leader）**来执行故障转移。</p><p><strong>选举算法：Raft 协议</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. 每个哨兵都有资格成为 Leader
+</span></span><span class=line><span class=cl>2. 哨兵 A 向其他哨兵发送 `is-master-down-by-addr` 命令，要求投票
+</span></span><span class=line><span class=cl>3. 每个哨兵只能投一次票（先到先得）
+</span></span><span class=line><span class=cl>4. 获得多数票（majority）的哨兵成为 Leader
+</span></span><span class=line><span class=cl>5. 如果没有哨兵获得多数票，等待随机时间后重新选举
+</span></span></code></pre></div><p><strong>majority 计算</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>哨兵总数 = 3，majority = 2
+</span></span><span class=line><span class=cl>哨兵总数 = 4，majority = 3
+</span></span><span class=line><span class=cl>哨兵总数 = 5，majority = 3
+</span></span></code></pre></div><h4 id=333-故障转移流程>3.3.3 故障转移流程</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. 哨兵 Leader 从从节点中选出一个作为新主节点
+</span></span><span class=line><span class=cl>   选择优先级：
+</span></span><span class=line><span class=cl>   a. 排除不健康的从节点（下线、断线）
+</span></span><span class=line><span class=cl>   b. 选择 replication offset 最大的从节点（数据最新）
+</span></span><span class=line><span class=cl>   c. 如果 offset 相同，选择 runid 字典序最小的
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>2. Leader 向选中的从节点发送 SLAVEOF NO ONE 命令，使其成为主节点
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>3. Leader 向其他从节点发送 SLAVEOF &lt;new-master-ip&gt; &lt;new-master-port&gt;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>4. Leader 更新哨兵配置，将旧主节点标记为从节点（旧主恢复后可自动同步新主）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>5. Leader 通过 Pub/Sub 通知客户端主节点变更
+</span></span></code></pre></div><hr><h3 id=34-哨兵配置与实践>3.4 哨兵配置与实践</h3><h4 id=341-哨兵配置文件>3.4.1 哨兵配置文件</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># sentinel.conf</span>
 </span></span><span class=line><span class=cl>port <span class=m>26379</span>                               <span class=c1># 哨兵默认端口</span>
 </span></span><span class=line><span class=cl>sentinel monitor mymaster 127.0.0.1 <span class=m>6379</span> <span class=m>2</span>
 </span></span><span class=line><span class=cl>sentinel auth-pass mymaster yourpassword  <span class=c1># 主节点密码</span>
@@ -131,27 +131,27 @@
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 强制故障转移（无需主节点真实故障）</span>
 </span></span><span class=line><span class=cl>SENTINEL failover mymaster
-</span></span></code></pre></div><hr><h3 id=35-哨兵机制的不足>3.5 哨兵机制的不足</h3><p><strong>1. 写能力受限</strong></p><ul><li>仍然只有单个主节点处理写请求</li><li>写 QPS 有上限</li></ul><p><strong>2. 存储容量受限</strong></p><ul><li>所有节点存储全量数据</li><li>数据量受限于单节点内存</li></ul><p><strong>3. 客户端需要支持哨兵协议</strong></p><ul><li>客户端需要连接哨兵获取主节点地址</li><li>部分老旧客户端不支持</li></ul><p><strong>解决方案</strong>：Redis Cluster 分布式集群。</p><hr><h2 id=四redis-cluster-分布式集群>四、Redis Cluster 分布式集群</h2><h3 id=41-为什么需要-redis-cluster>4.1 为什么需要 Redis Cluster</h3><p>哨兵机制解决了高可用问题，但无法解决<strong>水平扩展</strong>问题。Redis Cluster 是 Redis 官方提供的分布式解决方案。</p><p><strong>Redis Cluster 的核心目标</strong>：</p><ol><li><strong>数据分片</strong>：数据分散到多个节点，突破单节点内存限制</li><li><strong>高可用</strong>：主节点故障自动切换</li><li><strong>性能提升</strong>：多个主节点同时处理写请求，提升整体写能力</li></ol><hr><h3 id=42-redis-cluster-架构>4.2 Redis Cluster 架构</h3><pre tabindex=0><code>            ┌────────────────────────────────────┐
-            │       Redis Cluster (去中心化)      │
-            └────────────────────────────────────┘
-                     ↓ Gossip 协议通信
-    ┌───────────────┬───────────────┬───────────────┐
-    │   Master A    │   Master B    │   Master C    │
-    │  Slot 0-5460 │  Slot 5461-   │  Slot 10923-  │
-    │               │  10922        │  16383        │
-    ├───────────────┼───────────────┼───────────────┤
-    │   Slave A1    │   Slave B1    │   Slave C1    │
-    │  (A 的备份)   │  (B 的备份)   │  (C 的备份)   │
-    └───────────────┴───────────────┴───────────────┘
-</code></pre><p><strong>核心特点</strong>：</p><ul><li><strong>去中心化</strong>：无中心节点，每个节点平等</li><li><strong>数据分片</strong>：16384 个槽位（slot），分布到多个主节点</li><li><strong>Gossip 协议</strong>：节点之间互相通信，传播集群状态</li><li><strong>客户端直连</strong>：客户端直接连接任意节点，节点会转发请求到正确节点</li></ul><hr><h3 id=43-数据分片原理>4.3 数据分片原理</h3><h4 id=431-槽位slot分配>4.3.1 槽位（Slot）分配</h4><p>Redis Cluster 有 <strong>16384 个哈希槽</strong>（0 ~ 16383）。</p><p><strong>分配规则</strong>：</p><pre tabindex=0><code>每个键通过 CRC16 算法计算哈希值，再对 16384 取模：
-slot = CRC16(key) % 16384
-
-每个主节点负责一部分槽位。
-例如：3 个主节点
-  - Master A: Slot 0 ~ 5460
-  - Master B: Slot 5461 ~ 10922
-  - Master C: Slot 10923 ~ 16383
-</code></pre><p><strong>查看槽位分配</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>redis-cli CLUSTER SLOTS
+</span></span></code></pre></div><hr><h3 id=35-哨兵机制的不足>3.5 哨兵机制的不足</h3><p><strong>1. 写能力受限</strong></p><ul><li>仍然只有单个主节点处理写请求</li><li>写 QPS 有上限</li></ul><p><strong>2. 存储容量受限</strong></p><ul><li>所有节点存储全量数据</li><li>数据量受限于单节点内存</li></ul><p><strong>3. 客户端需要支持哨兵协议</strong></p><ul><li>客户端需要连接哨兵获取主节点地址</li><li>部分老旧客户端不支持</li></ul><p><strong>解决方案</strong>：Redis Cluster 分布式集群。</p><hr><h2 id=四redis-cluster-分布式集群>四、Redis Cluster 分布式集群</h2><h3 id=41-为什么需要-redis-cluster>4.1 为什么需要 Redis Cluster</h3><p>哨兵机制解决了高可用问题，但无法解决<strong>水平扩展</strong>问题。Redis Cluster 是 Redis 官方提供的分布式解决方案。</p><p><strong>Redis Cluster 的核心目标</strong>：</p><ol><li><strong>数据分片</strong>：数据分散到多个节点，突破单节点内存限制</li><li><strong>高可用</strong>：主节点故障自动切换</li><li><strong>性能提升</strong>：多个主节点同时处理写请求，提升整体写能力</li></ol><hr><h3 id=42-redis-cluster-架构>4.2 Redis Cluster 架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>            ┌────────────────────────────────────┐
+</span></span><span class=line><span class=cl>            │       Redis Cluster (去中心化)      │
+</span></span><span class=line><span class=cl>            └────────────────────────────────────┘
+</span></span><span class=line><span class=cl>                     ↓ Gossip 协议通信
+</span></span><span class=line><span class=cl>    ┌───────────────┬───────────────┬───────────────┐
+</span></span><span class=line><span class=cl>    │   Master A    │   Master B    │   Master C    │
+</span></span><span class=line><span class=cl>    │  Slot 0-5460 │  Slot 5461-   │  Slot 10923-  │
+</span></span><span class=line><span class=cl>    │               │  10922        │  16383        │
+</span></span><span class=line><span class=cl>    ├───────────────┼───────────────┼───────────────┤
+</span></span><span class=line><span class=cl>    │   Slave A1    │   Slave B1    │   Slave C1    │
+</span></span><span class=line><span class=cl>    │  (A 的备份)   │  (B 的备份)   │  (C 的备份)   │
+</span></span><span class=line><span class=cl>    └───────────────┴───────────────┴───────────────┘
+</span></span></code></pre></div><p><strong>核心特点</strong>：</p><ul><li><strong>去中心化</strong>：无中心节点，每个节点平等</li><li><strong>数据分片</strong>：16384 个槽位（slot），分布到多个主节点</li><li><strong>Gossip 协议</strong>：节点之间互相通信，传播集群状态</li><li><strong>客户端直连</strong>：客户端直接连接任意节点，节点会转发请求到正确节点</li></ul><hr><h3 id=43-数据分片原理>4.3 数据分片原理</h3><h4 id=431-槽位slot分配>4.3.1 槽位（Slot）分配</h4><p>Redis Cluster 有 <strong>16384 个哈希槽</strong>（0 ~ 16383）。</p><p><strong>分配规则</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>每个键通过 CRC16 算法计算哈希值，再对 16384 取模：
+</span></span><span class=line><span class=cl>slot = CRC16(key) % 16384
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>每个主节点负责一部分槽位。
+</span></span><span class=line><span class=cl>例如：3 个主节点
+</span></span><span class=line><span class=cl>  - Master A: Slot 0 ~ 5460
+</span></span><span class=line><span class=cl>  - Master B: Slot 5461 ~ 10922
+</span></span><span class=line><span class=cl>  - Master C: Slot 10923 ~ 16383
+</span></span></code></pre></div><p><strong>查看槽位分配</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>redis-cli CLUSTER SLOTS
 </span></span><span class=line><span class=cl><span class=c1># 1) 1) (integer) 0          ← 起始槽位</span>
 </span></span><span class=line><span class=cl><span class=c1>#    2) (integer) 5460       ← 结束槽位</span>
 </span></span><span class=line><span class=cl><span class=c1>#    3) 1) &#34;127.0.0.1&#34;      ← 主节点 IP</span>
@@ -160,24 +160,24 @@ slot = CRC16(key) % 16384
 </span></span><span class=line><span class=cl><span class=c1>#    4) 1) &#34;127.0.0.1&#34;      ← 从节点 IP</span>
 </span></span><span class=line><span class=cl><span class=c1>#       2) (integer) 7003</span>
 </span></span><span class=line><span class=cl><span class=c1>#       3) &#34;f8c2d0a1...&#34;</span>
-</span></span></code></pre></div><h4 id=432-键与槽位的映射>4.3.2 键与槽位的映射</h4><p><strong>普通键</strong>：</p><pre tabindex=0><code>SET key1 value1
-→ CRC16(&#34;key1&#34;) % 16384 = 1252
-→ Slot 1252 属于 Master A → 存储在 Master A
-</code></pre><p><strong>哈希标签（Hash Tag）</strong>：</p><p>为了确保相关键在同一个槽位（支持多键操作），可以使用哈希标签：</p><pre tabindex=0><code>SET user:{1001}:name &#34;Alice&#34;    → 只对 {1001} 计算 slot
-SET user:{1001}:age 30          → 只对 {1001} 计算 slot
-HGETALL user:{1001}:*           → 多键操作，确保在同一个节点
-
-# 花括号 {} 中的内容用于计算 slot
-# 上面两个键都会映射到同一个 slot
-</code></pre><hr><h3 id=44-请求路由与重定向>4.4 请求路由与重定向</h3><h4 id=441-moved-重定向>4.4.1 MOVED 重定向</h4><pre tabindex=0><code>客户端请求 → 连接 Node A
-    ↓
-Node A 计算键对应的 Slot
-    ↓
-如果 Slot 属于 Node A → 直接处理
-如果 Slot 属于 Node B → 返回 MOVED 错误，告知客户端正确的节点地址
-    ↓
-客户端收到 MOVED 后，重新向 Node B 发送请求
-</code></pre><p><strong>示例</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 客户端连接 127.0.0.1:7000</span>
+</span></span></code></pre></div><h4 id=432-键与槽位的映射>4.3.2 键与槽位的映射</h4><p><strong>普通键</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>SET key1 value1
+</span></span><span class=line><span class=cl>→ CRC16(&#34;key1&#34;) % 16384 = 1252
+</span></span><span class=line><span class=cl>→ Slot 1252 属于 Master A → 存储在 Master A
+</span></span></code></pre></div><p><strong>哈希标签（Hash Tag）</strong>：</p><p>为了确保相关键在同一个槽位（支持多键操作），可以使用哈希标签：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>SET user:{1001}:name &#34;Alice&#34;    → 只对 {1001} 计算 slot
+</span></span><span class=line><span class=cl>SET user:{1001}:age 30          → 只对 {1001} 计算 slot
+</span></span><span class=line><span class=cl>HGETALL user:{1001}:*           → 多键操作，确保在同一个节点
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl># 花括号 {} 中的内容用于计算 slot
+</span></span><span class=line><span class=cl># 上面两个键都会映射到同一个 slot
+</span></span></code></pre></div><hr><h3 id=44-请求路由与重定向>4.4 请求路由与重定向</h3><h4 id=441-moved-重定向>4.4.1 MOVED 重定向</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>客户端请求 → 连接 Node A
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>Node A 计算键对应的 Slot
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>如果 Slot 属于 Node A → 直接处理
+</span></span><span class=line><span class=cl>如果 Slot 属于 Node B → 返回 MOVED 错误，告知客户端正确的节点地址
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>客户端收到 MOVED 后，重新向 Node B 发送请求
+</span></span></code></pre></div><p><strong>示例</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 客户端连接 127.0.0.1:7000</span>
 </span></span><span class=line><span class=cl>127.0.0.1:7000&gt; SET key1 value1
 </span></span><span class=line><span class=cl><span class=o>(</span>error<span class=o>)</span> MOVED <span class=m>1252</span> 127.0.0.1:7001
 </span></span><span class=line><span class=cl><span class=c1># ↑ 键 key1 属于 Slot 1252，应该存储在 127.0.0.1:7001</span>
@@ -185,13 +185,13 @@ Node A 计算键对应的 Slot
 </span></span><span class=line><span class=cl><span class=c1># 客户端重新连接 127.0.0.1:7001</span>
 </span></span><span class=line><span class=cl>127.0.0.1:7001&gt; SET key1 value1
 </span></span><span class=line><span class=cl>OK
-</span></span></code></pre></div><h4 id=442-ask-重定向>4.4.2 ASK 重定向</h4><p><strong>场景</strong>：槽位迁移过程中（重新分片），部分数据已经迁移到新节点，部分还在旧节点。</p><pre tabindex=0><code>客户端请求 → Node A（正在迁出 Slot）
-    ↓
-如果键还在 Node A → 直接返回
-如果键已经迁移到 Node B → 返回 ASK 重定向
-    ↓
-客户端收到 ASK 后，先向 Node B 发送 ASKING 命令，再发送原命令
-</code></pre><p><strong>ASK vs MOVED</strong>：</p><table><thead><tr><th>重定向类型</th><th>含义</th><th>客户端行为</th></tr></thead><tbody><tr><td>MOVED</td><td>槽位已经永久迁移到新节点</td><td>更新本地槽位映射缓存，后续直接访问新节点</td></tr><tr><td>ASK</td><td>槽位正在迁移中，本次请求需要去新节点</td><td>只本次重定向，不更新本地缓存</td></tr></tbody></table><hr><h3 id=45-集群管理>4.5 集群管理</h3><h4 id=451-创建集群>4.5.1 创建集群</h4><p><strong>方法一：使用 redis-cli（推荐）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. 启动 6 个 Redis 节点（3 主 3 从）</span>
+</span></span></code></pre></div><h4 id=442-ask-重定向>4.4.2 ASK 重定向</h4><p><strong>场景</strong>：槽位迁移过程中（重新分片），部分数据已经迁移到新节点，部分还在旧节点。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>客户端请求 → Node A（正在迁出 Slot）
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>如果键还在 Node A → 直接返回
+</span></span><span class=line><span class=cl>如果键已经迁移到 Node B → 返回 ASK 重定向
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>客户端收到 ASK 后，先向 Node B 发送 ASKING 命令，再发送原命令
+</span></span></code></pre></div><p><strong>ASK vs MOVED</strong>：</p><table><thead><tr><th>重定向类型</th><th>含义</th><th>客户端行为</th></tr></thead><tbody><tr><td>MOVED</td><td>槽位已经永久迁移到新节点</td><td>更新本地槽位映射缓存，后续直接访问新节点</td></tr><tr><td>ASK</td><td>槽位正在迁移中，本次请求需要去新节点</td><td>只本次重定向，不更新本地缓存</td></tr></tbody></table><hr><h3 id=45-集群管理>4.5 集群管理</h3><h4 id=451-创建集群>4.5.1 创建集群</h4><p><strong>方法一：使用 redis-cli（推荐）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. 启动 6 个 Redis 节点（3 主 3 从）</span>
 </span></span><span class=line><span class=cl><span class=c1># 每个节点的 redis.conf 需要开启集群模式：</span>
 </span></span><span class=line><span class=cl><span class=c1># cluster-enabled yes</span>
 </span></span><span class=line><span class=cl><span class=c1># cluster-config-file nodes.conf</span>
@@ -236,29 +236,29 @@ Node A 计算键对应的 Slot
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 3. 再删除节点</span>
 </span></span><span class=line><span class=cl>redis-cli --cluster del-node 127.0.0.1:7000 &lt;node-id&gt;
-</span></span></code></pre></div><hr><h3 id=46-故障转移>4.6 故障转移</h3><p>Redis Cluster 也使用哨兵类似的思想实现高可用，但<strong>不需要单独的哨兵进程</strong>。</p><p><strong>故障检测</strong>：</p><pre tabindex=0><code>1. 节点 A 向节点 B 发送 PING
-2. 如果节点 B 在 node-timeout 时间内未回复，节点 A 标记节点 B 为 PFAIL（可能失败）
-3. 节点 A 通过 Gossip 协议将节点 B 的 PFAIL 状态传播给其他节点
-4. 当超过半数主节点都认为节点 B 是 PFAIL，标记为 FAIL（确定失败）
-</code></pre><p><strong>故障转移</strong>：</p><pre tabindex=0><code>1. 从节点检测到主节点 FAIL
-2. 从节点发起选举（类似哨兵选举）
-3. 获得多数主节点投票的从节点成为新主节点
-4. 其他从节点开始复制新主节点
-</code></pre><hr><h3 id=47-redis-cluster-的限制>4.7 Redis Cluster 的限制</h3><p><strong>1. 不支持多键操作（除非使用 Hash Tag）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 错误示例：key1 和 key2 可能不在同一个节点</span>
+</span></span></code></pre></div><hr><h3 id=46-故障转移>4.6 故障转移</h3><p>Redis Cluster 也使用哨兵类似的思想实现高可用，但<strong>不需要单独的哨兵进程</strong>。</p><p><strong>故障检测</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. 节点 A 向节点 B 发送 PING
+</span></span><span class=line><span class=cl>2. 如果节点 B 在 node-timeout 时间内未回复，节点 A 标记节点 B 为 PFAIL（可能失败）
+</span></span><span class=line><span class=cl>3. 节点 A 通过 Gossip 协议将节点 B 的 PFAIL 状态传播给其他节点
+</span></span><span class=line><span class=cl>4. 当超过半数主节点都认为节点 B 是 PFAIL，标记为 FAIL（确定失败）
+</span></span></code></pre></div><p><strong>故障转移</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. 从节点检测到主节点 FAIL
+</span></span><span class=line><span class=cl>2. 从节点发起选举（类似哨兵选举）
+</span></span><span class=line><span class=cl>3. 获得多数主节点投票的从节点成为新主节点
+</span></span><span class=line><span class=cl>4. 其他从节点开始复制新主节点
+</span></span></code></pre></div><hr><h3 id=47-redis-cluster-的限制>4.7 Redis Cluster 的限制</h3><p><strong>1. 不支持多键操作（除非使用 Hash Tag）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 错误示例：key1 和 key2 可能不在同一个节点</span>
 </span></span><span class=line><span class=cl>MSET key1 value1 key2 value2   <span class=c1># 报错：(error) CROSSSLOT</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 正确做法：使用 Hash Tag</span>
 </span></span><span class=line><span class=cl>MSET user:<span class=o>{</span>1001<span class=o>}</span>:name <span class=s2>&#34;Alice&#34;</span> user:<span class=o>{</span>1001<span class=o>}</span>:age <span class=m>30</span>
 </span></span></code></pre></div><p><strong>2. 不支持多数据库（只有 db 0）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 在 Cluster 模式下，以下命令无效</span>
 </span></span><span class=line><span class=cl>SELECT <span class=m>1</span>   <span class=c1># 报错</span>
-</span></span></code></pre></div><p><strong>3. 事务支持有限</strong></p><ul><li>只有在同一个槽位中的键才能使用事务（MULTI/EXEC）</li><li>跨槽位无法使用事务</li></ul><p><strong>4. 客户端复杂度增加</strong></p><ul><li>客户端需要维护槽位映射关系</li><li>需要处理 MOVED / ASK 重定向</li><li>部分客户端对 Cluster 支持不完善</li></ul><hr><h2 id=五高可用架构选型>五、高可用架构选型</h2><h3 id=51-主从复制--哨兵-vs-redis-cluster>5.1 主从复制 + 哨兵 vs Redis Cluster</h3><table><thead><tr><th>维度</th><th>主从 + 哨兵</th><th>Redis Cluster</th></tr></thead><tbody><tr><td><strong>数据分片</strong></td><td>❌ 无（全量存储）</td><td>✅ 有（16384 槽位）</td></tr><tr><td><strong>写能力扩展</strong></td><td>❌ 单主节点写</td><td>✅ 多主节点写</td></tr><tr><td><strong>存储容量</strong></td><td>❌ 受限于单节点</td><td>✅ 水平扩展</td></tr><tr><td><strong>复杂度</strong></td><td>低</td><td>高</td></tr><tr><td><strong>客户端支持</strong></td><td>广泛</td><td>需要支持 Cluster 协议</td></tr><tr><td><strong>适用场景</strong></td><td>数据量小、高可用需求</td><td>大数据量、高写 QPS</td></tr></tbody></table><h3 id=52-实践建议>5.2 实践建议</h3><p><strong>场景一：小型应用（数据 &lt; 10GB）</strong></p><pre tabindex=0><code>方案：主从复制 + 哨兵（3 个哨兵）
-主节点：写请求
-从节点：读请求 + 备份
-</code></pre><p><strong>场景二：中型应用（10GB &lt; 数据 &lt; 50GB）</strong></p><pre tabindex=0><code>方案：Redis Cluster（3 主 3 从）
-每个主节点约 10-15GB 数据
-</code></pre><p><strong>场景三：大型应用（数据 > 50GB）</strong></p><pre tabindex=0><code>方案：Redis Cluster（6 主 6 从或更多）
-结合客户端分片（应用层分片 + Cluster 分片）
-</code></pre><hr><h2 id=六面试高频问题>六、面试高频问题</h2><h3 id=q1-主从复制和哨兵的区别>Q1: 主从复制和哨兵的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>主从复制：数据冗余 + 读写分离，无法自动故障转移</li><li>哨兵：基于主从复制，提供自动故障转移和高可用</li><li>两者结合：主从复制负责数据同步，哨兵负责高可用</li></ul><h3 id=q2-哨兵选举-leader-的过程>Q2: 哨兵选举 Leader 的过程？</h3><p><strong>答案要点</strong>：</p><ul><li>使用 Raft 协议</li><li>每个哨兵都可以成为 Leader</li><li>先到先得，每个哨兵只能投一票</li><li>获得 majority（多数票）的哨兵成为 Leader</li></ul><h3 id=q3-redis-cluster-的槽位为什么是-16384>Q3: Redis Cluster 的槽位为什么是 16384？</h3><p><strong>答案要点</strong>：</p><ul><li>2^14 = 16384，方便位运算</li><li>16384 足够分散数据，同时不会太多导致元数据过大</li><li>Gossip 协议传播槽位信息，16384 个槽位的位图（bitmap）只有 2KB</li></ul><h3 id=q4-moved-和-ask-的区别>Q4: MOVED 和 ASK 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>MOVED：槽位已经永久迁移，客户端应更新本地缓存</li><li>ASK：槽位正在迁移中，仅本次请求重定向，不更新缓存</li></ul><h3 id=q5-redis-cluster-为什么不支持多键操作>Q5: Redis Cluster 为什么不支持多键操作？</h3><p><strong>答案要点</strong>：</p><ul><li>多键可能分布在不同的槽位，不同的槽位属于不同的节点</li><li>跨节点操作需要 Move 重定向，无法在一个节点完成</li><li>解决方案：使用 Hash Tag 确保相关键在同一个槽位</li></ul><hr><h2 id=七总结>七、总结</h2><p>本文深入探讨了 Redis 的高可用架构：</p><ol><li><strong>主从复制</strong>：数据冗余 + 读写分离，通过 PSYNC 实现部分复制</li><li><strong>哨兵机制</strong>：监控 + 自动故障转移，基于 Raft 协议选举 Leader</li><li><strong>Redis Cluster</strong>：分布式集群，16384 槽位分片，支持水平扩展</li><li><strong>架构选型</strong>：小数据用哨兵，大数据用 Cluster</li></ol><p><strong>关键数字记忆</strong>：</p><ul><li>哨兵端口：26379</li><li>复制积压缓冲区：默认 1MB</li><li>Cluster 槽位：16384</li><li>哨兵 quorum：确认下线的哨兵数</li><li>哨兵 majority：选举 Leader 需要的票数</li></ul><p>下一篇我们将探讨 <strong>Redis 缓存问题（穿透、击穿、雪崩）与解决方案</strong>，这是面试中极高概率的问题，敬请期待。</p><hr><p><em>作者：李亚飞 · Raphael Lab</em></p></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/mysql%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E4%B8%8E%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>← 上一篇</span><strong>MySQL 主从复制与分库分表深度解析</strong></a>
+</span></span></code></pre></div><p><strong>3. 事务支持有限</strong></p><ul><li>只有在同一个槽位中的键才能使用事务（MULTI/EXEC）</li><li>跨槽位无法使用事务</li></ul><p><strong>4. 客户端复杂度增加</strong></p><ul><li>客户端需要维护槽位映射关系</li><li>需要处理 MOVED / ASK 重定向</li><li>部分客户端对 Cluster 支持不完善</li></ul><hr><h2 id=五高可用架构选型>五、高可用架构选型</h2><h3 id=51-主从复制--哨兵-vs-redis-cluster>5.1 主从复制 + 哨兵 vs Redis Cluster</h3><table><thead><tr><th>维度</th><th>主从 + 哨兵</th><th>Redis Cluster</th></tr></thead><tbody><tr><td><strong>数据分片</strong></td><td>❌ 无（全量存储）</td><td>✅ 有（16384 槽位）</td></tr><tr><td><strong>写能力扩展</strong></td><td>❌ 单主节点写</td><td>✅ 多主节点写</td></tr><tr><td><strong>存储容量</strong></td><td>❌ 受限于单节点</td><td>✅ 水平扩展</td></tr><tr><td><strong>复杂度</strong></td><td>低</td><td>高</td></tr><tr><td><strong>客户端支持</strong></td><td>广泛</td><td>需要支持 Cluster 协议</td></tr><tr><td><strong>适用场景</strong></td><td>数据量小、高可用需求</td><td>大数据量、高写 QPS</td></tr></tbody></table><h3 id=52-实践建议>5.2 实践建议</h3><p><strong>场景一：小型应用（数据 &lt; 10GB）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>方案：主从复制 + 哨兵（3 个哨兵）
+</span></span><span class=line><span class=cl>主节点：写请求
+</span></span><span class=line><span class=cl>从节点：读请求 + 备份
+</span></span></code></pre></div><p><strong>场景二：中型应用（10GB &lt; 数据 &lt; 50GB）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>方案：Redis Cluster（3 主 3 从）
+</span></span><span class=line><span class=cl>每个主节点约 10-15GB 数据
+</span></span></code></pre></div><p><strong>场景三：大型应用（数据 > 50GB）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>方案：Redis Cluster（6 主 6 从或更多）
+</span></span><span class=line><span class=cl>结合客户端分片（应用层分片 + Cluster 分片）
+</span></span></code></pre></div><hr><h2 id=六面试高频问题>六、面试高频问题</h2><h3 id=q1-主从复制和哨兵的区别>Q1: 主从复制和哨兵的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>主从复制：数据冗余 + 读写分离，无法自动故障转移</li><li>哨兵：基于主从复制，提供自动故障转移和高可用</li><li>两者结合：主从复制负责数据同步，哨兵负责高可用</li></ul><h3 id=q2-哨兵选举-leader-的过程>Q2: 哨兵选举 Leader 的过程？</h3><p><strong>答案要点</strong>：</p><ul><li>使用 Raft 协议</li><li>每个哨兵都可以成为 Leader</li><li>先到先得，每个哨兵只能投一票</li><li>获得 majority（多数票）的哨兵成为 Leader</li></ul><h3 id=q3-redis-cluster-的槽位为什么是-16384>Q3: Redis Cluster 的槽位为什么是 16384？</h3><p><strong>答案要点</strong>：</p><ul><li>2^14 = 16384，方便位运算</li><li>16384 足够分散数据，同时不会太多导致元数据过大</li><li>Gossip 协议传播槽位信息，16384 个槽位的位图（bitmap）只有 2KB</li></ul><h3 id=q4-moved-和-ask-的区别>Q4: MOVED 和 ASK 的区别？</h3><p><strong>答案要点</strong>：</p><ul><li>MOVED：槽位已经永久迁移，客户端应更新本地缓存</li><li>ASK：槽位正在迁移中，仅本次请求重定向，不更新缓存</li></ul><h3 id=q5-redis-cluster-为什么不支持多键操作>Q5: Redis Cluster 为什么不支持多键操作？</h3><p><strong>答案要点</strong>：</p><ul><li>多键可能分布在不同的槽位，不同的槽位属于不同的节点</li><li>跨节点操作需要 Move 重定向，无法在一个节点完成</li><li>解决方案：使用 Hash Tag 确保相关键在同一个槽位</li></ul><hr><h2 id=七总结>七、总结</h2><p>本文深入探讨了 Redis 的高可用架构：</p><ol><li><strong>主从复制</strong>：数据冗余 + 读写分离，通过 PSYNC 实现部分复制</li><li><strong>哨兵机制</strong>：监控 + 自动故障转移，基于 Raft 协议选举 Leader</li><li><strong>Redis Cluster</strong>：分布式集群，16384 槽位分片，支持水平扩展</li><li><strong>架构选型</strong>：小数据用哨兵，大数据用 Cluster</li></ol><p><strong>关键数字记忆</strong>：</p><ul><li>哨兵端口：26379</li><li>复制积压缓冲区：默认 1MB</li><li>Cluster 槽位：16384</li><li>哨兵 quorum：确认下线的哨兵数</li><li>哨兵 majority：选举 Leader 需要的票数</li></ul><p>下一篇我们将探讨 <strong>Redis 缓存问题（穿透、击穿、雪崩）与解决方案</strong>，这是面试中极高概率的问题，敬请期待。</p><hr><p><em>作者：李亚飞 · Raphael Lab</em></p></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/mysql%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E4%B8%8E%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>← 上一篇</span><strong>MySQL 主从复制与分库分表深度解析</strong></a>
 <a class=next href=/posts/redis%E7%BC%93%E5%AD%98%E9%97%AE%E9%A2%98%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>下一篇 →</span><strong>Redis 缓存问题深度解析</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/clickhouse%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90olap%E5%88%97%E5%BC%8F%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AE%9E%E6%88%98%E6%8C%87%E5%8D%97/><span>2026-07-15</span><strong>ClickHouse深度解析：OLAP列式数据库实战指南</strong><p>系统讲解 ClickHouse 列式存储、MergeTree 引擎、分区排序、查询优化与集群部署，并给出实时 OLAP 场景的生产实践。</p></a><a href=/posts/rocketmq%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90%E6%9E%B6%E6%9E%84%E5%8E%9F%E7%90%86%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E6%88%98/><span>2026-07-15</span><strong>RocketMQ深度解析：架构原理与生产实战</strong><p>RocketMQ 是阿里巴巴开源的分布式消息中间件，目前是 Apache 顶级项目，在国内互联网公司中应用极为广泛。相比 Kafka，RocketMQ 在延迟消息、事务消息、顺序消 …</p></a><a href=/posts/redis%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94stream%E6%B6%88%E6%81%AF%E6%B5%81hyperloglog%E4%B8%8Ebitmap%E5%AE%9E%E6%88%98/><span>2026-07-14</span><strong>Redis面试八股文（五）——Stream消息流、HyperLogLog与Bitmap实战</strong><p>对比 Redis Stream 与 Kafka，深入 HyperLogLog 亿级 UV 统计、Bitmap 状态记录，并讲解 BigKeys、慢查询与性能监控。</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9ARedis+%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E4%B8%8E%E9%AB%98%E5%8F%AF%E7%94%A8%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a></li><li><a href=#二主从复制master-slave-replication>二、主从复制（Master-Slave Replication）</a><ul><li><a href=#21-为什么需要主从复制>2.1 为什么需要主从复制</a></li><li><a href=#22-主从复制原理>2.2 主从复制原理</a></li><li><a href=#23-主从复制配置>2.3 主从复制配置</a></li><li><a href=#24-主从复制的演进>2.4 主从复制的演进</a></li><li><a href=#25-主从复制的问题>2.5 主从复制的问题</a></li></ul></li><li><a href=#三哨兵机制redis-sentinel>三、哨兵机制（Redis Sentinel）</a><ul><li><a href=#31-为什么需要哨兵>3.1 为什么需要哨兵</a></li><li><a href=#32-哨兵架构>3.2 哨兵架构</a></li><li><a href=#33-哨兵核心原理>3.3 哨兵核心原理</a></li><li><a href=#34-哨兵配置与实践>3.4 哨兵配置与实践</a></li><li><a href=#35-哨兵机制的不足>3.5 哨兵机制的不足</a></li></ul></li><li><a href=#四redis-cluster-分布式集群>四、Redis Cluster 分布式集群</a><ul><li><a href=#41-为什么需要-redis-cluster>4.1 为什么需要 Redis Cluster</a></li><li><a href=#42-redis-cluster-架构>4.2 Redis Cluster 架构</a></li><li><a href=#43-数据分片原理>4.3 数据分片原理</a></li><li><a href=#44-请求路由与重定向>4.4 请求路由与重定向</a></li><li><a href=#45-集群管理>4.5 集群管理</a></li><li><a href=#46-故障转移>4.6 故障转移</a></li><li><a href=#47-redis-cluster-的限制>4.7 Redis Cluster 的限制</a></li></ul></li><li><a href=#五高可用架构选型>五、高可用架构选型</a><ul><li><a href=#51-主从复制--哨兵-vs-redis-cluster>5.1 主从复制 + 哨兵 vs Redis Cluster</a></li><li><a href=#52-实践建议>5.2 实践建议</a></li></ul></li><li><a href=#六面试高频问题>六、面试高频问题</a><ul><li><a href=#q1-主从复制和哨兵的区别>Q1: 主从复制和哨兵的区别？</a></li><li><a href=#q2-哨兵选举-leader-的过程>Q2: 哨兵选举 Leader 的过程？</a></li><li><a href=#q3-redis-cluster-的槽位为什么是-16384>Q3: Redis Cluster 的槽位为什么是 16384？</a></li><li><a href=#q4-moved-和-ask-的区别>Q4: MOVED 和 ASK 的区别？</a></li><li><a href=#q5-redis-cluster-为什么不支持多键操作>Q5: Redis Cluster 为什么不支持多键操作？</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
 <a href=mailto:liyafei.work@foxmail.com>邮箱</a>
 <a href=/index.xml>RSS</a>

@@ -10,76 +10,76 @@
 <span>/</span><a href=/series/distributed-systems-interview/>分布式系统面试</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>分布式监控与告警系统实战：Prometheus/Grafana/ELK全链路</h1><p class=article-description>🎯 本文目标：承接前七篇，深入剖析分布式可观测性三大支柱——Metrics（Prometheus指标监控）、Tracing（Jaeger/SkyWalking链路追踪）、Logging（ELK日志体系）的核心原理、架构对比与实战方案，构建完整的监控告警知识体系。 分三层决策：(1) 如果是纯Java。</p><div class=article-meta><span>发布于 <time datetime=2026-06-30>2026-06-30</time></span>
 <span>最后验证 2026-06</span>
 <span>19 分钟阅读</span>
-<span>4032 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一分布式可观测性全景>一、分布式可观测性全景</a><ul><li><a href=#三大支柱three-pillars>三大支柱（Three Pillars）</a></li><li><a href=#面试高频问题>面试高频问题</a></li></ul></li><li><a href=#二prometheus-核心架构深度解析>二、Prometheus 核心架构深度解析</a><ul><li><a href=#架构全景图>架构全景图</a></li><li><a href=#prometheus-pull-模式-vs-push-模式>Prometheus Pull 模式 vs Push 模式</a></li><li><a href=#四种指标类型深度对比>四种指标类型深度对比</a></li><li><a href=#histogram-vs-summary--面试必考对比>Histogram vs Summary — 面试必考对比</a></li><li><a href=#promql-面试高频查询>PromQL 面试高频查询</a></li><li><a href=#prometheus-高可用架构>Prometheus 高可用架构</a></li></ul></li><li><a href=#三grafana-仪表盘与告警>三、Grafana 仪表盘与告警</a><ul><li><a href=#面试高频问题-1>面试高频问题</a></li><li><a href=#四大黄金信号-dashboard>四大黄金信号 Dashboard</a></li><li><a href=#关键-dashboard-json-结构简化版>关键 Dashboard JSON 结构（简化版）</a></li></ul></li><li><a href=#四链路追踪distributed-tracing原理与选型>四、链路追踪（Distributed Tracing）原理与选型</a><ul><li><a href=#核心概念>核心概念</a></li><li><a href=#三大追踪系统对比>三大追踪系统对比</a></li><li><a href=#选型面试应答>选型面试应答</a></li><li><a href=#skywalking-核心架构>SkyWalking 核心架构</a></li><li><a href=#spring-boot-集成-skywalking-实战>Spring Boot 集成 SkyWalking 实战</a></li></ul></li><li><a href=#五日志采集架构elkefk>五、日志采集架构（ELK/EFK）</a><ul><li><a href=#经典日志采集架构>经典日志采集架构</a></li><li><a href=#filebeat-配置实战>Filebeat 配置实战</a></li><li><a href=#logstash-pipeline-配置>Logstash Pipeline 配置</a></li><li><a href=#应用日志结构化输出>应用日志结构化输出</a></li><li><a href=#es-索引生命周期管理>ES 索引生命周期管理</a></li></ul></li><li><a href=#六告警体系prometheus-alertmanager>六、告警体系：Prometheus Alertmanager</a><ul><li><a href=#告警全链路>告警全链路</a></li><li><a href=#alertmanager-配置实战>Alertmanager 配置实战</a></li><li><a href=#告警规则设计最佳实践>告警规则设计最佳实践</a></li></ul></li><li><a href=#七opentelemetry-可观测性标准>七、OpenTelemetry 可观测性标准</a><ul><li><a href=#核心架构>核心架构</a></li><li><a href=#spring-boot-集成-opentelemetry>Spring Boot 集成 OpenTelemetry</a></li></ul></li><li><a href=#八常见面试题详细应答>八、常见面试题详细应答</a><ul><li><a href=#q1-metricstracinglogging-三者的关系和区别>Q1: Metrics/Tracing/Logging 三者的关系和区别？</a></li><li><a href=#q2-prometheus-为什么用-pull-而不是-push>Q2: Prometheus 为什么用 Pull 而不是 Push？</a></li><li><a href=#q3-histogram-和-summary-怎么选>Q3: Histogram 和 Summary 怎么选？</a></li><li><a href=#q4-jaegerskywalkingzipkin-怎么选>Q4: Jaeger/SkyWalking/Zipkin 怎么选？</a></li><li><a href=#q5-为什么大规模日志采集必须加-kafka>Q5: 为什么大规模日志采集必须加 Kafka？</a></li><li><a href=#q6-如何实现告警不炸群告警治理>Q6: 如何实现告警不炸群？（告警治理）</a></li></ul></li><li><a href=#九实战spring-boot-接入-prometheus--grafana>九、实战：Spring Boot 接入 Prometheus + Grafana</a><ul><li><a href=#完整配置>完整配置</a></li><li><a href=#自定义业务指标>自定义业务指标</a></li><li><a href=#prometheus-抓取配置>Prometheus 抓取配置</a></li><li><a href=#docker-compose-一键部署>Docker Compose 一键部署</a></li></ul></li><li><a href=#十总结>十、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接前七篇，深入剖析分布式可观测性三大支柱——Metrics（Prometheus指标监控）、Tracing（Jaeger/SkyWalking链路追踪）、Logging（ELK日志体系）的核心原理、架构对比与实战方案，构建完整的监控告警知识体系。</p></blockquote><hr><h2 id=一分布式可观测性全景>一、分布式可观测性全景</h2><h3 id=三大支柱three-pillars>三大支柱（Three Pillars）</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────────┐
-│                     分布式可观测性（Observability）                 │
-│                                                                 │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────────────┐ │
-│  │   Metrics     │  │   Tracing     │  │      Logging          │ │
-│  │   指标监控     │  │   链路追踪     │  │      日志体系          │ │
-│  ├───────────────┤  ├───────────────┤  ├───────────────────────┤ │
-│  │ Prometheus    │  │ Jaeger/Zipkin │  │ Filebeat → Kafka      │ │
-│  │ + Grafana     │  │ SkyWalking    │  │ → Logstash → ES       │ │
-│  ├───────────────┤  ├───────────────┤  ├───────────────────────┤ │
-│  │ Q: 系统健康吗？ │  │ Q: 请求卡在哪？ │  │ Q: 什么原因导致出错？    │ │
-│  │ 宏观聚合视图    │  │ 微观请求链路    │  │ 详细上下文信息          │ │
-│  └───────────────┘  └───────────────┘  └───────────────────────┘ │
-│                                                                 │
-│  统一标准：OpenTelemetry (OTel) — CNCF 可观测性标准协议             │
-│  核心原则：Metrics 发现问题 → Tracing 定位瓶颈 → Logging 定位根因    │
-└─────────────────────────────────────────────────────────────────┘
-</code></pre><h3 id=面试高频问题>面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Metrics/Tracing/Logging 三者的关系？</td><td>⭐⭐⭐⭐⭐</td><td>Metrics发现→Tracing定位→Logging排查</td></tr><tr><td>2</td><td>Prometheus 为什么用 Pull 而不是 Push？</td><td>⭐⭐⭐⭐⭐</td><td>Pull避免背压/服务发现/健康检查天然集成</td></tr><tr><td>3</td><td>Prometheus 的四种指标类型？</td><td>⭐⭐⭐⭐⭐</td><td>Counter/Gauge/Histogram/Summary</td></tr><tr><td>4</td><td>Prometheus 如何实现高可用？</td><td>⭐⭐⭐⭐</td><td>联邦集群 + Thanos/Cortex + Remote Write</td></tr><tr><td>5</td><td>链路追踪的核心数据结构？</td><td>⭐⭐⭐⭐⭐</td><td>Trace→Span→SpanContext，parent-child关系</td></tr><tr><td>6</td><td>Jaeger vs Zipkin vs SkyWalking 怎么选？</td><td>⭐⭐⭐⭐</td><td>语言生态/侵入性/UI能力/存储后端</td></tr><tr><td>7</td><td>ELK 采集架构如何设计？</td><td>⭐⭐⭐⭐</td><td>Filebeat→Kafka→Logstash→ES→Kibana</td></tr><tr><td>8</td><td>Alertmanager 告警流程？</td><td>⭐⭐⭐⭐</td><td>分组+抑制+静默+路由</td></tr><tr><td>9</td><td>OpenTelemetry 的核心概念？</td><td>⭐⭐⭐</td><td>Traces/Metrics/Logs统一SDK + Collector</td></tr><tr><td>10</td><td>监控指标的最佳实践？</td><td>⭐⭐⭐⭐</td><td>USE/RED 方法论 + 四大黄金信号</td></tr></tbody></table><hr><h2 id=二prometheus-核心架构深度解析>二、Prometheus 核心架构深度解析</h2><h3 id=架构全景图>架构全景图</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────────────┐
-│                        Prometheus 生态架构                            │
-│                                                                     │
-│  ┌──────────┐   ┌──────────┐   ┌──────────┐                        │
-│  │  Node    │   │  Spring  │   │  Redis   │    ← Exporters/Client   │
-│  │ Exporter │   │  Boot    │   │ Exporter │      Library 暴露指标    │
-│  └────┬─────┘   └────┬─────┘   └────┬─────┘                        │
-│       │              │              │                               │
-│       │    /metrics  │    /metrics  │    /metrics                   │
-│       └──────────────┼──────────────┘                               │
-│                      │ HTTP Pull (每15s)                             │
-│              ┌───────┴───────┐                                       │
-│              │  Prometheus   │                                       │
-│              │  Server (TSDB)│  ← 本地时序存储 (2h 内存 + 持久化磁盘)    │
-│              └───────┬───────┘                                       │
-│                      │ PromQL 查询                                   │
-│              ┌───────┴───────┐                                       │
-│              │    Grafana    │  ← 可视化仪表盘                        │
-│              └───────┬───────┘                                       │
-│                      │                                               │
-│              ┌───────┴───────┐                                       │
-│              │ Alertmanager  │  ← 告警管理                           │
-│              └───────┬───────┘                                       │
-│                      │                                               │
-│       ┌──────────────┼──────────────┐                                │
-│  ┌────┴────┐   ┌─────┴─────┐  ┌────┴────┐                          │
-│  │  邮件   │   │ 企业微信   │  │  Pager  │  ← 多渠道通知              │
-│  └─────────┘   └───────────┘  └─────────┘                          │
-└─────────────────────────────────────────────────────────────────────┘
-</code></pre><h3 id=prometheus-pull-模式-vs-push-模式>Prometheus Pull 模式 vs Push 模式</h3><pre tabindex=0><code>面试高频争论题：Push vs Pull？
-
-Pull模式（Prometheus）：
-┌──────────────┐  周期性HTTP GET /metrics  ┌──────────────┐
-│  Prometheus  │ ─────────────────────────→ │  Target      │
-│    Server    │ ←───────────────────────── │  (Exporter)  │
-└──────────────┘  返回文本格式指标数据         └──────────────┘
-
-Push模式（Graphite/InfluxDB）：
-┌──────────────┐  主动POST指标数据          ┌──────────────┐
-│  Application│ ─────────────────────────→ │  TSDB Server │
-└──────────────┘                            └──────────────┘
-
-选Pull的原因（面试应答）：
-1. 服务发现天然集成 — Kubernetes中Prometheus自动通过API Server发现Pod
-2. 健康检查天然 — Pull失败即表明目标不可达，无需额外健康探针
-3. 避免背压 — 监控系统按自己节奏拉取，不会被推送洪水冲垮
-4. 调试友好 — curl http://target:9090/metrics 即可查看原始数据
-5. 配置集中 — 所有抓取配置在Prometheus侧，无需修改应用
-
-Push Gateway 的例外场景：
-- 短生命周期任务 (Job/Batch) — 执行完即退出，Pull抓不到
-- 网络防火墙 — 目标在NAT后面，Prometheus无法直接访问
-</code></pre><h3 id=四种指标类型深度对比>四种指标类型深度对比</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=cm>/**
+<span>4032 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一分布式可观测性全景>一、分布式可观测性全景</a><ul><li><a href=#三大支柱three-pillars>三大支柱（Three Pillars）</a></li><li><a href=#面试高频问题>面试高频问题</a></li></ul></li><li><a href=#二prometheus-核心架构深度解析>二、Prometheus 核心架构深度解析</a><ul><li><a href=#架构全景图>架构全景图</a></li><li><a href=#prometheus-pull-模式-vs-push-模式>Prometheus Pull 模式 vs Push 模式</a></li><li><a href=#四种指标类型深度对比>四种指标类型深度对比</a></li><li><a href=#histogram-vs-summary--面试必考对比>Histogram vs Summary — 面试必考对比</a></li><li><a href=#promql-面试高频查询>PromQL 面试高频查询</a></li><li><a href=#prometheus-高可用架构>Prometheus 高可用架构</a></li></ul></li><li><a href=#三grafana-仪表盘与告警>三、Grafana 仪表盘与告警</a><ul><li><a href=#面试高频问题-1>面试高频问题</a></li><li><a href=#四大黄金信号-dashboard>四大黄金信号 Dashboard</a></li><li><a href=#关键-dashboard-json-结构简化版>关键 Dashboard JSON 结构（简化版）</a></li></ul></li><li><a href=#四链路追踪distributed-tracing原理与选型>四、链路追踪（Distributed Tracing）原理与选型</a><ul><li><a href=#核心概念>核心概念</a></li><li><a href=#三大追踪系统对比>三大追踪系统对比</a></li><li><a href=#选型面试应答>选型面试应答</a></li><li><a href=#skywalking-核心架构>SkyWalking 核心架构</a></li><li><a href=#spring-boot-集成-skywalking-实战>Spring Boot 集成 SkyWalking 实战</a></li></ul></li><li><a href=#五日志采集架构elkefk>五、日志采集架构（ELK/EFK）</a><ul><li><a href=#经典日志采集架构>经典日志采集架构</a></li><li><a href=#filebeat-配置实战>Filebeat 配置实战</a></li><li><a href=#logstash-pipeline-配置>Logstash Pipeline 配置</a></li><li><a href=#应用日志结构化输出>应用日志结构化输出</a></li><li><a href=#es-索引生命周期管理>ES 索引生命周期管理</a></li></ul></li><li><a href=#六告警体系prometheus-alertmanager>六、告警体系：Prometheus Alertmanager</a><ul><li><a href=#告警全链路>告警全链路</a></li><li><a href=#alertmanager-配置实战>Alertmanager 配置实战</a></li><li><a href=#告警规则设计最佳实践>告警规则设计最佳实践</a></li></ul></li><li><a href=#七opentelemetry-可观测性标准>七、OpenTelemetry 可观测性标准</a><ul><li><a href=#核心架构>核心架构</a></li><li><a href=#spring-boot-集成-opentelemetry>Spring Boot 集成 OpenTelemetry</a></li></ul></li><li><a href=#八常见面试题详细应答>八、常见面试题详细应答</a><ul><li><a href=#q1-metricstracinglogging-三者的关系和区别>Q1: Metrics/Tracing/Logging 三者的关系和区别？</a></li><li><a href=#q2-prometheus-为什么用-pull-而不是-push>Q2: Prometheus 为什么用 Pull 而不是 Push？</a></li><li><a href=#q3-histogram-和-summary-怎么选>Q3: Histogram 和 Summary 怎么选？</a></li><li><a href=#q4-jaegerskywalkingzipkin-怎么选>Q4: Jaeger/SkyWalking/Zipkin 怎么选？</a></li><li><a href=#q5-为什么大规模日志采集必须加-kafka>Q5: 为什么大规模日志采集必须加 Kafka？</a></li><li><a href=#q6-如何实现告警不炸群告警治理>Q6: 如何实现告警不炸群？（告警治理）</a></li></ul></li><li><a href=#九实战spring-boot-接入-prometheus--grafana>九、实战：Spring Boot 接入 Prometheus + Grafana</a><ul><li><a href=#完整配置>完整配置</a></li><li><a href=#自定义业务指标>自定义业务指标</a></li><li><a href=#prometheus-抓取配置>Prometheus 抓取配置</a></li><li><a href=#docker-compose-一键部署>Docker Compose 一键部署</a></li></ul></li><li><a href=#十总结>十、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接前七篇，深入剖析分布式可观测性三大支柱——Metrics（Prometheus指标监控）、Tracing（Jaeger/SkyWalking链路追踪）、Logging（ELK日志体系）的核心原理、架构对比与实战方案，构建完整的监控告警知识体系。</p></blockquote><hr><h2 id=一分布式可观测性全景>一、分布式可观测性全景</h2><h3 id=三大支柱three-pillars>三大支柱（Three Pillars）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                     分布式可观测性（Observability）                 │
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  ┌───────────────┐  ┌───────────────┐  ┌───────────────────────┐ │
+</span></span><span class=line><span class=cl>│  │   Metrics     │  │   Tracing     │  │      Logging          │ │
+</span></span><span class=line><span class=cl>│  │   指标监控     │  │   链路追踪     │  │      日志体系          │ │
+</span></span><span class=line><span class=cl>│  ├───────────────┤  ├───────────────┤  ├───────────────────────┤ │
+</span></span><span class=line><span class=cl>│  │ Prometheus    │  │ Jaeger/Zipkin │  │ Filebeat → Kafka      │ │
+</span></span><span class=line><span class=cl>│  │ + Grafana     │  │ SkyWalking    │  │ → Logstash → ES       │ │
+</span></span><span class=line><span class=cl>│  ├───────────────┤  ├───────────────┤  ├───────────────────────┤ │
+</span></span><span class=line><span class=cl>│  │ Q: 系统健康吗？ │  │ Q: 请求卡在哪？ │  │ Q: 什么原因导致出错？    │ │
+</span></span><span class=line><span class=cl>│  │ 宏观聚合视图    │  │ 微观请求链路    │  │ 详细上下文信息          │ │
+</span></span><span class=line><span class=cl>│  └───────────────┘  └───────────────┘  └───────────────────────┘ │
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  统一标准：OpenTelemetry (OTel) — CNCF 可观测性标准协议             │
+</span></span><span class=line><span class=cl>│  核心原则：Metrics 发现问题 → Tracing 定位瓶颈 → Logging 定位根因    │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=面试高频问题>面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Metrics/Tracing/Logging 三者的关系？</td><td>⭐⭐⭐⭐⭐</td><td>Metrics发现→Tracing定位→Logging排查</td></tr><tr><td>2</td><td>Prometheus 为什么用 Pull 而不是 Push？</td><td>⭐⭐⭐⭐⭐</td><td>Pull避免背压/服务发现/健康检查天然集成</td></tr><tr><td>3</td><td>Prometheus 的四种指标类型？</td><td>⭐⭐⭐⭐⭐</td><td>Counter/Gauge/Histogram/Summary</td></tr><tr><td>4</td><td>Prometheus 如何实现高可用？</td><td>⭐⭐⭐⭐</td><td>联邦集群 + Thanos/Cortex + Remote Write</td></tr><tr><td>5</td><td>链路追踪的核心数据结构？</td><td>⭐⭐⭐⭐⭐</td><td>Trace→Span→SpanContext，parent-child关系</td></tr><tr><td>6</td><td>Jaeger vs Zipkin vs SkyWalking 怎么选？</td><td>⭐⭐⭐⭐</td><td>语言生态/侵入性/UI能力/存储后端</td></tr><tr><td>7</td><td>ELK 采集架构如何设计？</td><td>⭐⭐⭐⭐</td><td>Filebeat→Kafka→Logstash→ES→Kibana</td></tr><tr><td>8</td><td>Alertmanager 告警流程？</td><td>⭐⭐⭐⭐</td><td>分组+抑制+静默+路由</td></tr><tr><td>9</td><td>OpenTelemetry 的核心概念？</td><td>⭐⭐⭐</td><td>Traces/Metrics/Logs统一SDK + Collector</td></tr><tr><td>10</td><td>监控指标的最佳实践？</td><td>⭐⭐⭐⭐</td><td>USE/RED 方法论 + 四大黄金信号</td></tr></tbody></table><hr><h2 id=二prometheus-核心架构深度解析>二、Prometheus 核心架构深度解析</h2><h3 id=架构全景图>架构全景图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                        Prometheus 生态架构                            │
+</span></span><span class=line><span class=cl>│                                                                     │
+</span></span><span class=line><span class=cl>│  ┌──────────┐   ┌──────────┐   ┌──────────┐                        │
+</span></span><span class=line><span class=cl>│  │  Node    │   │  Spring  │   │  Redis   │    ← Exporters/Client   │
+</span></span><span class=line><span class=cl>│  │ Exporter │   │  Boot    │   │ Exporter │      Library 暴露指标    │
+</span></span><span class=line><span class=cl>│  └────┬─────┘   └────┬─────┘   └────┬─────┘                        │
+</span></span><span class=line><span class=cl>│       │              │              │                               │
+</span></span><span class=line><span class=cl>│       │    /metrics  │    /metrics  │    /metrics                   │
+</span></span><span class=line><span class=cl>│       └──────────────┼──────────────┘                               │
+</span></span><span class=line><span class=cl>│                      │ HTTP Pull (每15s)                             │
+</span></span><span class=line><span class=cl>│              ┌───────┴───────┐                                       │
+</span></span><span class=line><span class=cl>│              │  Prometheus   │                                       │
+</span></span><span class=line><span class=cl>│              │  Server (TSDB)│  ← 本地时序存储 (2h 内存 + 持久化磁盘)    │
+</span></span><span class=line><span class=cl>│              └───────┬───────┘                                       │
+</span></span><span class=line><span class=cl>│                      │ PromQL 查询                                   │
+</span></span><span class=line><span class=cl>│              ┌───────┴───────┐                                       │
+</span></span><span class=line><span class=cl>│              │    Grafana    │  ← 可视化仪表盘                        │
+</span></span><span class=line><span class=cl>│              └───────┬───────┘                                       │
+</span></span><span class=line><span class=cl>│                      │                                               │
+</span></span><span class=line><span class=cl>│              ┌───────┴───────┐                                       │
+</span></span><span class=line><span class=cl>│              │ Alertmanager  │  ← 告警管理                           │
+</span></span><span class=line><span class=cl>│              └───────┬───────┘                                       │
+</span></span><span class=line><span class=cl>│                      │                                               │
+</span></span><span class=line><span class=cl>│       ┌──────────────┼──────────────┐                                │
+</span></span><span class=line><span class=cl>│  ┌────┴────┐   ┌─────┴─────┐  ┌────┴────┐                          │
+</span></span><span class=line><span class=cl>│  │  邮件   │   │ 企业微信   │  │  Pager  │  ← 多渠道通知              │
+</span></span><span class=line><span class=cl>│  └─────────┘   └───────────┘  └─────────┘                          │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=prometheus-pull-模式-vs-push-模式>Prometheus Pull 模式 vs Push 模式</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>面试高频争论题：Push vs Pull？
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Pull模式（Prometheus）：
+</span></span><span class=line><span class=cl>┌──────────────┐  周期性HTTP GET /metrics  ┌──────────────┐
+</span></span><span class=line><span class=cl>│  Prometheus  │ ─────────────────────────→ │  Target      │
+</span></span><span class=line><span class=cl>│    Server    │ ←───────────────────────── │  (Exporter)  │
+</span></span><span class=line><span class=cl>└──────────────┘  返回文本格式指标数据         └──────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Push模式（Graphite/InfluxDB）：
+</span></span><span class=line><span class=cl>┌──────────────┐  主动POST指标数据          ┌──────────────┐
+</span></span><span class=line><span class=cl>│  Application│ ─────────────────────────→ │  TSDB Server │
+</span></span><span class=line><span class=cl>└──────────────┘                            └──────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>选Pull的原因（面试应答）：
+</span></span><span class=line><span class=cl>1. 服务发现天然集成 — Kubernetes中Prometheus自动通过API Server发现Pod
+</span></span><span class=line><span class=cl>2. 健康检查天然 — Pull失败即表明目标不可达，无需额外健康探针
+</span></span><span class=line><span class=cl>3. 避免背压 — 监控系统按自己节奏拉取，不会被推送洪水冲垮
+</span></span><span class=line><span class=cl>4. 调试友好 — curl http://target:9090/metrics 即可查看原始数据
+</span></span><span class=line><span class=cl>5. 配置集中 — 所有抓取配置在Prometheus侧，无需修改应用
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Push Gateway 的例外场景：
+</span></span><span class=line><span class=cl>- 短生命周期任务 (Job/Batch) — 执行完即退出，Pull抓不到
+</span></span><span class=line><span class=cl>- 网络防火墙 — 目标在NAT后面，Prometheus无法直接访问
+</span></span></code></pre></div><h3 id=四种指标类型深度对比>四种指标类型深度对比</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=cm>/**
 </span></span></span><span class=line><span class=cl><span class=cm> * Prometheus 四种指标类型 — Java Client 示例
 </span></span></span><span class=line><span class=cl><span class=cm> */</span>
 </span></span><span class=line><span class=cl><span class=nd>@RestController</span>
@@ -197,68 +197,68 @@ Push Gateway 的例外场景：
 </span></span></span><span class=line><span class=cl><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c1># label_replace: 动态重命名标签</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=kr>label_replace</span><span class=o>(</span><span class=nv>up</span><span class=p>{</span><span class=nl>job</span><span class=o>=</span><span class=p>&#34;</span><span class=s>api-server</span><span class=p>&#34;},</span><span class=w> </span><span class=p>&#34;</span><span class=s>service</span><span class=p>&#34;,</span><span class=w> </span><span class=p>&#34;</span><span class=s>$1</span><span class=p>&#34;,</span><span class=w> </span><span class=p>&#34;</span><span class=s>job</span><span class=p>&#34;,</span><span class=w> </span><span class=p>&#34;</span><span class=s>(.*)</span><span class=p>&#34;</span><span class=o>)</span><span class=w>
-</span></span></span></code></pre></div><h3 id=prometheus-高可用架构>Prometheus 高可用架构</h3><pre tabindex=0><code>方案1：联邦集群 (Federation)
-┌────────────────────────────────────────────────┐
-│                    全局 Prometheus              │
-│              (从下级Prometheus聚合)              │
-│         ┌──────────────────────┐               │
-└─────────┼──────────────────────┼───────────────┘
-          │ Pull (选择性指标)     │
-    ┌─────┴─────┐          ┌─────┴─────┐
-    │ K8s集群A  │          │ K8s集群B  │
-    │Prometheus │          │Prometheus │
-    └───────────┘          └───────────┘
-
-方案2：Thanos / Cortex (推荐)
-┌─────────────────────────────────────────────────────┐
-│                   Thanos Query                       │
-│              (全局查询视图，去重合并)                    │
-│         ┌──────────────────────────┐                │
-│         │     Thanos Store (对象存储) │               │
-│         │     S3/MinIO/GCS         │               │
-│         └──────────────────────────┘                │
-│                    ↑ 上传block                       │
-│         ┌─────────┴──────────┐                      │
-│    ┌────┴────┐          ┌────┴────┐                  │
-│    │ Prom +  │          │ Prom +  │                  │
-│    │ Sidecar │          │ Sidecar │                  │
-│    │ (集群A) │          │ (集群B) │                  │
-│    └─────────┘          └─────────┘                  │
-└─────────────────────────────────────────────────────┘
-
-关键特性：
-- Thanos Sidecar: 将Prometheus TSDB block上传到对象存储
-- Thanos Store: 提供历史数据查询（长期存储）
-- Thanos Query: 多Prometheus + Store 全局查询，自动去重
-- Thanos Compactor: 压缩降采样，减少存储占用
-
-优势：
-✅ 同一查询自动去重（多Prometheus HA部署时不重复计数）
-✅ 历史数据存对象存储，成本极低
-✅ 全局视图 + 无限存储
-✅ 无缝迁移（不改变现有Prometheus配置）
-</code></pre><hr><h2 id=三grafana-仪表盘与告警>三、Grafana 仪表盘与告警</h2><h3 id=面试高频问题-1>面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Grafana 的 Dashboard 变量如何使用？</td><td>⭐⭐⭐</td><td>动态切换集群/服务/实例</td></tr><tr><td>2</td><td>Grafana 告警 vs Alertmanager 告警？</td><td>⭐⭐⭐⭐</td><td>Grafana用于简单告警, 生产用Alertmanager</td></tr><tr><td>3</td><td>RED方法 vs USE方法？</td><td>⭐⭐⭐⭐</td><td>RED=Rate+Errors+Duration, USE=Util+Saturation+Errors</td></tr><tr><td>4</td><td>Grafana 数据源有哪些？</td><td>⭐⭐⭐</td><td>Prometheus/ES/InfluxDB/MySQL/CloudWatch</td></tr></tbody></table><h3 id=四大黄金信号-dashboard>四大黄金信号 Dashboard</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────────┐
-│                    微服务仪表盘四大黄金信号                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Latency (延迟)        Traffic (流量)                            │
-│  ┌──────────────┐     ┌──────────────┐                          │
-│  │ P50/P90/P99  │     │ QPS/RPS      │                          │
-│  │ 请求耗时分布   │     │ 每秒请求数     │                          │
-│  │ 按 API/服务分  │     │ 按 API/来源分  │                          │
-│  └──────────────┘     └──────────────┘                          │
-│                                                                 │
-│  Errors (错误)         Saturation (饱和度)                       │
-│  ┌──────────────┐     ┌──────────────┐                          │
-│  │ 错误率曲线    │     │ CPU/内存/磁盘  │                          │
-│  │ 按HTTP状态码  │     │ 连接池/线程池  │                          │
-│  │ 按服务/接口   │     │ 队列深度      │                          │
-│  └──────────────┘     └──────────────┘                          │
-│                                                                 │
-│  RED 方法 (面向服务): Rate + Errors + Duration                   │
-│  USE 方法 (面向资源): Utilization + Saturation + Errors          │
-└─────────────────────────────────────────────────────────────────┘
-</code></pre><h3 id=关键-dashboard-json-结构简化版>关键 Dashboard JSON 结构（简化版）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
+</span></span></span></code></pre></div><h3 id=prometheus-高可用架构>Prometheus 高可用架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>方案1：联邦集群 (Federation)
+</span></span><span class=line><span class=cl>┌────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                    全局 Prometheus              │
+</span></span><span class=line><span class=cl>│              (从下级Prometheus聚合)              │
+</span></span><span class=line><span class=cl>│         ┌──────────────────────┐               │
+</span></span><span class=line><span class=cl>└─────────┼──────────────────────┼───────────────┘
+</span></span><span class=line><span class=cl>          │ Pull (选择性指标)     │
+</span></span><span class=line><span class=cl>    ┌─────┴─────┐          ┌─────┴─────┐
+</span></span><span class=line><span class=cl>    │ K8s集群A  │          │ K8s集群B  │
+</span></span><span class=line><span class=cl>    │Prometheus │          │Prometheus │
+</span></span><span class=line><span class=cl>    └───────────┘          └───────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>方案2：Thanos / Cortex (推荐)
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                   Thanos Query                       │
+</span></span><span class=line><span class=cl>│              (全局查询视图，去重合并)                    │
+</span></span><span class=line><span class=cl>│         ┌──────────────────────────┐                │
+</span></span><span class=line><span class=cl>│         │     Thanos Store (对象存储) │               │
+</span></span><span class=line><span class=cl>│         │     S3/MinIO/GCS         │               │
+</span></span><span class=line><span class=cl>│         └──────────────────────────┘                │
+</span></span><span class=line><span class=cl>│                    ↑ 上传block                       │
+</span></span><span class=line><span class=cl>│         ┌─────────┴──────────┐                      │
+</span></span><span class=line><span class=cl>│    ┌────┴────┐          ┌────┴────┐                  │
+</span></span><span class=line><span class=cl>│    │ Prom +  │          │ Prom +  │                  │
+</span></span><span class=line><span class=cl>│    │ Sidecar │          │ Sidecar │                  │
+</span></span><span class=line><span class=cl>│    │ (集群A) │          │ (集群B) │                  │
+</span></span><span class=line><span class=cl>│    └─────────┘          └─────────┘                  │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>关键特性：
+</span></span><span class=line><span class=cl>- Thanos Sidecar: 将Prometheus TSDB block上传到对象存储
+</span></span><span class=line><span class=cl>- Thanos Store: 提供历史数据查询（长期存储）
+</span></span><span class=line><span class=cl>- Thanos Query: 多Prometheus + Store 全局查询，自动去重
+</span></span><span class=line><span class=cl>- Thanos Compactor: 压缩降采样，减少存储占用
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>优势：
+</span></span><span class=line><span class=cl>✅ 同一查询自动去重（多Prometheus HA部署时不重复计数）
+</span></span><span class=line><span class=cl>✅ 历史数据存对象存储，成本极低
+</span></span><span class=line><span class=cl>✅ 全局视图 + 无限存储
+</span></span><span class=line><span class=cl>✅ 无缝迁移（不改变现有Prometheus配置）
+</span></span></code></pre></div><hr><h2 id=三grafana-仪表盘与告警>三、Grafana 仪表盘与告警</h2><h3 id=面试高频问题-1>面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Grafana 的 Dashboard 变量如何使用？</td><td>⭐⭐⭐</td><td>动态切换集群/服务/实例</td></tr><tr><td>2</td><td>Grafana 告警 vs Alertmanager 告警？</td><td>⭐⭐⭐⭐</td><td>Grafana用于简单告警, 生产用Alertmanager</td></tr><tr><td>3</td><td>RED方法 vs USE方法？</td><td>⭐⭐⭐⭐</td><td>RED=Rate+Errors+Duration, USE=Util+Saturation+Errors</td></tr><tr><td>4</td><td>Grafana 数据源有哪些？</td><td>⭐⭐⭐</td><td>Prometheus/ES/InfluxDB/MySQL/CloudWatch</td></tr></tbody></table><h3 id=四大黄金信号-dashboard>四大黄金信号 Dashboard</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                    微服务仪表盘四大黄金信号                         │
+</span></span><span class=line><span class=cl>├─────────────────────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  Latency (延迟)        Traffic (流量)                            │
+</span></span><span class=line><span class=cl>│  ┌──────────────┐     ┌──────────────┐                          │
+</span></span><span class=line><span class=cl>│  │ P50/P90/P99  │     │ QPS/RPS      │                          │
+</span></span><span class=line><span class=cl>│  │ 请求耗时分布   │     │ 每秒请求数     │                          │
+</span></span><span class=line><span class=cl>│  │ 按 API/服务分  │     │ 按 API/来源分  │                          │
+</span></span><span class=line><span class=cl>│  └──────────────┘     └──────────────┘                          │
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  Errors (错误)         Saturation (饱和度)                       │
+</span></span><span class=line><span class=cl>│  ┌──────────────┐     ┌──────────────┐                          │
+</span></span><span class=line><span class=cl>│  │ 错误率曲线    │     │ CPU/内存/磁盘  │                          │
+</span></span><span class=line><span class=cl>│  │ 按HTTP状态码  │     │ 连接池/线程池  │                          │
+</span></span><span class=line><span class=cl>│  │ 按服务/接口   │     │ 队列深度      │                          │
+</span></span><span class=line><span class=cl>│  └──────────────┘     └──────────────┘                          │
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  RED 方法 (面向服务): Rate + Errors + Duration                   │
+</span></span><span class=line><span class=cl>│  USE 方法 (面向资源): Utilization + Saturation + Errors          │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=关键-dashboard-json-结构简化版>关键 Dashboard JSON 结构（简化版）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-json data-lang=json><span class=line><span class=cl><span class=p>{</span>
 </span></span><span class=line><span class=cl>  <span class=nt>&#34;dashboard&#34;</span><span class=p>:</span> <span class=p>{</span>
 </span></span><span class=line><span class=cl>    <span class=nt>&#34;title&#34;</span><span class=p>:</span> <span class=s2>&#34;订单服务监控大盘&#34;</span><span class=p>,</span>
 </span></span><span class=line><span class=cl>    <span class=nt>&#34;templating&#34;</span><span class=p>:</span> <span class=p>{</span>
@@ -332,68 +332,68 @@ Push Gateway 的例外场景：
 </span></span><span class=line><span class=cl>    <span class=p>]</span>
 </span></span><span class=line><span class=cl>  <span class=p>}</span>
 </span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span></code></pre></div><hr><h2 id=四链路追踪distributed-tracing原理与选型>四、链路追踪（Distributed Tracing）原理与选型</h2><h3 id=核心概念>核心概念</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────────┐
-│                     分布式链路追踪核心概念                          │
-│                                                                 │
-│  Trace (链路)                                                    │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │ trace-id: &#34;abc123&#34;  ← 全局唯一，贯穿整个请求链                  ││
-│  │                                                             ││
-│  │  Span-A (API Gateway)               ← 根Span                 ││
-│  │  parent: null, span-id: &#34;span-a&#34;                            ││
-│  │  ┌──────────────────────────────┐                           ││
-│  │  │  Span-B (OrderService)       │                           ││
-│  │  │  parent: &#34;span-a&#34;            │  ← 父子关系                ││
-│  │  │  ┌───────────────────────┐   │                           ││
-│  │  │  │  Span-C (DB Query)   │   │  ← 叶子Span                ││
-│  │  │  │  parent: &#34;span-b&#34;    │   │                           ││
-│  │  │  └───────────────────────┘   │                           ││
-│  │  └──────────────────────────────┘                           ││
-│  │                                                             ││
-│  │  SpanContext (跨进程传递):                                     ││
-│  │  { trace-id, span-id, sampled, baggage-items }              ││
-│  │  通过 HTTP Header/W3C TraceContext/gRPC Metadata 传播       ││
-│  └─────────────────────────────────────────────────────────────┘│
-│                                                                 │
-│  W3C TraceContext 标准 Header:                                   │
-│  traceparent: 00-{trace-id}-{parent-span-id}-{trace-flags}       │
-│  tracestate: vendor-specific tags                               │
-└─────────────────────────────────────────────────────────────────┘
-</code></pre><h3 id=三大追踪系统对比>三大追踪系统对比</h3><table><thead><tr><th>维度</th><th>Jaeger</th><th>Zipkin</th><th>SkyWalking</th></tr></thead><tbody><tr><td><strong>开发者</strong></td><td>Uber → CNCF</td><td>Twitter → Apache</td><td>Apache (中国)</td></tr><tr><td><strong>存储后端</strong></td><td>Cassandra/ES/Badger</td><td>ES/MySQL/Cassandra</td><td>ES/H2/MySQL/TiDB</td></tr><tr><td><strong>采集方式</strong></td><td>Agent + SDK</td><td>SDK/Brave 插桩</td><td>Java Agent 字节码增强</td></tr><tr><td><strong>侵入性</strong></td><td>低（SDK集成）</td><td>低（Brave）</td><td>极低（Java Agent无代码侵入）</td></tr><tr><td><strong>UI 能力</strong></td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐</td><td>⭐⭐⭐⭐⭐（拓扑图强）</td></tr><tr><td><strong>指标集成</strong></td><td>独立</td><td>独立</td><td>✅ 内置Metrics/JVM监控</td></tr><tr><td><strong>告警</strong></td><td>❌ 独立</td><td>❌ 独立</td><td>✅ 内置告警引擎</td></tr><tr><td><strong>协议支持</strong></td><td>OpenTracing/OTLP</td><td>Brave/B3/Zipkin v2</td><td>自研协议+OTLP</td></tr><tr><td><strong>多语言</strong></td><td>✅ 丰富</td><td>✅ Brave多语言</td><td>⚠️ Java最强，其他较弱</td></tr><tr><td><strong>APM定位</strong></td><td>纯追踪</td><td>纯追踪</td><td>全栈APM（追踪+指标+告警）</td></tr><tr><td><strong>适用场景</strong></td><td>通用分布式追踪</td><td>Spring Cloud 生态</td><td>Java 微服务全家桶</td></tr></tbody></table><h3 id=选型面试应答>选型面试应答</h3><p><strong>Q: 链路追踪系统怎么选？</strong></p><blockquote><p>分三层决策：**(1) 如果是纯Java生态 + 需要开箱即用的APM（拓扑+指标+告警一体）**→ SkyWalking，Java Agent 无侵入，10分钟搞定。(2) <strong>如果是多语言微服务 + 只想做分布式追踪</strong> → Jaeger，CNCF项目，社区活跃，生态完善。(3) <strong>如果是 Spring Cloud 深度用户</strong> → Zipkin + Sleuth（已停止维护，现推荐Micrometer Tracing）。</p></blockquote><h3 id=skywalking-核心架构>SkyWalking 核心架构</h3><pre tabindex=0><code>┌──────────────────────────────────────────────────────────────┐
-│                    SkyWalking 架构全景                          │
-│                                                              │
-│  探针层 (Probe)                                               │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
-│  │ Java     │  │ .NET     │  │ Node.js  │  ← Agent 采集     │
-│  │ Agent    │  │ Agent    │  │ Agent    │    Trace/Metrics  │
-│  │ (字节码)  │  │          │  │          │                   │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘                   │
-│       │             │             │                          │
-│       └─────────────┼─────────────┘                          │
-│                     │ gRPC (异步)                             │
-│  ┌──────────────────┴───────────────────┐                    │
-│  │          OAP Server (后端)            │                    │
-│  │  ┌─────────┐  ┌─────────┐  ┌──────┐ │                    │
-│  │  │ Trace   │  │ Metrics │  │ Alert│ │  ← 分析引擎        │
-│  │  │ 分析     │  │ 聚合     │  │ 引擎  │ │                    │
-│  │  └─────────┘  └─────────┘  └──────┘ │                    │
-│  └──────────────┬──────────────────────┘                    │
-│                 │                                           │
-│  ┌──────────────┴──────────────────────┐                    │
-│  │           存储层                     │                    │
-│  │  Elasticsearch / H2 / MySQL / TiDB  │                    │
-│  └──────────────┬──────────────────────┘                    │
-│                 │                                           │
-│  ┌──────────────┴──────┐                                    │
-│  │    SkyWalking UI    │  ← 拓扑图/追踪/指标/告警           │
-│  └─────────────────────┘                                    │
-└──────────────────────────────────────────────────────────────┘
-
-Java Agent 启动参数：
--javaagent:/path/to/skywalking-agent.jar
--Dskywalking.agent.service_name=order-service
--Dskywalking.collector.backend_service=oap-server:11800
-</code></pre><h3 id=spring-boot-集成-skywalking-实战>Spring Boot 集成 SkyWalking 实战</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 无需代码侵入！只需添加启动参数：</span><span class=w>
+</span></span></code></pre></div><hr><h2 id=四链路追踪distributed-tracing原理与选型>四、链路追踪（Distributed Tracing）原理与选型</h2><h3 id=核心概念>核心概念</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                     分布式链路追踪核心概念                          │
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  Trace (链路)                                                    │
+</span></span><span class=line><span class=cl>│  ┌─────────────────────────────────────────────────────────────┐│
+</span></span><span class=line><span class=cl>│  │ trace-id: &#34;abc123&#34;  ← 全局唯一，贯穿整个请求链                  ││
+</span></span><span class=line><span class=cl>│  │                                                             ││
+</span></span><span class=line><span class=cl>│  │  Span-A (API Gateway)               ← 根Span                 ││
+</span></span><span class=line><span class=cl>│  │  parent: null, span-id: &#34;span-a&#34;                            ││
+</span></span><span class=line><span class=cl>│  │  ┌──────────────────────────────┐                           ││
+</span></span><span class=line><span class=cl>│  │  │  Span-B (OrderService)       │                           ││
+</span></span><span class=line><span class=cl>│  │  │  parent: &#34;span-a&#34;            │  ← 父子关系                ││
+</span></span><span class=line><span class=cl>│  │  │  ┌───────────────────────┐   │                           ││
+</span></span><span class=line><span class=cl>│  │  │  │  Span-C (DB Query)   │   │  ← 叶子Span                ││
+</span></span><span class=line><span class=cl>│  │  │  │  parent: &#34;span-b&#34;    │   │                           ││
+</span></span><span class=line><span class=cl>│  │  │  └───────────────────────┘   │                           ││
+</span></span><span class=line><span class=cl>│  │  └──────────────────────────────┘                           ││
+</span></span><span class=line><span class=cl>│  │                                                             ││
+</span></span><span class=line><span class=cl>│  │  SpanContext (跨进程传递):                                     ││
+</span></span><span class=line><span class=cl>│  │  { trace-id, span-id, sampled, baggage-items }              ││
+</span></span><span class=line><span class=cl>│  │  通过 HTTP Header/W3C TraceContext/gRPC Metadata 传播       ││
+</span></span><span class=line><span class=cl>│  └─────────────────────────────────────────────────────────────┘│
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  W3C TraceContext 标准 Header:                                   │
+</span></span><span class=line><span class=cl>│  traceparent: 00-{trace-id}-{parent-span-id}-{trace-flags}       │
+</span></span><span class=line><span class=cl>│  tracestate: vendor-specific tags                               │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=三大追踪系统对比>三大追踪系统对比</h3><table><thead><tr><th>维度</th><th>Jaeger</th><th>Zipkin</th><th>SkyWalking</th></tr></thead><tbody><tr><td><strong>开发者</strong></td><td>Uber → CNCF</td><td>Twitter → Apache</td><td>Apache (中国)</td></tr><tr><td><strong>存储后端</strong></td><td>Cassandra/ES/Badger</td><td>ES/MySQL/Cassandra</td><td>ES/H2/MySQL/TiDB</td></tr><tr><td><strong>采集方式</strong></td><td>Agent + SDK</td><td>SDK/Brave 插桩</td><td>Java Agent 字节码增强</td></tr><tr><td><strong>侵入性</strong></td><td>低（SDK集成）</td><td>低（Brave）</td><td>极低（Java Agent无代码侵入）</td></tr><tr><td><strong>UI 能力</strong></td><td>⭐⭐⭐⭐</td><td>⭐⭐⭐</td><td>⭐⭐⭐⭐⭐（拓扑图强）</td></tr><tr><td><strong>指标集成</strong></td><td>独立</td><td>独立</td><td>✅ 内置Metrics/JVM监控</td></tr><tr><td><strong>告警</strong></td><td>❌ 独立</td><td>❌ 独立</td><td>✅ 内置告警引擎</td></tr><tr><td><strong>协议支持</strong></td><td>OpenTracing/OTLP</td><td>Brave/B3/Zipkin v2</td><td>自研协议+OTLP</td></tr><tr><td><strong>多语言</strong></td><td>✅ 丰富</td><td>✅ Brave多语言</td><td>⚠️ Java最强，其他较弱</td></tr><tr><td><strong>APM定位</strong></td><td>纯追踪</td><td>纯追踪</td><td>全栈APM（追踪+指标+告警）</td></tr><tr><td><strong>适用场景</strong></td><td>通用分布式追踪</td><td>Spring Cloud 生态</td><td>Java 微服务全家桶</td></tr></tbody></table><h3 id=选型面试应答>选型面试应答</h3><p><strong>Q: 链路追踪系统怎么选？</strong></p><blockquote><p>分三层决策：**(1) 如果是纯Java生态 + 需要开箱即用的APM（拓扑+指标+告警一体）**→ SkyWalking，Java Agent 无侵入，10分钟搞定。(2) <strong>如果是多语言微服务 + 只想做分布式追踪</strong> → Jaeger，CNCF项目，社区活跃，生态完善。(3) <strong>如果是 Spring Cloud 深度用户</strong> → Zipkin + Sleuth（已停止维护，现推荐Micrometer Tracing）。</p></blockquote><h3 id=skywalking-核心架构>SkyWalking 核心架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌──────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                    SkyWalking 架构全景                          │
+</span></span><span class=line><span class=cl>│                                                              │
+</span></span><span class=line><span class=cl>│  探针层 (Probe)                                               │
+</span></span><span class=line><span class=cl>│  ┌──────────┐  ┌──────────┐  ┌──────────┐                   │
+</span></span><span class=line><span class=cl>│  │ Java     │  │ .NET     │  │ Node.js  │  ← Agent 采集     │
+</span></span><span class=line><span class=cl>│  │ Agent    │  │ Agent    │  │ Agent    │    Trace/Metrics  │
+</span></span><span class=line><span class=cl>│  │ (字节码)  │  │          │  │          │                   │
+</span></span><span class=line><span class=cl>│  └────┬─────┘  └────┬─────┘  └────┬─────┘                   │
+</span></span><span class=line><span class=cl>│       │             │             │                          │
+</span></span><span class=line><span class=cl>│       └─────────────┼─────────────┘                          │
+</span></span><span class=line><span class=cl>│                     │ gRPC (异步)                             │
+</span></span><span class=line><span class=cl>│  ┌──────────────────┴───────────────────┐                    │
+</span></span><span class=line><span class=cl>│  │          OAP Server (后端)            │                    │
+</span></span><span class=line><span class=cl>│  │  ┌─────────┐  ┌─────────┐  ┌──────┐ │                    │
+</span></span><span class=line><span class=cl>│  │  │ Trace   │  │ Metrics │  │ Alert│ │  ← 分析引擎        │
+</span></span><span class=line><span class=cl>│  │  │ 分析     │  │ 聚合     │  │ 引擎  │ │                    │
+</span></span><span class=line><span class=cl>│  │  └─────────┘  └─────────┘  └──────┘ │                    │
+</span></span><span class=line><span class=cl>│  └──────────────┬──────────────────────┘                    │
+</span></span><span class=line><span class=cl>│                 │                                           │
+</span></span><span class=line><span class=cl>│  ┌──────────────┴──────────────────────┐                    │
+</span></span><span class=line><span class=cl>│  │           存储层                     │                    │
+</span></span><span class=line><span class=cl>│  │  Elasticsearch / H2 / MySQL / TiDB  │                    │
+</span></span><span class=line><span class=cl>│  └──────────────┬──────────────────────┘                    │
+</span></span><span class=line><span class=cl>│                 │                                           │
+</span></span><span class=line><span class=cl>│  ┌──────────────┴──────┐                                    │
+</span></span><span class=line><span class=cl>│  │    SkyWalking UI    │  ← 拓扑图/追踪/指标/告警           │
+</span></span><span class=line><span class=cl>│  └─────────────────────┘                                    │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Java Agent 启动参数：
+</span></span><span class=line><span class=cl>-javaagent:/path/to/skywalking-agent.jar
+</span></span><span class=line><span class=cl>-Dskywalking.agent.service_name=order-service
+</span></span><span class=line><span class=cl>-Dskywalking.collector.backend_service=oap-server:11800
+</span></span></code></pre></div><h3 id=spring-boot-集成-skywalking-实战>Spring Boot 集成 SkyWalking 实战</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 无需代码侵入！只需添加启动参数：</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c># application.yml</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spring</span><span class=p>:</span><span class=w>
@@ -414,48 +414,48 @@ Java Agent 启动参数：
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 插件选择性启用（减少开销）</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c># plugin.mount=apm-spring-webflux-5.x-plugin,apm-jdbc-commons</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c># plugin.spring_mvc.collect_http_params=true  # 采集HTTP参数(注意脱敏)</span><span class=w>
-</span></span></span></code></pre></div><hr><h2 id=五日志采集架构elkefk>五、日志采集架构（ELK/EFK）</h2><h3 id=经典日志采集架构>经典日志采集架构</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────────┐
-│                    日志采集全链路架构                               │
-│                                                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                      │
-│  │ 订单服务   │  │ 用户服务   │  │ 网关服务   │  ← Java/Go/Node   │
-│  │ log4j2   │  │ logback  │  │ logrus   │                     │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘                      │
-│       │ JSON日志     │             │                             │
-│       │ → /var/log/  │             │                             │
-│       └──────────────┼─────────────┘                             │
-│                      │ 采集                                      │
-│              ┌───────┴───────┐                                   │
-│              │   Filebeat    │  ← 轻量采集 (极低CPU/内存)          │
-│              │  (harvester)  │     back pressure + 断点续传       │
-│              └───────┬───────┘                                   │
-│                      │ 缓冲/削峰                                  │
-│              ┌───────┴───────┐                                   │
-│              │     Kafka     │  ← 高吞吐缓冲层(选配，大规模必加)    │
-│              └───────┬───────┘                                   │
-│                      │ 消费                                      │
-│              ┌───────┴───────┐                                   │
-│              │   Logstash    │  ← 处理管道: parse/filter/mutate  │
-│              │  (pipeline)   │     grok→JSON→geoip→字段增强       │
-│              └───────┬───────┘                                   │
-│                      │ 写入                                      │
-│              ┌───────┴───────┐                                   │
-│              │ Elasticsearch │  ← 存储+全文检索                    │
-│              └───────┬───────┘                                   │
-│                      │ 查询                                      │
-│              ┌───────┴───────┐                                   │
-│              │    Kibana     │  ← 可视化+搜索+仪表盘               │
-│              └───────────────┘                                   │
-│                                                                 │
-│  Kafka 的价值：                                                  │
-│  1. 削峰填谷 — 日志高峰时保护ES不被打垮                             │
-│  2. 解耦 — Logstash/ES故障不影响日志采集                            │
-│  3. 多消费 — 同一份日志可被实时计算(Flink)和离线分析(Spark)同时消费   │
-│                                                                 │
-│  小规模可简化：Filebeat → Logstash → ES → Kibana                  │
-│  超大规模必须：Filebeat → Kafka → Logstash/Flink → ES → Kibana    │
-└─────────────────────────────────────────────────────────────────┘
-</code></pre><h3 id=filebeat-配置实战>Filebeat 配置实战</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># filebeat.yml — 生产级配置</span><span class=w>
+</span></span></span></code></pre></div><hr><h2 id=五日志采集架构elkefk>五、日志采集架构（ELK/EFK）</h2><h3 id=经典日志采集架构>经典日志采集架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                    日志采集全链路架构                               │
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  ┌──────────┐  ┌──────────┐  ┌──────────┐                      │
+</span></span><span class=line><span class=cl>│  │ 订单服务   │  │ 用户服务   │  │ 网关服务   │  ← Java/Go/Node   │
+</span></span><span class=line><span class=cl>│  │ log4j2   │  │ logback  │  │ logrus   │                     │
+</span></span><span class=line><span class=cl>│  └────┬─────┘  └────┬─────┘  └────┬─────┘                      │
+</span></span><span class=line><span class=cl>│       │ JSON日志     │             │                             │
+</span></span><span class=line><span class=cl>│       │ → /var/log/  │             │                             │
+</span></span><span class=line><span class=cl>│       └──────────────┼─────────────┘                             │
+</span></span><span class=line><span class=cl>│                      │ 采集                                      │
+</span></span><span class=line><span class=cl>│              ┌───────┴───────┐                                   │
+</span></span><span class=line><span class=cl>│              │   Filebeat    │  ← 轻量采集 (极低CPU/内存)          │
+</span></span><span class=line><span class=cl>│              │  (harvester)  │     back pressure + 断点续传       │
+</span></span><span class=line><span class=cl>│              └───────┬───────┘                                   │
+</span></span><span class=line><span class=cl>│                      │ 缓冲/削峰                                  │
+</span></span><span class=line><span class=cl>│              ┌───────┴───────┐                                   │
+</span></span><span class=line><span class=cl>│              │     Kafka     │  ← 高吞吐缓冲层(选配，大规模必加)    │
+</span></span><span class=line><span class=cl>│              └───────┬───────┘                                   │
+</span></span><span class=line><span class=cl>│                      │ 消费                                      │
+</span></span><span class=line><span class=cl>│              ┌───────┴───────┐                                   │
+</span></span><span class=line><span class=cl>│              │   Logstash    │  ← 处理管道: parse/filter/mutate  │
+</span></span><span class=line><span class=cl>│              │  (pipeline)   │     grok→JSON→geoip→字段增强       │
+</span></span><span class=line><span class=cl>│              └───────┬───────┘                                   │
+</span></span><span class=line><span class=cl>│                      │ 写入                                      │
+</span></span><span class=line><span class=cl>│              ┌───────┴───────┐                                   │
+</span></span><span class=line><span class=cl>│              │ Elasticsearch │  ← 存储+全文检索                    │
+</span></span><span class=line><span class=cl>│              └───────┬───────┘                                   │
+</span></span><span class=line><span class=cl>│                      │ 查询                                      │
+</span></span><span class=line><span class=cl>│              ┌───────┴───────┐                                   │
+</span></span><span class=line><span class=cl>│              │    Kibana     │  ← 可视化+搜索+仪表盘               │
+</span></span><span class=line><span class=cl>│              └───────────────┘                                   │
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  Kafka 的价值：                                                  │
+</span></span><span class=line><span class=cl>│  1. 削峰填谷 — 日志高峰时保护ES不被打垮                             │
+</span></span><span class=line><span class=cl>│  2. 解耦 — Logstash/ES故障不影响日志采集                            │
+</span></span><span class=line><span class=cl>│  3. 多消费 — 同一份日志可被实时计算(Flink)和离线分析(Spark)同时消费   │
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  小规模可简化：Filebeat → Logstash → ES → Kibana                  │
+</span></span><span class=line><span class=cl>│  超大规模必须：Filebeat → Kafka → Logstash/Flink → ES → Kibana    │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=filebeat-配置实战>Filebeat 配置实战</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># filebeat.yml — 生产级配置</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>filebeat.inputs</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 应用日志采集</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>log</span><span class=w>
@@ -658,44 +658,44 @@ Java Agent 启动参数：
 </span></span><span class=line><span class=cl>    <span class=p>}</span>
 </span></span><span class=line><span class=cl>  <span class=p>}</span>
 </span></span><span class=line><span class=cl><span class=p>}</span>
-</span></span></code></pre></div><hr><h2 id=六告警体系prometheus-alertmanager>六、告警体系：Prometheus Alertmanager</h2><h3 id=告警全链路>告警全链路</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────────┐
-│                      告警全链路流程                                │
-│                                                                 │
-│  Prometheus Server                                               │
-│  ┌──────────────────────────────────────────────┐               │
-│  │  rules.yml:                                   │               │
-│  │  - alert: HighErrorRate                       │               │
-│  │    expr: rate(http_requests_total{status=~&#34;5..&#34;}[5m])        │
-│  │          / rate(http_requests_total[5m]) &gt; 0.01              │
-│  │    for: 5m                                   │ ← 持续5分钟才触发│
-│  │    labels:                                    │               │
-│  │      severity: critical                       │               │
-│  │    annotations:                               │               │
-│  │      summary: &#34;错误率超过1%&#34;                    │               │
-│  │      description: &#34;{{ $labels.endpoint }} 错误率 {{ $value }}&#34; │
-│  └────────┬─────────────────────────────────────┘               │
-│           │ 推送告警                                              │
-│  ┌────────┴─────────────────────────────────────┐               │
-│  │            Alertmanager                       │               │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐   │               │
-│  │  │  分组     │  │  抑制     │  │  静默     │   │               │
-│  │  │(Grouping) │  │(Inhibit) │  │(Silence) │   │               │
-│  │  └─────┬────┘  └─────┬────┘  └─────┬────┘   │               │
-│  │        │             │             │        │               │
-│  │        └─────────────┼─────────────┘        │               │
-│  │                      │ 路由决策              │               │
-│  │              ┌───────┴───────┐               │               │
-│  │              │  route.routes │               │               │
-│  │              └───────┬───────┘               │               │
-│  └──────────────────────┼───────────────────────┘               │
-│                         │                                       │
-│      ┌──────────────────┼──────────────────┐                    │
-│  ┌───┴───┐  ┌───────┴───┐  ┌──────┴──────┐                      │
-│  │ 邮件  │  │ 企业微信   │  │ PagerDuty  │   ← 多渠道通知        │
-│  │       │  │ /钉钉/飞书 │  │ /OpsGenie  │                      │
-│  └───────┘  └───────────┘  └─────────────┘                      │
-└─────────────────────────────────────────────────────────────────┘
-</code></pre><h3 id=alertmanager-配置实战>Alertmanager 配置实战</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># alertmanager.yml — 生产级告警配置</span><span class=w>
+</span></span></code></pre></div><hr><h2 id=六告警体系prometheus-alertmanager>六、告警体系：Prometheus Alertmanager</h2><h3 id=告警全链路>告警全链路</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                      告警全链路流程                                │
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  Prometheus Server                                               │
+</span></span><span class=line><span class=cl>│  ┌──────────────────────────────────────────────┐               │
+</span></span><span class=line><span class=cl>│  │  rules.yml:                                   │               │
+</span></span><span class=line><span class=cl>│  │  - alert: HighErrorRate                       │               │
+</span></span><span class=line><span class=cl>│  │    expr: rate(http_requests_total{status=~&#34;5..&#34;}[5m])        │
+</span></span><span class=line><span class=cl>│  │          / rate(http_requests_total[5m]) &gt; 0.01              │
+</span></span><span class=line><span class=cl>│  │    for: 5m                                   │ ← 持续5分钟才触发│
+</span></span><span class=line><span class=cl>│  │    labels:                                    │               │
+</span></span><span class=line><span class=cl>│  │      severity: critical                       │               │
+</span></span><span class=line><span class=cl>│  │    annotations:                               │               │
+</span></span><span class=line><span class=cl>│  │      summary: &#34;错误率超过1%&#34;                    │               │
+</span></span><span class=line><span class=cl>│  │      description: &#34;{{ $labels.endpoint }} 错误率 {{ $value }}&#34; │
+</span></span><span class=line><span class=cl>│  └────────┬─────────────────────────────────────┘               │
+</span></span><span class=line><span class=cl>│           │ 推送告警                                              │
+</span></span><span class=line><span class=cl>│  ┌────────┴─────────────────────────────────────┐               │
+</span></span><span class=line><span class=cl>│  │            Alertmanager                       │               │
+</span></span><span class=line><span class=cl>│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐   │               │
+</span></span><span class=line><span class=cl>│  │  │  分组     │  │  抑制     │  │  静默     │   │               │
+</span></span><span class=line><span class=cl>│  │  │(Grouping) │  │(Inhibit) │  │(Silence) │   │               │
+</span></span><span class=line><span class=cl>│  │  └─────┬────┘  └─────┬────┘  └─────┬────┘   │               │
+</span></span><span class=line><span class=cl>│  │        │             │             │        │               │
+</span></span><span class=line><span class=cl>│  │        └─────────────┼─────────────┘        │               │
+</span></span><span class=line><span class=cl>│  │                      │ 路由决策              │               │
+</span></span><span class=line><span class=cl>│  │              ┌───────┴───────┐               │               │
+</span></span><span class=line><span class=cl>│  │              │  route.routes │               │               │
+</span></span><span class=line><span class=cl>│  │              └───────┬───────┘               │               │
+</span></span><span class=line><span class=cl>│  └──────────────────────┼───────────────────────┘               │
+</span></span><span class=line><span class=cl>│                         │                                       │
+</span></span><span class=line><span class=cl>│      ┌──────────────────┼──────────────────┐                    │
+</span></span><span class=line><span class=cl>│  ┌───┴───┐  ┌───────┴───┐  ┌──────┴──────┐                      │
+</span></span><span class=line><span class=cl>│  │ 邮件  │  │ 企业微信   │  │ PagerDuty  │   ← 多渠道通知        │
+</span></span><span class=line><span class=cl>│  │       │  │ /钉钉/飞书 │  │ /OpsGenie  │                      │
+</span></span><span class=line><span class=cl>│  └───────┘  └───────────┘  └─────────────┘                      │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=alertmanager-配置实战>Alertmanager 配置实战</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># alertmanager.yml — 生产级告警配置</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>global</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>resolve_timeout</span><span class=p>:</span><span class=w> </span><span class=l>5m</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>smtp_from</span><span class=p>:</span><span class=w> </span><span class=s1>&#39;alert@company.com&#39;</span><span class=w>
@@ -878,35 +878,35 @@ Java Agent 启动参数：
 </span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>severity</span><span class=p>:</span><span class=w> </span><span class=l>warning</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>annotations</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>summary</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;{{ $labels.instance }} GC频率异常(&gt;5次/秒)&#34;</span><span class=w>
-</span></span></span></code></pre></div><hr><h2 id=七opentelemetry-可观测性标准>七、OpenTelemetry 可观测性标准</h2><h3 id=核心架构>核心架构</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────────┐
-│                    OpenTelemetry 统一可观测性                      │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────┐       │
-│  │                    OTel API + SDK                     │       │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐           │       │
-│  │  │  Traces  │  │ Metrics  │  │   Logs   │           │       │
-│  │  │  API/SDK │  │  API/SDK │  │ API/SDK  │           │       │
-│  │  └────┬─────┘  └────┬─────┘  └────┬─────┘           │       │
-│  └───────┼─────────────┼─────────────┼──────────────────┘       │
-│          │             │             │                          │
-│  ┌───────┴─────────────┴─────────────┴──────────────────┐       │
-│  │                OTel Collector                        │       │
-│  │  ┌─────────┐  ┌──────────┐  ┌──────────┐            │       │
-│  │  │ Receivers│→ │Processors│→ │ Exporters│            │       │
-│  │  │(OTLP/   │  │(批处理/   │  │(Jaeger/  │            │       │
-│  │  │ Jaeger/ │  │ 过滤/采样) │  │ Prom/ES/ │            │       │
-│  │  │ Zipkin) │  │          │  │ OTLP)    │            │       │
-│  │  └─────────┘  └──────────┘  └──────────┘            │       │
-│  └───────┬──────────────────────────────────────────────┘       │
-│          │ 统一导出                                              │
-│  ┌───────┼─────────────┬──────────────────┐                     │
-│  │       │             │                  │                     │
-│  ▼       ▼             ▼                  ▼                     │
-│ Jaeger  Prometheus  Elasticsearch  其它后端                      │
-│                                                          │       │
-│  核心价值：一套SDK → 任意后端切换，零代码改动的可观测性              │
-└─────────────────────────────────────────────────────────────────┘
-</code></pre><h3 id=spring-boot-集成-opentelemetry>Spring Boot 集成 OpenTelemetry</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=cm>/**
+</span></span></span></code></pre></div><hr><h2 id=七opentelemetry-可观测性标准>七、OpenTelemetry 可观测性标准</h2><h3 id=核心架构>核心架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                    OpenTelemetry 统一可观测性                      │
+</span></span><span class=line><span class=cl>│                                                                 │
+</span></span><span class=line><span class=cl>│  ┌──────────────────────────────────────────────────────┐       │
+</span></span><span class=line><span class=cl>│  │                    OTel API + SDK                     │       │
+</span></span><span class=line><span class=cl>│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐           │       │
+</span></span><span class=line><span class=cl>│  │  │  Traces  │  │ Metrics  │  │   Logs   │           │       │
+</span></span><span class=line><span class=cl>│  │  │  API/SDK │  │  API/SDK │  │ API/SDK  │           │       │
+</span></span><span class=line><span class=cl>│  │  └────┬─────┘  └────┬─────┘  └────┬─────┘           │       │
+</span></span><span class=line><span class=cl>│  └───────┼─────────────┼─────────────┼──────────────────┘       │
+</span></span><span class=line><span class=cl>│          │             │             │                          │
+</span></span><span class=line><span class=cl>│  ┌───────┴─────────────┴─────────────┴──────────────────┐       │
+</span></span><span class=line><span class=cl>│  │                OTel Collector                        │       │
+</span></span><span class=line><span class=cl>│  │  ┌─────────┐  ┌──────────┐  ┌──────────┐            │       │
+</span></span><span class=line><span class=cl>│  │  │ Receivers│→ │Processors│→ │ Exporters│            │       │
+</span></span><span class=line><span class=cl>│  │  │(OTLP/   │  │(批处理/   │  │(Jaeger/  │            │       │
+</span></span><span class=line><span class=cl>│  │  │ Jaeger/ │  │ 过滤/采样) │  │ Prom/ES/ │            │       │
+</span></span><span class=line><span class=cl>│  │  │ Zipkin) │  │          │  │ OTLP)    │            │       │
+</span></span><span class=line><span class=cl>│  │  └─────────┘  └──────────┘  └──────────┘            │       │
+</span></span><span class=line><span class=cl>│  └───────┬──────────────────────────────────────────────┘       │
+</span></span><span class=line><span class=cl>│          │ 统一导出                                              │
+</span></span><span class=line><span class=cl>│  ┌───────┼─────────────┬──────────────────┐                     │
+</span></span><span class=line><span class=cl>│  │       │             │                  │                     │
+</span></span><span class=line><span class=cl>│  ▼       ▼             ▼                  ▼                     │
+</span></span><span class=line><span class=cl>│ Jaeger  Prometheus  Elasticsearch  其它后端                      │
+</span></span><span class=line><span class=cl>│                                                          │       │
+</span></span><span class=line><span class=cl>│  核心价值：一套SDK → 任意后端切换，零代码改动的可观测性              │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=spring-boot-集成-opentelemetry>Spring Boot 集成 OpenTelemetry</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=cm>/**
 </span></span></span><span class=line><span class=cl><span class=cm> * OpenTelemetry 自动插桩 — 无需代码侵入
 </span></span></span><span class=line><span class=cl><span class=cm> * 
 </span></span></span><span class=line><span class=cl><span class=cm> * 启动参数：

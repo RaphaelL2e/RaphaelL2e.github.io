@@ -17,25 +17,25 @@
 </span></span><span class=line><span class=cl>    <span class=kd>public</span> <span class=kd>abstract</span> <span class=kt>long</span> <span class=nf>getSize</span><span class=o>();</span>
 </span></span><span class=line><span class=cl>    <span class=kd>public</span> <span class=kd>abstract</span> <span class=kt>boolean</span> <span class=nf>search</span><span class=o>(</span><span class=n>String</span> <span class=n>keyword</span><span class=o>);</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p>每新增一种操作，都需要修改 File 和 Folder 类，违反开闭原则。而访问者模式可以完美解决这个问题。</p><h3 id=12-双重分发的艺术>1.2 双重分发的艺术</h3><p>访问者模式利用了 Java 的<strong>双重分发（Double Dispatch）</strong> 机制：</p><ul><li><strong>第一次分发</strong>：调用 <code>element.accept(visitor)</code>，由元素决定调用哪个 <code>visitor.visit(this)</code></li><li><strong>第二次分发</strong>：在 <code>Visitor.visit(ElementA)</code> 中，实际执行操作</li></ul><p>这样，元素的类型决定了调用哪个 visit 方法，而 visit 方法的参数类型又决定了具体执行哪个重载版本。</p><h2 id=二访问者模式的结构>二、访问者模式的结构</h2><h3 id=21-类图>2.1 类图</h3><pre tabindex=0><code>┌─────────────────┐       ┌──────────────────┐
-│    Visitor      │       │ Element (抽象元素) │
-│ (抽象访问者)     │       │ (抽象元素)         │
-├─────────────────┤       ├──────────────────┤
-│ +visit(ElementA)│       │ +accept(Visitor)  │
-│ +visit(ElementB)│       └────────┬───────────┘
-└────────┬────────┘                │
-         │                         │
-    ┌────┴────┐              ┌──────┴──────┐
-    │         │              │             │
-┌───┴───┐ ┌───┴───┐    ┌────┴────┐  ┌─────┴────┐
-│ConcrV │ │ConcrV │    │ElementA│  │ElementB  │
-│  1    │ │  2    │    └────┬────┘  └────┬─────┘
-└───────┘ └───────┘         │             │
-                            │             │
-                       accept(v)    accept(v)
-                            │             │
-                         v.visit(this) v.visit(this)
-</code></pre><h3 id=22-核心角色>2.2 核心角色</h3><table><thead><tr><th>角色</th><th>职责</th></tr></thead><tbody><tr><td>Visitor（抽象访问者）</td><td>为每种 Element 声明一个 visit 操作</td></tr><tr><td>ConcreteVisitor（具体访问者）</td><td>实现对每个 Element 的具体操作</td></tr><tr><td>Element（抽象元素）</td><td>定义 accept 方法，接收一个访问者</td></tr><tr><td>ConcreteElement（具体元素）</td><td>实现 accept，调用 visitor 的 visit 方法</td></tr><tr><td>ObjectStructure（对象结构）</td><td>包含元素的容器，可迭代访问</td></tr></tbody></table><h3 id=23-完整实现>2.3 完整实现</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 1. 抽象元素 ==========
+</span></span></code></pre></div><p>每新增一种操作，都需要修改 File 和 Folder 类，违反开闭原则。而访问者模式可以完美解决这个问题。</p><h3 id=12-双重分发的艺术>1.2 双重分发的艺术</h3><p>访问者模式利用了 Java 的<strong>双重分发（Double Dispatch）</strong> 机制：</p><ul><li><strong>第一次分发</strong>：调用 <code>element.accept(visitor)</code>，由元素决定调用哪个 <code>visitor.visit(this)</code></li><li><strong>第二次分发</strong>：在 <code>Visitor.visit(ElementA)</code> 中，实际执行操作</li></ul><p>这样，元素的类型决定了调用哪个 visit 方法，而 visit 方法的参数类型又决定了具体执行哪个重载版本。</p><h2 id=二访问者模式的结构>二、访问者模式的结构</h2><h3 id=21-类图>2.1 类图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────┐       ┌──────────────────┐
+</span></span><span class=line><span class=cl>│    Visitor      │       │ Element (抽象元素) │
+</span></span><span class=line><span class=cl>│ (抽象访问者)     │       │ (抽象元素)         │
+</span></span><span class=line><span class=cl>├─────────────────┤       ├──────────────────┤
+</span></span><span class=line><span class=cl>│ +visit(ElementA)│       │ +accept(Visitor)  │
+</span></span><span class=line><span class=cl>│ +visit(ElementB)│       └────────┬───────────┘
+</span></span><span class=line><span class=cl>└────────┬────────┘                │
+</span></span><span class=line><span class=cl>         │                         │
+</span></span><span class=line><span class=cl>    ┌────┴────┐              ┌──────┴──────┐
+</span></span><span class=line><span class=cl>    │         │              │             │
+</span></span><span class=line><span class=cl>┌───┴───┐ ┌───┴───┐    ┌────┴────┐  ┌─────┴────┐
+</span></span><span class=line><span class=cl>│ConcrV │ │ConcrV │    │ElementA│  │ElementB  │
+</span></span><span class=line><span class=cl>│  1    │ │  2    │    └────┬────┘  └────┬─────┘
+</span></span><span class=line><span class=cl>└───────┘ └───────┘         │             │
+</span></span><span class=line><span class=cl>                            │             │
+</span></span><span class=line><span class=cl>                       accept(v)    accept(v)
+</span></span><span class=line><span class=cl>                            │             │
+</span></span><span class=line><span class=cl>                         v.visit(this) v.visit(this)
+</span></span></code></pre></div><h3 id=22-核心角色>2.2 核心角色</h3><table><thead><tr><th>角色</th><th>职责</th></tr></thead><tbody><tr><td>Visitor（抽象访问者）</td><td>为每种 Element 声明一个 visit 操作</td></tr><tr><td>ConcreteVisitor（具体访问者）</td><td>实现对每个 Element 的具体操作</td></tr><tr><td>Element（抽象元素）</td><td>定义 accept 方法，接收一个访问者</td></tr><tr><td>ConcreteElement（具体元素）</td><td>实现 accept，调用 visitor 的 visit 方法</td></tr><tr><td>ObjectStructure（对象结构）</td><td>包含元素的容器，可迭代访问</td></tr></tbody></table><h3 id=23-完整实现>2.3 完整实现</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 1. 抽象元素 ==========
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>abstract</span> <span class=kd>class</span> <span class=nc>FileSystemNode</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>protected</span> <span class=n>String</span> <span class=n>name</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=kd>protected</span> <span class=kt>long</span> <span class=n>size</span><span class=o>;</span>
@@ -182,20 +182,20 @@
 </span></span><span class=line><span class=cl>            <span class=n>System</span><span class=o>.</span><span class=na>out</span><span class=o>.</span><span class=na>println</span><span class=o>(</span><span class=s>&#34;  - &#34;</span> <span class=o>+</span> <span class=n>f</span><span class=o>.</span><span class=na>getName</span><span class=o>()</span> <span class=o>+</span> <span class=s>&#34; (&#34;</span> <span class=o>+</span> <span class=n>f</span><span class=o>.</span><span class=na>getSize</span><span class=o>()</span> <span class=o>+</span> <span class=s>&#34; bytes)&#34;</span><span class=o>));</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p>运行结果：</p><pre tabindex=0><code>📁 文件夹: root
-📁 文件夹: docs
-  文件: readme.txt (1024 bytes)
-  文件: report.pdf (204800 bytes)
-📁 文件夹: images
-  文件: photo1.jpg (102400 bytes)
-  文件: photo2.jpg (153600 bytes)
-
-📊 总大小: 461824 bytes
-
-🔍 找到的文件:
-  - photo1.jpg (102400 bytes)
-  - photo2.jpg (153600 bytes)
-</code></pre><h2 id=三双重分发详解>三、双重分发详解</h2><h3 id=31-为什么需要双重分发>3.1 为什么需要双重分发</h3><p>Java 是静态分派的（方法签名在编译时确定），如果没有双重分发机制：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ❌ 单分发的问题：无法根据实际类型动态调用
+</span></span></code></pre></div><p>运行结果：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>📁 文件夹: root
+</span></span><span class=line><span class=cl>📁 文件夹: docs
+</span></span><span class=line><span class=cl>  文件: readme.txt (1024 bytes)
+</span></span><span class=line><span class=cl>  文件: report.pdf (204800 bytes)
+</span></span><span class=line><span class=cl>📁 文件夹: images
+</span></span><span class=line><span class=cl>  文件: photo1.jpg (102400 bytes)
+</span></span><span class=line><span class=cl>  文件: photo2.jpg (153600 bytes)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>📊 总大小: 461824 bytes
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>🔍 找到的文件:
+</span></span><span class=line><span class=cl>  - photo1.jpg (102400 bytes)
+</span></span><span class=line><span class=cl>  - photo2.jpg (153600 bytes)
+</span></span></code></pre></div><h2 id=三双重分发详解>三、双重分发详解</h2><h3 id=31-为什么需要双重分发>3.1 为什么需要双重分发</h3><p>Java 是静态分派的（方法签名在编译时确定），如果没有双重分发机制：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ❌ 单分发的问题：无法根据实际类型动态调用
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kt>void</span> <span class=nf>process</span><span class=o>(</span><span class=n>FileSystemNode</span> <span class=n>node</span><span class=o>,</span> <span class=n>SizeCalculatorVisitor</span> <span class=n>visitor</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=c1>// 这里编译器只能确定 Visitor 类型，无法确定 FileSystemNode 的具体子类型
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>visitor</span><span class=o>.</span><span class=na>visit</span><span class=o>(</span><span class=n>node</span><span class=o>);</span>  <span class=c1>// 只能调用 visit(FileSystemNode)，失去多态意义
@@ -207,21 +207,21 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// accept 内部调用 visitor.visit(this) → 根据 this 的实际类型分发
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=n>node</span><span class=o>.</span><span class=na>accept</span><span class=o>(</span><span class=n>visitor</span><span class=o>);</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=32-分发过程图解>3.2 分发过程图解</h3><pre tabindex=0><code>client.process(root, sizeVisitor)
-│
-├─ root.accept(sizeVisitor)
-│  └─ sizeVisitor.visit(this)  ← this = root (Folder类型)
-│     └─ 调用 visit(Folder) ✅
-│        └─ 遍历 children，递归调用 child.accept(visitor)
-│
-├─ child.accept(sizeVisitor)  ← child = docs (Folder类型)
-│  └─ sizeVisitor.visit(this)  ← this = docs (Folder类型)
-│     └─ 调用 visit(Folder) ✅
-│
-└─ file.accept(sizeVisitor)  ← file = readme.txt (File类型)
-   └─ sizeVisitor.visit(this)  ← this = readme.txt (File类型)
-      └─ 调用 visit(File) ✅
-</code></pre><h3 id=33-visit-方法重载-vs-override>3.3 visit 方法重载 vs @Override</h3><p>注意 <code>FileSystemVisitor</code> 接口中的两个方法：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>interface</span> <span class=nc>FileSystemVisitor</span> <span class=o>{</span>
+</span></span></code></pre></div><h3 id=32-分发过程图解>3.2 分发过程图解</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>client.process(root, sizeVisitor)
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├─ root.accept(sizeVisitor)
+</span></span><span class=line><span class=cl>│  └─ sizeVisitor.visit(this)  ← this = root (Folder类型)
+</span></span><span class=line><span class=cl>│     └─ 调用 visit(Folder) ✅
+</span></span><span class=line><span class=cl>│        └─ 遍历 children，递归调用 child.accept(visitor)
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├─ child.accept(sizeVisitor)  ← child = docs (Folder类型)
+</span></span><span class=line><span class=cl>│  └─ sizeVisitor.visit(this)  ← this = docs (Folder类型)
+</span></span><span class=line><span class=cl>│     └─ 调用 visit(Folder) ✅
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>└─ file.accept(sizeVisitor)  ← file = readme.txt (File类型)
+</span></span><span class=line><span class=cl>   └─ sizeVisitor.visit(this)  ← this = readme.txt (File类型)
+</span></span><span class=line><span class=cl>      └─ 调用 visit(File) ✅
+</span></span></code></pre></div><h3 id=33-visit-方法重载-vs-override>3.3 visit 方法重载 vs @Override</h3><p>注意 <code>FileSystemVisitor</code> 接口中的两个方法：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>interface</span> <span class=nc>FileSystemVisitor</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>visit</span><span class=o>(</span><span class=n>File</span> <span class=n>file</span><span class=o>);</span>      <span class=c1>// 重载1
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kt>void</span> <span class=nf>visit</span><span class=o>(</span><span class=n>Folder</span> <span class=n>folder</span><span class=o>);</span>  <span class=c1>// 重载2
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=o>}</span>

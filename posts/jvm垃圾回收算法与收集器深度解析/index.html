@@ -14,11 +14,11 @@
 </span></span><span class=line><span class=cl><span class=k>while</span> <span class=o>(</span><span class=kc>true</span><span class=o>)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=n>list</span><span class=o>.</span><span class=na>add</span><span class=o>(</span><span class=k>new</span> <span class=n>Object</span><span class=o>());</span>  <span class=c1>// 只添加不清理，内存持续增长
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=o>}</span>
-</span></span></code></pre></div><p><strong>内存溢出（OutOfMemoryError）</strong>：程序申请内存时，没有足够的内存空间供其使用。</p><h3 id=12-gc-的价值>1.2 GC 的价值</h3><ul><li><strong>自动管理内存</strong>：程序员无需手动释放，减少内存泄漏</li><li><strong>提高开发效率</strong>：减少 dangling pointer、double free 等错误</li><li><strong>安全性提升</strong>：防止缓冲区溢出等安全漏洞</li></ul><h2 id=二对象存活判断>二、对象存活判断</h2><p>GC 之前需要判断哪些对象是"死去"的（不再被使用），只有"死去"的对象才能被回收。</p><h3 id=21-引用计数法>2.1 引用计数法</h3><p>给对象添加引用计数器，有引用就 +1，引用失效就 -1。计数器为 0 的对象可回收。</p><pre tabindex=0><code>┌─────────┐
-│ Object  │
-│  count=3│ ← 被 3 个引用持有
-└─────────┘
-</code></pre><p><strong>优点</strong>：实现简单，判定效率高
+</span></span></code></pre></div><p><strong>内存溢出（OutOfMemoryError）</strong>：程序申请内存时，没有足够的内存空间供其使用。</p><h3 id=12-gc-的价值>1.2 GC 的价值</h3><ul><li><strong>自动管理内存</strong>：程序员无需手动释放，减少内存泄漏</li><li><strong>提高开发效率</strong>：减少 dangling pointer、double free 等错误</li><li><strong>安全性提升</strong>：防止缓冲区溢出等安全漏洞</li></ul><h2 id=二对象存活判断>二、对象存活判断</h2><p>GC 之前需要判断哪些对象是"死去"的（不再被使用），只有"死去"的对象才能被回收。</p><h3 id=21-引用计数法>2.1 引用计数法</h3><p>给对象添加引用计数器，有引用就 +1，引用失效就 -1。计数器为 0 的对象可回收。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────┐
+</span></span><span class=line><span class=cl>│ Object  │
+</span></span><span class=line><span class=cl>│  count=3│ ← 被 3 个引用持有
+</span></span><span class=line><span class=cl>└─────────┘
+</span></span></code></pre></div><p><strong>优点</strong>：实现简单，判定效率高
 <strong>缺点</strong>：无法解决循环引用问题</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 循环引用示例
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>Object</span> <span class=n>a</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Object</span><span class=o>();</span>  <span class=c1>// a count=1
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>Object</span> <span class=n>b</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Object</span><span class=o>();</span>  <span class=c1>// b count=1
@@ -30,25 +30,25 @@
 </span></span><span class=line><span class=cl><span class=n>b</span> <span class=o>=</span> <span class=kc>null</span><span class=o>;</span>
 </span></span><span class=line><span class=cl><span class=c1>// 此时 a 和 b 相互引用，但已经无法访问
 </span></span></span><span class=line><span class=cl><span class=c1>// 引用计数法无法回收，JVM 未采用
-</span></span></span></code></pre></div><blockquote><p>💡 <strong>面试题</strong>：Python 采用引用计数，为什么 Java 不采用？</p><p><strong>答</strong>：引用计数无法处理循环引用，且每次引用变化都需要更新计数器，有性能开销。Java 采用可达性分析。</p></blockquote><h3 id=22-可达性分析jvm-采用>2.2 可达性分析（JVM 采用）</h3><p>通过一系列 &ldquo;GC Roots&rdquo; 对象作为起点，向下搜索，形成"引用链"。不在引用链上的对象可回收。</p><pre tabindex=0><code>        GC Root
-            │
-    ┌───────┼───────┐
-    │       │       │
-    ▼       ▼       ▼
- ┌─────┐ ┌─────┐ ┌─────┐
- │  A  │ │  B  │ │  C  │
- └──┬──┘ └──┬──┘ └──┬──┘
-    │       │       │
-    ▼       │       ▼
- ┌─────┐    │    ┌─────┐
- │  D  │    │    │  E  │
- └──┬──┘    │    └─────┘
-    │       │       ↑
-    ▼       │       │
- ┌─────┐    │       └── 可达，但无引用链
- │  F  │ ← ┘           (假设 F 无外部引用)
- └─────┘               F 不可达，可回收
-</code></pre><p><strong>GC Roots 对象包括</strong>：</p><table><thead><tr><th>类型</th><th>示例</th></tr></thead><tbody><tr><td>虚拟机栈中引用的对象</td><td>方法中的局部变量、参数</td></tr><tr><td>方法区中类静态属性引用的对象</td><td>static Object obj</td></tr><tr><td>方法区中常量引用的对象</td><td>final Object CONST</td></tr><tr><td>本地方法栈中 JNI 引用的对象</td><td>native 方法中的对象</td></tr><tr><td>JVM 内部引用</td><td>ClassLoader、异常对象</td></tr><tr><td>同步锁持有的对象</td><td>synchronized(obj) 中的 obj</td></tr></tbody></table><h3 id=23-四种引用类型>2.3 四种引用类型</h3><table><thead><tr><th>引用类型</th><th>回收时机</th><th>场景</th></tr></thead><tbody><tr><td><strong>强引用</strong></td><td>从不回收</td><td><code>Object obj = new Object()</code></td></tr><tr><td><strong>软引用</strong></td><td>内存不足时回收</td><td>缓存</td></tr><tr><td><strong>弱引用</strong></td><td>下次 GC 时回收</td><td>缓存、Map 引用</td></tr><tr><td><strong>虚引用</strong></td><td>随时可能回收</td><td>对象跟踪、堆外内存管理</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 强引用
+</span></span></span></code></pre></div><blockquote><p>💡 <strong>面试题</strong>：Python 采用引用计数，为什么 Java 不采用？</p><p><strong>答</strong>：引用计数无法处理循环引用，且每次引用变化都需要更新计数器，有性能开销。Java 采用可达性分析。</p></blockquote><h3 id=22-可达性分析jvm-采用>2.2 可达性分析（JVM 采用）</h3><p>通过一系列 &ldquo;GC Roots&rdquo; 对象作为起点，向下搜索，形成"引用链"。不在引用链上的对象可回收。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>        GC Root
+</span></span><span class=line><span class=cl>            │
+</span></span><span class=line><span class=cl>    ┌───────┼───────┐
+</span></span><span class=line><span class=cl>    │       │       │
+</span></span><span class=line><span class=cl>    ▼       ▼       ▼
+</span></span><span class=line><span class=cl> ┌─────┐ ┌─────┐ ┌─────┐
+</span></span><span class=line><span class=cl> │  A  │ │  B  │ │  C  │
+</span></span><span class=line><span class=cl> └──┬──┘ └──┬──┘ └──┬──┘
+</span></span><span class=line><span class=cl>    │       │       │
+</span></span><span class=line><span class=cl>    ▼       │       ▼
+</span></span><span class=line><span class=cl> ┌─────┐    │    ┌─────┐
+</span></span><span class=line><span class=cl> │  D  │    │    │  E  │
+</span></span><span class=line><span class=cl> └──┬──┘    │    └─────┘
+</span></span><span class=line><span class=cl>    │       │       ↑
+</span></span><span class=line><span class=cl>    ▼       │       │
+</span></span><span class=line><span class=cl> ┌─────┐    │       └── 可达，但无引用链
+</span></span><span class=line><span class=cl> │  F  │ ← ┘           (假设 F 无外部引用)
+</span></span><span class=line><span class=cl> └─────┘               F 不可达，可回收
+</span></span></code></pre></div><p><strong>GC Roots 对象包括</strong>：</p><table><thead><tr><th>类型</th><th>示例</th></tr></thead><tbody><tr><td>虚拟机栈中引用的对象</td><td>方法中的局部变量、参数</td></tr><tr><td>方法区中类静态属性引用的对象</td><td>static Object obj</td></tr><tr><td>方法区中常量引用的对象</td><td>final Object CONST</td></tr><tr><td>本地方法栈中 JNI 引用的对象</td><td>native 方法中的对象</td></tr><tr><td>JVM 内部引用</td><td>ClassLoader、异常对象</td></tr><tr><td>同步锁持有的对象</td><td>synchronized(obj) 中的 obj</td></tr></tbody></table><h3 id=23-四种引用类型>2.3 四种引用类型</h3><table><thead><tr><th>引用类型</th><th>回收时机</th><th>场景</th></tr></thead><tbody><tr><td><strong>强引用</strong></td><td>从不回收</td><td><code>Object obj = new Object()</code></td></tr><tr><td><strong>软引用</strong></td><td>内存不足时回收</td><td>缓存</td></tr><tr><td><strong>弱引用</strong></td><td>下次 GC 时回收</td><td>缓存、Map 引用</td></tr><tr><td><strong>虚引用</strong></td><td>随时可能回收</td><td>对象跟踪、堆外内存管理</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 强引用
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>Object</span> <span class=n>strong</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Object</span><span class=o>();</span>  <span class=c1>// 永远不会 GC
 </span></span></span><span class=line><span class=cl><span class=c1></span>
 </span></span><span class=line><span class=cl><span class=c1>// 软引用
@@ -62,85 +62,85 @@
 </span></span><span class=line><span class=cl><span class=c1>// 虚引用（必须和 ReferenceQueue 配合）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>ReferenceQueue</span><span class=o>&lt;</span><span class=n>Object</span><span class=o>&gt;</span> <span class=n>queue</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ReferenceQueue</span><span class=o>&lt;&gt;();</span>
 </span></span><span class=line><span class=cl><span class=n>PhantomReference</span><span class=o>&lt;</span><span class=n>Object</span><span class=o>&gt;</span> <span class=n>phantom</span> <span class=o>=</span> <span class=k>new</span> <span class=n>PhantomReference</span><span class=o>&lt;&gt;(</span><span class=k>new</span> <span class=n>Object</span><span class=o>(),</span> <span class=n>queue</span><span class=o>);</span>
-</span></span></code></pre></div><h2 id=三垃圾回收算法>三、垃圾回收算法</h2><h3 id=31-标记-清除算法mark-sweep>3.1 标记-清除算法（Mark-Sweep）</h3><p><strong>步骤</strong>：</p><ol><li>标记：找出所有需要回收的对象并标记</li><li>清除：统一回收被标记的对象</li></ol><pre tabindex=0><code>标记前：
-┌────────────────────────────┐
-│  可用  │ 已标记 │  可用   │
-│  内存  │ (回收) │  内存   │
-└────────────────────────────┘
-
-标记后：
-┌────────────────────────────┐
-│  可用  │  清除   │  可用   │
-│  内存  │ (空)   │  内存   │
-└────────────────────────────┘
-</code></pre><p><strong>缺点</strong>：</p><ul><li><strong>效率问题</strong>：标记和清除都需要遍历所有对象</li><li><strong>空间问题</strong>：产生大量不连续内存碎片</li></ul><pre tabindex=0><code>内存碎片问题：
-┌──┐┌────┐┌──┐┌──────┐┌┐┌────┐┌──┐
-│  ││    ││  ││      ││││    ││  │
-└──┘└────┘└──┘└──────┘└┘└────┘└──┘
- ↑ 碎片   ↑ 碎片      ↑ 碎片
-</code></pre><h3 id=32-复制算法copying>3.2 复制算法（Copying）</h3><p>将内存分为两块，每次只使用一块。GC 时将存活对象复制到另一块，然后清空原块。</p><pre tabindex=0><code>原区域：                      目标区域：
-┌────────────────────┐        ┌────────────────────┐
-│ A │ B │ C │   D   │        │        (空)         │
-└────────────────────┘        └────────────────────┘
-  ↑存活    ↑存活    ↑已死
-
-复制后：
-┌────────────────────┐        ┌────────────────────┐
-│        (空)        │        │  A  │  B  │  C   │
-└────────────────────┘        └────────────────────┘
-</code></pre><p><strong>优点</strong>：</p><ul><li>无内存碎片</li><li>实现简单，运行高效</li></ul><p><strong>缺点</strong>：</p><ul><li>浪费一半内存</li><li>如果存活对象多，复制成本高</li></ul><p><strong>应用</strong>：新生代 Eden:Survivor:Survivor = 8:1:1</p><h3 id=33-标记-整理算法mark-compact>3.3 标记-整理算法（Mark-Compact）</h3><p>在标记-清除基础上，增加整理步骤，让存活对象向一端移动。</p><pre tabindex=0><code>整理前：
-┌────┬────────┬──┬────┬────┬──┐
-│存活│  已死   │存活│已死│存活│死│
-└────┴────────┴──┴────┴────┴──┘
-      ↑碎片                   ↑碎片
-
-整理后：
-┌────────────────────────────┬──┐
-│存活│存活│存活│存活│存活│存活│空│
-└────────────────────────────┴──┘
-                         ↑连续内存
-</code></pre><p><strong>优点</strong>：无内存碎片，充分利用内存
-<strong>缺点</strong>：整理过程需要移动对象，有性能开销</p><p><strong>应用</strong>：老年代（存活对象多，不适合复制算法）</p><h3 id=34-分代收集算法generational-collection>3.4 分代收集算法（Generational Collection）</h3><p>根据对象存活周期将内存分为新生代和老年代，不同区域采用不同算法。</p><pre tabindex=0><code>┌─────────────────────────────────────┐
-│              堆内存                   │
-├─────────────────┬───────────────────┤
-│     新生代       │      老年代        │
-│   (Young Gen)   │   (Old/Tenured)   │
-│                 │                   │
-│ ┌───┬───┬───┐  │                   │
-│ │Eden│ S0│ S1│  │                   │
-│ └───┴───┴───┘  │                   │
-│  8    1   1   │                   │
-└─────────────────┴───────────────────┘
-</code></pre><table><thead><tr><th>区域</th><th>对象特征</th><th>算法</th><th>GC 频率</th></tr></thead><tbody><tr><td>新生代</td><td>朝生夕死</td><td>复制算法</td><td>高</td></tr><tr><td>老年代</td><td>长寿对象</td><td>标记-整理</td><td>低</td></tr></tbody></table><h3 id=35-三种-gc-类型>3.5 三种 GC 类型</h3><table><thead><tr><th>类型</th><th>发生区域</th><th>触发条件</th></tr></thead><tbody><tr><td><strong>Minor GC</strong></td><td>新生代</td><td>Eden 满</td></tr><tr><td><strong>Major GC</strong></td><td>老年代</td><td>老年代满</td></tr><tr><td><strong>Full GC</strong></td><td>整堆</td><td>多种条件触发</td></tr></tbody></table><pre tabindex=0><code>触发 Full GC 的情况：
-1. 老年代空间不足
-2. System.gc()（不保证执行）
-3. MetaSpace 空间不足
-4. Minor GC 前的检查失败
-</code></pre><h2 id=四垃圾收集器>四、垃圾收集器</h2><p>JVM 提供多种垃圾收集器，不同收集器适用于不同场景。</p><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────┐
-│                     垃圾收集器                               │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  新生代收集器              │        老年代收集器            │
-│  ┌─────────┐               │        ┌─────────┐              │
-│  │ Serial  │ ───────────────┼─────── │ Serial  │              │
-│  └─────────┘               │        └─────────┘              │
-│  ┌─────────┐               │        ┌─────────┐              │
-│  │ParNew   │ ───────────────┼─────── │ CMS     │              │
-│  └─────────┘               │        └─────────┘              │
-│  ┌─────────┐               │        ┌─────────┐              │
-│  │Parallel │ ──────────────┼─────── │Parallel │              │
-│  │Scavenge │               │        │Old      │              │
-│  └─────────┘               │        └─────────┘              │
-│                            │        ┌─────────┐              │
-│                            ├─────── │  ZGC    │              │
-│                            │        └─────────┘              │
-│                            │        ┌─────────┐              │
-│                            ├─────── │ G1      │              │
-│                            │        └─────────┘              │
-│                            │        ┌─────────┐              │
-│                            ├─────── │ Shenandoah │           │
-└────────────────────────────┴────────┴─────────┘              │
-</code></pre><h3 id=41-serial-收集器>4.1 Serial 收集器</h3><p>最古老、最简单的收集器，单线程执行 GC。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 启用</span>
+</span></span></code></pre></div><h2 id=三垃圾回收算法>三、垃圾回收算法</h2><h3 id=31-标记-清除算法mark-sweep>3.1 标记-清除算法（Mark-Sweep）</h3><p><strong>步骤</strong>：</p><ol><li>标记：找出所有需要回收的对象并标记</li><li>清除：统一回收被标记的对象</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>标记前：
+</span></span><span class=line><span class=cl>┌────────────────────────────┐
+</span></span><span class=line><span class=cl>│  可用  │ 已标记 │  可用   │
+</span></span><span class=line><span class=cl>│  内存  │ (回收) │  内存   │
+</span></span><span class=line><span class=cl>└────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>标记后：
+</span></span><span class=line><span class=cl>┌────────────────────────────┐
+</span></span><span class=line><span class=cl>│  可用  │  清除   │  可用   │
+</span></span><span class=line><span class=cl>│  内存  │ (空)   │  内存   │
+</span></span><span class=line><span class=cl>└────────────────────────────┘
+</span></span></code></pre></div><p><strong>缺点</strong>：</p><ul><li><strong>效率问题</strong>：标记和清除都需要遍历所有对象</li><li><strong>空间问题</strong>：产生大量不连续内存碎片</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>内存碎片问题：
+</span></span><span class=line><span class=cl>┌──┐┌────┐┌──┐┌──────┐┌┐┌────┐┌──┐
+</span></span><span class=line><span class=cl>│  ││    ││  ││      ││││    ││  │
+</span></span><span class=line><span class=cl>└──┘└────┘└──┘└──────┘└┘└────┘└──┘
+</span></span><span class=line><span class=cl> ↑ 碎片   ↑ 碎片      ↑ 碎片
+</span></span></code></pre></div><h3 id=32-复制算法copying>3.2 复制算法（Copying）</h3><p>将内存分为两块，每次只使用一块。GC 时将存活对象复制到另一块，然后清空原块。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>原区域：                      目标区域：
+</span></span><span class=line><span class=cl>┌────────────────────┐        ┌────────────────────┐
+</span></span><span class=line><span class=cl>│ A │ B │ C │   D   │        │        (空)         │
+</span></span><span class=line><span class=cl>└────────────────────┘        └────────────────────┘
+</span></span><span class=line><span class=cl>  ↑存活    ↑存活    ↑已死
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>复制后：
+</span></span><span class=line><span class=cl>┌────────────────────┐        ┌────────────────────┐
+</span></span><span class=line><span class=cl>│        (空)        │        │  A  │  B  │  C   │
+</span></span><span class=line><span class=cl>└────────────────────┘        └────────────────────┘
+</span></span></code></pre></div><p><strong>优点</strong>：</p><ul><li>无内存碎片</li><li>实现简单，运行高效</li></ul><p><strong>缺点</strong>：</p><ul><li>浪费一半内存</li><li>如果存活对象多，复制成本高</li></ul><p><strong>应用</strong>：新生代 Eden:Survivor:Survivor = 8:1:1</p><h3 id=33-标记-整理算法mark-compact>3.3 标记-整理算法（Mark-Compact）</h3><p>在标记-清除基础上，增加整理步骤，让存活对象向一端移动。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>整理前：
+</span></span><span class=line><span class=cl>┌────┬────────┬──┬────┬────┬──┐
+</span></span><span class=line><span class=cl>│存活│  已死   │存活│已死│存活│死│
+</span></span><span class=line><span class=cl>└────┴────────┴──┴────┴────┴──┘
+</span></span><span class=line><span class=cl>      ↑碎片                   ↑碎片
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>整理后：
+</span></span><span class=line><span class=cl>┌────────────────────────────┬──┐
+</span></span><span class=line><span class=cl>│存活│存活│存活│存活│存活│存活│空│
+</span></span><span class=line><span class=cl>└────────────────────────────┴──┘
+</span></span><span class=line><span class=cl>                         ↑连续内存
+</span></span></code></pre></div><p><strong>优点</strong>：无内存碎片，充分利用内存
+<strong>缺点</strong>：整理过程需要移动对象，有性能开销</p><p><strong>应用</strong>：老年代（存活对象多，不适合复制算法）</p><h3 id=34-分代收集算法generational-collection>3.4 分代收集算法（Generational Collection）</h3><p>根据对象存活周期将内存分为新生代和老年代，不同区域采用不同算法。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│              堆内存                   │
+</span></span><span class=line><span class=cl>├─────────────────┬───────────────────┤
+</span></span><span class=line><span class=cl>│     新生代       │      老年代        │
+</span></span><span class=line><span class=cl>│   (Young Gen)   │   (Old/Tenured)   │
+</span></span><span class=line><span class=cl>│                 │                   │
+</span></span><span class=line><span class=cl>│ ┌───┬───┬───┐  │                   │
+</span></span><span class=line><span class=cl>│ │Eden│ S0│ S1│  │                   │
+</span></span><span class=line><span class=cl>│ └───┴───┴───┘  │                   │
+</span></span><span class=line><span class=cl>│  8    1   1   │                   │
+</span></span><span class=line><span class=cl>└─────────────────┴───────────────────┘
+</span></span></code></pre></div><table><thead><tr><th>区域</th><th>对象特征</th><th>算法</th><th>GC 频率</th></tr></thead><tbody><tr><td>新生代</td><td>朝生夕死</td><td>复制算法</td><td>高</td></tr><tr><td>老年代</td><td>长寿对象</td><td>标记-整理</td><td>低</td></tr></tbody></table><h3 id=35-三种-gc-类型>3.5 三种 GC 类型</h3><table><thead><tr><th>类型</th><th>发生区域</th><th>触发条件</th></tr></thead><tbody><tr><td><strong>Minor GC</strong></td><td>新生代</td><td>Eden 满</td></tr><tr><td><strong>Major GC</strong></td><td>老年代</td><td>老年代满</td></tr><tr><td><strong>Full GC</strong></td><td>整堆</td><td>多种条件触发</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>触发 Full GC 的情况：
+</span></span><span class=line><span class=cl>1. 老年代空间不足
+</span></span><span class=line><span class=cl>2. System.gc()（不保证执行）
+</span></span><span class=line><span class=cl>3. MetaSpace 空间不足
+</span></span><span class=line><span class=cl>4. Minor GC 前的检查失败
+</span></span></code></pre></div><h2 id=四垃圾收集器>四、垃圾收集器</h2><p>JVM 提供多种垃圾收集器，不同收集器适用于不同场景。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                     垃圾收集器                               │
+</span></span><span class=line><span class=cl>├─────────────────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│                                                              │
+</span></span><span class=line><span class=cl>│  新生代收集器              │        老年代收集器            │
+</span></span><span class=line><span class=cl>│  ┌─────────┐               │        ┌─────────┐              │
+</span></span><span class=line><span class=cl>│  │ Serial  │ ───────────────┼─────── │ Serial  │              │
+</span></span><span class=line><span class=cl>│  └─────────┘               │        └─────────┘              │
+</span></span><span class=line><span class=cl>│  ┌─────────┐               │        ┌─────────┐              │
+</span></span><span class=line><span class=cl>│  │ParNew   │ ───────────────┼─────── │ CMS     │              │
+</span></span><span class=line><span class=cl>│  └─────────┘               │        └─────────┘              │
+</span></span><span class=line><span class=cl>│  ┌─────────┐               │        ┌─────────┐              │
+</span></span><span class=line><span class=cl>│  │Parallel │ ──────────────┼─────── │Parallel │              │
+</span></span><span class=line><span class=cl>│  │Scavenge │               │        │Old      │              │
+</span></span><span class=line><span class=cl>│  └─────────┘               │        └─────────┘              │
+</span></span><span class=line><span class=cl>│                            │        ┌─────────┐              │
+</span></span><span class=line><span class=cl>│                            ├─────── │  ZGC    │              │
+</span></span><span class=line><span class=cl>│                            │        └─────────┘              │
+</span></span><span class=line><span class=cl>│                            │        ┌─────────┐              │
+</span></span><span class=line><span class=cl>│                            ├─────── │ G1      │              │
+</span></span><span class=line><span class=cl>│                            │        └─────────┘              │
+</span></span><span class=line><span class=cl>│                            │        ┌─────────┐              │
+</span></span><span class=line><span class=cl>│                            ├─────── │ Shenandoah │           │
+</span></span><span class=line><span class=cl>└────────────────────────────┴────────┴─────────┘              │
+</span></span></code></pre></div><h3 id=41-serial-收集器>4.1 Serial 收集器</h3><p>最古老、最简单的收集器，单线程执行 GC。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 启用</span>
 </span></span><span class=line><span class=cl>-XX:+UseSerialGC
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 工作模式</span>
@@ -172,43 +172,43 @@
 </span></span><span class=line><span class=cl><span class=c1># 组合</span>
 </span></span><span class=line><span class=cl>新生代：ParNew
 </span></span><span class=line><span class=cl>老年代：CMS
-</span></span></code></pre></div><p><strong>工作过程</strong>：</p><pre tabindex=0><code>1. 初始标记（Initial Mark）
-   └─ Stop The World
-   └─ 标记 GC Roots 直接关联的对象
-   
-2. 并发标记（Concurrent Mark）
-   └─ 与用户线程并发执行
-   └─ 遍历引用链，标记所有存活对象
-   
-3. 重新标记（Remark）
-   └─ Stop The World
-   └─ 修正并发标记期间变动的对象
-   
-4. 并发清除（Concurrent Sweep）
-   └─ 与用户线程并发执行
-   └─ 清除死亡对象
-</code></pre><pre tabindex=0><code>时间轴：
-──┬────────────────┬──────┬────────────────────┬──
-  │  Initial Mark   │      │       Remark        │
-  ▼                 ▼      ▼                     ▼
- STW               STW    STW                    运行
-  │                 │      │                    │
- └─ 并发标记 ───────┘      └─ 并发清除 ──────────┘
-</code></pre><p><strong>优点</strong>：</p><ul><li>并发收集，低停顿</li><li>适合对响应时间有要求的应用</li></ul><p><strong>缺点</strong>：</p><ul><li>CPU 敏感（占用 CPU 资源）</li><li>无法处理浮动垃圾</li><li>产生内存碎片（标记-清除算法）</li></ul><pre tabindex=0><code>CMS 缺点详解：
-
-1. CPU 敏感
-   └─ 并发阶段占用 25% CPU
-   └─ 4 核机器，用户程序只能用 3 核
-
-2. 浮动垃圾
-   └─ 并发标记期间用户线程产生的垃圾
-   └─ 本次无法回收，只能等下次
-
-3. 内存碎片
-   └─ 标记-清除算法，不整理
-   └─ Full GC 时进行碎片整理（Serial Old）
-   └─ 导致长时间停顿
-</code></pre><p><strong>CMS 触发条件</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 老年代空间使用率达到阈值</span>
+</span></span></code></pre></div><p><strong>工作过程</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. 初始标记（Initial Mark）
+</span></span><span class=line><span class=cl>   └─ Stop The World
+</span></span><span class=line><span class=cl>   └─ 标记 GC Roots 直接关联的对象
+</span></span><span class=line><span class=cl>   
+</span></span><span class=line><span class=cl>2. 并发标记（Concurrent Mark）
+</span></span><span class=line><span class=cl>   └─ 与用户线程并发执行
+</span></span><span class=line><span class=cl>   └─ 遍历引用链，标记所有存活对象
+</span></span><span class=line><span class=cl>   
+</span></span><span class=line><span class=cl>3. 重新标记（Remark）
+</span></span><span class=line><span class=cl>   └─ Stop The World
+</span></span><span class=line><span class=cl>   └─ 修正并发标记期间变动的对象
+</span></span><span class=line><span class=cl>   
+</span></span><span class=line><span class=cl>4. 并发清除（Concurrent Sweep）
+</span></span><span class=line><span class=cl>   └─ 与用户线程并发执行
+</span></span><span class=line><span class=cl>   └─ 清除死亡对象
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>时间轴：
+</span></span><span class=line><span class=cl>──┬────────────────┬──────┬────────────────────┬──
+</span></span><span class=line><span class=cl>  │  Initial Mark   │      │       Remark        │
+</span></span><span class=line><span class=cl>  ▼                 ▼      ▼                     ▼
+</span></span><span class=line><span class=cl> STW               STW    STW                    运行
+</span></span><span class=line><span class=cl>  │                 │      │                    │
+</span></span><span class=line><span class=cl> └─ 并发标记 ───────┘      └─ 并发清除 ──────────┘
+</span></span></code></pre></div><p><strong>优点</strong>：</p><ul><li>并发收集，低停顿</li><li>适合对响应时间有要求的应用</li></ul><p><strong>缺点</strong>：</p><ul><li>CPU 敏感（占用 CPU 资源）</li><li>无法处理浮动垃圾</li><li>产生内存碎片（标记-清除算法）</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>CMS 缺点详解：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>1. CPU 敏感
+</span></span><span class=line><span class=cl>   └─ 并发阶段占用 25% CPU
+</span></span><span class=line><span class=cl>   └─ 4 核机器，用户程序只能用 3 核
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>2. 浮动垃圾
+</span></span><span class=line><span class=cl>   └─ 并发标记期间用户线程产生的垃圾
+</span></span><span class=line><span class=cl>   └─ 本次无法回收，只能等下次
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>3. 内存碎片
+</span></span><span class=line><span class=cl>   └─ 标记-清除算法，不整理
+</span></span><span class=line><span class=cl>   └─ Full GC 时进行碎片整理（Serial Old）
+</span></span><span class=line><span class=cl>   └─ 导致长时间停顿
+</span></span></code></pre></div><p><strong>CMS 触发条件</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 老年代空间使用率达到阈值</span>
 </span></span><span class=line><span class=cl>-XX:CMSInitiatingOccupancyFraction<span class=o>=</span>&lt;percent&gt;  <span class=c1># 默认 92%</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 老年代空间不足</span>
@@ -219,85 +219,85 @@
 </span></span><span class=line><span class=cl><span class=c1># 参数配置</span>
 </span></span><span class=line><span class=cl>-XX:MaxGCPauseMillis<span class=o>=</span>&lt;ms&gt;   <span class=c1># 最大停顿时间（目标）</span>
 </span></span><span class=line><span class=cl>-XX:G1HeapRegionSize<span class=o>=</span>&lt;size&gt;  <span class=c1># Region 大小（1MB-32MB，必须是 2 的幂）</span>
-</span></span></code></pre></div><p><strong>Region 划分</strong>：</p><pre tabindex=0><code>┌────────────────────────────────────────────────────────────┐
-│                        堆内存                               │
-│  ┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐ │
-│  │ Eden ││ Eden ││ S0 ││ S1 ││ Old ││ Old ││ H  ││    │ │
-│  └────┘└────┘└────┘└────┘└────┘└────┘└────┘└────┘└────┘ │
-│         新生代              │  老年代  │  │ Humongous│ 空  │
-│           │                │          │  │  (大对象)│     │
-│           └────────────────┴──────────┴──┴──────────┘     │
-└────────────────────────────────────────────────────────────┘
-</code></pre><p><strong>G1 的优势</strong>：</p><table><thead><tr><th>特性</th><th>Serial/ParNew/CMS</th><th>G1</th></tr></thead><tbody><tr><td>内存管理</td><td>新生代/老年代固定</td><td>Region 动态划分</td></tr><tr><td>碎片问题</td><td>有（除 G1 外）</td><td>整理减少碎片</td></tr><tr><td>停顿模型</td><td>整堆停顿</td><td>可预测停顿</td></tr><tr><td>吞吐量</td><td>较低</td><td>较高</td></tr></tbody></table><p><strong>G1 工作过程</strong>：</p><pre tabindex=0><code>1. 初始标记（Initial Mark）
-   └─ Stop The World
-   └─ 标记 GC Roots，直接关联对象
-
-2. 并发标记（Concurrent Mark）
-   └─ 与用户线程并发
-   └─ 遍历引用链
-
-3. 最终标记（Final Mark）
-   └─ Stop The World
-   └─ 处理 SATB 缓冲区
-
-4. 筛选回收（Live Data Counting &amp; Evacuation）
-   └─ Stop The World
-   └─ 按回收价值和成本排序
-   └─ 回收选定 Region
-</code></pre><pre tabindex=0><code>G1 vs CMS 对比：
-
-CMS：
-┌──────────────────────────────────────────┐
-│  初始标记 │ 并发标记 │ 重新标记 │ 并发清除 │
-└──────────────────────────────────────────┘
-      ↑              ↑              ↑
-     STW            STW            并发
-
-G1：
-┌──────────────────────────────────────────────────┐
-│ 初始标记 │ 并发标记 │ 最终标记 │ 筛选回收 │
-└──────────────────────────────────────────────────┘
-     ↑            ↑            ↑        ↑
-    STW          并发         STW      STW
-                              (可预测停顿)
-</code></pre><p><strong>适用场景</strong>：</p><ul><li>堆内存 > 6GB</li><li>需要可控停顿时间</li><li>应用注重响应速度</li></ul><h3 id=48-zgcz-garbage-collector>4.8 ZGC（Z Garbage Collector）</h3><p>JDK 11 引入，JDK 15 成为正式特性。目标：停顿时间 &lt; 1ms，停顿时间不随堆大小增加。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 启用</span>
+</span></span></code></pre></div><p><strong>Region 划分</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                        堆内存                               │
+</span></span><span class=line><span class=cl>│  ┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐┌────┐ │
+</span></span><span class=line><span class=cl>│  │ Eden ││ Eden ││ S0 ││ S1 ││ Old ││ Old ││ H  ││    │ │
+</span></span><span class=line><span class=cl>│  └────┘└────┘└────┘└────┘└────┘└────┘└────┘└────┘└────┘ │
+</span></span><span class=line><span class=cl>│         新生代              │  老年代  │  │ Humongous│ 空  │
+</span></span><span class=line><span class=cl>│           │                │          │  │  (大对象)│     │
+</span></span><span class=line><span class=cl>│           └────────────────┴──────────┴──┴──────────┘     │
+</span></span><span class=line><span class=cl>└────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><p><strong>G1 的优势</strong>：</p><table><thead><tr><th>特性</th><th>Serial/ParNew/CMS</th><th>G1</th></tr></thead><tbody><tr><td>内存管理</td><td>新生代/老年代固定</td><td>Region 动态划分</td></tr><tr><td>碎片问题</td><td>有（除 G1 外）</td><td>整理减少碎片</td></tr><tr><td>停顿模型</td><td>整堆停顿</td><td>可预测停顿</td></tr><tr><td>吞吐量</td><td>较低</td><td>较高</td></tr></tbody></table><p><strong>G1 工作过程</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>1. 初始标记（Initial Mark）
+</span></span><span class=line><span class=cl>   └─ Stop The World
+</span></span><span class=line><span class=cl>   └─ 标记 GC Roots，直接关联对象
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>2. 并发标记（Concurrent Mark）
+</span></span><span class=line><span class=cl>   └─ 与用户线程并发
+</span></span><span class=line><span class=cl>   └─ 遍历引用链
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>3. 最终标记（Final Mark）
+</span></span><span class=line><span class=cl>   └─ Stop The World
+</span></span><span class=line><span class=cl>   └─ 处理 SATB 缓冲区
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>4. 筛选回收（Live Data Counting &amp; Evacuation）
+</span></span><span class=line><span class=cl>   └─ Stop The World
+</span></span><span class=line><span class=cl>   └─ 按回收价值和成本排序
+</span></span><span class=line><span class=cl>   └─ 回收选定 Region
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>G1 vs CMS 对比：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>CMS：
+</span></span><span class=line><span class=cl>┌──────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  初始标记 │ 并发标记 │ 重新标记 │ 并发清除 │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>      ↑              ↑              ↑
+</span></span><span class=line><span class=cl>     STW            STW            并发
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>G1：
+</span></span><span class=line><span class=cl>┌──────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│ 初始标记 │ 并发标记 │ 最终标记 │ 筛选回收 │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>     ↑            ↑            ↑        ↑
+</span></span><span class=line><span class=cl>    STW          并发         STW      STW
+</span></span><span class=line><span class=cl>                              (可预测停顿)
+</span></span></code></pre></div><p><strong>适用场景</strong>：</p><ul><li>堆内存 > 6GB</li><li>需要可控停顿时间</li><li>应用注重响应速度</li></ul><h3 id=48-zgcz-garbage-collector>4.8 ZGC（Z Garbage Collector）</h3><p>JDK 11 引入，JDK 15 成为正式特性。目标：停顿时间 &lt; 1ms，停顿时间不随堆大小增加。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 启用</span>
 </span></span><span class=line><span class=cl>-XX:+UseZGC
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># JDK 21+ 推荐配置</span>
 </span></span><span class=line><span class=cl>-XX:+UseZGC -Xmx16g
-</span></span></code></pre></div><p><strong>核心技术</strong>：</p><ol><li><p><strong>着色指针（Colored Pointers）</strong></p><ul><li>利用 64 位指针的低 4-5 位存储标记信息</li><li>不需要 Stop The World 就能访问对象状态</li></ul></li><li><p><strong>读屏障（Load Barrier）</strong></p><ul><li>读取对象时检查指针状态</li><li>触发时快速处理（几乎无感知）</li></ul></li><li><p><strong>并发处理</strong></p><ul><li>大部分阶段与用户线程并发执行</li><li>只有短暂的初始化和最终标记阶段需要 STW</li></ul></li></ol><p><strong>ZGC vs G1 对比</strong>：</p><table><thead><tr><th>特性</th><th>G1</th><th>ZGC</th></tr></thead><tbody><tr><td>最大停顿</td><td>&lt; 200ms</td><td>&lt; 1ms</td></tr><tr><td>停顿来源</td><td>Root 扫描、Card 扫描</td><td>初始化、最终标记</td></tr><tr><td>内存占用</td><td>高</td><td>中</td></tr><tr><td>吞吐量</td><td>高</td><td>中</td></tr><tr><td>堆大小支持</td><td>数十 GB</td><td>16TB+</td></tr><tr><td>GC 阶段</td><td>4 阶段</td><td>7 阶段（大部分并发）</td></tr></tbody></table><pre tabindex=0><code>ZGC 停顿时间：
-┌────────────────────────────────────────────────────────┐
-│ ZGC                                                      │
-│ ├─ 初始标记   : ~1ms                                     │
-│ ├─ 再标记     : ~1ms                                     │
-│ ├─ 初始转移   : ~1ms                                     │
-│ └─ 再转移     : ~1ms                                     │
-│                                                          │
-│ 全程停顿时间 &lt; 10ms，停顿不随堆大小线性增长                │
-└────────────────────────────────────────────────────────┘
-</code></pre><h3 id=49-shenandoah红岩>4.9 Shenandoah（红岩）</h3><p>Red Hat 开发的低停顿收集器，与 ZGC 类似，但非 Oracle 官方维护。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 启用（JDK 12+）</span>
+</span></span></code></pre></div><p><strong>核心技术</strong>：</p><ol><li><p><strong>着色指针（Colored Pointers）</strong></p><ul><li>利用 64 位指针的低 4-5 位存储标记信息</li><li>不需要 Stop The World 就能访问对象状态</li></ul></li><li><p><strong>读屏障（Load Barrier）</strong></p><ul><li>读取对象时检查指针状态</li><li>触发时快速处理（几乎无感知）</li></ul></li><li><p><strong>并发处理</strong></p><ul><li>大部分阶段与用户线程并发执行</li><li>只有短暂的初始化和最终标记阶段需要 STW</li></ul></li></ol><p><strong>ZGC vs G1 对比</strong>：</p><table><thead><tr><th>特性</th><th>G1</th><th>ZGC</th></tr></thead><tbody><tr><td>最大停顿</td><td>&lt; 200ms</td><td>&lt; 1ms</td></tr><tr><td>停顿来源</td><td>Root 扫描、Card 扫描</td><td>初始化、最终标记</td></tr><tr><td>内存占用</td><td>高</td><td>中</td></tr><tr><td>吞吐量</td><td>高</td><td>中</td></tr><tr><td>堆大小支持</td><td>数十 GB</td><td>16TB+</td></tr><tr><td>GC 阶段</td><td>4 阶段</td><td>7 阶段（大部分并发）</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>ZGC 停顿时间：
+</span></span><span class=line><span class=cl>┌────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│ ZGC                                                      │
+</span></span><span class=line><span class=cl>│ ├─ 初始标记   : ~1ms                                     │
+</span></span><span class=line><span class=cl>│ ├─ 再标记     : ~1ms                                     │
+</span></span><span class=line><span class=cl>│ ├─ 初始转移   : ~1ms                                     │
+</span></span><span class=line><span class=cl>│ └─ 再转移     : ~1ms                                     │
+</span></span><span class=line><span class=cl>│                                                          │
+</span></span><span class=line><span class=cl>│ 全程停顿时间 &lt; 10ms，停顿不随堆大小线性增长                │
+</span></span><span class=line><span class=cl>└────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=49-shenandoah红岩>4.9 Shenandoah（红岩）</h3><p>Red Hat 开发的低停顿收集器，与 ZGC 类似，但非 Oracle 官方维护。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 启用（JDK 12+）</span>
 </span></span><span class=line><span class=cl>-XX:+UseShenandoahGC
-</span></span></code></pre></div><p><strong>与 ZGC 的区别</strong>：</p><ul><li>ZGC 使用着色指针</li><li>Shenandoah 使用转发指针（Brooks Pointer）</li></ul><h3 id=410-收集器选择指南>4.10 收集器选择指南</h3><pre tabindex=0><code>┌────────────────────────────────────────────────────────┐
-│                   收集器选择决策树                       │
-└────────────────────────────────────────────────────────┘
-
-内存 &lt; 100MB？
-  └─ 是 → Serial（简单高效）
-
-需要高吞吐量？
-  └─ 是 → Parallel Scavenge + Parallel Old
-
-对停顿时间敏感？
-  ├─ 堆 &lt; 6GB → CMS
-  ├─ 堆 6-16GB → G1
-  └─ 堆 &gt; 16GB → ZGC / Shenandoah
-
-JDK 11+，追求最低停顿？
-  └─ ZGC
-
-不确定？
-  └─ G1（大多数场景的良好选择）
-</code></pre><h2 id=五jvm-参数配置>五、JVM 参数配置</h2><h3 id=51-常用-gc-参数>5.1 常用 GC 参数</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 通用参数</span>
+</span></span></code></pre></div><p><strong>与 ZGC 的区别</strong>：</p><ul><li>ZGC 使用着色指针</li><li>Shenandoah 使用转发指针（Brooks Pointer）</li></ul><h3 id=410-收集器选择指南>4.10 收集器选择指南</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                   收集器选择决策树                       │
+</span></span><span class=line><span class=cl>└────────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>内存 &lt; 100MB？
+</span></span><span class=line><span class=cl>  └─ 是 → Serial（简单高效）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>需要高吞吐量？
+</span></span><span class=line><span class=cl>  └─ 是 → Parallel Scavenge + Parallel Old
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>对停顿时间敏感？
+</span></span><span class=line><span class=cl>  ├─ 堆 &lt; 6GB → CMS
+</span></span><span class=line><span class=cl>  ├─ 堆 6-16GB → G1
+</span></span><span class=line><span class=cl>  └─ 堆 &gt; 16GB → ZGC / Shenandoah
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>JDK 11+，追求最低停顿？
+</span></span><span class=line><span class=cl>  └─ ZGC
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>不确定？
+</span></span><span class=line><span class=cl>  └─ G1（大多数场景的良好选择）
+</span></span></code></pre></div><h2 id=五jvm-参数配置>五、JVM 参数配置</h2><h3 id=51-常用-gc-参数>5.1 常用 GC 参数</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 通用参数</span>
 </span></span><span class=line><span class=cl>-Xms512m              <span class=c1># 初始堆大小</span>
 </span></span><span class=line><span class=cl>-Xmx2g                <span class=c1># 最大堆大小</span>
 </span></span><span class=line><span class=cl>-Xmn256m              <span class=c1># 新生代大小</span>
@@ -322,10 +322,10 @@ JDK 11+，追求最低停顿？
 </span></span><span class=line><span class=cl>-XX:+UseZGC              <span class=c1># ZGC</span>
 </span></span></code></pre></div><h3 id=52-gc-日志分析>5.2 GC 日志分析</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 示例 GC 日志</span>
 </span></span><span class=line><span class=cl><span class=o>[</span>GC <span class=o>(</span>Allocation Failure<span class=o>)</span> <span class=o>[</span>ParNew: 139776K-&gt;8704K<span class=o>(</span>157248K<span class=o>)</span>, 0.0312345 secs<span class=o>]</span> 258912K-&gt;128840K<span class=o>(</span>506816K<span class=o>)</span>, 0.0315678 secs<span class=o>]</span> <span class=o>[</span>Times: <span class=nv>user</span><span class=o>=</span>0.12 <span class=nv>sys</span><span class=o>=</span>0.02, <span class=nv>real</span><span class=o>=</span>0.03 secs<span class=o>]</span>
-</span></span></code></pre></div><p><strong>日志解读</strong>：</p><pre tabindex=0><code>[GC 类型] [收集器名称: 回收前-&gt;回收后(总大小), 耗时]
-         [堆总使用: 回收前-&gt;回收后(总大小), 总耗时]
-         [CPU 时间: user=用户态 sys=内核态 real=实际]
-</code></pre><h3 id=53-gc-日志可视化工具>5.3 GC 日志可视化工具</h3><table><thead><tr><th>工具</th><th>特点</th></tr></thead><tbody><tr><td><strong>GCViewer</strong></td><td>开源，命令行友好</td></tr><tr><td><strong>GCEasy</strong></td><td>在线工具，无需安装</td></tr><tr><td><strong>GCPlot</strong></td><td>在线，实时分析</td></tr><tr><td><strong>VisualVM</strong></td><td>JDK 自带，图形界面</td></tr></tbody></table><h2 id=六面试高频问题>六、面试高频问题</h2><h3 id=q1minor-gc-和-full-gc-有什么区别>Q1：Minor GC 和 Full GC 有什么区别？</h3><p><strong>答</strong>：</p><ul><li><strong>Minor GC</strong>：发生在新生代，Eden 区满时触发，频率高，停顿时间短</li><li><strong>Full GC</strong>：发生在老年代或整堆，条件更多（老年代满、显式调用等），停顿时间长</li></ul><h3 id=q2对象进入老年代的条件>Q2：对象进入老年代的条件？</h3><p><strong>答</strong>：</p><ol><li><strong>年龄达标</strong>：经历过 N 次 Minor GC（默认 15 次，可配置 <code>-XX:MaxTenuringThreshold</code>）</li><li><strong>大对象</strong>：对象大小超过 <code>-XX:PretenureSizeThreshold</code>（只对 Serial/ParNew 生效）</li><li><strong>动态年龄判断</strong>：Survivor 中相同年龄对象总和 > Survivor 的 50%</li><li><strong>空间担保失败</strong>：Minor GC 前的检查</li></ol><h3 id=q3cms-和-g1-的区别>Q3：CMS 和 G1 的区别？</h3><p><strong>答</strong>：</p><table><thead><tr><th>特性</th><th>CMS</th><th>G1</th></tr></thead><tbody><tr><td>算法</td><td>标记-清除</td><td>标记-整理</td></tr><tr><td>内存管理</td><td>新生代/老年代固定</td><td>Region 动态划分</td></tr><tr><td>停顿模型</td><td>不可预测</td><td>可预测</td></tr><tr><td>碎片问题</td><td>有</td><td>整理减少碎片</td></tr><tr><td>适用堆大小</td><td>&lt; 6GB</td><td>> 6GB</td></tr></tbody></table><h3 id=q4zgc-为什么能做到低停顿>Q4：ZGC 为什么能做到低停顿？</h3><p><strong>答</strong>：</p><ol><li><strong>着色指针</strong>：利用指针位存储 GC 状态，读取时通过读屏障快速处理</li><li><strong>并发执行</strong>：标记、转移等阶段与用户线程并发</li><li><strong>最短停顿</strong>：只保留必要的 STW 阶段（初始化、最终标记）</li><li><strong>不整理</strong>：采用染色整理而非移动对象</li></ol><h3 id=q5如何减少-gc-停顿时间>Q5：如何减少 GC 停顿时间？</h3><p><strong>答</strong>：</p><ol><li><strong>选择合适的收集器</strong>：G1/ZGC 适合大堆</li><li><strong>合理设置停顿目标</strong>：<code>MaxGCPauseMillis</code></li><li><strong>减少对象分配</strong>：对象池、复用、栈上分配</li><li><strong>减少大对象</strong>：避免创建大数组</li><li><strong>优化代码</strong>：避免频繁创建对象</li></ol><h3 id=q6什么情况下会触发-full-gc>Q6：什么情况下会触发 Full GC？</h3><p><strong>答</strong>：</p><ol><li>老年代空间不足</li><li>System.gc()（可被禁用 <code>-XX:+DisableExplicitGC</code>）</li><li>MetaSpace 空间不足</li><li>Minor GC 前的检查失败</li><li>CMS 收集失败（Concurrent Mode Failure）</li><li>RMI 定时触发</li></ol><h2 id=七实战案例>七、实战案例</h2><h3 id=案例-1频繁-full-gc>案例 1：频繁 Full GC</h3><p><strong>现象</strong>：应用响应缓慢，GC 日志显示频繁 Full GC</p><p><strong>排查步骤</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. 查看 GC 日志</span>
+</span></span></code></pre></div><p><strong>日志解读</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>[GC 类型] [收集器名称: 回收前-&gt;回收后(总大小), 耗时]
+</span></span><span class=line><span class=cl>         [堆总使用: 回收前-&gt;回收后(总大小), 总耗时]
+</span></span><span class=line><span class=cl>         [CPU 时间: user=用户态 sys=内核态 real=实际]
+</span></span></code></pre></div><h3 id=53-gc-日志可视化工具>5.3 GC 日志可视化工具</h3><table><thead><tr><th>工具</th><th>特点</th></tr></thead><tbody><tr><td><strong>GCViewer</strong></td><td>开源，命令行友好</td></tr><tr><td><strong>GCEasy</strong></td><td>在线工具，无需安装</td></tr><tr><td><strong>GCPlot</strong></td><td>在线，实时分析</td></tr><tr><td><strong>VisualVM</strong></td><td>JDK 自带，图形界面</td></tr></tbody></table><h2 id=六面试高频问题>六、面试高频问题</h2><h3 id=q1minor-gc-和-full-gc-有什么区别>Q1：Minor GC 和 Full GC 有什么区别？</h3><p><strong>答</strong>：</p><ul><li><strong>Minor GC</strong>：发生在新生代，Eden 区满时触发，频率高，停顿时间短</li><li><strong>Full GC</strong>：发生在老年代或整堆，条件更多（老年代满、显式调用等），停顿时间长</li></ul><h3 id=q2对象进入老年代的条件>Q2：对象进入老年代的条件？</h3><p><strong>答</strong>：</p><ol><li><strong>年龄达标</strong>：经历过 N 次 Minor GC（默认 15 次，可配置 <code>-XX:MaxTenuringThreshold</code>）</li><li><strong>大对象</strong>：对象大小超过 <code>-XX:PretenureSizeThreshold</code>（只对 Serial/ParNew 生效）</li><li><strong>动态年龄判断</strong>：Survivor 中相同年龄对象总和 > Survivor 的 50%</li><li><strong>空间担保失败</strong>：Minor GC 前的检查</li></ol><h3 id=q3cms-和-g1-的区别>Q3：CMS 和 G1 的区别？</h3><p><strong>答</strong>：</p><table><thead><tr><th>特性</th><th>CMS</th><th>G1</th></tr></thead><tbody><tr><td>算法</td><td>标记-清除</td><td>标记-整理</td></tr><tr><td>内存管理</td><td>新生代/老年代固定</td><td>Region 动态划分</td></tr><tr><td>停顿模型</td><td>不可预测</td><td>可预测</td></tr><tr><td>碎片问题</td><td>有</td><td>整理减少碎片</td></tr><tr><td>适用堆大小</td><td>&lt; 6GB</td><td>> 6GB</td></tr></tbody></table><h3 id=q4zgc-为什么能做到低停顿>Q4：ZGC 为什么能做到低停顿？</h3><p><strong>答</strong>：</p><ol><li><strong>着色指针</strong>：利用指针位存储 GC 状态，读取时通过读屏障快速处理</li><li><strong>并发执行</strong>：标记、转移等阶段与用户线程并发</li><li><strong>最短停顿</strong>：只保留必要的 STW 阶段（初始化、最终标记）</li><li><strong>不整理</strong>：采用染色整理而非移动对象</li></ol><h3 id=q5如何减少-gc-停顿时间>Q5：如何减少 GC 停顿时间？</h3><p><strong>答</strong>：</p><ol><li><strong>选择合适的收集器</strong>：G1/ZGC 适合大堆</li><li><strong>合理设置停顿目标</strong>：<code>MaxGCPauseMillis</code></li><li><strong>减少对象分配</strong>：对象池、复用、栈上分配</li><li><strong>减少大对象</strong>：避免创建大数组</li><li><strong>优化代码</strong>：避免频繁创建对象</li></ol><h3 id=q6什么情况下会触发-full-gc>Q6：什么情况下会触发 Full GC？</h3><p><strong>答</strong>：</p><ol><li>老年代空间不足</li><li>System.gc()（可被禁用 <code>-XX:+DisableExplicitGC</code>）</li><li>MetaSpace 空间不足</li><li>Minor GC 前的检查失败</li><li>CMS 收集失败（Concurrent Mode Failure）</li><li>RMI 定时触发</li></ol><h2 id=七实战案例>七、实战案例</h2><h3 id=案例-1频繁-full-gc>案例 1：频繁 Full GC</h3><p><strong>现象</strong>：应用响应缓慢，GC 日志显示频繁 Full GC</p><p><strong>排查步骤</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. 查看 GC 日志</span>
 </span></span><span class=line><span class=cl>-XX:+PrintGCDetails -Xloggc:gc.log
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 2. 使用工具分析</span>

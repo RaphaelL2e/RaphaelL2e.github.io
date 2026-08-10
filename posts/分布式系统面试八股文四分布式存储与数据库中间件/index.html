@@ -10,28 +10,28 @@
 <span>/</span><a href=/series/distributed-systems-interview/>分布式系统面试</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>分布式系统面试八股文（四）——分布式存储与数据库中间件</h1><p class=article-description>🎯 本文目标：承接前三篇的理论/共识/事务，深入剖析分布式存储层的工程实践——分库分表策略与ShardingSphere实战、读写分离架构、NewSQL分布式数据库（TiDB/OceanBase）、分布式缓存集群、分布式ID生成方案、数据迁移与平滑扩容策略，构建分布式存储的完整知识体系。 Q1: 什。</p><div class=article-meta><span>发布于 <time datetime=2026-06-28>2026-06-28</time></span>
 <span>最后验证 2026-06</span>
 <span>11 分钟阅读</span>
-<span>2294 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一分库分表从问题到方案>一、分库分表：从问题到方案</a><ul><li><a href=#11-为什么需要分库分表>1.1 为什么需要分库分表？</a></li><li><a href=#12-垂直拆分-vs-水平拆分>1.2 垂直拆分 vs 水平拆分</a></li><li><a href=#13-水平分片策略>1.3 水平分片策略</a></li><li><a href=#14-分库分表的分布式问题>1.4 分库分表的分布式问题</a></li></ul></li><li><a href=#二shardingsphere实战>二、ShardingSphere实战</a><ul><li><a href=#21-架构概览>2.1 架构概览</a></li><li><a href=#22-分片配置实战>2.2 分片配置实战</a></li><li><a href=#23-读写分离>2.3 读写分离</a></li></ul></li><li><a href=#三分布式数据库newsql>三、分布式数据库：NewSQL</a><ul><li><a href=#31-tidb>3.1 TiDB</a></li><li><a href=#32-oceanbase>3.2 OceanBase</a></li></ul></li><li><a href=#四分布式缓存架构>四、分布式缓存架构</a><ul><li><a href=#41-redis集群架构>4.1 Redis集群架构</a></li><li><a href=#42-多级缓存架构>4.2 多级缓存架构</a></li><li><a href=#43-缓存一致性策略>4.3 缓存一致性策略</a></li></ul></li><li><a href=#五分布式id生成方案>五、分布式ID生成方案</a><ul><li><a href=#51-方案全景对比>5.1 方案全景对比</a></li><li><a href=#52-雪花算法精讲>5.2 雪花算法精讲</a></li><li><a href=#53-美团leaf方案>5.3 美团Leaf方案</a></li></ul></li><li><a href=#六数据迁移与平滑扩容>六、数据迁移与平滑扩容</a><ul><li><a href=#61-停机迁移-vs-平滑迁移>6.1 停机迁移 vs 平滑迁移</a></li><li><a href=#62-扩容策略>6.2 扩容策略</a></li></ul></li><li><a href=#七面试高频问题速览>七、面试高频问题速览</a></li><li><a href=#八总结>八、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接前三篇的理论/共识/事务，深入剖析分布式存储层的工程实践——分库分表策略与ShardingSphere实战、读写分离架构、NewSQL分布式数据库（TiDB/OceanBase）、分布式缓存集群、分布式ID生成方案、数据迁移与平滑扩容策略，构建分布式存储的完整知识体系。</p></blockquote><hr><h2 id=一分库分表从问题到方案>一、分库分表：从问题到方案</h2><h3 id=11-为什么需要分库分表>1.1 为什么需要分库分表？</h3><p><strong>Q1: 什么情况下需要分库分表？有没有阈值？</strong></p><pre tabindex=0><code>单表数据量与性能的对应关系：
-
-&lt; 500万行      → 索引优化即可，无需分表
-500万 ~ 2000万 → 考虑分区表、垂直拆分
-2000万 ~ 5000万 → 水平分表，配合读写分离
-&gt; 5000万行     → 必须分库分表 + 中间件
-</code></pre><p><strong>判断依据（不只看数据量）：</strong></p><table><thead><tr><th>指标</th><th>阈值</th><th>说明</th></tr></thead><tbody><tr><td>单表行数</td><td>>2000万</td><td>B+树层级增加，IO次数增多</td></tr><tr><td>单表数据量</td><td>>5GB</td><td>备份/DDL耗时过长</td></tr><tr><td>QPS</td><td>>1000</td><td>单库连接数不足</td></tr><tr><td>写入瓶颈</td><td>磁盘IO >70%</td><td>写入成为瓶颈</td></tr><tr><td>业务耦合</td><td>非核心表影响核心业务</td><td>垂直拆分隔离</td></tr></tbody></table><h3 id=12-垂直拆分-vs-水平拆分>1.2 垂直拆分 vs 水平拆分</h3><p><strong>Q2: 垂直拆分和水平拆分的区别？分别解决什么问题？</strong></p><pre tabindex=0><code class=language-mermaid data-lang=mermaid>graph LR
-    subgraph 原来
-        DB[(单库)]
-    end
-    
-    subgraph 垂直拆分
-        ODB[(订单库)]
-        UDB[(用户库)]
-        PDB[(商品库)]
-    end
-    
-    subgraph 水平拆分
-        DB0[(订单库0&lt;br/&gt;uid%2=0)]
-        DB1[(订单库1&lt;br/&gt;uid%2=1)]
-    end
-</code></pre><table><thead><tr><th>维度</th><th>垂直拆分</th><th>水平拆分</th></tr></thead><tbody><tr><td><strong>拆分依据</strong></td><td>按业务模块（订单、用户、商品）</td><td>按数据行（uid hash）</td></tr><tr><td><strong>解决问题</strong></td><td>业务耦合、连接数</td><td>单表数据量过大</td></tr><tr><td><strong>实现难度</strong></td><td>低（改数据源即可）</td><td>高（路由、聚合、事务）</td></tr><tr><td><strong>扩展性</strong></td><td>差（一个业务一个库）</td><td>好（按需加库）</td></tr><tr><td><strong>跨库JOIN</strong></td><td>少（业务内聚）</td><td>多（需要中间件处理）</td></tr><tr><td><strong>典型场景</strong></td><td>电商：订单/用户/商品独立库</td><td>订单表按用户ID分256个库</td></tr></tbody></table><h3 id=13-水平分片策略>1.3 水平分片策略</h3><p><strong>Q3: 常见的分片键选择策略有哪些？各有什么优劣？</strong></p><h4 id=策略一取模mod>策略一：取模（Mod）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 分4个库
+<span>2294 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一分库分表从问题到方案>一、分库分表：从问题到方案</a><ul><li><a href=#11-为什么需要分库分表>1.1 为什么需要分库分表？</a></li><li><a href=#12-垂直拆分-vs-水平拆分>1.2 垂直拆分 vs 水平拆分</a></li><li><a href=#13-水平分片策略>1.3 水平分片策略</a></li><li><a href=#14-分库分表的分布式问题>1.4 分库分表的分布式问题</a></li></ul></li><li><a href=#二shardingsphere实战>二、ShardingSphere实战</a><ul><li><a href=#21-架构概览>2.1 架构概览</a></li><li><a href=#22-分片配置实战>2.2 分片配置实战</a></li><li><a href=#23-读写分离>2.3 读写分离</a></li></ul></li><li><a href=#三分布式数据库newsql>三、分布式数据库：NewSQL</a><ul><li><a href=#31-tidb>3.1 TiDB</a></li><li><a href=#32-oceanbase>3.2 OceanBase</a></li></ul></li><li><a href=#四分布式缓存架构>四、分布式缓存架构</a><ul><li><a href=#41-redis集群架构>4.1 Redis集群架构</a></li><li><a href=#42-多级缓存架构>4.2 多级缓存架构</a></li><li><a href=#43-缓存一致性策略>4.3 缓存一致性策略</a></li></ul></li><li><a href=#五分布式id生成方案>五、分布式ID生成方案</a><ul><li><a href=#51-方案全景对比>5.1 方案全景对比</a></li><li><a href=#52-雪花算法精讲>5.2 雪花算法精讲</a></li><li><a href=#53-美团leaf方案>5.3 美团Leaf方案</a></li></ul></li><li><a href=#六数据迁移与平滑扩容>六、数据迁移与平滑扩容</a><ul><li><a href=#61-停机迁移-vs-平滑迁移>6.1 停机迁移 vs 平滑迁移</a></li><li><a href=#62-扩容策略>6.2 扩容策略</a></li></ul></li><li><a href=#七面试高频问题速览>七、面试高频问题速览</a></li><li><a href=#八总结>八、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接前三篇的理论/共识/事务，深入剖析分布式存储层的工程实践——分库分表策略与ShardingSphere实战、读写分离架构、NewSQL分布式数据库（TiDB/OceanBase）、分布式缓存集群、分布式ID生成方案、数据迁移与平滑扩容策略，构建分布式存储的完整知识体系。</p></blockquote><hr><h2 id=一分库分表从问题到方案>一、分库分表：从问题到方案</h2><h3 id=11-为什么需要分库分表>1.1 为什么需要分库分表？</h3><p><strong>Q1: 什么情况下需要分库分表？有没有阈值？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>单表数据量与性能的对应关系：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>&lt; 500万行      → 索引优化即可，无需分表
+</span></span><span class=line><span class=cl>500万 ~ 2000万 → 考虑分区表、垂直拆分
+</span></span><span class=line><span class=cl>2000万 ~ 5000万 → 水平分表，配合读写分离
+</span></span><span class=line><span class=cl>&gt; 5000万行     → 必须分库分表 + 中间件
+</span></span></code></pre></div><p><strong>判断依据（不只看数据量）：</strong></p><table><thead><tr><th>指标</th><th>阈值</th><th>说明</th></tr></thead><tbody><tr><td>单表行数</td><td>>2000万</td><td>B+树层级增加，IO次数增多</td></tr><tr><td>单表数据量</td><td>>5GB</td><td>备份/DDL耗时过长</td></tr><tr><td>QPS</td><td>>1000</td><td>单库连接数不足</td></tr><tr><td>写入瓶颈</td><td>磁盘IO >70%</td><td>写入成为瓶颈</td></tr><tr><td>业务耦合</td><td>非核心表影响核心业务</td><td>垂直拆分隔离</td></tr></tbody></table><h3 id=12-垂直拆分-vs-水平拆分>1.2 垂直拆分 vs 水平拆分</h3><p><strong>Q2: 垂直拆分和水平拆分的区别？分别解决什么问题？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>graph LR
+</span></span><span class=line><span class=cl>    subgraph 原来
+</span></span><span class=line><span class=cl>        DB[(单库)]
+</span></span><span class=line><span class=cl>    end
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    subgraph 垂直拆分
+</span></span><span class=line><span class=cl>        ODB[(订单库)]
+</span></span><span class=line><span class=cl>        UDB[(用户库)]
+</span></span><span class=line><span class=cl>        PDB[(商品库)]
+</span></span><span class=line><span class=cl>    end
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    subgraph 水平拆分
+</span></span><span class=line><span class=cl>        DB0[(订单库0&lt;br/&gt;uid%2=0)]
+</span></span><span class=line><span class=cl>        DB1[(订单库1&lt;br/&gt;uid%2=1)]
+</span></span><span class=line><span class=cl>    end
+</span></span></code></pre></div><table><thead><tr><th>维度</th><th>垂直拆分</th><th>水平拆分</th></tr></thead><tbody><tr><td><strong>拆分依据</strong></td><td>按业务模块（订单、用户、商品）</td><td>按数据行（uid hash）</td></tr><tr><td><strong>解决问题</strong></td><td>业务耦合、连接数</td><td>单表数据量过大</td></tr><tr><td><strong>实现难度</strong></td><td>低（改数据源即可）</td><td>高（路由、聚合、事务）</td></tr><tr><td><strong>扩展性</strong></td><td>差（一个业务一个库）</td><td>好（按需加库）</td></tr><tr><td><strong>跨库JOIN</strong></td><td>少（业务内聚）</td><td>多（需要中间件处理）</td></tr><tr><td><strong>典型场景</strong></td><td>电商：订单/用户/商品独立库</td><td>订单表按用户ID分256个库</td></tr></tbody></table><h3 id=13-水平分片策略>1.3 水平分片策略</h3><p><strong>Q3: 常见的分片键选择策略有哪些？各有什么优劣？</strong></p><h4 id=策略一取模mod>策略一：取模（Mod）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 分4个库
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=err>库编号</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>user_id</span><span class=w> </span><span class=o>%</span><span class=w> </span><span class=mi>4</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=err>表编号</span><span class=w> </span><span class=o>=</span><span class=w> </span><span class=n>user_id</span><span class=w> </span><span class=o>%</span><span class=w> </span><span class=mi>16</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>
@@ -105,33 +105,33 @@
 </span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>return</span> <span class=s>&#34;ds_&#34;</span> <span class=o>+</span> <span class=o>(</span><span class=n>uidGene</span> <span class=o>%</span> <span class=n>shardCount</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=14-分库分表的分布式问题>1.4 分库分表的分布式问题</h3><p><strong>Q4: 分库分表后引入了哪些新问题？</strong></p><table><thead><tr><th>问题</th><th>描述</th><th>解决方案</th></tr></thead><tbody><tr><td><strong>全局唯一ID</strong></td><td>自增ID冲突</td><td>雪花算法、美团的Leaf</td></tr><tr><td><strong>跨库JOIN</strong></td><td>无法直接JOIN</td><td>字段冗余、应用层聚合、ER分片</td></tr><tr><td><strong>跨库事务</strong></td><td>分布式事务</td><td>Seata、柔性事务</td></tr><tr><td><strong>跨库分页</strong></td><td>ORDER BY + LIMIT</td><td>全局排序/流式归并</td></tr><tr><td><strong>扩容迁移</strong></td><td>数据再分布</td><td>双写+灰度+数据迁移</td></tr><tr><td><strong>数据聚合</strong></td><td>COUNT/SUM/AVG</td><td>各分片计算后汇总</td></tr><tr><td><strong>全局表</strong></td><td>每个库都需要的小表</td><td>广播表（如字典表）</td></tr></tbody></table><hr><h2 id=二shardingsphere实战>二、ShardingSphere实战</h2><h3 id=21-架构概览>2.1 架构概览</h3><p><strong>Q5: ShardingSphere的架构是什么样的？JDBC和Proxy模式怎么选？</strong></p><pre tabindex=0><code>ShardingSphere-JDBC:
-┌──────────────────────────────────┐
-│  Application                     │
-│  ┌────────────────────────────┐  │
-│  │ ShardingSphere-JDBC (JAR) │  │
-│  │ ┌──────────┐ ┌──────────┐ │  │
-│  │ │ 分片引擎  │ │ 治理中心  │ │  │
-│  │ └──────────┘ └──────────┘ │  │
-│  └────────────────────────────┘  │
-│         │    │    │              │
-│      ┌──┘    │    └──┐           │
-│      ▼       ▼       ▼           │
-│   MySQL   MySQL   MySQL          │
-└──────────────────────────────────┘
-
-ShardingSphere-Proxy:
-┌──────────────────────────────────┐
-│  Application → MySQL协议          │
-│         │                        │
-│         ▼                        │
-│  ShardingSphere-Proxy (独立进程)  │
-│         │    │    │              │
-│      ┌──┘    │    └──┐           │
-│      ▼       ▼       ▼           │
-│   MySQL   MySQL   MySQL          │
-└──────────────────────────────────┘
-</code></pre><table><thead><tr><th>维度</th><th>JDBC</th><th>Proxy</th></tr></thead><tbody><tr><td><strong>部署</strong></td><td>JAR包嵌入应用</td><td>独立进程</td></tr><tr><td><strong>性能</strong></td><td>高（无网络跳转）</td><td>中（多一跳）</td></tr><tr><td><strong>语言</strong></td><td>仅Java</td><td>任何MySQL客户端</td></tr><tr><td><strong>运维</strong></td><td>随应用升级</td><td>独立运维</td></tr><tr><td><strong>适用</strong></td><td>Java单体/微服务</td><td>多语言、DB中间件统一管理</td></tr></tbody></table><h3 id=22-分片配置实战>2.2 分片配置实战</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># sharding-config.yml</span><span class=w>
+</span></span></code></pre></div><h3 id=14-分库分表的分布式问题>1.4 分库分表的分布式问题</h3><p><strong>Q4: 分库分表后引入了哪些新问题？</strong></p><table><thead><tr><th>问题</th><th>描述</th><th>解决方案</th></tr></thead><tbody><tr><td><strong>全局唯一ID</strong></td><td>自增ID冲突</td><td>雪花算法、美团的Leaf</td></tr><tr><td><strong>跨库JOIN</strong></td><td>无法直接JOIN</td><td>字段冗余、应用层聚合、ER分片</td></tr><tr><td><strong>跨库事务</strong></td><td>分布式事务</td><td>Seata、柔性事务</td></tr><tr><td><strong>跨库分页</strong></td><td>ORDER BY + LIMIT</td><td>全局排序/流式归并</td></tr><tr><td><strong>扩容迁移</strong></td><td>数据再分布</td><td>双写+灰度+数据迁移</td></tr><tr><td><strong>数据聚合</strong></td><td>COUNT/SUM/AVG</td><td>各分片计算后汇总</td></tr><tr><td><strong>全局表</strong></td><td>每个库都需要的小表</td><td>广播表（如字典表）</td></tr></tbody></table><hr><h2 id=二shardingsphere实战>二、ShardingSphere实战</h2><h3 id=21-架构概览>2.1 架构概览</h3><p><strong>Q5: ShardingSphere的架构是什么样的？JDBC和Proxy模式怎么选？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>ShardingSphere-JDBC:
+</span></span><span class=line><span class=cl>┌──────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  Application                     │
+</span></span><span class=line><span class=cl>│  ┌────────────────────────────┐  │
+</span></span><span class=line><span class=cl>│  │ ShardingSphere-JDBC (JAR) │  │
+</span></span><span class=line><span class=cl>│  │ ┌──────────┐ ┌──────────┐ │  │
+</span></span><span class=line><span class=cl>│  │ │ 分片引擎  │ │ 治理中心  │ │  │
+</span></span><span class=line><span class=cl>│  │ └──────────┘ └──────────┘ │  │
+</span></span><span class=line><span class=cl>│  └────────────────────────────┘  │
+</span></span><span class=line><span class=cl>│         │    │    │              │
+</span></span><span class=line><span class=cl>│      ┌──┘    │    └──┐           │
+</span></span><span class=line><span class=cl>│      ▼       ▼       ▼           │
+</span></span><span class=line><span class=cl>│   MySQL   MySQL   MySQL          │
+</span></span><span class=line><span class=cl>└──────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>ShardingSphere-Proxy:
+</span></span><span class=line><span class=cl>┌──────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  Application → MySQL协议          │
+</span></span><span class=line><span class=cl>│         │                        │
+</span></span><span class=line><span class=cl>│         ▼                        │
+</span></span><span class=line><span class=cl>│  ShardingSphere-Proxy (独立进程)  │
+</span></span><span class=line><span class=cl>│         │    │    │              │
+</span></span><span class=line><span class=cl>│      ┌──┘    │    └──┐           │
+</span></span><span class=line><span class=cl>│      ▼       ▼       ▼           │
+</span></span><span class=line><span class=cl>│   MySQL   MySQL   MySQL          │
+</span></span><span class=line><span class=cl>└──────────────────────────────────┘
+</span></span></code></pre></div><table><thead><tr><th>维度</th><th>JDBC</th><th>Proxy</th></tr></thead><tbody><tr><td><strong>部署</strong></td><td>JAR包嵌入应用</td><td>独立进程</td></tr><tr><td><strong>性能</strong></td><td>高（无网络跳转）</td><td>中（多一跳）</td></tr><tr><td><strong>语言</strong></td><td>仅Java</td><td>任何MySQL客户端</td></tr><tr><td><strong>运维</strong></td><td>随应用升级</td><td>独立运维</td></tr><tr><td><strong>适用</strong></td><td>Java单体/微服务</td><td>多语言、DB中间件统一管理</td></tr></tbody></table><h3 id=22-分片配置实战>2.2 分片配置实战</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># sharding-config.yml</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>dataSources</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ds0</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>url</span><span class=p>:</span><span class=w> </span><span class=l>jdbc:mysql://localhost:3306/demo_ds_0</span><span class=w>
@@ -204,28 +204,28 @@ ShardingSphere-Proxy:
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>loadBalancers</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>round_robin</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>type</span><span class=p>:</span><span class=w> </span><span class=l>ROUND_ROBIN</span><span class=w>
-</span></span></span></code></pre></div><h3 id=23-读写分离>2.3 读写分离</h3><p><strong>Q6: 读写分离如何实现？主从延迟怎么处理？</strong></p><pre tabindex=0><code>                 ┌──────────────┐
-                 │   Application │
-                 └───────┬──────┘
-                         │
-                         ▼
-              ┌─────────────────────┐
-              │  ShardingSphere      │
-              │                     │
-              │  Write → Master     │
-              │  Read  → Slave      │
-              └──────┬──────────────┘
-                     │
-         ┌───────────┼───────────┐
-         │           │           │
-         ▼           ▼           ▼
-    ┌────────┐ ┌────────┐ ┌────────┐
-    │ Master │ │ Slave1 │ │ Slave2 │
-    │ (写)    │→│ (读)    │ │ (读)    │
-    └────────┘ └────────┘ └────────┘
-         │    binlog复制  │
-         └───────────────┘
-</code></pre><p><strong>解决主从延迟的三种策略：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 策略1：强制走主库（关键业务）
+</span></span></span></code></pre></div><h3 id=23-读写分离>2.3 读写分离</h3><p><strong>Q6: 读写分离如何实现？主从延迟怎么处理？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                 ┌──────────────┐
+</span></span><span class=line><span class=cl>                 │   Application │
+</span></span><span class=line><span class=cl>                 └───────┬──────┘
+</span></span><span class=line><span class=cl>                         │
+</span></span><span class=line><span class=cl>                         ▼
+</span></span><span class=line><span class=cl>              ┌─────────────────────┐
+</span></span><span class=line><span class=cl>              │  ShardingSphere      │
+</span></span><span class=line><span class=cl>              │                     │
+</span></span><span class=line><span class=cl>              │  Write → Master     │
+</span></span><span class=line><span class=cl>              │  Read  → Slave      │
+</span></span><span class=line><span class=cl>              └──────┬──────────────┘
+</span></span><span class=line><span class=cl>                     │
+</span></span><span class=line><span class=cl>         ┌───────────┼───────────┐
+</span></span><span class=line><span class=cl>         │           │           │
+</span></span><span class=line><span class=cl>         ▼           ▼           ▼
+</span></span><span class=line><span class=cl>    ┌────────┐ ┌────────┐ ┌────────┐
+</span></span><span class=line><span class=cl>    │ Master │ │ Slave1 │ │ Slave2 │
+</span></span><span class=line><span class=cl>    │ (写)    │→│ (读)    │ │ (读)    │
+</span></span><span class=line><span class=cl>    └────────┘ └────────┘ └────────┘
+</span></span><span class=line><span class=cl>         │    binlog复制  │
+</span></span><span class=line><span class=cl>         └───────────────┘
+</span></span></code></pre></div><p><strong>解决主从延迟的三种策略：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 策略1：强制走主库（关键业务）
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Configuration</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>ReadWriteConfig</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
@@ -275,32 +275,32 @@ ShardingSphere-Proxy:
 </span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>order</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><hr><h2 id=三分布式数据库newsql>三、分布式数据库：NewSQL</h2><h3 id=31-tidb>3.1 TiDB</h3><p><strong>Q7: TiDB的架构是什么样的？和MySQL有什么区别？</strong></p><pre tabindex=0><code>TiDB 架构：
-┌─────────────────────────────────────────────┐
-│               TiDB (SQL层，无状态)               │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐      │
-│  │ TiDB-1  │  │ TiDB-2  │  │ TiDB-3  │      │
-│  └────┬────┘  └────┬────┘  └────┬────┘      │
-│       │            │            │            │
-│       └────────────┼────────────┘            │
-│                    │                         │
-│  ┌─────────────────┼─────────────────┐      │
-│  │           PD (调度层)               │      │
-│  │   ┌──────┐  ┌──────┐  ┌──────┐    │      │
-│  │   │ PD-1 │  │ PD-2 │  │ PD-3 │    │      │
-│  │   └──────┘  └──────┘  └──────┘    │      │
-│  └─────────────────┼─────────────────┘      │
-│                    │                         │
-│  ┌─────────────────┼─────────────────┐      │
-│  │          TiKV (存储层)              │      │
-│  │  ┌────────┐  ┌────────┐  ┌──────┐ │      │
-│  │  │ TiKV-1 │  │ TiKV-2 │  │TiKV-3│ │      │
-│  │  │Region-A│  │Region-B│  │Reg-C │ │      │
-│  │  └────────┘  └────────┘  └──────┘ │      │
-│  │      Raft复制 (3副本)               │      │
-│  └────────────────────────────────────┘      │
-└─────────────────────────────────────────────┘
-</code></pre><table><thead><tr><th>维度</th><th>MySQL</th><th>TiDB</th></tr></thead><tbody><tr><td><strong>扩展性</strong></td><td>垂直扩展为主</td><td>水平弹性扩展</td></tr><tr><td><strong>分布式事务</strong></td><td>XA（性能差）</td><td>原生分布式事务（Percolator模型）</td></tr><tr><td><strong>高可用</strong></td><td>主从 + MHA/Orchestrator</td><td>原生Raft，自动故障转移</td></tr><tr><td><strong>SQL兼容</strong></td><td>100%原生</td><td>~95% MySQL兼容</td></tr><tr><td><strong>HTAP</strong></td><td>不支持</td><td>TiFlash列存引擎</td></tr><tr><td><strong>运维</strong></td><td>需要分库分表中间件</td><td>开箱即用</td></tr><tr><td><strong>适用</strong></td><td>传统业务、单机足够</td><td>海量数据、弹性伸缩</td></tr></tbody></table><p><strong>TiDB核心特性：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 1. 自动分片，对应用透明
+</span></span></code></pre></div><hr><h2 id=三分布式数据库newsql>三、分布式数据库：NewSQL</h2><h3 id=31-tidb>3.1 TiDB</h3><p><strong>Q7: TiDB的架构是什么样的？和MySQL有什么区别？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>TiDB 架构：
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│               TiDB (SQL层，无状态)               │
+</span></span><span class=line><span class=cl>│  ┌─────────┐  ┌─────────┐  ┌─────────┐      │
+</span></span><span class=line><span class=cl>│  │ TiDB-1  │  │ TiDB-2  │  │ TiDB-3  │      │
+</span></span><span class=line><span class=cl>│  └────┬────┘  └────┬────┘  └────┬────┘      │
+</span></span><span class=line><span class=cl>│       │            │            │            │
+</span></span><span class=line><span class=cl>│       └────────────┼────────────┘            │
+</span></span><span class=line><span class=cl>│                    │                         │
+</span></span><span class=line><span class=cl>│  ┌─────────────────┼─────────────────┐      │
+</span></span><span class=line><span class=cl>│  │           PD (调度层)               │      │
+</span></span><span class=line><span class=cl>│  │   ┌──────┐  ┌──────┐  ┌──────┐    │      │
+</span></span><span class=line><span class=cl>│  │   │ PD-1 │  │ PD-2 │  │ PD-3 │    │      │
+</span></span><span class=line><span class=cl>│  │   └──────┘  └──────┘  └──────┘    │      │
+</span></span><span class=line><span class=cl>│  └─────────────────┼─────────────────┘      │
+</span></span><span class=line><span class=cl>│                    │                         │
+</span></span><span class=line><span class=cl>│  ┌─────────────────┼─────────────────┐      │
+</span></span><span class=line><span class=cl>│  │          TiKV (存储层)              │      │
+</span></span><span class=line><span class=cl>│  │  ┌────────┐  ┌────────┐  ┌──────┐ │      │
+</span></span><span class=line><span class=cl>│  │  │ TiKV-1 │  │ TiKV-2 │  │TiKV-3│ │      │
+</span></span><span class=line><span class=cl>│  │  │Region-A│  │Region-B│  │Reg-C │ │      │
+</span></span><span class=line><span class=cl>│  │  └────────┘  └────────┘  └──────┘ │      │
+</span></span><span class=line><span class=cl>│  │      Raft复制 (3副本)               │      │
+</span></span><span class=line><span class=cl>│  └────────────────────────────────────┘      │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────┘
+</span></span></code></pre></div><table><thead><tr><th>维度</th><th>MySQL</th><th>TiDB</th></tr></thead><tbody><tr><td><strong>扩展性</strong></td><td>垂直扩展为主</td><td>水平弹性扩展</td></tr><tr><td><strong>分布式事务</strong></td><td>XA（性能差）</td><td>原生分布式事务（Percolator模型）</td></tr><tr><td><strong>高可用</strong></td><td>主从 + MHA/Orchestrator</td><td>原生Raft，自动故障转移</td></tr><tr><td><strong>SQL兼容</strong></td><td>100%原生</td><td>~95% MySQL兼容</td></tr><tr><td><strong>HTAP</strong></td><td>不支持</td><td>TiFlash列存引擎</td></tr><tr><td><strong>运维</strong></td><td>需要分库分表中间件</td><td>开箱即用</td></tr><tr><td><strong>适用</strong></td><td>传统业务、单机足够</td><td>海量数据、弹性伸缩</td></tr></tbody></table><p><strong>TiDB核心特性：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=c1>-- 1. 自动分片，对应用透明
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>CREATE</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=n>orders</span><span class=w> </span><span class=p>(</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>id</span><span class=w> </span><span class=nb>BIGINT</span><span class=w> </span><span class=k>PRIMARY</span><span class=w> </span><span class=k>KEY</span><span class=p>,</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>user_id</span><span class=w> </span><span class=nb>BIGINT</span><span class=p>,</span><span class=w>
@@ -319,13 +319,13 @@ ShardingSphere-Proxy:
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- 4. TiFlash：实时HTAP
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>ALTER</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=n>orders</span><span class=w> </span><span class=k>SET</span><span class=w> </span><span class=n>TIFLASH</span><span class=w> </span><span class=n>REPLICA</span><span class=w> </span><span class=mi>1</span><span class=p>;</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=c1>-- OLTP查询走TiKV，OLAP查询走TiFlash，自动路由
-</span></span></span></code></pre></div><h3 id=32-oceanbase>3.2 OceanBase</h3><p><strong>Q8: OceanBase的核心特点是什么？</strong></p><p>OceanBase是蚂蚁集团自研的原生分布式数据库，特点：</p><table><thead><tr><th>特性</th><th>说明</th></tr></thead><tbody><tr><td><strong>准内存数据库</strong></td><td>增量数据在内存，基线数据在SSD</td></tr><tr><td><strong>多租户</strong></td><td>原生多租户隔离（数据库级别）</td></tr><tr><td><strong>高压缩比</strong></td><td>行列混合存储 + 自适应压缩</td></tr><tr><td><strong>Oracle兼容</strong></td><td>高度兼容Oracle语法和PL/SQL</td></tr><tr><td><strong>两地三中心</strong></td><td>原生支持同城双活+异地灾备</td></tr><tr><td><strong>Paxos</strong></td><td>基于Multi-Paxos的一致性协议</td></tr></tbody></table><hr><h2 id=四分布式缓存架构>四、分布式缓存架构</h2><h3 id=41-redis集群架构>4.1 Redis集群架构</h3><p><strong>Q9: Redis集群模式有哪些？如何选型？</strong></p><pre tabindex=0><code>Redis集群演进：
-
-主从复制 → 哨兵模式 → Redis Cluster → Proxy模式（Codis/Twemproxy）
-  │           │            │                │
- 读写分离   自动故障转移   去中心化         中心化代理
- 手动切换   不能扩容       数据分片         运维简单
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Spring Boot配置Redis Cluster
+</span></span></span></code></pre></div><h3 id=32-oceanbase>3.2 OceanBase</h3><p><strong>Q8: OceanBase的核心特点是什么？</strong></p><p>OceanBase是蚂蚁集团自研的原生分布式数据库，特点：</p><table><thead><tr><th>特性</th><th>说明</th></tr></thead><tbody><tr><td><strong>准内存数据库</strong></td><td>增量数据在内存，基线数据在SSD</td></tr><tr><td><strong>多租户</strong></td><td>原生多租户隔离（数据库级别）</td></tr><tr><td><strong>高压缩比</strong></td><td>行列混合存储 + 自适应压缩</td></tr><tr><td><strong>Oracle兼容</strong></td><td>高度兼容Oracle语法和PL/SQL</td></tr><tr><td><strong>两地三中心</strong></td><td>原生支持同城双活+异地灾备</td></tr><tr><td><strong>Paxos</strong></td><td>基于Multi-Paxos的一致性协议</td></tr></tbody></table><hr><h2 id=四分布式缓存架构>四、分布式缓存架构</h2><h3 id=41-redis集群架构>4.1 Redis集群架构</h3><p><strong>Q9: Redis集群模式有哪些？如何选型？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Redis集群演进：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>主从复制 → 哨兵模式 → Redis Cluster → Proxy模式（Codis/Twemproxy）
+</span></span><span class=line><span class=cl>  │           │            │                │
+</span></span><span class=line><span class=cl> 读写分离   自动故障转移   去中心化         中心化代理
+</span></span><span class=line><span class=cl> 手动切换   不能扩容       数据分片         运维简单
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Spring Boot配置Redis Cluster
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Configuration</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>RedisClusterConfig</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
@@ -351,29 +351,29 @@ ShardingSphere-Proxy:
 </span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=k>new</span> <span class=n>LettuceConnectionFactory</span><span class=o>(</span><span class=n>clusterConfig</span><span class=o>,</span> <span class=n>clientConfig</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=42-多级缓存架构>4.2 多级缓存架构</h3><p><strong>Q10: 如何设计多级缓存架构？</strong></p><pre tabindex=0><code>┌──────────────────────────────────────────────────┐
-│              多级缓存架构                          │
-├──────────────────────────────────────────────────┤
-│                                                  │
-│  浏览器/客户端                                     │
-│      │ Http Cache-Control, ETag                  │
-│      ▼                                           │
-│  CDN（边缘缓存）                                   │
-│      │ 静态资源、热点内容                           │
-│      ▼                                           │
-│  本地缓存（Caffeine/Guava）                        │
-│      │ 进程内、纳秒级、JVM内存限制                   │
-│      ▼                                           │
-│  分布式缓存（Redis Cluster）                       │
-│      │ 毫秒级、集群可扩展                           │
-│      ▼                                           │
-│  数据库（MySQL/TiDB）                             │
-│      │ 持久化、强一致                              │
-│      ▼                                           │
-│  兜底/降级数据                                     │
-│                                                  │
-└──────────────────────────────────────────────────┘
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
+</span></span></code></pre></div><h3 id=42-多级缓存架构>4.2 多级缓存架构</h3><p><strong>Q10: 如何设计多级缓存架构？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌──────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│              多级缓存架构                          │
+</span></span><span class=line><span class=cl>├──────────────────────────────────────────────────┤
+</span></span><span class=line><span class=cl>│                                                  │
+</span></span><span class=line><span class=cl>│  浏览器/客户端                                     │
+</span></span><span class=line><span class=cl>│      │ Http Cache-Control, ETag                  │
+</span></span><span class=line><span class=cl>│      ▼                                           │
+</span></span><span class=line><span class=cl>│  CDN（边缘缓存）                                   │
+</span></span><span class=line><span class=cl>│      │ 静态资源、热点内容                           │
+</span></span><span class=line><span class=cl>│      ▼                                           │
+</span></span><span class=line><span class=cl>│  本地缓存（Caffeine/Guava）                        │
+</span></span><span class=line><span class=cl>│      │ 进程内、纳秒级、JVM内存限制                   │
+</span></span><span class=line><span class=cl>│      ▼                                           │
+</span></span><span class=line><span class=cl>│  分布式缓存（Redis Cluster）                       │
+</span></span><span class=line><span class=cl>│      │ 毫秒级、集群可扩展                           │
+</span></span><span class=line><span class=cl>│      ▼                                           │
+</span></span><span class=line><span class=cl>│  数据库（MySQL/TiDB）                             │
+</span></span><span class=line><span class=cl>│      │ 持久化、强一致                              │
+</span></span><span class=line><span class=cl>│      ▼                                           │
+</span></span><span class=line><span class=cl>│  兜底/降级数据                                     │
+</span></span><span class=line><span class=cl>│                                                  │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────┘
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>MultiLevelCacheService</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=nd>@Autowired</span> <span class=kd>private</span> <span class=n>Cache</span><span class=o>&lt;</span><span class=n>String</span><span class=o>,</span> <span class=n>Product</span><span class=o>&gt;</span> <span class=n>localCache</span><span class=o>;</span>  <span class=c1>// Caffeine
@@ -417,20 +417,20 @@ ShardingSphere-Proxy:
 </span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>null</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=43-缓存一致性策略>4.3 缓存一致性策略</h3><p><strong>Q11: 如何保证缓存与数据库的一致性？</strong></p><pre tabindex=0><code>Cache-Aside模式（最常用）：
-
-读：先读缓存 → miss → 读DB → 写回缓存
-写：先写DB → 后删缓存
-
-        Client
-          │
-    ┌─────┴─────┐
-    │           │
-    ▼           ▼
-  缓存        数据库
-  (先删？     (先写？
-   后写？)     后删？)
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
+</span></span></code></pre></div><h3 id=43-缓存一致性策略>4.3 缓存一致性策略</h3><p><strong>Q11: 如何保证缓存与数据库的一致性？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Cache-Aside模式（最常用）：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>读：先读缓存 → miss → 读DB → 写回缓存
+</span></span><span class=line><span class=cl>写：先写DB → 后删缓存
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        Client
+</span></span><span class=line><span class=cl>          │
+</span></span><span class=line><span class=cl>    ┌─────┴─────┐
+</span></span><span class=line><span class=cl>    │           │
+</span></span><span class=line><span class=cl>    ▼           ▼
+</span></span><span class=line><span class=cl>  缓存        数据库
+</span></span><span class=line><span class=cl>  (先删？     (先写？
+</span></span><span class=line><span class=cl>   后写？)     后删？)
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Service</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>CacheConsistencyService</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=nd>@Autowired</span> <span class=kd>private</span> <span class=n>ProductMapper</span> <span class=n>productMapper</span><span class=o>;</span>
@@ -503,32 +503,32 @@ ShardingSphere-Proxy:
 </span></span></span><span class=line><span class=cl><span class=w>        </span><span class=l>redisTemplate.delete(&#34;product:&#34; + product.getId());</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span>}<span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span>}<span class=w>
-</span></span></span></code></pre></div><hr><h2 id=五分布式id生成方案>五、分布式ID生成方案</h2><h3 id=51-方案全景对比>5.1 方案全景对比</h3><p><strong>Q12: 分布式ID生成有哪些方案？生产环境用哪个？</strong></p><pre tabindex=0><code class=language-mermaid data-lang=mermaid>graph TB
-    A[分布式ID需求] --&gt; B{数据库方案}
-    A --&gt; C{算法方案}
-    A --&gt; D{中间件方案}
-    
-    B --&gt; B1[自增ID]
-    B --&gt; B2[号段模式&lt;br/&gt;美团Leaf]
-    B --&gt; B3[DB多主模式]
-    
-    C --&gt; C1[UUID]
-    C --&gt; C2[雪花算法&lt;br/&gt;Snowflake]
-    C --&gt; C3[百度UidGenerator]
-    
-    D --&gt; D1[美团Leaf]
-    D --&gt; D2[滴滴TinyID]
-    
-    style C2 fill:#90EE90
-    style D1 fill:#90EE90
-</code></pre><table><thead><tr><th>方案</th><th>优点</th><th>缺点</th><th>性能</th><th>适用</th></tr></thead><tbody><tr><td><strong>UUID</strong></td><td>简单，无中心节点</td><td>长字符串，无序，不友好</td><td>极高</td><td>非关键路径</td></tr><tr><td><strong>数据库自增</strong></td><td>简单递增</td><td>单点瓶颈</td><td>低</td><td>小规模</td></tr><tr><td><strong>号段模式</strong></td><td>高性能，趋势递增</td><td>DB依赖</td><td>极高</td><td>美团Leaf-segment</td></tr><tr><td><strong>雪花算法</strong></td><td>高性能，趋势递增，去中心化</td><td>时钟回拨问题</td><td>极高</td><td>⭐首选</td></tr><tr><td><strong>Redis自增</strong></td><td>简单</td><td>持久化问题</td><td>高</td><td>中等规模</td></tr></tbody></table><h3 id=52-雪花算法精讲>5.2 雪花算法精讲</h3><p><strong>Q13: 雪花算法的结构是怎样的？时钟回拨怎么处理？</strong></p><pre tabindex=0><code>Snowflake ID结构（64位）：
-┌─┬──────────────────────────────┬───────────┬────────────┐
-│0│        41位时间戳（ms）        │ 10位机器ID │ 12位序列号   │
-└─┴──────────────────────────────┴───────────┴────────────┘
-  最高位（不用）    可用69年        1024个节点   4096/ms/节点
-
-理论QPS：4096 * 1024 = ~400万/秒
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>SnowflakeIdGenerator</span> <span class=o>{</span>
+</span></span></span></code></pre></div><hr><h2 id=五分布式id生成方案>五、分布式ID生成方案</h2><h3 id=51-方案全景对比>5.1 方案全景对比</h3><p><strong>Q12: 分布式ID生成有哪些方案？生产环境用哪个？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>graph TB
+</span></span><span class=line><span class=cl>    A[分布式ID需求] --&gt; B{数据库方案}
+</span></span><span class=line><span class=cl>    A --&gt; C{算法方案}
+</span></span><span class=line><span class=cl>    A --&gt; D{中间件方案}
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    B --&gt; B1[自增ID]
+</span></span><span class=line><span class=cl>    B --&gt; B2[号段模式&lt;br/&gt;美团Leaf]
+</span></span><span class=line><span class=cl>    B --&gt; B3[DB多主模式]
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    C --&gt; C1[UUID]
+</span></span><span class=line><span class=cl>    C --&gt; C2[雪花算法&lt;br/&gt;Snowflake]
+</span></span><span class=line><span class=cl>    C --&gt; C3[百度UidGenerator]
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    D --&gt; D1[美团Leaf]
+</span></span><span class=line><span class=cl>    D --&gt; D2[滴滴TinyID]
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    style C2 fill:#90EE90
+</span></span><span class=line><span class=cl>    style D1 fill:#90EE90
+</span></span></code></pre></div><table><thead><tr><th>方案</th><th>优点</th><th>缺点</th><th>性能</th><th>适用</th></tr></thead><tbody><tr><td><strong>UUID</strong></td><td>简单，无中心节点</td><td>长字符串，无序，不友好</td><td>极高</td><td>非关键路径</td></tr><tr><td><strong>数据库自增</strong></td><td>简单递增</td><td>单点瓶颈</td><td>低</td><td>小规模</td></tr><tr><td><strong>号段模式</strong></td><td>高性能，趋势递增</td><td>DB依赖</td><td>极高</td><td>美团Leaf-segment</td></tr><tr><td><strong>雪花算法</strong></td><td>高性能，趋势递增，去中心化</td><td>时钟回拨问题</td><td>极高</td><td>⭐首选</td></tr><tr><td><strong>Redis自增</strong></td><td>简单</td><td>持久化问题</td><td>高</td><td>中等规模</td></tr></tbody></table><h3 id=52-雪花算法精讲>5.2 雪花算法精讲</h3><p><strong>Q13: 雪花算法的结构是怎样的？时钟回拨怎么处理？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Snowflake ID结构（64位）：
+</span></span><span class=line><span class=cl>┌─┬──────────────────────────────┬───────────┬────────────┐
+</span></span><span class=line><span class=cl>│0│        41位时间戳（ms）        │ 10位机器ID │ 12位序列号   │
+</span></span><span class=line><span class=cl>└─┴──────────────────────────────┴───────────┴────────────┘
+</span></span><span class=line><span class=cl>  最高位（不用）    可用69年        1024个节点   4096/ms/节点
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>理论QPS：4096 * 1024 = ~400万/秒
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>SnowflakeIdGenerator</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=c1>// 起始时间戳：2024-01-01 00:00:00
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kd>private</span> <span class=kd>final</span> <span class=kt>long</span> <span class=n>START_TIMESTAMP</span> <span class=o>=</span> <span class=mi>1704038400000L</span><span class=o>;</span>
@@ -659,27 +659,27 @@ ShardingSphere-Proxy:
 </span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=k>new</span> <span class=n>Segment</span><span class=o>(</span><span class=n>newMaxId</span> <span class=o>-</span> <span class=n>step</span><span class=o>,</span> <span class=n>newMaxId</span><span class=o>,</span> <span class=n>step</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><hr><h2 id=六数据迁移与平滑扩容>六、数据迁移与平滑扩容</h2><h3 id=61-停机迁移-vs-平滑迁移>6.1 停机迁移 vs 平滑迁移</h3><p><strong>Q15: 如何从单库平滑迁移到分库分表？如何平滑扩容？</strong></p><pre tabindex=0><code>平滑迁移五步法：
-
-Step 1: 双写（新库 + 旧库）
-        Application
-           │
-           ├──→ 旧库（单库） —— 写入
-           └──→ 新库（分库） —— 写入
-        读：仍从旧库读
-
-Step 2: 历史数据迁移
-        离线任务全量迁移 → 增量Binlog同步
-
-Step 3: 数据校验
-        行数对比 + 抽样校验
-
-Step 4: 灰度切读
-        5% → 20% → 50% → 100% 读切到新库
-
-Step 5: 下线旧库
-        观察期（1-2周）→ 停写旧库 → 下线
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 双写灰度实现
+</span></span></code></pre></div><hr><h2 id=六数据迁移与平滑扩容>六、数据迁移与平滑扩容</h2><h3 id=61-停机迁移-vs-平滑迁移>6.1 停机迁移 vs 平滑迁移</h3><p><strong>Q15: 如何从单库平滑迁移到分库分表？如何平滑扩容？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>平滑迁移五步法：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 1: 双写（新库 + 旧库）
+</span></span><span class=line><span class=cl>        Application
+</span></span><span class=line><span class=cl>           │
+</span></span><span class=line><span class=cl>           ├──→ 旧库（单库） —— 写入
+</span></span><span class=line><span class=cl>           └──→ 新库（分库） —— 写入
+</span></span><span class=line><span class=cl>        读：仍从旧库读
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 2: 历史数据迁移
+</span></span><span class=line><span class=cl>        离线任务全量迁移 → 增量Binlog同步
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 3: 数据校验
+</span></span><span class=line><span class=cl>        行数对比 + 抽样校验
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 4: 灰度切读
+</span></span><span class=line><span class=cl>        5% → 20% → 50% → 100% 读切到新库
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Step 5: 下线旧库
+</span></span><span class=line><span class=cl>        观察期（1-2周）→ 停写旧库 → 下线
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 双写灰度实现
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Component</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>MigrationWriteHandler</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
@@ -722,30 +722,30 @@ Step 5: 下线旧库
 </span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=o>(</span><span class=n>Math</span><span class=o>.</span><span class=na>abs</span><span class=o>(</span><span class=n>userId</span><span class=o>.</span><span class=na>hashCode</span><span class=o>())</span> <span class=o>%</span> <span class=mi>100</span><span class=o>)</span> <span class=o>&lt;</span> <span class=n>writeNewPercent</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=62-扩容策略>6.2 扩容策略</h3><p><strong>Q16: 分库从4个扩容到8个，如何实现？</strong></p><pre tabindex=0><code>方案：一致性哈希 + 虚拟节点
-
-原配置（4节点）：
-┌─────────────────────────────────────────┐
-│  Node0: hash ∈ [0, 2^32/4)              │
-│  Node1: hash ∈ [2^32/4, 2^32/2)         │
-│  Node2: hash ∈ [2^32/2, 3*2^32/4)       │
-│  Node3: hash ∈ [3*2^32/4, 2^32)         │
-└─────────────────────────────────────────┘
-
-扩容后（8节点）：
-┌─────────────────────────────────────────┐
-│  每个老节点分裂为2个新节点                   │
-│  只需迁移约50%的数据（而非全量）              │
-└─────────────────────────────────────────┘
-
-迁移步骤：
-1. 新增4个库（ds4-ds7）
-2. 双写开始（同时写新分区和旧分区）
-3. 异步迁移历史数据
-4. 数据校验通过
-5. 切换路由规则
-6. 清理旧数据
-</code></pre><hr><h2 id=七面试高频问题速览>七、面试高频问题速览</h2><table><thead><tr><th>#</th><th>问题</th><th>难度</th><th>关键点</th></tr></thead><tbody><tr><td>1</td><td>分库分表后如何跨库分页？</td><td>⭐⭐⭐⭐</td><td>流式归并/全局排序/应用层聚合</td></tr><tr><td>2</td><td>雪花算法时钟回拨怎么处理？</td><td>⭐⭐⭐</td><td>等待/备用时间戳/抛异常</td></tr><tr><td>3</td><td>TiDB和分库分表中间件选型？</td><td>⭐⭐⭐⭐</td><td>数据量/运维成本/事务需求</td></tr><tr><td>4</td><td>缓存和数据库一致性？</td><td>⭐⭐⭐⭐</td><td>Cache-Aside + 延迟双删 + Canal</td></tr><tr><td>5</td><td>ShardingSphere-JDBC vs Proxy？</td><td>⭐⭐⭐</td><td>性能vs通用性</td></tr><tr><td>6</td><td>分片键怎么选？</td><td>⭐⭐⭐</td><td>避免热点、考虑扩容、基因法</td></tr><tr><td>7</td><td>分布式ID有哪几种？</td><td>⭐⭐</td><td>UUID/DB自增/雪花/Leaf</td></tr><tr><td>8</td><td>从单库到分库如何平滑迁移？</td><td>⭐⭐⭐⭐</td><td>双写+灰度+校验</td></tr></tbody></table><hr><h2 id=八总结>八、总结</h2><p>分布式存储是分布式系统最底层的工程挑战。从分库分表的策略选择，到ShardingSphere这样的中间件，再到TiDB这样的NewSQL数据库，理解每种方案背后的<strong>设计权衡</strong>是面试的核心竞争力。</p><p><strong>核心要点</strong>：</p><ol><li><strong>分库分表</strong>：垂直解耦 + 水平扩展，选好分片键是成败关键</li><li><strong>ShardingSphere</strong>：JDBC高性能，Proxy通用高，根据场景选择</li><li><strong>读写分离</strong>：主从延迟用强制主库/半同步/Canal缓存方案</li><li><strong>分布式数据库</strong>：TiDB原生分布式，OceanBase准内存+Oracle兼容</li><li><strong>分布式缓存</strong>：多级缓存 + Cache-Aside + Canal Binlog最终一致</li><li><strong>分布式ID</strong>：雪花算法首选，Leaf-segment性能最佳</li><li><strong>平滑迁移</strong>：双写 + 灰度切流 + 四阶段校验</li></ol><blockquote><p>📚 <strong>下期预告</strong>：《分布式系统面试八股文（五）——分布式服务治理与服务网格》，深入解析服务注册发现、配置中心、API网关、负载均衡、限流熔断、链路追踪与服务网格（Service Mesh），敬请期待！</p></blockquote></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%89%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1%E4%B8%8E%E4%B8%80%E8%87%B4%E6%80%A7%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/><span>← 上一篇</span><strong>分布式系统面试八股文（三）——分布式事务与一致性解决方案</strong></a>
+</span></span></code></pre></div><h3 id=62-扩容策略>6.2 扩容策略</h3><p><strong>Q16: 分库从4个扩容到8个，如何实现？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>方案：一致性哈希 + 虚拟节点
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>原配置（4节点）：
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  Node0: hash ∈ [0, 2^32/4)              │
+</span></span><span class=line><span class=cl>│  Node1: hash ∈ [2^32/4, 2^32/2)         │
+</span></span><span class=line><span class=cl>│  Node2: hash ∈ [2^32/2, 3*2^32/4)       │
+</span></span><span class=line><span class=cl>│  Node3: hash ∈ [3*2^32/4, 2^32)         │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>扩容后（8节点）：
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  每个老节点分裂为2个新节点                   │
+</span></span><span class=line><span class=cl>│  只需迁移约50%的数据（而非全量）              │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>迁移步骤：
+</span></span><span class=line><span class=cl>1. 新增4个库（ds4-ds7）
+</span></span><span class=line><span class=cl>2. 双写开始（同时写新分区和旧分区）
+</span></span><span class=line><span class=cl>3. 异步迁移历史数据
+</span></span><span class=line><span class=cl>4. 数据校验通过
+</span></span><span class=line><span class=cl>5. 切换路由规则
+</span></span><span class=line><span class=cl>6. 清理旧数据
+</span></span></code></pre></div><hr><h2 id=七面试高频问题速览>七、面试高频问题速览</h2><table><thead><tr><th>#</th><th>问题</th><th>难度</th><th>关键点</th></tr></thead><tbody><tr><td>1</td><td>分库分表后如何跨库分页？</td><td>⭐⭐⭐⭐</td><td>流式归并/全局排序/应用层聚合</td></tr><tr><td>2</td><td>雪花算法时钟回拨怎么处理？</td><td>⭐⭐⭐</td><td>等待/备用时间戳/抛异常</td></tr><tr><td>3</td><td>TiDB和分库分表中间件选型？</td><td>⭐⭐⭐⭐</td><td>数据量/运维成本/事务需求</td></tr><tr><td>4</td><td>缓存和数据库一致性？</td><td>⭐⭐⭐⭐</td><td>Cache-Aside + 延迟双删 + Canal</td></tr><tr><td>5</td><td>ShardingSphere-JDBC vs Proxy？</td><td>⭐⭐⭐</td><td>性能vs通用性</td></tr><tr><td>6</td><td>分片键怎么选？</td><td>⭐⭐⭐</td><td>避免热点、考虑扩容、基因法</td></tr><tr><td>7</td><td>分布式ID有哪几种？</td><td>⭐⭐</td><td>UUID/DB自增/雪花/Leaf</td></tr><tr><td>8</td><td>从单库到分库如何平滑迁移？</td><td>⭐⭐⭐⭐</td><td>双写+灰度+校验</td></tr></tbody></table><hr><h2 id=八总结>八、总结</h2><p>分布式存储是分布式系统最底层的工程挑战。从分库分表的策略选择，到ShardingSphere这样的中间件，再到TiDB这样的NewSQL数据库，理解每种方案背后的<strong>设计权衡</strong>是面试的核心竞争力。</p><p><strong>核心要点</strong>：</p><ol><li><strong>分库分表</strong>：垂直解耦 + 水平扩展，选好分片键是成败关键</li><li><strong>ShardingSphere</strong>：JDBC高性能，Proxy通用高，根据场景选择</li><li><strong>读写分离</strong>：主从延迟用强制主库/半同步/Canal缓存方案</li><li><strong>分布式数据库</strong>：TiDB原生分布式，OceanBase准内存+Oracle兼容</li><li><strong>分布式缓存</strong>：多级缓存 + Cache-Aside + Canal Binlog最终一致</li><li><strong>分布式ID</strong>：雪花算法首选，Leaf-segment性能最佳</li><li><strong>平滑迁移</strong>：双写 + 灰度切流 + 四阶段校验</li></ol><blockquote><p>📚 <strong>下期预告</strong>：《分布式系统面试八股文（五）——分布式服务治理与服务网格》，深入解析服务注册发现、配置中心、API网关、负载均衡、限流熔断、链路追踪与服务网格（Service Mesh），敬请期待！</p></blockquote></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%89%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1%E4%B8%8E%E4%B8%80%E8%87%B4%E6%80%A7%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88/><span>← 上一篇</span><strong>分布式系统面试八股文（三）——分布式事务与一致性解决方案</strong></a>
 <a class=next href=/posts/%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94%E5%88%86%E5%B8%83%E5%BC%8F%E6%9C%8D%E5%8A%A1%E6%B2%BB%E7%90%86%E4%B8%8E%E6%9C%8D%E5%8A%A1%E7%BD%91%E6%A0%BC/><span>下一篇 →</span><strong>分布式系统面试八股文（五）——分布式服务治理与服务网格</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/clickhouse%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90olap%E5%88%97%E5%BC%8F%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AE%9E%E6%88%98%E6%8C%87%E5%8D%97/><span>2026-07-15</span><strong>ClickHouse深度解析：OLAP列式数据库实战指南</strong><p>系统讲解 ClickHouse 列式存储、MergeTree 引擎、分区排序、查询优化与集群部署，并给出实时 OLAP 场景的生产实践。</p></a><a href=/posts/rocketmq%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90%E6%9E%B6%E6%9E%84%E5%8E%9F%E7%90%86%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E6%88%98/><span>2026-07-15</span><strong>RocketMQ深度解析：架构原理与生产实战</strong><p>RocketMQ 是阿里巴巴开源的分布式消息中间件，目前是 Apache 顶级项目，在国内互联网公司中应用极为广泛。相比 Kafka，RocketMQ 在延迟消息、事务消息、顺序消 …</p></a><a href=/posts/redis%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94stream%E6%B6%88%E6%81%AF%E6%B5%81hyperloglog%E4%B8%8Ebitmap%E5%AE%9E%E6%88%98/><span>2026-07-14</span><strong>Redis面试八股文（五）——Stream消息流、HyperLogLog与Bitmap实战</strong><p>对比 Redis Stream 与 Kafka，深入 HyperLogLog 亿级 UV 统计、Bitmap 状态记录，并讲解 BigKeys、慢查询与性能监控。</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9A%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%EF%BC%88%E5%9B%9B%EF%BC%89%E2%80%94%E2%80%94%E5%88%86%E5%B8%83%E5%BC%8F%E5%AD%98%E5%82%A8%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%BA%93%E4%B8%AD%E9%97%B4%E4%BB%B6" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一分库分表从问题到方案>一、分库分表：从问题到方案</a><ul><li><a href=#11-为什么需要分库分表>1.1 为什么需要分库分表？</a></li><li><a href=#12-垂直拆分-vs-水平拆分>1.2 垂直拆分 vs 水平拆分</a></li><li><a href=#13-水平分片策略>1.3 水平分片策略</a></li><li><a href=#14-分库分表的分布式问题>1.4 分库分表的分布式问题</a></li></ul></li><li><a href=#二shardingsphere实战>二、ShardingSphere实战</a><ul><li><a href=#21-架构概览>2.1 架构概览</a></li><li><a href=#22-分片配置实战>2.2 分片配置实战</a></li><li><a href=#23-读写分离>2.3 读写分离</a></li></ul></li><li><a href=#三分布式数据库newsql>三、分布式数据库：NewSQL</a><ul><li><a href=#31-tidb>3.1 TiDB</a></li><li><a href=#32-oceanbase>3.2 OceanBase</a></li></ul></li><li><a href=#四分布式缓存架构>四、分布式缓存架构</a><ul><li><a href=#41-redis集群架构>4.1 Redis集群架构</a></li><li><a href=#42-多级缓存架构>4.2 多级缓存架构</a></li><li><a href=#43-缓存一致性策略>4.3 缓存一致性策略</a></li></ul></li><li><a href=#五分布式id生成方案>五、分布式ID生成方案</a><ul><li><a href=#51-方案全景对比>5.1 方案全景对比</a></li><li><a href=#52-雪花算法精讲>5.2 雪花算法精讲</a></li><li><a href=#53-美团leaf方案>5.3 美团Leaf方案</a></li></ul></li><li><a href=#六数据迁移与平滑扩容>六、数据迁移与平滑扩容</a><ul><li><a href=#61-停机迁移-vs-平滑迁移>6.1 停机迁移 vs 平滑迁移</a></li><li><a href=#62-扩容策略>6.2 扩容策略</a></li></ul></li><li><a href=#七面试高频问题速览>七、面试高频问题速览</a></li><li><a href=#八总结>八、总结</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
 <a href=mailto:liyafei.work@foxmail.com>邮箱</a>
 <a href=/index.xml>RSS</a>

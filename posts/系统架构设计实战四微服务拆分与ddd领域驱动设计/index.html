@@ -10,36 +10,36 @@
 <span>/</span><a href=/series/system-design/>系统分析与设计</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>系统架构设计实战（四）——微服务拆分与DDD领域驱动设计</h1><p class=article-description>🎯 本文目标：承接上一篇《系统设计模式实战（三）》的设计模式实战视角，本文将上升到宏观架构层面，深入微服务拆分策略、DDD领域驱动设计的核心战术模式（实体、值对象、聚合、限界上下文）、CQRS命令查询职责分离、事件溯源等现代架构模式，以及它们在实际分布式系统中的落地实践。 面试高频问题：单体架构什么。</p><div class=article-meta><span>发布于 <time datetime=2026-06-21>2026-06-21</time></span>
 <span>最后验证 2026-06</span>
 <span>7 分钟阅读</span>
-<span>1413 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一微服务拆分从单体到分布式>一、微服务拆分——从单体到分布式</a><ul><li><a href=#11-为什么要拆分微服务>1.1 为什么要拆分微服务？</a></li><li><a href=#12-拆分策略对比>1.2 拆分策略对比</a></li><li><a href=#13-拆分粒度多大算合适>1.3 拆分粒度——多大算合适？</a></li></ul></li><li><a href=#二ddd领域驱动设计战术模式>二、DDD领域驱动设计——战术模式</a><ul><li><a href=#21-实体entityvs-值对象value-object>2.1 实体（Entity）vs 值对象（Value Object）</a></li><li><a href=#22-聚合aggregate与聚合根aggregate-root>2.2 聚合（Aggregate）与聚合根（Aggregate Root）</a></li><li><a href=#23-限界上下文bounded-context>2.3 限界上下文（Bounded Context）</a></li></ul></li><li><a href=#三cqrs命令查询职责分离>三、CQRS——命令查询职责分离</a><ul><li><a href=#31-cqrs的核心思想>3.1 CQRS的核心思想</a></li><li><a href=#32-cqrs的适用场景>3.2 CQRS的适用场景</a></li></ul></li><li><a href=#四事件溯源event-sourcing>四、事件溯源（Event Sourcing）</a><ul><li><a href=#41-事件溯源-vs-传统持久化>4.1 事件溯源 vs 传统持久化</a></li><li><a href=#42-事件溯源的架构>4.2 事件溯源的架构</a></li><li><a href=#43-事件溯源的优缺点>4.3 事件溯源的优缺点</a></li></ul></li><li><a href=#五实战案例电商订单系统架构演进>五、实战案例：电商订单系统架构演进</a><ul><li><a href=#51-阶段一单体架构>5.1 阶段一：单体架构</a></li><li><a href=#52-阶段二限界上下文识别>5.2 阶段二：限界上下文识别</a></li><li><a href=#53-阶段三服务拆分>5.3 阶段三：服务拆分</a></li><li><a href=#54-阶段四引入cqrs订单服务内部>5.4 阶段四：引入CQRS（订单服务内部）</a></li><li><a href=#55-服务间通信防腐层acl>5.5 服务间通信——防腐层（ACL）</a></li></ul></li><li><a href=#六微服务治理要点>六、微服务治理要点</a><ul><li><a href=#61-分布式事务saga模式>6.1 分布式事务——Saga模式</a></li><li><a href=#62-服务发现与注册>6.2 服务发现与注册</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接上一篇《系统设计模式实战（三）》的设计模式实战视角，本文将上升到宏观架构层面，深入微服务拆分策略、DDD领域驱动设计的核心战术模式（实体、值对象、聚合、限界上下文）、CQRS命令查询职责分离、事件溯源等现代架构模式，以及它们在实际分布式系统中的落地实践。</p></blockquote><hr><h2 id=一微服务拆分从单体到分布式>一、微服务拆分——从单体到分布式</h2><h3 id=11-为什么要拆分微服务>1.1 为什么要拆分微服务？</h3><p><strong>面试高频问题：单体架构什么时候该拆？拆到什么粒度？</strong></p><table><thead><tr><th>阶段</th><th>单体架构</th><th>微服务架构</th></tr></thead><tbody><tr><td>团队规模</td><td>&lt; 10人</td><td>> 20人，多团队</td></tr><tr><td>业务复杂度</td><td>简单，CRUD为主</td><td>多业务线，复杂领域逻辑</td></tr><tr><td>部署频率</td><td>周/月级</td><td>天/小时级</td></tr><tr><td>可扩展性</td><td>整体扩容</td><td>按服务独立扩容</td></tr><tr><td>技术异构</td><td>统一技术栈</td><td>不同服务不同技术栈</td></tr></tbody></table><p><strong>拆分信号（拆分的时机判断）：</strong></p><pre tabindex=0><code>开始拆分的信号：
-  ├── 团队协作冲突：多人改同一个模块经常冲突
-  ├── 部署耦合：小改动需要整体重新部署
-  ├── 伸缩瓶颈：只改一个模块，但整个系统需要扩容
-  ├── 技术绑架：想用新技术但被旧技术栈限制
-  └── 业务边界清晰：不同业务域职责明确分离
-</code></pre><h3 id=12-拆分策略对比>1.2 拆分策略对比</h3><p><strong>Q: 微服务拆分有哪些策略？</strong></p><table><thead><tr><th>策略</th><th>核心思想</th><th>优点</th><th>缺点</th></tr></thead><tbody><tr><td>业务能力拆分</td><td>按业务领域拆分</td><td>业务对齐清晰</td><td>需要深入理解业务</td></tr><tr><td>DDD限界上下文</td><td>按领域模型边界拆分</td><td>模型内聚高</td><td>学习成本高</td></tr><tr><td>动词/用例拆分</td><td>按业务动作拆分</td><td>职责单一</td><td>容易拆得过细</td></tr><tr><td>名词/资源拆分</td><td>按核心名词拆分</td><td>直观易懂</td><td>可能忽略业务流程</td></tr></tbody></table><h3 id=13-拆分粒度多大算合适>1.3 拆分粒度——多大算合适？</h3><p><strong>&ldquo;两个披萨团队"原则：</strong>
-一个服务应该由一个团队（6-8人）能维护，且团队吃两个披萨能吃饱。</p><p><strong>评估服务粒度的3个维度：</strong></p><pre tabindex=0><code>┌──────────────────────────────────────────────────────┐
-│                 服务粒度评估模型                        │
-│                                                      │
-│  太细 ←────────────────────────────→ 太粗             │
-│                                                      │
-│  拆分过度：              │      拆分不足：            │
-│  · 一个功能跨5个服务     │      · 部署包500MB+        │
-│  · 分布式事务满天飞      │      · 修改需要10人审批     │
-│  · 网络开销 &gt; 计算开销   │      · 测试套件跑1小时      │
-│  · 版本管理成本暴涨      │      · CI/CD流水线难以维护  │
-│                                                      │
-│              最佳实践：先粗后细，渐进式拆分              │
-└──────────────────────────────────────────────────────┘
-</code></pre><p><strong>拆分演进路线：</strong></p><pre tabindex=0><code>单体架构
-   │
-   ├── 第一步：读写分离（主从数据库）
-   │
-   ├── 第二步：抽出基础服务（用户、权限、通知）
-   │
-   ├── 第三步：按业务领域拆分核心服务
-   │
-   └── 第四步：按子域进一步细化
-</code></pre><hr><h2 id=二ddd领域驱动设计战术模式>二、DDD领域驱动设计——战术模式</h2><h3 id=21-实体entityvs-值对象value-object>2.1 实体（Entity）vs 值对象（Value Object）</h3><p><strong>Q: 实体和值对象的核心区别是什么？</strong></p><table><thead><tr><th>维度</th><th>实体（Entity）</th><th>值对象（Value Object）</th></tr></thead><tbody><tr><td>标识</td><td>有唯一标识（ID）</td><td>无标识，靠属性值区分</td></tr><tr><td>可变性</td><td>可变，生命周期内有状态变化</td><td>不可变，创建后不可修改</td></tr><tr><td>持久化</td><td>独立表，有主键</td><td>嵌入父表，无独立主键</td></tr><tr><td>相等性</td><td>标识相等（ID相同即相同）</td><td>值相等（所有属性相同）</td></tr><tr><td>生命周期</td><td>独立生命周期</td><td>依附于实体</td></tr></tbody></table><p><strong>代码对比：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 实体：有唯一标识
+<span>1413 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一微服务拆分从单体到分布式>一、微服务拆分——从单体到分布式</a><ul><li><a href=#11-为什么要拆分微服务>1.1 为什么要拆分微服务？</a></li><li><a href=#12-拆分策略对比>1.2 拆分策略对比</a></li><li><a href=#13-拆分粒度多大算合适>1.3 拆分粒度——多大算合适？</a></li></ul></li><li><a href=#二ddd领域驱动设计战术模式>二、DDD领域驱动设计——战术模式</a><ul><li><a href=#21-实体entityvs-值对象value-object>2.1 实体（Entity）vs 值对象（Value Object）</a></li><li><a href=#22-聚合aggregate与聚合根aggregate-root>2.2 聚合（Aggregate）与聚合根（Aggregate Root）</a></li><li><a href=#23-限界上下文bounded-context>2.3 限界上下文（Bounded Context）</a></li></ul></li><li><a href=#三cqrs命令查询职责分离>三、CQRS——命令查询职责分离</a><ul><li><a href=#31-cqrs的核心思想>3.1 CQRS的核心思想</a></li><li><a href=#32-cqrs的适用场景>3.2 CQRS的适用场景</a></li></ul></li><li><a href=#四事件溯源event-sourcing>四、事件溯源（Event Sourcing）</a><ul><li><a href=#41-事件溯源-vs-传统持久化>4.1 事件溯源 vs 传统持久化</a></li><li><a href=#42-事件溯源的架构>4.2 事件溯源的架构</a></li><li><a href=#43-事件溯源的优缺点>4.3 事件溯源的优缺点</a></li></ul></li><li><a href=#五实战案例电商订单系统架构演进>五、实战案例：电商订单系统架构演进</a><ul><li><a href=#51-阶段一单体架构>5.1 阶段一：单体架构</a></li><li><a href=#52-阶段二限界上下文识别>5.2 阶段二：限界上下文识别</a></li><li><a href=#53-阶段三服务拆分>5.3 阶段三：服务拆分</a></li><li><a href=#54-阶段四引入cqrs订单服务内部>5.4 阶段四：引入CQRS（订单服务内部）</a></li><li><a href=#55-服务间通信防腐层acl>5.5 服务间通信——防腐层（ACL）</a></li></ul></li><li><a href=#六微服务治理要点>六、微服务治理要点</a><ul><li><a href=#61-分布式事务saga模式>6.1 分布式事务——Saga模式</a></li><li><a href=#62-服务发现与注册>6.2 服务发现与注册</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：承接上一篇《系统设计模式实战（三）》的设计模式实战视角，本文将上升到宏观架构层面，深入微服务拆分策略、DDD领域驱动设计的核心战术模式（实体、值对象、聚合、限界上下文）、CQRS命令查询职责分离、事件溯源等现代架构模式，以及它们在实际分布式系统中的落地实践。</p></blockquote><hr><h2 id=一微服务拆分从单体到分布式>一、微服务拆分——从单体到分布式</h2><h3 id=11-为什么要拆分微服务>1.1 为什么要拆分微服务？</h3><p><strong>面试高频问题：单体架构什么时候该拆？拆到什么粒度？</strong></p><table><thead><tr><th>阶段</th><th>单体架构</th><th>微服务架构</th></tr></thead><tbody><tr><td>团队规模</td><td>&lt; 10人</td><td>> 20人，多团队</td></tr><tr><td>业务复杂度</td><td>简单，CRUD为主</td><td>多业务线，复杂领域逻辑</td></tr><tr><td>部署频率</td><td>周/月级</td><td>天/小时级</td></tr><tr><td>可扩展性</td><td>整体扩容</td><td>按服务独立扩容</td></tr><tr><td>技术异构</td><td>统一技术栈</td><td>不同服务不同技术栈</td></tr></tbody></table><p><strong>拆分信号（拆分的时机判断）：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>开始拆分的信号：
+</span></span><span class=line><span class=cl>  ├── 团队协作冲突：多人改同一个模块经常冲突
+</span></span><span class=line><span class=cl>  ├── 部署耦合：小改动需要整体重新部署
+</span></span><span class=line><span class=cl>  ├── 伸缩瓶颈：只改一个模块，但整个系统需要扩容
+</span></span><span class=line><span class=cl>  ├── 技术绑架：想用新技术但被旧技术栈限制
+</span></span><span class=line><span class=cl>  └── 业务边界清晰：不同业务域职责明确分离
+</span></span></code></pre></div><h3 id=12-拆分策略对比>1.2 拆分策略对比</h3><p><strong>Q: 微服务拆分有哪些策略？</strong></p><table><thead><tr><th>策略</th><th>核心思想</th><th>优点</th><th>缺点</th></tr></thead><tbody><tr><td>业务能力拆分</td><td>按业务领域拆分</td><td>业务对齐清晰</td><td>需要深入理解业务</td></tr><tr><td>DDD限界上下文</td><td>按领域模型边界拆分</td><td>模型内聚高</td><td>学习成本高</td></tr><tr><td>动词/用例拆分</td><td>按业务动作拆分</td><td>职责单一</td><td>容易拆得过细</td></tr><tr><td>名词/资源拆分</td><td>按核心名词拆分</td><td>直观易懂</td><td>可能忽略业务流程</td></tr></tbody></table><h3 id=13-拆分粒度多大算合适>1.3 拆分粒度——多大算合适？</h3><p><strong>&ldquo;两个披萨团队"原则：</strong>
+一个服务应该由一个团队（6-8人）能维护，且团队吃两个披萨能吃饱。</p><p><strong>评估服务粒度的3个维度：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌──────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                 服务粒度评估模型                        │
+</span></span><span class=line><span class=cl>│                                                      │
+</span></span><span class=line><span class=cl>│  太细 ←────────────────────────────→ 太粗             │
+</span></span><span class=line><span class=cl>│                                                      │
+</span></span><span class=line><span class=cl>│  拆分过度：              │      拆分不足：            │
+</span></span><span class=line><span class=cl>│  · 一个功能跨5个服务     │      · 部署包500MB+        │
+</span></span><span class=line><span class=cl>│  · 分布式事务满天飞      │      · 修改需要10人审批     │
+</span></span><span class=line><span class=cl>│  · 网络开销 &gt; 计算开销   │      · 测试套件跑1小时      │
+</span></span><span class=line><span class=cl>│  · 版本管理成本暴涨      │      · CI/CD流水线难以维护  │
+</span></span><span class=line><span class=cl>│                                                      │
+</span></span><span class=line><span class=cl>│              最佳实践：先粗后细，渐进式拆分              │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────────────────────┘
+</span></span></code></pre></div><p><strong>拆分演进路线：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>单体架构
+</span></span><span class=line><span class=cl>   │
+</span></span><span class=line><span class=cl>   ├── 第一步：读写分离（主从数据库）
+</span></span><span class=line><span class=cl>   │
+</span></span><span class=line><span class=cl>   ├── 第二步：抽出基础服务（用户、权限、通知）
+</span></span><span class=line><span class=cl>   │
+</span></span><span class=line><span class=cl>   ├── 第三步：按业务领域拆分核心服务
+</span></span><span class=line><span class=cl>   │
+</span></span><span class=line><span class=cl>   └── 第四步：按子域进一步细化
+</span></span></code></pre></div><hr><h2 id=二ddd领域驱动设计战术模式>二、DDD领域驱动设计——战术模式</h2><h3 id=21-实体entityvs-值对象value-object>2.1 实体（Entity）vs 值对象（Value Object）</h3><p><strong>Q: 实体和值对象的核心区别是什么？</strong></p><table><thead><tr><th>维度</th><th>实体（Entity）</th><th>值对象（Value Object）</th></tr></thead><tbody><tr><td>标识</td><td>有唯一标识（ID）</td><td>无标识，靠属性值区分</td></tr><tr><td>可变性</td><td>可变，生命周期内有状态变化</td><td>不可变，创建后不可修改</td></tr><tr><td>持久化</td><td>独立表，有主键</td><td>嵌入父表，无独立主键</td></tr><tr><td>相等性</td><td>标识相等（ID相同即相同）</td><td>值相等（所有属性相同）</td></tr><tr><td>生命周期</td><td>独立生命周期</td><td>依附于实体</td></tr></tbody></table><p><strong>代码对比：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 实体：有唯一标识
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>class</span> <span class=nc>Order</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>private</span> <span class=n>String</span> <span class=n>orderId</span><span class=o>;</span>      <span class=c1>// 唯一标识
 </span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kd>private</span> <span class=n>OrderStatus</span> <span class=n>status</span><span class=o>;</span>  <span class=c1>// 可变状态
@@ -80,88 +80,88 @@
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
 </span></span></code></pre></div><p><strong>面试技巧：一句话区分——</strong>
-如果你关心&rdquo;<strong>它是谁</strong>"，用实体；如果你关心"<strong>它是什么</strong>"，用值对象。</p><h3 id=22-聚合aggregate与聚合根aggregate-root>2.2 聚合（Aggregate）与聚合根（Aggregate Root）</h3><p><strong>Q: 什么是聚合？为什么需要聚合根？</strong></p><p>聚合是一组相关对象的集合，被视为数据修改的单元。聚合根是聚合的入口，外部只能通过聚合根访问聚合内部对象。</p><pre tabindex=0><code>订单聚合（Order Aggregate）：
-┌──────────────────────────────────────┐
-│         Order（聚合根）               │
-│  ┌────────────────────────────────┐  │
-│  │  orderId, status, totalAmount  │  │
-│  │  + confirm()                   │  │
-│  │  + addItem(product, qty)       │  │
-│  │  + removeItem(itemId)          │  │
-│  └────────────────────────────────┘  │
-│          │                            │
-│          │ 1:N                        │
-│          ▼                            │
-│  ┌────────────────────────────────┐  │
-│  │    OrderItem（内部实体）         │  │
-│  │  productId, quantity, price    │  │
-│  └────────────────────────────────┘  │
-│                                       │
-│  ┌────────────────────────────────┐  │
-│  │  ShippingAddress（值对象）       │  │
-│  │  province, city, detail        │  │
-│  └────────────────────────────────┘  │
-└──────────────────────────────────────┘
-
-访问规则：
-  外部 → 只能通过Order操作 → OrderItem只能通过Order访问
-  ❌ orderRepository.getItem(itemId)    // 禁止
-  ✅ order.getItem(itemId)              // 正确
-</code></pre><p><strong>聚合设计的四大原则：</strong></p><ol><li><strong>一致性边界</strong>：聚合内部保持强一致性</li><li><strong>小聚合</strong>：聚合越小越好，能拆则拆</li><li><strong>通过ID引用</strong>：聚合间通过ID引用，不直接持有对象</li><li><strong>最终一致性</strong>：聚合之间通过事件保证最终一致性</li></ol><h3 id=23-限界上下文bounded-context>2.3 限界上下文（Bounded Context）</h3><p><strong>Q: 什么是限界上下文？它和微服务的关系？</strong></p><p>限界上下文是DDD中最核心的战略设计概念，它定义了一个模型在特定上下文中的含义边界。</p><p><strong>经典案例：电商系统中的"商品"：</strong></p><pre tabindex=0><code>限界上下文A：商品管理                           限界上下文B：订单管理
-┌──────────────────────┐                    ┌──────────────────────┐
-│   Product（商品）     │                    │   Product（商品）     │
-│  ┌──────────────────┐│                    │  ┌──────────────────┐│
-│  │ · sku            ││                    │  │ · productId      ││
-│  │ · name           ││                    │  │ · name           ││
-│  │ · price          ││                    │  │ · price(快照)    ││
-│  │ · stock          ││                    │  │ · supplierInfo   ││
-│  │ · specification  ││                    │  │                  ││
-│  │ · images         ││                    │  │  不关心库存！     ││
-│  │ · category       ││                    │  │  不关心图片！     ││
-│  └──────────────────┘│                    │  └──────────────────┘│
-└──────────────────────┘                    └──────────────────────┘
-
-限界上下文C：库存管理                           限界上下文D：物流管理
-┌──────────────────────┐                    ┌──────────────────────┐
-│   InventoryItem      │                    │   ShipmentItem       │
-│  ┌──────────────────┐│                    │  ┌──────────────────┐│
-│  │ · sku            ││                    │  │ · itemId         ││
-│  │ · warehouseId    ││                    │  │ · productId      ││
-│  │ · quantity       ││                    │  │ · weight         ││
-│  │ · shelfLocation  ││                    │  │ · dimensions     ││
-│  │                  ││                    │  │ · hazardousFlag  ││
-│  │  不关心价格！     ││                    │  │                  ││
-│  │  不关心图片！     ││                    │  │  关心物理属性！   ││
-│  └──────────────────┘│                    │  └──────────────────┘│
-└──────────────────────┘                    └──────────────────────┘
-</code></pre><p><strong>同一个"商品"，在不同上下文中是不同的模型！</strong></p><p><strong>限界上下文与微服务的关系：</strong></p><pre tabindex=0><code>限界上下文 ──映射──► 微服务
-
-但一个限界上下文 ≠ 一个微服务（通常是，但不必然）
-有时一个限界上下文可以包含多个微服务（大型复杂领域）
-</code></pre><hr><h2 id=三cqrs命令查询职责分离>三、CQRS——命令查询职责分离</h2><h3 id=31-cqrs的核心思想>3.1 CQRS的核心思想</h3><p><strong>Q: 什么是CQRS？解决了什么问题？</strong></p><p>传统的CRUD架构中，读写操作共用同一个模型和数据库：</p><pre tabindex=0><code>传统CRUD（问题）：
-┌─────────┐       ┌─────────────┐
-│  读请求  │──────►│             │
-└─────────┘       │   同一模型   │──────► 同一个数据库
-                  │   同一数据库  │
-┌─────────┐       │             │
-│  写请求  │──────►│             │
-└─────────┘       └─────────────┘
-
-问题：
-  · 读需要JOIN多表，写需要简单INSERT → 模型冲突
-  · 读需要索引加速，写需要减少索引 → 索引冲突
-  · 读量远大于写量但共用同一资源 → 资源冲突
-</code></pre><p><strong>CQRS解决方案：命令（写）和查询（读）分离</strong></p><pre tabindex=0><code>CQRS架构：
-┌─────────┐
-│  写请求  │──► Command Model ──► Write DB ──► EventBus ──► Read DB
-└─────────┘    (领域模型)        (PostgreSQL)              (Elasticsearch)
-                                                                │
-┌─────────┐                                                    ▼
-│  读请求  │────── Query Model ◄────────────────────────── Read DB
-└─────────┘    (查询模型)                                   (ES/MongoDB)
-
-Query Model直接返回DTO/VO，无需复杂JOIN，性能更高
-</code></pre><p><strong>代码对比：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 传统方式：一个Service同时处理读写
+如果你关心&rdquo;<strong>它是谁</strong>"，用实体；如果你关心"<strong>它是什么</strong>"，用值对象。</p><h3 id=22-聚合aggregate与聚合根aggregate-root>2.2 聚合（Aggregate）与聚合根（Aggregate Root）</h3><p><strong>Q: 什么是聚合？为什么需要聚合根？</strong></p><p>聚合是一组相关对象的集合，被视为数据修改的单元。聚合根是聚合的入口，外部只能通过聚合根访问聚合内部对象。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>订单聚合（Order Aggregate）：
+</span></span><span class=line><span class=cl>┌──────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│         Order（聚合根）               │
+</span></span><span class=line><span class=cl>│  ┌────────────────────────────────┐  │
+</span></span><span class=line><span class=cl>│  │  orderId, status, totalAmount  │  │
+</span></span><span class=line><span class=cl>│  │  + confirm()                   │  │
+</span></span><span class=line><span class=cl>│  │  + addItem(product, qty)       │  │
+</span></span><span class=line><span class=cl>│  │  + removeItem(itemId)          │  │
+</span></span><span class=line><span class=cl>│  └────────────────────────────────┘  │
+</span></span><span class=line><span class=cl>│          │                            │
+</span></span><span class=line><span class=cl>│          │ 1:N                        │
+</span></span><span class=line><span class=cl>│          ▼                            │
+</span></span><span class=line><span class=cl>│  ┌────────────────────────────────┐  │
+</span></span><span class=line><span class=cl>│  │    OrderItem（内部实体）         │  │
+</span></span><span class=line><span class=cl>│  │  productId, quantity, price    │  │
+</span></span><span class=line><span class=cl>│  └────────────────────────────────┘  │
+</span></span><span class=line><span class=cl>│                                       │
+</span></span><span class=line><span class=cl>│  ┌────────────────────────────────┐  │
+</span></span><span class=line><span class=cl>│  │  ShippingAddress（值对象）       │  │
+</span></span><span class=line><span class=cl>│  │  province, city, detail        │  │
+</span></span><span class=line><span class=cl>│  └────────────────────────────────┘  │
+</span></span><span class=line><span class=cl>└──────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>访问规则：
+</span></span><span class=line><span class=cl>  外部 → 只能通过Order操作 → OrderItem只能通过Order访问
+</span></span><span class=line><span class=cl>  ❌ orderRepository.getItem(itemId)    // 禁止
+</span></span><span class=line><span class=cl>  ✅ order.getItem(itemId)              // 正确
+</span></span></code></pre></div><p><strong>聚合设计的四大原则：</strong></p><ol><li><strong>一致性边界</strong>：聚合内部保持强一致性</li><li><strong>小聚合</strong>：聚合越小越好，能拆则拆</li><li><strong>通过ID引用</strong>：聚合间通过ID引用，不直接持有对象</li><li><strong>最终一致性</strong>：聚合之间通过事件保证最终一致性</li></ol><h3 id=23-限界上下文bounded-context>2.3 限界上下文（Bounded Context）</h3><p><strong>Q: 什么是限界上下文？它和微服务的关系？</strong></p><p>限界上下文是DDD中最核心的战略设计概念，它定义了一个模型在特定上下文中的含义边界。</p><p><strong>经典案例：电商系统中的"商品"：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>限界上下文A：商品管理                           限界上下文B：订单管理
+</span></span><span class=line><span class=cl>┌──────────────────────┐                    ┌──────────────────────┐
+</span></span><span class=line><span class=cl>│   Product（商品）     │                    │   Product（商品）     │
+</span></span><span class=line><span class=cl>│  ┌──────────────────┐│                    │  ┌──────────────────┐│
+</span></span><span class=line><span class=cl>│  │ · sku            ││                    │  │ · productId      ││
+</span></span><span class=line><span class=cl>│  │ · name           ││                    │  │ · name           ││
+</span></span><span class=line><span class=cl>│  │ · price          ││                    │  │ · price(快照)    ││
+</span></span><span class=line><span class=cl>│  │ · stock          ││                    │  │ · supplierInfo   ││
+</span></span><span class=line><span class=cl>│  │ · specification  ││                    │  │                  ││
+</span></span><span class=line><span class=cl>│  │ · images         ││                    │  │  不关心库存！     ││
+</span></span><span class=line><span class=cl>│  │ · category       ││                    │  │  不关心图片！     ││
+</span></span><span class=line><span class=cl>│  └──────────────────┘│                    │  └──────────────────┘│
+</span></span><span class=line><span class=cl>└──────────────────────┘                    └──────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>限界上下文C：库存管理                           限界上下文D：物流管理
+</span></span><span class=line><span class=cl>┌──────────────────────┐                    ┌──────────────────────┐
+</span></span><span class=line><span class=cl>│   InventoryItem      │                    │   ShipmentItem       │
+</span></span><span class=line><span class=cl>│  ┌──────────────────┐│                    │  ┌──────────────────┐│
+</span></span><span class=line><span class=cl>│  │ · sku            ││                    │  │ · itemId         ││
+</span></span><span class=line><span class=cl>│  │ · warehouseId    ││                    │  │ · productId      ││
+</span></span><span class=line><span class=cl>│  │ · quantity       ││                    │  │ · weight         ││
+</span></span><span class=line><span class=cl>│  │ · shelfLocation  ││                    │  │ · dimensions     ││
+</span></span><span class=line><span class=cl>│  │                  ││                    │  │ · hazardousFlag  ││
+</span></span><span class=line><span class=cl>│  │  不关心价格！     ││                    │  │                  ││
+</span></span><span class=line><span class=cl>│  │  不关心图片！     ││                    │  │  关心物理属性！   ││
+</span></span><span class=line><span class=cl>│  └──────────────────┘│                    │  └──────────────────┘│
+</span></span><span class=line><span class=cl>└──────────────────────┘                    └──────────────────────┘
+</span></span></code></pre></div><p><strong>同一个"商品"，在不同上下文中是不同的模型！</strong></p><p><strong>限界上下文与微服务的关系：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>限界上下文 ──映射──► 微服务
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>但一个限界上下文 ≠ 一个微服务（通常是，但不必然）
+</span></span><span class=line><span class=cl>有时一个限界上下文可以包含多个微服务（大型复杂领域）
+</span></span></code></pre></div><hr><h2 id=三cqrs命令查询职责分离>三、CQRS——命令查询职责分离</h2><h3 id=31-cqrs的核心思想>3.1 CQRS的核心思想</h3><p><strong>Q: 什么是CQRS？解决了什么问题？</strong></p><p>传统的CRUD架构中，读写操作共用同一个模型和数据库：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>传统CRUD（问题）：
+</span></span><span class=line><span class=cl>┌─────────┐       ┌─────────────┐
+</span></span><span class=line><span class=cl>│  读请求  │──────►│             │
+</span></span><span class=line><span class=cl>└─────────┘       │   同一模型   │──────► 同一个数据库
+</span></span><span class=line><span class=cl>                  │   同一数据库  │
+</span></span><span class=line><span class=cl>┌─────────┐       │             │
+</span></span><span class=line><span class=cl>│  写请求  │──────►│             │
+</span></span><span class=line><span class=cl>└─────────┘       └─────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>问题：
+</span></span><span class=line><span class=cl>  · 读需要JOIN多表，写需要简单INSERT → 模型冲突
+</span></span><span class=line><span class=cl>  · 读需要索引加速，写需要减少索引 → 索引冲突
+</span></span><span class=line><span class=cl>  · 读量远大于写量但共用同一资源 → 资源冲突
+</span></span></code></pre></div><p><strong>CQRS解决方案：命令（写）和查询（读）分离</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>CQRS架构：
+</span></span><span class=line><span class=cl>┌─────────┐
+</span></span><span class=line><span class=cl>│  写请求  │──► Command Model ──► Write DB ──► EventBus ──► Read DB
+</span></span><span class=line><span class=cl>└─────────┘    (领域模型)        (PostgreSQL)              (Elasticsearch)
+</span></span><span class=line><span class=cl>                                                                │
+</span></span><span class=line><span class=cl>┌─────────┐                                                    ▼
+</span></span><span class=line><span class=cl>│  读请求  │────── Query Model ◄────────────────────────── Read DB
+</span></span><span class=line><span class=cl>└─────────┘    (查询模型)                                   (ES/MongoDB)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Query Model直接返回DTO/VO，无需复杂JOIN，性能更高
+</span></span></code></pre></div><p><strong>代码对比：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 传统方式：一个Service同时处理读写
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Service</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>OrderService</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>public</span> <span class=n>Order</span> <span class=nf>createOrder</span><span class=o>(</span><span class=n>CreateOrderCmd</span> <span class=n>cmd</span><span class=o>)</span> <span class=o>{</span> <span class=cm>/* 写 */</span> <span class=o>}</span>
@@ -188,42 +188,42 @@ Query Model直接返回DTO/VO，无需复杂JOIN，性能更高
 </span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>return</span> <span class=n>orderReadRepository</span><span class=o>.</span><span class=na>findById</span><span class=o>(</span><span class=n>id</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=32-cqrs的适用场景>3.2 CQRS的适用场景</h3><p><strong>什么时候用CQRS？</strong></p><pre tabindex=0><code>适用 ❌
-  ├── 简单的CRUD应用（用户管理系统）
-  ├── 读写的业务逻辑几乎相同
-  └── 团队规模小，维护两套模型成本高
-
-适用 ✅
-  ├── 读写比例悬殊（读100:写1）
-  ├── 读模型需要复杂JOIN/聚合
-  ├── 读和写有不同的性能要求
-  ├── 需要多版本查询（历史数据查看）
-  └── 搜索需求（全文搜索、复杂筛选）
-</code></pre><hr><h2 id=四事件溯源event-sourcing>四、事件溯源（Event Sourcing）</h2><h3 id=41-事件溯源-vs-传统持久化>4.1 事件溯源 vs 传统持久化</h3><p><strong>Q: 什么是事件溯源？和传统CRUD有什么区别？</strong></p><p><strong>传统持久化：</strong> 只存当前状态</p><pre tabindex=0><code>UPDATE account SET balance = 800 WHERE id = 1;
--- 丢失了&#34;balance是怎么变成800的&#34;这个信息
-</code></pre><p><strong>事件溯源：</strong> 存储所有状态变更事件</p><pre tabindex=0><code>Append Event: AccountCreated(accountId=1, initialBalance=0)
-Append Event: Deposited(accountId=1, amount=1000)      → balance=1000
-Append Event: Withdrawn(accountId=1, amount=200)       → balance=800
-Append Event: Deposited(accountId=1, amount=500)       → balance=1300
-当前状态 = 重放所有事件得到
-</code></pre><h3 id=42-事件溯源的架构>4.2 事件溯源的架构</h3><pre tabindex=0><code>┌─────────┐    Command     ┌──────────┐   Event   ┌────────────┐
-│  Client  │──────────────►│  Domain   │──────────►│ Event Store│
-└─────────┘                │  Model    │           │ (只追加)   │
-                           └──────────┘           └────────────┘
-                                │                       │
-                                │                       │ 订阅
-                                ▼                       ▼
-                           ┌──────────┐           ┌────────────┐
-                           │ Snapshot │           │Projection  │
-                           │  (快照)   │           │ (投影/视图) │
-                           └──────────┘           └────────────┘
-                                                        │
-                                                        ▼
-                                                   ┌────────────┐
-                                                   │ Read Model │
-                                                   │ (查询专用) │
-                                                   └────────────┘
-</code></pre><p><strong>事件存储示例（MySQL实现）：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>CREATE</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=n>events</span><span class=w> </span><span class=p>(</span><span class=w>
+</span></span></code></pre></div><h3 id=32-cqrs的适用场景>3.2 CQRS的适用场景</h3><p><strong>什么时候用CQRS？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>适用 ❌
+</span></span><span class=line><span class=cl>  ├── 简单的CRUD应用（用户管理系统）
+</span></span><span class=line><span class=cl>  ├── 读写的业务逻辑几乎相同
+</span></span><span class=line><span class=cl>  └── 团队规模小，维护两套模型成本高
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>适用 ✅
+</span></span><span class=line><span class=cl>  ├── 读写比例悬殊（读100:写1）
+</span></span><span class=line><span class=cl>  ├── 读模型需要复杂JOIN/聚合
+</span></span><span class=line><span class=cl>  ├── 读和写有不同的性能要求
+</span></span><span class=line><span class=cl>  ├── 需要多版本查询（历史数据查看）
+</span></span><span class=line><span class=cl>  └── 搜索需求（全文搜索、复杂筛选）
+</span></span></code></pre></div><hr><h2 id=四事件溯源event-sourcing>四、事件溯源（Event Sourcing）</h2><h3 id=41-事件溯源-vs-传统持久化>4.1 事件溯源 vs 传统持久化</h3><p><strong>Q: 什么是事件溯源？和传统CRUD有什么区别？</strong></p><p><strong>传统持久化：</strong> 只存当前状态</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>UPDATE account SET balance = 800 WHERE id = 1;
+</span></span><span class=line><span class=cl>-- 丢失了&#34;balance是怎么变成800的&#34;这个信息
+</span></span></code></pre></div><p><strong>事件溯源：</strong> 存储所有状态变更事件</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Append Event: AccountCreated(accountId=1, initialBalance=0)
+</span></span><span class=line><span class=cl>Append Event: Deposited(accountId=1, amount=1000)      → balance=1000
+</span></span><span class=line><span class=cl>Append Event: Withdrawn(accountId=1, amount=200)       → balance=800
+</span></span><span class=line><span class=cl>Append Event: Deposited(accountId=1, amount=500)       → balance=1300
+</span></span><span class=line><span class=cl>当前状态 = 重放所有事件得到
+</span></span></code></pre></div><h3 id=42-事件溯源的架构>4.2 事件溯源的架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────┐    Command     ┌──────────┐   Event   ┌────────────┐
+</span></span><span class=line><span class=cl>│  Client  │──────────────►│  Domain   │──────────►│ Event Store│
+</span></span><span class=line><span class=cl>└─────────┘                │  Model    │           │ (只追加)   │
+</span></span><span class=line><span class=cl>                           └──────────┘           └────────────┘
+</span></span><span class=line><span class=cl>                                │                       │
+</span></span><span class=line><span class=cl>                                │                       │ 订阅
+</span></span><span class=line><span class=cl>                                ▼                       ▼
+</span></span><span class=line><span class=cl>                           ┌──────────┐           ┌────────────┐
+</span></span><span class=line><span class=cl>                           │ Snapshot │           │Projection  │
+</span></span><span class=line><span class=cl>                           │  (快照)   │           │ (投影/视图) │
+</span></span><span class=line><span class=cl>                           └──────────┘           └────────────┘
+</span></span><span class=line><span class=cl>                                                        │
+</span></span><span class=line><span class=cl>                                                        ▼
+</span></span><span class=line><span class=cl>                                                   ┌────────────┐
+</span></span><span class=line><span class=cl>                                                   │ Read Model │
+</span></span><span class=line><span class=cl>                                                   │ (查询专用) │
+</span></span><span class=line><span class=cl>                                                   └────────────┘
+</span></span></code></pre></div><p><strong>事件存储示例（MySQL实现）：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-sql data-lang=sql><span class=line><span class=cl><span class=k>CREATE</span><span class=w> </span><span class=k>TABLE</span><span class=w> </span><span class=n>events</span><span class=w> </span><span class=p>(</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>id</span><span class=w>          </span><span class=nb>BIGINT</span><span class=w> </span><span class=n>AUTO_INCREMENT</span><span class=w> </span><span class=k>PRIMARY</span><span class=w> </span><span class=k>KEY</span><span class=p>,</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=n>aggregate_id</span><span class=w> </span><span class=nb>VARCHAR</span><span class=p>(</span><span class=mi>36</span><span class=p>)</span><span class=w>  </span><span class=k>NOT</span><span class=w> </span><span class=k>NULL</span><span class=p>,</span><span class=w>   </span><span class=c1>-- 聚合根ID
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>    </span><span class=n>event_type</span><span class=w>  </span><span class=nb>VARCHAR</span><span class=p>(</span><span class=mi>100</span><span class=p>)</span><span class=w>  </span><span class=k>NOT</span><span class=w> </span><span class=k>NULL</span><span class=p>,</span><span class=w>   </span><span class=c1>-- 事件类型
@@ -232,75 +232,75 @@ Append Event: Deposited(accountId=1, amount=500)       → balance=1300
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=w>    </span><span class=n>occurred_at</span><span class=w> </span><span class=k>TIMESTAMP</span><span class=w>     </span><span class=k>NOT</span><span class=w> </span><span class=k>NULL</span><span class=p>,</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=k>INDEX</span><span class=w> </span><span class=n>idx_aggregate</span><span class=w> </span><span class=p>(</span><span class=n>aggregate_id</span><span class=p>,</span><span class=w> </span><span class=k>version</span><span class=p>)</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=p>);</span><span class=w>
-</span></span></span></code></pre></div><h3 id=43-事件溯源的优缺点>4.3 事件溯源的优缺点</h3><table><thead><tr><th>优点</th><th>缺点</th></tr></thead><tbody><tr><td>完整审计日志（天然可追溯）</td><td>学习曲线陡峭</td></tr><tr><td>时间旅行（可回放到任意时刻状态）</td><td>事件模式演进复杂</td></tr><tr><td>天然支持CQRS</td><td>查询当前状态需要重放</td></tr><tr><td>方便Debug和问题排查</td><td>最终一致性模型</td></tr><tr><td>便于数据分析</td><td>需要快照优化性能</td></tr></tbody></table><p><strong>事件溯源的Event Sourcing + CQRS组合：</strong></p><p>这是被经常一起提及的黄金组合：</p><pre tabindex=0><code>CQRS 提供：读写分离的架构
-Event Sourcing 提供：可靠的事件存储与状态重建
-
-两者结合后：
-  · 写操作 → 产生事件存储到Event Store
-  · Event Store → 通过投影生成读模型
-  · 读操作 → 直接查询读模型（高性能）
-</code></pre><hr><h2 id=五实战案例电商订单系统架构演进>五、实战案例：电商订单系统架构演进</h2><h3 id=51-阶段一单体架构>5.1 阶段一：单体架构</h3><pre tabindex=0><code>┌─────────────────────────────────────────────┐
-│              电商单体应用                     │
-│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌──────┐ │
-│  │用户  │ │商品  │ │订单  │ │支付  │ │物流  │ │
-│  └─────┘ └─────┘ └─────┘ └─────┘ └──────┘ │
-│                    │                        │
-│              单数据库（MySQL）               │
-└─────────────────────────────────────────────┘
-</code></pre><h3 id=52-阶段二限界上下文识别>5.2 阶段二：限界上下文识别</h3><p><strong>用DDD进行领域分析：</strong></p><pre tabindex=0><code>核心域（赚钱的）：
-  · 订单上下文（Order Context）
-  · 支付上下文（Payment Context）
-
-支撑域（辅助赚钱的）：
-  · 商品管理上下文（Product Context）
-  · 库存上下文（Inventory Context）
-
-通用域（可以外购的）：
-  · 用户认证上下文（Auth Context）
-  · 通知上下文（Notification Context）
-</code></pre><p><strong>上下文映射图：</strong></p><pre tabindex=0><code>                         ┌──────────────┐
-                         │  商品管理     │
-                         │  (上游)       │
-                         └──────┬───────┘
-                                │ 商品信息（发布语言）
-                                ▼
-┌──────────┐  用户认证   ┌──────────────┐   订单创建   ┌──────────────┐
-│  用户认证 │───────────►│   订单管理    │────────────►│    支付       │
-│          │◄───────────│   (核心域)   │◄────────────│              │
-└──────────┘  用户信息   └──────┬───────┘  支付结果   └──────────────┘
-                                │
-                                │ 订单发货
-                                ▼
-                         ┌──────────────┐
-                         │   物流管理    │
-                         └──────────────┘
-
-关系类型：
-  ──►  客户-供应商（Customer-Supplier）
-  ◄──►  共享内核（Shared Kernel）
-  ◄─►  防腐层（Anti-Corruption Layer, ACL）
-</code></pre><h3 id=53-阶段三服务拆分>5.3 阶段三：服务拆分</h3><p><strong>DDD限界上下文 → 微服务映射：</strong></p><table><thead><tr><th>限界上下文</th><th>微服务</th><th>数据库</th><th>技术栈选择理由</th></tr></thead><tbody><tr><td>商品上下文</td><td>product-service</td><td>MySQL</td><td>关系复杂，需要事务</td></tr><tr><td>订单上下文</td><td>order-service</td><td>MySQL + ES</td><td>读写分离，ES用于搜索</td></tr><tr><td>支付上下文</td><td>payment-service</td><td>MySQL</td><td>强一致性要求</td></tr><tr><td>库存上下文</td><td>inventory-service</td><td>Redis + MySQL</td><td>Redis应对高并发扣减</td></tr><tr><td>用户上下文</td><td>user-service</td><td>MySQL</td><td>标准CRUD</td></tr><tr><td>通知上下文</td><td>notification-service</td><td>MongoDB</td><td>消息日志，高写入</td></tr></tbody></table><h3 id=54-阶段四引入cqrs订单服务内部>5.4 阶段四：引入CQRS（订单服务内部）</h3><pre tabindex=0><code>订单服务（order-service）内部CQRS：
-
-┌─────────────────────────────────────────────────────┐
-│                 Order Service                        │
-│                                                      │
-│  ┌─────────────────────┐    ┌─────────────────────┐ │
-│  │  OrderCommandService │    │  OrderQueryService   │ │
-│  │  · createOrder()    │    │  · getOrder()        │ │
-│  │  · confirmOrder()   │    │  · listUserOrders()  │ │
-│  │  · cancelOrder()    │    │  · searchOrders()    │ │
-│  └──────────┬──────────┘    └──────────┬──────────┘ │
-│             │                          │            │
-│             ▼                          ▼            │
-│  ┌──────────────────┐    ┌──────────────────────┐   │
-│  │  Write DB (MySQL) │    │  Read DB (ES + 宽表)  │   │
-│  │  orders表         │    │  order_search索引     │   │
-│  │  order_items表    │    │  order_summary_wide   │   │
-│  └──────────────────┘    └──────────────────────┘   │
-│                                                      │
-│           同步：Canal/Debezium CDC → ES              │
-└─────────────────────────────────────────────────────┘
-</code></pre><h3 id=55-服务间通信防腐层acl>5.5 服务间通信——防腐层（ACL）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 订单服务调用商品服务时使用防腐层
+</span></span></span></code></pre></div><h3 id=43-事件溯源的优缺点>4.3 事件溯源的优缺点</h3><table><thead><tr><th>优点</th><th>缺点</th></tr></thead><tbody><tr><td>完整审计日志（天然可追溯）</td><td>学习曲线陡峭</td></tr><tr><td>时间旅行（可回放到任意时刻状态）</td><td>事件模式演进复杂</td></tr><tr><td>天然支持CQRS</td><td>查询当前状态需要重放</td></tr><tr><td>方便Debug和问题排查</td><td>最终一致性模型</td></tr><tr><td>便于数据分析</td><td>需要快照优化性能</td></tr></tbody></table><p><strong>事件溯源的Event Sourcing + CQRS组合：</strong></p><p>这是被经常一起提及的黄金组合：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>CQRS 提供：读写分离的架构
+</span></span><span class=line><span class=cl>Event Sourcing 提供：可靠的事件存储与状态重建
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>两者结合后：
+</span></span><span class=line><span class=cl>  · 写操作 → 产生事件存储到Event Store
+</span></span><span class=line><span class=cl>  · Event Store → 通过投影生成读模型
+</span></span><span class=line><span class=cl>  · 读操作 → 直接查询读模型（高性能）
+</span></span></code></pre></div><hr><h2 id=五实战案例电商订单系统架构演进>五、实战案例：电商订单系统架构演进</h2><h3 id=51-阶段一单体架构>5.1 阶段一：单体架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│              电商单体应用                     │
+</span></span><span class=line><span class=cl>│  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐ ┌──────┐ │
+</span></span><span class=line><span class=cl>│  │用户  │ │商品  │ │订单  │ │支付  │ │物流  │ │
+</span></span><span class=line><span class=cl>│  └─────┘ └─────┘ └─────┘ └─────┘ └──────┘ │
+</span></span><span class=line><span class=cl>│                    │                        │
+</span></span><span class=line><span class=cl>│              单数据库（MySQL）               │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=52-阶段二限界上下文识别>5.2 阶段二：限界上下文识别</h3><p><strong>用DDD进行领域分析：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>核心域（赚钱的）：
+</span></span><span class=line><span class=cl>  · 订单上下文（Order Context）
+</span></span><span class=line><span class=cl>  · 支付上下文（Payment Context）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>支撑域（辅助赚钱的）：
+</span></span><span class=line><span class=cl>  · 商品管理上下文（Product Context）
+</span></span><span class=line><span class=cl>  · 库存上下文（Inventory Context）
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>通用域（可以外购的）：
+</span></span><span class=line><span class=cl>  · 用户认证上下文（Auth Context）
+</span></span><span class=line><span class=cl>  · 通知上下文（Notification Context）
+</span></span></code></pre></div><p><strong>上下文映射图：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                         ┌──────────────┐
+</span></span><span class=line><span class=cl>                         │  商品管理     │
+</span></span><span class=line><span class=cl>                         │  (上游)       │
+</span></span><span class=line><span class=cl>                         └──────┬───────┘
+</span></span><span class=line><span class=cl>                                │ 商品信息（发布语言）
+</span></span><span class=line><span class=cl>                                ▼
+</span></span><span class=line><span class=cl>┌──────────┐  用户认证   ┌──────────────┐   订单创建   ┌──────────────┐
+</span></span><span class=line><span class=cl>│  用户认证 │───────────►│   订单管理    │────────────►│    支付       │
+</span></span><span class=line><span class=cl>│          │◄───────────│   (核心域)   │◄────────────│              │
+</span></span><span class=line><span class=cl>└──────────┘  用户信息   └──────┬───────┘  支付结果   └──────────────┘
+</span></span><span class=line><span class=cl>                                │
+</span></span><span class=line><span class=cl>                                │ 订单发货
+</span></span><span class=line><span class=cl>                                ▼
+</span></span><span class=line><span class=cl>                         ┌──────────────┐
+</span></span><span class=line><span class=cl>                         │   物流管理    │
+</span></span><span class=line><span class=cl>                         └──────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>关系类型：
+</span></span><span class=line><span class=cl>  ──►  客户-供应商（Customer-Supplier）
+</span></span><span class=line><span class=cl>  ◄──►  共享内核（Shared Kernel）
+</span></span><span class=line><span class=cl>  ◄─►  防腐层（Anti-Corruption Layer, ACL）
+</span></span></code></pre></div><h3 id=53-阶段三服务拆分>5.3 阶段三：服务拆分</h3><p><strong>DDD限界上下文 → 微服务映射：</strong></p><table><thead><tr><th>限界上下文</th><th>微服务</th><th>数据库</th><th>技术栈选择理由</th></tr></thead><tbody><tr><td>商品上下文</td><td>product-service</td><td>MySQL</td><td>关系复杂，需要事务</td></tr><tr><td>订单上下文</td><td>order-service</td><td>MySQL + ES</td><td>读写分离，ES用于搜索</td></tr><tr><td>支付上下文</td><td>payment-service</td><td>MySQL</td><td>强一致性要求</td></tr><tr><td>库存上下文</td><td>inventory-service</td><td>Redis + MySQL</td><td>Redis应对高并发扣减</td></tr><tr><td>用户上下文</td><td>user-service</td><td>MySQL</td><td>标准CRUD</td></tr><tr><td>通知上下文</td><td>notification-service</td><td>MongoDB</td><td>消息日志，高写入</td></tr></tbody></table><h3 id=54-阶段四引入cqrs订单服务内部>5.4 阶段四：引入CQRS（订单服务内部）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>订单服务（order-service）内部CQRS：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                 Order Service                        │
+</span></span><span class=line><span class=cl>│                                                      │
+</span></span><span class=line><span class=cl>│  ┌─────────────────────┐    ┌─────────────────────┐ │
+</span></span><span class=line><span class=cl>│  │  OrderCommandService │    │  OrderQueryService   │ │
+</span></span><span class=line><span class=cl>│  │  · createOrder()    │    │  · getOrder()        │ │
+</span></span><span class=line><span class=cl>│  │  · confirmOrder()   │    │  · listUserOrders()  │ │
+</span></span><span class=line><span class=cl>│  │  · cancelOrder()    │    │  · searchOrders()    │ │
+</span></span><span class=line><span class=cl>│  └──────────┬──────────┘    └──────────┬──────────┘ │
+</span></span><span class=line><span class=cl>│             │                          │            │
+</span></span><span class=line><span class=cl>│             ▼                          ▼            │
+</span></span><span class=line><span class=cl>│  ┌──────────────────┐    ┌──────────────────────┐   │
+</span></span><span class=line><span class=cl>│  │  Write DB (MySQL) │    │  Read DB (ES + 宽表)  │   │
+</span></span><span class=line><span class=cl>│  │  orders表         │    │  order_search索引     │   │
+</span></span><span class=line><span class=cl>│  │  order_items表    │    │  order_summary_wide   │   │
+</span></span><span class=line><span class=cl>│  └──────────────────┘    └──────────────────────┘   │
+</span></span><span class=line><span class=cl>│                                                      │
+</span></span><span class=line><span class=cl>│           同步：Canal/Debezium CDC → ES              │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=55-服务间通信防腐层acl>5.5 服务间通信——防腐层（ACL）</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 订单服务调用商品服务时使用防腐层
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Component</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>ProductAntiCorruptionLayer</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>private</span> <span class=kd>final</span> <span class=n>ProductFeignClient</span> <span class=n>productClient</span><span class=o>;</span>
@@ -344,24 +344,24 @@ Event Sourcing 提供：可靠的事件存储与状态重建
 </span></span><span class=line><span class=cl>        <span class=o>}</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=62-服务发现与注册>6.2 服务发现与注册</h3><pre tabindex=0><code>服务注册中心（Nacos/Eureka/Consul）：
-  ┌──────────────────────────────────────┐
-  │         Service Registry              │
-  │                                       │
-  │   product-service → 192.168.1.10:8081│
-  │   order-service   → 192.168.1.20:8082│
-  │   payment-service → 192.168.1.30:8083│
-  │                                       │
-  │   每个服务启动时注册，定期心跳续约      │
-  └──────────────────────────────────────┘
-         ▲                          │
-         │ 服务发现                   │ 服务注册
-         │                          ▼
-  ┌──────────────┐          ┌──────────────┐
-  │ order-service │          │product-service│
-  │  (消费者)      │          │  (提供者)      │
-  └──────────────┘          └──────────────┘
-</code></pre><hr><h2 id=七总结>七、总结</h2><table><thead><tr><th>主题</th><th>核心思想</th><th>一句话总结</th><th>典型场景</th></tr></thead><tbody><tr><td>微服务拆分</td><td>按业务能力/限界上下文拆分</td><td>&ldquo;找到边界，逐步拆分&rdquo;</td><td>电商、SaaS平台</td></tr><tr><td>DDD实体/值对象</td><td>实体有ID可变，值对象无ID不可变</td><td>&ldquo;你是谁 vs 你是什么&rdquo;</td><td>订单(实体) vs 金额(值对象)</td></tr><tr><td>聚合</td><td>一组对象的一致性边界</td><td>&ldquo;通过聚合根统一访问&rdquo;</td><td>订单聚合包含订单项</td></tr><tr><td>限界上下文</td><td>同一概念在不同上下文中不同模型</td><td>&ldquo;此Product非彼Product&rdquo;</td><td>商品管理 vs 订单管理</td></tr><tr><td>CQRS</td><td>读写模型分离</td><td>&ldquo;读一套，写一套&rdquo;</td><td>复杂查询的电商订单</td></tr><tr><td>事件溯源</td><td>存储事件序列而非当前状态</td><td>&ldquo;发生了什么"而非"现在是什么&rdquo;</td><td>审计、金融、溯源系统</td></tr><tr><td>防腐层ACL</td><td>转换外部模型为内部模型</td><td>&ldquo;翻译官隔离外部变化&rdquo;</td><td>服务间调用模型转换</td></tr></tbody></table><p><strong>系统架构设计四大心法：</strong></p><ol><li><strong>先粗后细</strong>：不要一步到位拆太细，先拆出核心领域，逐步细化</li><li><strong>DDD先行</strong>：代码可以重写，领域模型不可重建——先花时间建模</li><li><strong>最终一致性</strong>：跨服务数据不追求实时一致，接受并拥抱最终一致性</li><li><strong>演进式架构</strong>：架构不是设计出来的，是演进出来的——保持重构的勇气</li></ol><blockquote><p>🎯 <strong>本文是系统分析与设计系列第四篇架构实战文章。</strong> 从微服务拆分策略、DDD战术模式（实体/值对象/聚合/限界上下文）、CQRS读写分离、事件溯源到底层分布式中Saga分布式事务，构建了从宏观到微观的完整架构知识体系。</p></blockquote><blockquote><p>📌 <strong>下期预告</strong>：《系统质量属性与非功能需求设计》将从性能、可用性、安全性、可扩展性四大质量属性出发，深入负载均衡策略演进、限流算法对比（计数器/滑动窗口/漏桶/令牌桶）、熔断降级的三态机原理、以及CAP定理在分布式架构中的真实约束与取舍，敬请期待！</p></blockquote><hr><p><em>本系列文章链接：</em></p><ul><li>系统分析与设计概述</li><li>系统静态分析建模（一）</li><li>系统动态行为建模（二）</li><li>系统设计模式实战（三）</li><li>系统架构设计实战（四）← 本文</li></ul></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E7%B3%BB%E7%BB%9F%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%AE%9E%E6%88%98%E4%B8%89/><span>← 上一篇</span><strong>系统设计模式实战（三）</strong></a>
+</span></span></code></pre></div><h3 id=62-服务发现与注册>6.2 服务发现与注册</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>服务注册中心（Nacos/Eureka/Consul）：
+</span></span><span class=line><span class=cl>  ┌──────────────────────────────────────┐
+</span></span><span class=line><span class=cl>  │         Service Registry              │
+</span></span><span class=line><span class=cl>  │                                       │
+</span></span><span class=line><span class=cl>  │   product-service → 192.168.1.10:8081│
+</span></span><span class=line><span class=cl>  │   order-service   → 192.168.1.20:8082│
+</span></span><span class=line><span class=cl>  │   payment-service → 192.168.1.30:8083│
+</span></span><span class=line><span class=cl>  │                                       │
+</span></span><span class=line><span class=cl>  │   每个服务启动时注册，定期心跳续约      │
+</span></span><span class=line><span class=cl>  └──────────────────────────────────────┘
+</span></span><span class=line><span class=cl>         ▲                          │
+</span></span><span class=line><span class=cl>         │ 服务发现                   │ 服务注册
+</span></span><span class=line><span class=cl>         │                          ▼
+</span></span><span class=line><span class=cl>  ┌──────────────┐          ┌──────────────┐
+</span></span><span class=line><span class=cl>  │ order-service │          │product-service│
+</span></span><span class=line><span class=cl>  │  (消费者)      │          │  (提供者)      │
+</span></span><span class=line><span class=cl>  └──────────────┘          └──────────────┘
+</span></span></code></pre></div><hr><h2 id=七总结>七、总结</h2><table><thead><tr><th>主题</th><th>核心思想</th><th>一句话总结</th><th>典型场景</th></tr></thead><tbody><tr><td>微服务拆分</td><td>按业务能力/限界上下文拆分</td><td>&ldquo;找到边界，逐步拆分&rdquo;</td><td>电商、SaaS平台</td></tr><tr><td>DDD实体/值对象</td><td>实体有ID可变，值对象无ID不可变</td><td>&ldquo;你是谁 vs 你是什么&rdquo;</td><td>订单(实体) vs 金额(值对象)</td></tr><tr><td>聚合</td><td>一组对象的一致性边界</td><td>&ldquo;通过聚合根统一访问&rdquo;</td><td>订单聚合包含订单项</td></tr><tr><td>限界上下文</td><td>同一概念在不同上下文中不同模型</td><td>&ldquo;此Product非彼Product&rdquo;</td><td>商品管理 vs 订单管理</td></tr><tr><td>CQRS</td><td>读写模型分离</td><td>&ldquo;读一套，写一套&rdquo;</td><td>复杂查询的电商订单</td></tr><tr><td>事件溯源</td><td>存储事件序列而非当前状态</td><td>&ldquo;发生了什么"而非"现在是什么&rdquo;</td><td>审计、金融、溯源系统</td></tr><tr><td>防腐层ACL</td><td>转换外部模型为内部模型</td><td>&ldquo;翻译官隔离外部变化&rdquo;</td><td>服务间调用模型转换</td></tr></tbody></table><p><strong>系统架构设计四大心法：</strong></p><ol><li><strong>先粗后细</strong>：不要一步到位拆太细，先拆出核心领域，逐步细化</li><li><strong>DDD先行</strong>：代码可以重写，领域模型不可重建——先花时间建模</li><li><strong>最终一致性</strong>：跨服务数据不追求实时一致，接受并拥抱最终一致性</li><li><strong>演进式架构</strong>：架构不是设计出来的，是演进出来的——保持重构的勇气</li></ol><blockquote><p>🎯 <strong>本文是系统分析与设计系列第四篇架构实战文章。</strong> 从微服务拆分策略、DDD战术模式（实体/值对象/聚合/限界上下文）、CQRS读写分离、事件溯源到底层分布式中Saga分布式事务，构建了从宏观到微观的完整架构知识体系。</p></blockquote><blockquote><p>📌 <strong>下期预告</strong>：《系统质量属性与非功能需求设计》将从性能、可用性、安全性、可扩展性四大质量属性出发，深入负载均衡策略演进、限流算法对比（计数器/滑动窗口/漏桶/令牌桶）、熔断降级的三态机原理、以及CAP定理在分布式架构中的真实约束与取舍，敬请期待！</p></blockquote><hr><p><em>本系列文章链接：</em></p><ul><li>系统分析与设计概述</li><li>系统静态分析建模（一）</li><li>系统动态行为建模（二）</li><li>系统设计模式实战（三）</li><li>系统架构设计实战（四）← 本文</li></ul></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E7%B3%BB%E7%BB%9F%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%AE%9E%E6%88%98%E4%B8%89/><span>← 上一篇</span><strong>系统设计模式实战（三）</strong></a>
 <a class=next href=/posts/%E7%B3%BB%E7%BB%9F%E8%B4%A8%E9%87%8F%E5%B1%9E%E6%80%A7%E8%AE%BE%E8%AE%A1%E4%BA%94%E6%80%A7%E8%83%BD%E5%8F%AF%E7%94%A8%E6%80%A7%E5%AE%89%E5%85%A8%E6%80%A7%E4%B8%8E%E5%8F%AF%E6%89%A9%E5%B1%95%E6%80%A7/><span>下一篇 →</span><strong>系统质量属性设计（五）——性能、可用性、安全性与可扩展性</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%AB%E7%94%9F%E4%BA%A7%E7%BA%A7%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E7%81%BE%E5%A4%87/><span>2026-08-09</span><strong>Kubernetes与云原生面试八股文（八）——生产级高可用与灾备</strong><p>面试高频问题：Kubernetes 生产集群如何实现高可用？etcd 如何做备份与恢复？多集群联邦如何设计？灾备策略有哪些？RPO/RTO 如何权衡？本文系统讲解 K8s 生产级高 …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/><span>2026-08-08</span><strong>Kubernetes与云原生面试八股文（七）——可观测性与故障排查</strong><p>面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/><span>2026-08-06</span><strong>Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps</strong><p>面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD …</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9A%E7%B3%BB%E7%BB%9F%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E5%AE%9E%E6%88%98%EF%BC%88%E5%9B%9B%EF%BC%89%E2%80%94%E2%80%94%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%8B%86%E5%88%86%E4%B8%8EDDD%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一微服务拆分从单体到分布式>一、微服务拆分——从单体到分布式</a><ul><li><a href=#11-为什么要拆分微服务>1.1 为什么要拆分微服务？</a></li><li><a href=#12-拆分策略对比>1.2 拆分策略对比</a></li><li><a href=#13-拆分粒度多大算合适>1.3 拆分粒度——多大算合适？</a></li></ul></li><li><a href=#二ddd领域驱动设计战术模式>二、DDD领域驱动设计——战术模式</a><ul><li><a href=#21-实体entityvs-值对象value-object>2.1 实体（Entity）vs 值对象（Value Object）</a></li><li><a href=#22-聚合aggregate与聚合根aggregate-root>2.2 聚合（Aggregate）与聚合根（Aggregate Root）</a></li><li><a href=#23-限界上下文bounded-context>2.3 限界上下文（Bounded Context）</a></li></ul></li><li><a href=#三cqrs命令查询职责分离>三、CQRS——命令查询职责分离</a><ul><li><a href=#31-cqrs的核心思想>3.1 CQRS的核心思想</a></li><li><a href=#32-cqrs的适用场景>3.2 CQRS的适用场景</a></li></ul></li><li><a href=#四事件溯源event-sourcing>四、事件溯源（Event Sourcing）</a><ul><li><a href=#41-事件溯源-vs-传统持久化>4.1 事件溯源 vs 传统持久化</a></li><li><a href=#42-事件溯源的架构>4.2 事件溯源的架构</a></li><li><a href=#43-事件溯源的优缺点>4.3 事件溯源的优缺点</a></li></ul></li><li><a href=#五实战案例电商订单系统架构演进>五、实战案例：电商订单系统架构演进</a><ul><li><a href=#51-阶段一单体架构>5.1 阶段一：单体架构</a></li><li><a href=#52-阶段二限界上下文识别>5.2 阶段二：限界上下文识别</a></li><li><a href=#53-阶段三服务拆分>5.3 阶段三：服务拆分</a></li><li><a href=#54-阶段四引入cqrs订单服务内部>5.4 阶段四：引入CQRS（订单服务内部）</a></li><li><a href=#55-服务间通信防腐层acl>5.5 服务间通信——防腐层（ACL）</a></li></ul></li><li><a href=#六微服务治理要点>六、微服务治理要点</a><ul><li><a href=#61-分布式事务saga模式>6.1 分布式事务——Saga模式</a></li><li><a href=#62-服务发现与注册>6.2 服务发现与注册</a></li></ul></li><li><a href=#七总结>七、总结</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
 <a href=mailto:liyafei.work@foxmail.com>邮箱</a>
 <a href=/index.xml>RSS</a>

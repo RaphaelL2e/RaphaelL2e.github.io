@@ -10,36 +10,36 @@
 <span>/</span><a href=/series/java-design-patterns/>GoF 设计模式</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Java设计模式（十九）：中介者模式深度实践</h1><p class=article-description>中介者模式（Mediator Pattern）是一种行为型设计模式，它的核心思想是：用一个中介对象来封装一系列的对象交互，使各对象不需要显式地相互引用，从而使其耦合松散。 核心思想：将多对多的交互转化为一对多，通过中介者集中协调。 假设我们有一个聊天室系统，用户之间直接通信： 每个用户需要知道其他所。</p><div class=article-meta><span>发布于 <time datetime=2026-04-22>2026-04-22</time></span>
 <span>最后验证 2026-04</span>
 <span>7 分钟阅读</span>
-<span>1281 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#前言>前言</a></li><li><a href=#一为什么需要中介者模式>一、为什么需要中介者模式</a><ul><li><a href=#11-对象间的网状依赖>1.1 对象间的网状依赖</a></li><li><a href=#12-迪米特法则的体现>1.2 迪米特法则的体现</a></li></ul></li><li><a href=#二中介者模式的结构>二、中介者模式的结构</a><ul><li><a href=#21-类图>2.1 类图</a></li><li><a href=#22-完整实现聊天室>2.2 完整实现：聊天室</a></li></ul></li><li><a href=#三中介者模式的高级用法>三、中介者模式的高级用法</a><ul><li><a href=#31-带权限的聊天中介者>3.1 带权限的聊天中介者</a></li><li><a href=#32-ui-组件中介者>3.2 UI 组件中介者</a></li></ul></li><li><a href=#四中介者模式在-jdk-中的应用>四、中介者模式在 JDK 中的应用</a><ul><li><a href=#41-timer-与-timertask>4.1 Timer 与 TimerTask</a></li><li><a href=#42-executorservice>4.2 ExecutorService</a></li></ul></li><li><a href=#五中介者模式-vs-其他模式>五、中介者模式 vs 其他模式</a><ul><li><a href=#51-对比观察者模式>5.1 对比观察者模式</a></li><li><a href=#52-对比外观模式>5.2 对比外观模式</a></li></ul></li><li><a href=#六中介者模式的优缺点>六、中介者模式的优缺点</a><ul><li><a href=#优点>优点</a></li><li><a href=#缺点>缺点</a></li><li><a href=#适用场景>适用场景</a></li></ul></li><li><a href=#七实战空中交通管制>七、实战：空中交通管制</a></li><li><a href=#八面试常见问题>八、面试常见问题</a><ul><li><a href=#q1-中介者模式的核心思想是什么>Q1: 中介者模式的核心思想是什么？</a></li><li><a href=#q2-中介者模式和外观模式有什么区别>Q2: 中介者模式和外观模式有什么区别？</a></li><li><a href=#q3-中介者模式的缺点是什么>Q3: 中介者模式的缺点是什么？</a></li><li><a href=#q4-什么场景下应该使用中介者模式>Q4: 什么场景下应该使用中介者模式？</a></li><li><a href=#q5-中介者模式和观察者模式有什么关系>Q5: 中介者模式和观察者模式有什么关系？</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=前言>前言</h2><p>中介者模式（Mediator Pattern）是一种行为型设计模式，它的核心思想是：<strong>用一个中介对象来封装一系列的对象交互，使各对象不需要显式地相互引用，从而使其耦合松散</strong>。</p><p><strong>核心思想</strong>：将多对多的交互转化为一对多，通过中介者集中协调。</p><h2 id=一为什么需要中介者模式>一、为什么需要中介者模式</h2><h3 id=11-对象间的网状依赖>1.1 对象间的网状依赖</h3><p>假设我们有一个聊天室系统，用户之间直接通信：</p><pre tabindex=0><code>UserA ←→ UserB
-  ↕    ×    ↕
-UserD ←→ UserC
-</code></pre><p>每个用户需要知道其他所有用户的存在，形成网状依赖。新增或移除一个用户，所有相关用户都要修改。</p><p>中介者模式将网状依赖变为星状：</p><pre tabindex=0><code>      UserA
-        |
-UserD - Mediator - UserB
-        |
-      UserC
-</code></pre><h3 id=12-迪米特法则的体现>1.2 迪米特法则的体现</h3><p>中介者模式符合迪米特法则：每个同事对象只与中介者交互，不需要了解其他同事的细节。</p><h2 id=二中介者模式的结构>二、中介者模式的结构</h2><h3 id=21-类图>2.1 类图</h3><pre tabindex=0><code>┌──────────────────────┐
-│    Mediator (抽象)    │
-│──────────────────────│
-│ + colleagueChanged() │
-└──────────┬───────────┘
-           │
-     ┌─────┴──────┐
-     │            │
-┌────┴────┐  ┌────┴──────┐
-│Concrete-│  │ Colleague  │
-│Mediator │  │  (抽象同事) │
-│─────────│  │───────────│
-│colleague│  │ mediator  │
-│changed()│  │ changed() │
-└─────────┘  └─────┬─────┘
-                   │
-            ┌──────┼──────┐
-            │      │      │
-       ┌────┴──┐ ┌─┴──┐ ┌┴─────┐
-       │ColA  │ │ColB│ │ColC  │
-       └──────┘ └────┘ └──────┘
-</code></pre><h3 id=22-完整实现聊天室>2.2 完整实现：聊天室</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 1. 抽象中介者 ==========
+<span>1281 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#前言>前言</a></li><li><a href=#一为什么需要中介者模式>一、为什么需要中介者模式</a><ul><li><a href=#11-对象间的网状依赖>1.1 对象间的网状依赖</a></li><li><a href=#12-迪米特法则的体现>1.2 迪米特法则的体现</a></li></ul></li><li><a href=#二中介者模式的结构>二、中介者模式的结构</a><ul><li><a href=#21-类图>2.1 类图</a></li><li><a href=#22-完整实现聊天室>2.2 完整实现：聊天室</a></li></ul></li><li><a href=#三中介者模式的高级用法>三、中介者模式的高级用法</a><ul><li><a href=#31-带权限的聊天中介者>3.1 带权限的聊天中介者</a></li><li><a href=#32-ui-组件中介者>3.2 UI 组件中介者</a></li></ul></li><li><a href=#四中介者模式在-jdk-中的应用>四、中介者模式在 JDK 中的应用</a><ul><li><a href=#41-timer-与-timertask>4.1 Timer 与 TimerTask</a></li><li><a href=#42-executorservice>4.2 ExecutorService</a></li></ul></li><li><a href=#五中介者模式-vs-其他模式>五、中介者模式 vs 其他模式</a><ul><li><a href=#51-对比观察者模式>5.1 对比观察者模式</a></li><li><a href=#52-对比外观模式>5.2 对比外观模式</a></li></ul></li><li><a href=#六中介者模式的优缺点>六、中介者模式的优缺点</a><ul><li><a href=#优点>优点</a></li><li><a href=#缺点>缺点</a></li><li><a href=#适用场景>适用场景</a></li></ul></li><li><a href=#七实战空中交通管制>七、实战：空中交通管制</a></li><li><a href=#八面试常见问题>八、面试常见问题</a><ul><li><a href=#q1-中介者模式的核心思想是什么>Q1: 中介者模式的核心思想是什么？</a></li><li><a href=#q2-中介者模式和外观模式有什么区别>Q2: 中介者模式和外观模式有什么区别？</a></li><li><a href=#q3-中介者模式的缺点是什么>Q3: 中介者模式的缺点是什么？</a></li><li><a href=#q4-什么场景下应该使用中介者模式>Q4: 什么场景下应该使用中介者模式？</a></li><li><a href=#q5-中介者模式和观察者模式有什么关系>Q5: 中介者模式和观察者模式有什么关系？</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=前言>前言</h2><p>中介者模式（Mediator Pattern）是一种行为型设计模式，它的核心思想是：<strong>用一个中介对象来封装一系列的对象交互，使各对象不需要显式地相互引用，从而使其耦合松散</strong>。</p><p><strong>核心思想</strong>：将多对多的交互转化为一对多，通过中介者集中协调。</p><h2 id=一为什么需要中介者模式>一、为什么需要中介者模式</h2><h3 id=11-对象间的网状依赖>1.1 对象间的网状依赖</h3><p>假设我们有一个聊天室系统，用户之间直接通信：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>UserA ←→ UserB
+</span></span><span class=line><span class=cl>  ↕    ×    ↕
+</span></span><span class=line><span class=cl>UserD ←→ UserC
+</span></span></code></pre></div><p>每个用户需要知道其他所有用户的存在，形成网状依赖。新增或移除一个用户，所有相关用户都要修改。</p><p>中介者模式将网状依赖变为星状：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>      UserA
+</span></span><span class=line><span class=cl>        |
+</span></span><span class=line><span class=cl>UserD - Mediator - UserB
+</span></span><span class=line><span class=cl>        |
+</span></span><span class=line><span class=cl>      UserC
+</span></span></code></pre></div><h3 id=12-迪米特法则的体现>1.2 迪米特法则的体现</h3><p>中介者模式符合迪米特法则：每个同事对象只与中介者交互，不需要了解其他同事的细节。</p><h2 id=二中介者模式的结构>二、中介者模式的结构</h2><h3 id=21-类图>2.1 类图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌──────────────────────┐
+</span></span><span class=line><span class=cl>│    Mediator (抽象)    │
+</span></span><span class=line><span class=cl>│──────────────────────│
+</span></span><span class=line><span class=cl>│ + colleagueChanged() │
+</span></span><span class=line><span class=cl>└──────────┬───────────┘
+</span></span><span class=line><span class=cl>           │
+</span></span><span class=line><span class=cl>     ┌─────┴──────┐
+</span></span><span class=line><span class=cl>     │            │
+</span></span><span class=line><span class=cl>┌────┴────┐  ┌────┴──────┐
+</span></span><span class=line><span class=cl>│Concrete-│  │ Colleague  │
+</span></span><span class=line><span class=cl>│Mediator │  │  (抽象同事) │
+</span></span><span class=line><span class=cl>│─────────│  │───────────│
+</span></span><span class=line><span class=cl>│colleague│  │ mediator  │
+</span></span><span class=line><span class=cl>│changed()│  │ changed() │
+</span></span><span class=line><span class=cl>└─────────┘  └─────┬─────┘
+</span></span><span class=line><span class=cl>                   │
+</span></span><span class=line><span class=cl>            ┌──────┼──────┐
+</span></span><span class=line><span class=cl>            │      │      │
+</span></span><span class=line><span class=cl>       ┌────┴──┐ ┌─┴──┐ ┌┴─────┐
+</span></span><span class=line><span class=cl>       │ColA  │ │ColB│ │ColC  │
+</span></span><span class=line><span class=cl>       └──────┘ └────┘ └──────┘
+</span></span></code></pre></div><h3 id=22-完整实现聊天室>2.2 完整实现：聊天室</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 1. 抽象中介者 ==========
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>interface</span> <span class=nc>ChatMediator</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>sendMessage</span><span class=o>(</span><span class=n>String</span> <span class=n>message</span><span class=o>,</span> <span class=n>User</span> <span class=n>sender</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>addUser</span><span class=o>(</span><span class=n>User</span> <span class=n>user</span><span class=o>);</span>
@@ -115,13 +115,13 @@ UserD - Mediator - UserB
 </span></span><span class=line><span class=cl>        <span class=n>bob</span><span class=o>.</span><span class=na>send</span><span class=o>(</span><span class=s>&#34;你好 Alice！&#34;</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p>运行结果：</p><pre tabindex=0><code>Alice 发送: 大家好！
-  → Bob 收到来自 Alice 的消息: 大家好！
-  → Charlie 收到来自 Alice 的消息: 大家好！
-Bob 发送: 你好 Alice！
-  → Alice 收到来自 Bob 的消息: 你好 Alice！
-  → Charlie 收到来自 Bob 的消息: 你好 Alice！
-</code></pre><h2 id=三中介者模式的高级用法>三、中介者模式的高级用法</h2><h3 id=31-带权限的聊天中介者>3.1 带权限的聊天中介者</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>PrivateChatMediator</span> <span class=kd>implements</span> <span class=n>ChatMediator</span> <span class=o>{</span>
+</span></span></code></pre></div><p>运行结果：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Alice 发送: 大家好！
+</span></span><span class=line><span class=cl>  → Bob 收到来自 Alice 的消息: 大家好！
+</span></span><span class=line><span class=cl>  → Charlie 收到来自 Alice 的消息: 大家好！
+</span></span><span class=line><span class=cl>Bob 发送: 你好 Alice！
+</span></span><span class=line><span class=cl>  → Alice 收到来自 Bob 的消息: 你好 Alice！
+</span></span><span class=line><span class=cl>  → Charlie 收到来自 Bob 的消息: 你好 Alice！
+</span></span></code></pre></div><h2 id=三中介者模式的高级用法>三、中介者模式的高级用法</h2><h3 id=31-带权限的聊天中介者>3.1 带权限的聊天中介者</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>PrivateChatMediator</span> <span class=kd>implements</span> <span class=n>ChatMediator</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kd>private</span> <span class=kd>final</span> <span class=n>List</span><span class=o>&lt;</span><span class=n>User</span><span class=o>&gt;</span> <span class=n>users</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ArrayList</span><span class=o>&lt;&gt;();</span>
 </span></span><span class=line><span class=cl>    <span class=kd>private</span> <span class=kd>final</span> <span class=n>Map</span><span class=o>&lt;</span><span class=n>String</span><span class=o>,</span> <span class=n>Set</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;&gt;</span> <span class=n>blocked</span> <span class=o>=</span> <span class=k>new</span> <span class=n>HashMap</span><span class=o>&lt;&gt;();</span>
 </span></span><span class=line><span class=cl>    

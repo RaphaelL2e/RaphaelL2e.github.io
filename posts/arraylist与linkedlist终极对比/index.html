@@ -191,12 +191,12 @@
 </span></span><span class=line><span class=cl>        <span class=k>this</span><span class=o>.</span><span class=na>prev</span> <span class=o>=</span> <span class=n>prev</span><span class=o>;</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p><strong>内存布局</strong>：</p><pre tabindex=0><code>first                                                    last
-  ↓                                                        ↓
-[prev|item|next] ↔ [prev|item|next] ↔ [prev|item|next]
-   null              ↑                  ↑                  null
-                 node.prev          node.next
-</code></pre><h3 id=32-节点内存开销>3.2 节点内存开销</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 64位 JVM，开启指针压缩（-XX:+UseCompressedOops）
+</span></span></code></pre></div><p><strong>内存布局</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>first                                                    last
+</span></span><span class=line><span class=cl>  ↓                                                        ↓
+</span></span><span class=line><span class=cl>[prev|item|next] ↔ [prev|item|next] ↔ [prev|item|next]
+</span></span><span class=line><span class=cl>   null              ↑                  ↑                  null
+</span></span><span class=line><span class=cl>                 node.prev          node.next
+</span></span></code></pre></div><h3 id=32-节点内存开销>3.2 节点内存开销</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 64位 JVM，开启指针压缩（-XX:+UseCompressedOops）
 </span></span></span><span class=line><span class=cl><span class=c1>// Node&lt;E&gt; 占用：
 </span></span></span><span class=line><span class=cl><span class=c1>// 对象头（12字节）+ prev引用（4字节）+ item引用（4字节）+ next引用（4字节）+ 对齐填充（4字节）
 </span></span></span><span class=line><span class=cl><span class=c1>// = 32 字节/节点
@@ -344,18 +344,18 @@
 </span></span></span><span class=line><span class=cl><span class=c1>// 场景3：随机访问
 </span></span></span><span class=line><span class=cl><span class=c1>// 场景4：随机删除
 </span></span></span><span class=line><span class=cl><span class=c1>// 场景5：顺序遍历
-</span></span></span></code></pre></div><h3 id=42-尾部追加>4.2 尾部追加</h3><table><thead><tr><th>数据量</th><th>ArrayList</th><th>LinkedList</th><th>比值</th></tr></thead><tbody><tr><td>1万</td><td>1ms</td><td>2ms</td><td>2x</td></tr><tr><td>10万</td><td>3ms</td><td>12ms</td><td>4x</td></tr><tr><td>100万</td><td>15ms</td><td>120ms</td><td>8x</td></tr></tbody></table><p><strong>分析</strong>：ArrayList 尾部追加均摊 O(1)，扩容时偶尔 O(n) 但分摊后极快。LinkedList 每次 add 都要 new Node()，对象创建开销大。</p><h3 id=43-头部插入>4.3 头部插入</h3><table><thead><tr><th>数据量</th><th>ArrayList</th><th>LinkedList</th><th>比值</th></tr></thead><tbody><tr><td>1万</td><td>8ms</td><td>1ms</td><td>0.12x</td></tr><tr><td>10万</td><td>120ms</td><td>5ms</td><td>0.04x</td></tr><tr><td>100万</td><td>8000ms</td><td>30ms</td><td>0.004x</td></tr></tbody></table><p><strong>分析</strong>：ArrayList 头部插入需要移动所有元素，O(n)。LinkedList 头部插入 O(1)，完胜。</p><h3 id=44-随机访问>4.4 随机访问</h3><table><thead><tr><th>数据量</th><th>ArrayList</th><th>LinkedList</th><th>比值</th></tr></thead><tbody><tr><td>1万</td><td>0.5ms</td><td>50ms</td><td>100x</td></tr><tr><td>10万</td><td>1ms</td><td>500ms</td><td>500x</td></tr></tbody></table><p><strong>分析</strong>：ArrayList 数组下标直接访问 O(1)，LinkedList 需要遍历链表 O(n)。差距巨大。</p><h3 id=45-随机删除>4.5 随机删除</h3><table><thead><tr><th>数据量</th><th>ArrayList</th><th>LinkedList</th><th>比值</th></tr></thead><tbody><tr><td>1万</td><td>5ms</td><td>30ms</td><td>6x</td></tr><tr><td>10万</td><td>80ms</td><td>400ms</td><td>5x</td></tr></tbody></table><p><strong>分析</strong>：虽然 LinkedList 删除操作本身 O(1)，但定位节点 O(n)。ArrayList 删除需要移动元素，但 System.arraycopy 是 native 优化，内存连续对 CPU 缓存友好。<strong>实际中 ArrayList 删除反而更快</strong>。</p><h3 id=46-顺序遍历>4.6 顺序遍历</h3><table><thead><tr><th>数据量</th><th>ArrayList</th><th>LinkedList</th><th>比值</th></tr></thead><tbody><tr><td>10万</td><td>2ms</td><td>8ms</td><td>4x</td></tr><tr><td>100万</td><td>10ms</td><td>80ms</td><td>8x</td></tr></tbody></table><p><strong>分析</strong>：CPU 缓存预取（prefetch）让连续内存访问远快于指针跳转。ArrayList 遍历内存连续，缓存命中率高。LinkedList 遍历每次都是 cache miss。</p><h2 id=五cpu-缓存对性能的影响>五、CPU 缓存对性能的影响</h2><h3 id=51-缓存行与预取>5.1 缓存行与预取</h3><pre tabindex=0><code>CPU Cache Line: 64 字节
-
-ArrayList 内存布局（连续）：
-[element0][element1][element2][element3]...[element15]
-|←─────── 一个 Cache Line ───────→|
-  读取 element0 时，element1-15 被预取到缓存
-
-LinkedList 内存布局（离散）：
-[node0@0x1000] → [node1@0x5000] → [node2@0xA000]
-  每个 Node 可能在不同 Cache Line
-  读取 node0 不带来 node1 的缓存预取
-</code></pre><h3 id=52-实际影响>5.2 实际影响</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ArrayList 遍历：缓存命中率 ~95%
+</span></span></span></code></pre></div><h3 id=42-尾部追加>4.2 尾部追加</h3><table><thead><tr><th>数据量</th><th>ArrayList</th><th>LinkedList</th><th>比值</th></tr></thead><tbody><tr><td>1万</td><td>1ms</td><td>2ms</td><td>2x</td></tr><tr><td>10万</td><td>3ms</td><td>12ms</td><td>4x</td></tr><tr><td>100万</td><td>15ms</td><td>120ms</td><td>8x</td></tr></tbody></table><p><strong>分析</strong>：ArrayList 尾部追加均摊 O(1)，扩容时偶尔 O(n) 但分摊后极快。LinkedList 每次 add 都要 new Node()，对象创建开销大。</p><h3 id=43-头部插入>4.3 头部插入</h3><table><thead><tr><th>数据量</th><th>ArrayList</th><th>LinkedList</th><th>比值</th></tr></thead><tbody><tr><td>1万</td><td>8ms</td><td>1ms</td><td>0.12x</td></tr><tr><td>10万</td><td>120ms</td><td>5ms</td><td>0.04x</td></tr><tr><td>100万</td><td>8000ms</td><td>30ms</td><td>0.004x</td></tr></tbody></table><p><strong>分析</strong>：ArrayList 头部插入需要移动所有元素，O(n)。LinkedList 头部插入 O(1)，完胜。</p><h3 id=44-随机访问>4.4 随机访问</h3><table><thead><tr><th>数据量</th><th>ArrayList</th><th>LinkedList</th><th>比值</th></tr></thead><tbody><tr><td>1万</td><td>0.5ms</td><td>50ms</td><td>100x</td></tr><tr><td>10万</td><td>1ms</td><td>500ms</td><td>500x</td></tr></tbody></table><p><strong>分析</strong>：ArrayList 数组下标直接访问 O(1)，LinkedList 需要遍历链表 O(n)。差距巨大。</p><h3 id=45-随机删除>4.5 随机删除</h3><table><thead><tr><th>数据量</th><th>ArrayList</th><th>LinkedList</th><th>比值</th></tr></thead><tbody><tr><td>1万</td><td>5ms</td><td>30ms</td><td>6x</td></tr><tr><td>10万</td><td>80ms</td><td>400ms</td><td>5x</td></tr></tbody></table><p><strong>分析</strong>：虽然 LinkedList 删除操作本身 O(1)，但定位节点 O(n)。ArrayList 删除需要移动元素，但 System.arraycopy 是 native 优化，内存连续对 CPU 缓存友好。<strong>实际中 ArrayList 删除反而更快</strong>。</p><h3 id=46-顺序遍历>4.6 顺序遍历</h3><table><thead><tr><th>数据量</th><th>ArrayList</th><th>LinkedList</th><th>比值</th></tr></thead><tbody><tr><td>10万</td><td>2ms</td><td>8ms</td><td>4x</td></tr><tr><td>100万</td><td>10ms</td><td>80ms</td><td>8x</td></tr></tbody></table><p><strong>分析</strong>：CPU 缓存预取（prefetch）让连续内存访问远快于指针跳转。ArrayList 遍历内存连续，缓存命中率高。LinkedList 遍历每次都是 cache miss。</p><h2 id=五cpu-缓存对性能的影响>五、CPU 缓存对性能的影响</h2><h3 id=51-缓存行与预取>5.1 缓存行与预取</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>CPU Cache Line: 64 字节
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>ArrayList 内存布局（连续）：
+</span></span><span class=line><span class=cl>[element0][element1][element2][element3]...[element15]
+</span></span><span class=line><span class=cl>|←─────── 一个 Cache Line ───────→|
+</span></span><span class=line><span class=cl>  读取 element0 时，element1-15 被预取到缓存
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>LinkedList 内存布局（离散）：
+</span></span><span class=line><span class=cl>[node0@0x1000] → [node1@0x5000] → [node2@0xA000]
+</span></span><span class=line><span class=cl>  每个 Node 可能在不同 Cache Line
+</span></span><span class=line><span class=cl>  读取 node0 不带来 node1 的缓存预取
+</span></span></code></pre></div><h3 id=52-实际影响>5.2 实际影响</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ArrayList 遍历：缓存命中率 ~95%
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>for</span> <span class=o>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=o>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>list</span><span class=o>.</span><span class=na>size</span><span class=o>();</span> <span class=n>i</span><span class=o>++)</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=n>list</span><span class=o>.</span><span class=na>get</span><span class=o>(</span><span class=n>i</span><span class=o>);</span>  <span class=c1>// 连续内存，预取生效
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=o>}</span>
@@ -457,20 +457,20 @@ LinkedList 内存布局（离散）：
 </span></span><span class=line><span class=cl><span class=c1>// 位运算优化
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kt>int</span> <span class=n>newCapacity</span> <span class=o>=</span> <span class=n>oldCapacity</span> <span class=o>+</span> <span class=o>(</span><span class=n>oldCapacity</span> <span class=o>&gt;&gt;</span> <span class=mi>1</span><span class=o>);</span>  <span class=c1>// 等价于 × 1.5
 </span></span></span><span class=line><span class=cl><span class=c1>// 比 oldCapacity * 3 / 2 更高效（移位比乘除快）
-</span></span></span></code></pre></div><h2 id=七实战选择指南>七、实战选择指南</h2><h3 id=71-决策流程图>7.1 决策流程图</h3><pre tabindex=0><code>需要 List？
-  │
-  ├─ 需要随机访问？ ──→ ArrayList ✅
-  │
-  ├─ 需要队列/栈操作？ ──→ ArrayDeque ✅（不是 LinkedList！）
-  │
-  ├─ 大量头部插入？ ──→ ArrayDeque 或 LinkedList
-  │
-  ├─ 频繁中间插入？
-  │   ├─ 已知插入位置（有迭代器）？ ──→ LinkedList + Iterator
-  │   └─ 按 index 插入？ ──→ ArrayList（copy 比 traverse 快）
-  │
-  └─ 默认选择 ──→ ArrayList ✅
-</code></pre><h3 id=72-最佳实践>7.2 最佳实践</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ✅ 默认用 ArrayList
+</span></span></span></code></pre></div><h2 id=七实战选择指南>七、实战选择指南</h2><h3 id=71-决策流程图>7.1 决策流程图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>需要 List？
+</span></span><span class=line><span class=cl>  │
+</span></span><span class=line><span class=cl>  ├─ 需要随机访问？ ──→ ArrayList ✅
+</span></span><span class=line><span class=cl>  │
+</span></span><span class=line><span class=cl>  ├─ 需要队列/栈操作？ ──→ ArrayDeque ✅（不是 LinkedList！）
+</span></span><span class=line><span class=cl>  │
+</span></span><span class=line><span class=cl>  ├─ 大量头部插入？ ──→ ArrayDeque 或 LinkedList
+</span></span><span class=line><span class=cl>  │
+</span></span><span class=line><span class=cl>  ├─ 频繁中间插入？
+</span></span><span class=line><span class=cl>  │   ├─ 已知插入位置（有迭代器）？ ──→ LinkedList + Iterator
+</span></span><span class=line><span class=cl>  │   └─ 按 index 插入？ ──→ ArrayList（copy 比 traverse 快）
+</span></span><span class=line><span class=cl>  │
+</span></span><span class=line><span class=cl>  └─ 默认选择 ──→ ArrayList ✅
+</span></span></code></pre></div><h3 id=72-最佳实践>7.2 最佳实践</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ✅ 默认用 ArrayList
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=n>List</span><span class=o>&lt;</span><span class=n>String</span><span class=o>&gt;</span> <span class=n>list</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ArrayList</span><span class=o>&lt;&gt;();</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1>// ✅ 预估容量，避免频繁扩容

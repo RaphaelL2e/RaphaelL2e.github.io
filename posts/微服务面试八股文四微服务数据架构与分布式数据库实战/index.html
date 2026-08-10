@@ -23,41 +23,41 @@
 </span></span></span><span class=line><span class=cl><span class=c1>-- │ QPS        │  1000+      │ CPU 100%, 响应超时  │
 </span></span></span><span class=line><span class=cl><span class=c1>-- │ 写入TPS    │  500+       │ 写入排队、主从延迟大 │
 </span></span></span><span class=line><span class=cl><span class=c1>-- └────────────┴──────────────┴───────────────────┘
-</span></span></span></code></pre></div><p><strong>微服务下数据架构的演进路径：</strong></p><pre tabindex=0><code>阶段1: 单库单表
-┌─────────────────┐
-│   MySQL (单库)   │
-│  ┌────────────┐ │
-│  │  order表   │ │  100万行 → 问题不大
-│  └────────────┘ │
-└─────────────────┘
-
-阶段2: 垂直拆分（按业务拆库）
-┌──────────┐  ┌──────────┐  ┌──────────┐
-│ 用户DB    │  │ 订单DB    │  │ 商品DB    │
-│ user表   │  │ order表  │  │ product表│
-│ address表│  │ order_   │  │ sku表    │
-│          │  │ item表   │  │          │
-└──────────┘  └──────────┘  └──────────┘
-// 优点：隔离性、独立扩容
-// 缺点：跨库JOIN问题 → 通过服务层聚合解决
-
-阶段3: 水平拆分（大表分片）
-┌────────────────────────────────────────┐
-│  order_db_0         order_db_1         │
-│  ┌──────────┐      ┌──────────┐       │
-│  │ order_0  │      │ order_0  │       │
-│  │ order_1  │      │ order_1  │       │
-│  │ order_2  │      │ order_2  │       │
-│  │ order_3  │      │ order_3  │       │
-│  └──────────┘      └──────────┘       │
-│  order_db_2         order_db_3         │
-│  ┌──────────┐      ┌──────────┐       │
-│  │ order_0  │      │ order_0  │       │
-│  │ order_1  │      │ order_1  │       │
-│  └──────────┘      └──────────┘       │
-└────────────────────────────────────────┘
-// 4库 × 4表 = 16个分片，数据散列分布
-</code></pre><h3 id=12-分片策略深度对比>1.2 分片策略深度对比</h3><p><strong>Q: 分库分表有哪几种分片策略？各自适用什么场景？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ===== 策略1：取模分片（最常用）=====
+</span></span></span></code></pre></div><p><strong>微服务下数据架构的演进路径：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>阶段1: 单库单表
+</span></span><span class=line><span class=cl>┌─────────────────┐
+</span></span><span class=line><span class=cl>│   MySQL (单库)   │
+</span></span><span class=line><span class=cl>│  ┌────────────┐ │
+</span></span><span class=line><span class=cl>│  │  order表   │ │  100万行 → 问题不大
+</span></span><span class=line><span class=cl>│  └────────────┘ │
+</span></span><span class=line><span class=cl>└─────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>阶段2: 垂直拆分（按业务拆库）
+</span></span><span class=line><span class=cl>┌──────────┐  ┌──────────┐  ┌──────────┐
+</span></span><span class=line><span class=cl>│ 用户DB    │  │ 订单DB    │  │ 商品DB    │
+</span></span><span class=line><span class=cl>│ user表   │  │ order表  │  │ product表│
+</span></span><span class=line><span class=cl>│ address表│  │ order_   │  │ sku表    │
+</span></span><span class=line><span class=cl>│          │  │ item表   │  │          │
+</span></span><span class=line><span class=cl>└──────────┘  └──────────┘  └──────────┘
+</span></span><span class=line><span class=cl>// 优点：隔离性、独立扩容
+</span></span><span class=line><span class=cl>// 缺点：跨库JOIN问题 → 通过服务层聚合解决
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>阶段3: 水平拆分（大表分片）
+</span></span><span class=line><span class=cl>┌────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│  order_db_0         order_db_1         │
+</span></span><span class=line><span class=cl>│  ┌──────────┐      ┌──────────┐       │
+</span></span><span class=line><span class=cl>│  │ order_0  │      │ order_0  │       │
+</span></span><span class=line><span class=cl>│  │ order_1  │      │ order_1  │       │
+</span></span><span class=line><span class=cl>│  │ order_2  │      │ order_2  │       │
+</span></span><span class=line><span class=cl>│  │ order_3  │      │ order_3  │       │
+</span></span><span class=line><span class=cl>│  └──────────┘      └──────────┘       │
+</span></span><span class=line><span class=cl>│  order_db_2         order_db_3         │
+</span></span><span class=line><span class=cl>│  ┌──────────┐      ┌──────────┐       │
+</span></span><span class=line><span class=cl>│  │ order_0  │      │ order_0  │       │
+</span></span><span class=line><span class=cl>│  │ order_1  │      │ order_1  │       │
+</span></span><span class=line><span class=cl>│  └──────────┘      └──────────┘       │
+</span></span><span class=line><span class=cl>└────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>// 4库 × 4表 = 16个分片，数据散列分布
+</span></span></code></pre></div><h3 id=12-分片策略深度对比>1.2 分片策略深度对比</h3><p><strong>Q: 分库分表有哪几种分片策略？各自适用什么场景？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ===== 策略1：取模分片（最常用）=====
 </span></span></span><span class=line><span class=cl><span class=c1>// 原理：分片键 hash % 分片数
 </span></span></span><span class=line><span class=cl><span class=c1>// 配置：order_id % 4 → 决定落在哪个分片
 </span></span></span><span class=line><span class=cl><span class=c1>//
@@ -112,22 +112,22 @@
 </span></span></span><span class=line><span class=cl><span class=c1>// 每个分库都有一份完整的广播表副本
 </span></span></span><span class=line><span class=cl><span class=c1>// 写入时：同步写入所有分库
 </span></span></span><span class=line><span class=cl><span class=c1>// 读取时：从本地分库读取即可
-</span></span></span></code></pre></div><p><strong>分片键选择的黄金法则：</strong></p><pre tabindex=0><code>如何选择分片键？问自己三个问题：
-
-Q1: 大部分查询条件带哪个字段？
-    → 选这个字段作为分片键，避免全库扫描
-
-Q2: 有没有业务上天然的关联关系？
-    → user_id作为分片键 → 相同用户的订单在同一库
-    → tenant_id作为分片键 → 多租户数据隔离
-
-Q3: 数据分布是否均匀？
-    → user_id % N 通常均匀（用户ID递增不连续）
-    → create_time 按范围 → 热点问题
-    → 订单号（带时间戳前缀）→ 可用但需注意
-
-经验法则：80%的查询带什么条件，就用什么做分片键。
-</code></pre><h3 id=13-分库分表后的问题与解决方案>1.3 分库分表后的问题与解决方案</h3><p><strong>Q: 分库分表后带来了哪些新的挑战？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 挑战1：分布式主键 → 见第二章
+</span></span></span></code></pre></div><p><strong>分片键选择的黄金法则：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>如何选择分片键？问自己三个问题：
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Q1: 大部分查询条件带哪个字段？
+</span></span><span class=line><span class=cl>    → 选这个字段作为分片键，避免全库扫描
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Q2: 有没有业务上天然的关联关系？
+</span></span><span class=line><span class=cl>    → user_id作为分片键 → 相同用户的订单在同一库
+</span></span><span class=line><span class=cl>    → tenant_id作为分片键 → 多租户数据隔离
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Q3: 数据分布是否均匀？
+</span></span><span class=line><span class=cl>    → user_id % N 通常均匀（用户ID递增不连续）
+</span></span><span class=line><span class=cl>    → create_time 按范围 → 热点问题
+</span></span><span class=line><span class=cl>    → 订单号（带时间戳前缀）→ 可用但需注意
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>经验法则：80%的查询带什么条件，就用什么做分片键。
+</span></span></code></pre></div><h3 id=13-分库分表后的问题与解决方案>1.3 分库分表后的问题与解决方案</h3><p><strong>Q: 分库分表后带来了哪些新的挑战？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 挑战1：分布式主键 → 见第二章
 </span></span></span><span class=line><span class=cl><span class=c1>// 挑战2：跨库JOIN → 服务层聚合
 </span></span></span><span class=line><span class=cl><span class=c1>// 挑战3：跨库事务 → 见第四章 Seata
 </span></span></span><span class=line><span class=cl><span class=c1>// 挑战4：分页排序 → 改写SQL + 内存聚合
@@ -519,19 +519,19 @@ Q3: 数据分布是否均匀？
 </span></span></span><span class=line><span class=cl><span class=c1>//     type: SNOWFLAKE
 </span></span></span><span class=line><span class=cl><span class=c1>//     props:
 </span></span></span><span class=line><span class=cl><span class=c1>//       worker-id: ${WORKER_ID}  # 从环境变量获取，避免冲突
-</span></span></span></code></pre></div><p><strong>雪花算法的三大坑：</strong></p><pre tabindex=0><code>坑1：时钟回拨
-→ 原因：NTP时间同步、虚拟机迁移
-→ 解决：短时间回拨自旋等待（&lt;5ms），长时间回拨抛异常或切换备用worker-id
-
-坑2：worker-id分配
-→ 为什么不能硬编码？K8s动态扩缩容时可能重复
-→ 解决：通过Zookeeper/Redis注册获取worker-id，雪花算法的第10位可由dz/dcid组合
-
-坑3：前端JS精度丢失
-→ JS的Number最大安全整数: 9007199254740991 (2^53-1)
-→ 雪花算法ID可达: 9223372036854775807 (2^63-1)
-→ 解决：后端序列化时转为String返回
-</code></pre><p><strong>③ 号段(Segment)模式：数据库辅助</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 核心思想：每次从数据库取一个号段(ID区间)，在内存中分配
+</span></span></span></code></pre></div><p><strong>雪花算法的三大坑：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>坑1：时钟回拨
+</span></span><span class=line><span class=cl>→ 原因：NTP时间同步、虚拟机迁移
+</span></span><span class=line><span class=cl>→ 解决：短时间回拨自旋等待（&lt;5ms），长时间回拨抛异常或切换备用worker-id
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>坑2：worker-id分配
+</span></span><span class=line><span class=cl>→ 为什么不能硬编码？K8s动态扩缩容时可能重复
+</span></span><span class=line><span class=cl>→ 解决：通过Zookeeper/Redis注册获取worker-id，雪花算法的第10位可由dz/dcid组合
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>坑3：前端JS精度丢失
+</span></span><span class=line><span class=cl>→ JS的Number最大安全整数: 9007199254740991 (2^53-1)
+</span></span><span class=line><span class=cl>→ 雪花算法ID可达: 9223372036854775807 (2^63-1)
+</span></span><span class=line><span class=cl>→ 解决：后端序列化时转为String返回
+</span></span></code></pre></div><p><strong>③ 号段(Segment)模式：数据库辅助</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 核心思想：每次从数据库取一个号段(ID区间)，在内存中分配
 </span></span></span><span class=line><span class=cl><span class=c1>//
 </span></span></span><span class=line><span class=cl><span class=c1>// CREATE TABLE id_segment (
 </span></span></span><span class=line><span class=cl><span class=c1>//     biz_tag VARCHAR(128) PRIMARY KEY,  -- 业务标识
@@ -657,20 +657,20 @@ Q3: 数据分布是否均匀？
 </span></span></span><span class=line><span class=cl><span class=c1>// │ │   (可支持8.7年)     │          │(每秒8192)│
 </span></span></span><span class=line><span class=cl><span class=c1>// └─┴─────────────────────┴──────────┴──────────┘
 </span></span></span><span class=line><span class=cl><span class=c1>// 借用未来时间机制：将delta seconds作为时间部分，允许1秒内的时钟回拨
-</span></span></span></code></pre></div><p><strong>方案选型决策树：</strong></p><pre tabindex=0><code>你的场景是什么？
-├── 小规模（&lt;100万/天），不介意依赖DB
-│   → 号段模式
-├── 中大规模，Java体系
-│   → ShardingSphere内置雪花算法
-├── 中大规模，多语言
-│   → 部署美团Leaf服务
-├── 对趋势递增要求严格（如B+树主键）
-│   → 号段模式 或 Leaf-Segment
-├── 不需要趋势递增，绝对保证不冲突
-│   → 雪花算法
-└── 极致高可用 + 极致性能
-    → Leaf双模式组合（雪花为主，号段兜底）
-</code></pre><hr><h2 id=四读写分离与动态数据源>四、读写分离与动态数据源</h2><h3 id=41-读写分离架构>4.1 读写分离架构</h3><p><strong>Q: 如何实现读写分离？主从延迟如何处理？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 读写分离的本质：写走主库，读走从库
+</span></span></span></code></pre></div><p><strong>方案选型决策树：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>你的场景是什么？
+</span></span><span class=line><span class=cl>├── 小规模（&lt;100万/天），不介意依赖DB
+</span></span><span class=line><span class=cl>│   → 号段模式
+</span></span><span class=line><span class=cl>├── 中大规模，Java体系
+</span></span><span class=line><span class=cl>│   → ShardingSphere内置雪花算法
+</span></span><span class=line><span class=cl>├── 中大规模，多语言
+</span></span><span class=line><span class=cl>│   → 部署美团Leaf服务
+</span></span><span class=line><span class=cl>├── 对趋势递增要求严格（如B+树主键）
+</span></span><span class=line><span class=cl>│   → 号段模式 或 Leaf-Segment
+</span></span><span class=line><span class=cl>├── 不需要趋势递增，绝对保证不冲突
+</span></span><span class=line><span class=cl>│   → 雪花算法
+</span></span><span class=line><span class=cl>└── 极致高可用 + 极致性能
+</span></span><span class=line><span class=cl>    → Leaf双模式组合（雪花为主，号段兜底）
+</span></span></code></pre></div><hr><h2 id=四读写分离与动态数据源>四、读写分离与动态数据源</h2><h3 id=41-读写分离架构>4.1 读写分离架构</h3><p><strong>Q: 如何实现读写分离？主从延迟如何处理？</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 读写分离的本质：写走主库，读走从库
 </span></span></span><span class=line><span class=cl><span class=c1>//
 </span></span></span><span class=line><span class=cl><span class=c1>// ┌─────────┐    写操作     ┌─────────┐
 </span></span></span><span class=line><span class=cl><span class=c1>// │ 应用层   │ ──────────▶  │ Master  │
@@ -1095,52 +1095,52 @@ Q3: 数据分布是否均匀？
 </span></span></span><span class=line><span class=cl><span class=c1>//     &#34;Success&#34;: { &#34;Type&#34;: &#34;Succeed&#34; }
 </span></span></span><span class=line><span class=cl><span class=c1>//   }
 </span></span></span><span class=line><span class=cl><span class=c1>// }
-</span></span></span></code></pre></div><h3 id=55-分布式事务选型决策树>5.5 分布式事务选型决策树</h3><pre tabindex=0><code>你的场景是什么？
-│
-├── 所有操作都是关系型数据库？
-│   ├── 是 → AT模式（零代码侵入）
-│   └── 否 → 继续判断
-│
-├── 有非DB操作（Redis/消息队列/外部API）？
-│   ├── 性能要求极高、无锁 → TCC模式
-│   └── 可以接受最终一致 → Saga模式
-│
-├── 事务持续时间？
-│   ├── 秒级 → AT / TCC
-│   └── 分钟~天级 → Saga（长事务）
-│
-└── 能否侵入老系统代码？
-    ├── 能 → TCC
-    └── 不能 → Saga（只需加补偿接口）
-</code></pre><hr><h2 id=六面试高频题总结>六、面试高频题总结</h2><pre tabindex=0><code>分库分表 5连问：
-1. 分库分表后如何保证全局唯一ID？介绍至少3种方案
-2. 分片键如何选择？选错了怎么办？（数据迁移方案）
-3. 分库分表后跨库JOIN怎么解决？
-4. 分库分表后分页查询怎么处理？
-5. 扩容时如何最小化数据迁移？
-
-ShardingSphere 3连问：
-6. Sharding-JDBC和Sharding-Proxy有什么区别？分别在什么场景使用？
-7. 绑定表(binding-tables)和广播表(broadcast-tables)的作用是什么？
-8. ShardingSphere底层如何改写SQL？SQL解析用了什么技术？
-
-分布式ID 3连问：
-9. 雪花算法的时钟回拨问题怎么解决？至少说两种方案
-10. 美团Leaf的双Buffer机制是为了解决什么问题？
-11. 为什么UUID不适合做数据库主键？
-
-读写分离 3连问：
-12. 如何解决「读己之写」问题？（刚写入的数据从从库读不到）
-13. AbstractRoutingDataSource的工作原理是什么？
-14. 主从延迟过大时有什么处理策略？
-
-分布式事务 5连问：
-15. Seata AT模式的一阶段做了什么？二阶段回滚怎么实现的？
-16. AT、TCC、Saga三种模式的核心区别和适用场景？
-17. TCC的「空回滚」和「悬挂」是什么？如何防止？
-18. AT模式的全局锁和数据库本身的本地锁有什么区别？
-19. 什么场景下分布式事务也解决不了数据一致性问题？
-</code></pre><hr><h2 id=七下期预告>七、下期预告</h2><p>下一篇将深入 <strong>微服务面试八股文（五）——微服务可观测性与故障排查实战</strong>——分布式链路追踪的核心概念（Trace/Span/Context Propagation）、SkyWalking架构原理与Java Agent字节码增强机制、ELK日志收集与检索分析实战、分布式系统故障排查三板斧（链路追踪定界、日志分析定位、Metrics监控定因）、以及混沌工程与故障演练的实践方法，构建微服务可观测性的完整技术栈。敬请期待！🦐</p><hr><p><em>本系列持续更新中，欢迎关注公众号获取最新文章。</em></p></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%89%E5%BE%AE%E6%9C%8D%E5%8A%A1%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83api%E7%BD%91%E5%85%B3%E4%B8%8E%E5%AE%89%E5%85%A8%E8%AE%A4%E8%AF%81/><span>← 上一篇</span><strong>微服务面试八股文（三）——微服务配置中心、API网关与安全认证</strong></a>
+</span></span></span></code></pre></div><h3 id=55-分布式事务选型决策树>5.5 分布式事务选型决策树</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>你的场景是什么？
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── 所有操作都是关系型数据库？
+</span></span><span class=line><span class=cl>│   ├── 是 → AT模式（零代码侵入）
+</span></span><span class=line><span class=cl>│   └── 否 → 继续判断
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── 有非DB操作（Redis/消息队列/外部API）？
+</span></span><span class=line><span class=cl>│   ├── 性能要求极高、无锁 → TCC模式
+</span></span><span class=line><span class=cl>│   └── 可以接受最终一致 → Saga模式
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>├── 事务持续时间？
+</span></span><span class=line><span class=cl>│   ├── 秒级 → AT / TCC
+</span></span><span class=line><span class=cl>│   └── 分钟~天级 → Saga（长事务）
+</span></span><span class=line><span class=cl>│
+</span></span><span class=line><span class=cl>└── 能否侵入老系统代码？
+</span></span><span class=line><span class=cl>    ├── 能 → TCC
+</span></span><span class=line><span class=cl>    └── 不能 → Saga（只需加补偿接口）
+</span></span></code></pre></div><hr><h2 id=六面试高频题总结>六、面试高频题总结</h2><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>分库分表 5连问：
+</span></span><span class=line><span class=cl>1. 分库分表后如何保证全局唯一ID？介绍至少3种方案
+</span></span><span class=line><span class=cl>2. 分片键如何选择？选错了怎么办？（数据迁移方案）
+</span></span><span class=line><span class=cl>3. 分库分表后跨库JOIN怎么解决？
+</span></span><span class=line><span class=cl>4. 分库分表后分页查询怎么处理？
+</span></span><span class=line><span class=cl>5. 扩容时如何最小化数据迁移？
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>ShardingSphere 3连问：
+</span></span><span class=line><span class=cl>6. Sharding-JDBC和Sharding-Proxy有什么区别？分别在什么场景使用？
+</span></span><span class=line><span class=cl>7. 绑定表(binding-tables)和广播表(broadcast-tables)的作用是什么？
+</span></span><span class=line><span class=cl>8. ShardingSphere底层如何改写SQL？SQL解析用了什么技术？
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>分布式ID 3连问：
+</span></span><span class=line><span class=cl>9. 雪花算法的时钟回拨问题怎么解决？至少说两种方案
+</span></span><span class=line><span class=cl>10. 美团Leaf的双Buffer机制是为了解决什么问题？
+</span></span><span class=line><span class=cl>11. 为什么UUID不适合做数据库主键？
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>读写分离 3连问：
+</span></span><span class=line><span class=cl>12. 如何解决「读己之写」问题？（刚写入的数据从从库读不到）
+</span></span><span class=line><span class=cl>13. AbstractRoutingDataSource的工作原理是什么？
+</span></span><span class=line><span class=cl>14. 主从延迟过大时有什么处理策略？
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>分布式事务 5连问：
+</span></span><span class=line><span class=cl>15. Seata AT模式的一阶段做了什么？二阶段回滚怎么实现的？
+</span></span><span class=line><span class=cl>16. AT、TCC、Saga三种模式的核心区别和适用场景？
+</span></span><span class=line><span class=cl>17. TCC的「空回滚」和「悬挂」是什么？如何防止？
+</span></span><span class=line><span class=cl>18. AT模式的全局锁和数据库本身的本地锁有什么区别？
+</span></span><span class=line><span class=cl>19. 什么场景下分布式事务也解决不了数据一致性问题？
+</span></span></code></pre></div><hr><h2 id=七下期预告>七、下期预告</h2><p>下一篇将深入 <strong>微服务面试八股文（五）——微服务可观测性与故障排查实战</strong>——分布式链路追踪的核心概念（Trace/Span/Context Propagation）、SkyWalking架构原理与Java Agent字节码增强机制、ELK日志收集与检索分析实战、分布式系统故障排查三板斧（链路追踪定界、日志分析定位、Metrics监控定因）、以及混沌工程与故障演练的实践方法，构建微服务可观测性的完整技术栈。敬请期待！🦐</p><hr><p><em>本系列持续更新中，欢迎关注公众号获取最新文章。</em></p></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%89%E5%BE%AE%E6%9C%8D%E5%8A%A1%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83api%E7%BD%91%E5%85%B3%E4%B8%8E%E5%AE%89%E5%85%A8%E8%AE%A4%E8%AF%81/><span>← 上一篇</span><strong>微服务面试八股文（三）——微服务配置中心、API网关与安全认证</strong></a>
 <a class=next href=/posts/%E5%BE%AE%E6%9C%8D%E5%8A%A1%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94%E5%BE%AE%E6%9C%8D%E5%8A%A1%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5%E5%AE%9E%E6%88%98/><span>下一篇 →</span><strong>微服务面试八股文（五）——微服务可观测性与故障排查实战</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/clickhouse%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90olap%E5%88%97%E5%BC%8F%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AE%9E%E6%88%98%E6%8C%87%E5%8D%97/><span>2026-07-15</span><strong>ClickHouse深度解析：OLAP列式数据库实战指南</strong><p>系统讲解 ClickHouse 列式存储、MergeTree 引擎、分区排序、查询优化与集群部署，并给出实时 OLAP 场景的生产实践。</p></a><a href=/posts/rocketmq%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90%E6%9E%B6%E6%9E%84%E5%8E%9F%E7%90%86%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E6%88%98/><span>2026-07-15</span><strong>RocketMQ深度解析：架构原理与生产实战</strong><p>RocketMQ 是阿里巴巴开源的分布式消息中间件，目前是 Apache 顶级项目，在国内互联网公司中应用极为广泛。相比 Kafka，RocketMQ 在延迟消息、事务消息、顺序消 …</p></a><a href=/posts/redis%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%BA%94stream%E6%B6%88%E6%81%AF%E6%B5%81hyperloglog%E4%B8%8Ebitmap%E5%AE%9E%E6%88%98/><span>2026-07-14</span><strong>Redis面试八股文（五）——Stream消息流、HyperLogLog与Bitmap实战</strong><p>对比 Redis Stream 与 Kafka，深入 HyperLogLog 亿级 UV 统计、Bitmap 状态记录，并讲解 BigKeys、慢查询与性能监控。</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9A%E5%BE%AE%E6%9C%8D%E5%8A%A1%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%EF%BC%88%E5%9B%9B%EF%BC%89%E2%80%94%E2%80%94%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%95%B0%E6%8D%AE%E6%9E%B6%E6%9E%84%E4%B8%8E%E5%88%86%E5%B8%83%E5%BC%8F%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AE%9E%E6%88%98" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一分库分表架构设计>一、分库分表架构设计</a><ul><li><a href=#11-为什么要分库分表>1.1 为什么要分库分表？</a></li><li><a href=#12-分片策略深度对比>1.2 分片策略深度对比</a></li><li><a href=#13-分库分表后的问题与解决方案>1.3 分库分表后的问题与解决方案</a></li></ul></li><li><a href=#二shardingsphere实战>二、ShardingSphere实战</a><ul><li><a href=#21-shardingsphere架构全景>2.1 ShardingSphere架构全景</a></li><li><a href=#22-sharding-jdbc实战配置>2.2 Sharding-JDBC实战配置</a></li><li><a href=#23-sharding-proxy使用场景>2.3 Sharding-Proxy使用场景</a></li></ul></li><li><a href=#三分布式id生成方案>三、分布式ID生成方案</a><ul><li><a href=#31-六大方案全景对比>3.1 六大方案全景对比</a></li><li><a href=#32-方案逐一深度解析>3.2 方案逐一深度解析</a></li></ul></li><li><a href=#四读写分离与动态数据源>四、读写分离与动态数据源</a><ul><li><a href=#41-读写分离架构>4.1 读写分离架构</a></li></ul></li><li><a href=#五seata分布式事务>五、Seata分布式事务</a><ul><li><a href=#51-分布式事务的三种模式>5.1 分布式事务的三种模式</a></li><li><a href=#52-at模式自动补偿>5.2 AT模式：自动补偿</a></li><li><a href=#53-tcc模式业务层补偿>5.3 TCC模式：业务层补偿</a></li><li><a href=#54-saga模式长事务解决方案>5.4 Saga模式：长事务解决方案</a></li><li><a href=#55-分布式事务选型决策树>5.5 分布式事务选型决策树</a></li></ul></li><li><a href=#六面试高频题总结>六、面试高频题总结</a></li><li><a href=#七下期预告>七、下期预告</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
 <a href=mailto:liyafei.work@foxmail.com>邮箱</a>
 <a href=/index.xml>RSS</a>

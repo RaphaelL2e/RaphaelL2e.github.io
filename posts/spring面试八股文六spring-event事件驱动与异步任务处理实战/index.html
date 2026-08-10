@@ -10,28 +10,28 @@
 <span>/</span><a href=/series/spring-interview/>Spring 面试与实战</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Spring面试八股文（六）——Spring Event事件驱动与异步任务处理实战</h1><p class=article-description>🎯 本文目标：在前五篇的基础上，深入解析Spring框架中的事件驱动编程模型——ApplicationEvent机制、@EventListener注解、事务事件监听、@Async异步执行原理、TaskExecutor线程池体系、@Scheduled定时任务、Spring Retry重试机制，构建完整。</p><div class=article-meta><span>发布于 <time datetime=2026-07-08>2026-07-08</time></span>
 <span>最后验证 2026-07</span>
 <span>9 分钟阅读</span>
-<span>1888 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一spring-event事件驱动模型>一、Spring Event事件驱动模型</a><ul><li><a href=#11-面试高频问题>1.1 面试高频问题</a></li><li><a href=#12-事件机制架构>1.2 事件机制架构</a></li><li><a href=#13-spring-event基础使用>1.3 Spring Event基础使用</a></li><li><a href=#14-transactionaleventlistener事务事件>1.4 @TransactionalEventListener：事务事件</a></li><li><a href=#15-源码剖析如何实现事务绑定>1.5 源码剖析：如何实现事务绑定？</a></li></ul></li><li><a href=#二async-异步编程>二、@Async 异步编程</a><ul><li><a href=#21-面试高频问题>2.1 面试高频问题</a></li><li><a href=#22-async-核心原理>2.2 @Async 核心原理</a></li><li><a href=#23-async-失效的常见场景及解决方案>2.3 @Async 失效的常见场景及解决方案</a></li><li><a href=#24-异步上下文传递>2.4 异步上下文传递</a></li></ul></li><li><a href=#三spring-taskexecutor-线程池体系>三、Spring TaskExecutor 线程池体系</a><ul><li><a href=#31-面试高频问题>3.1 面试高频问题</a></li><li><a href=#32-spring线程池类型全景>3.2 Spring线程池类型全景</a></li><li><a href=#33-线程池参数调优指南>3.3 线程池参数调优指南</a></li></ul></li><li><a href=#四scheduled-定时任务>四、@Scheduled 定时任务</a><ul><li><a href=#41-面试高频问题>4.1 面试高频问题</a></li><li><a href=#42-scheduled基础使用>4.2 @Scheduled基础使用</a></li><li><a href=#43-fixeddelay-vs-fixedrate-图解>4.3 fixedDelay vs fixedRate 图解</a></li><li><a href=#44-分布式定时任务方案>4.4 分布式定时任务方案</a></li></ul></li><li><a href=#五spring-retry-重试机制>五、Spring Retry 重试机制</a><ul><li><a href=#51-面试高频问题>5.1 面试高频问题</a></li><li><a href=#52-核心使用方式>5.2 核心使用方式</a></li><li><a href=#53-重试的幂等性处理>5.3 重试的幂等性处理</a></li></ul></li><li><a href=#六实战案例订单创建全链路>六、实战案例：订单创建全链路</a></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：在前五篇的基础上，深入解析Spring框架中的事件驱动编程模型——ApplicationEvent机制、@EventListener注解、事务事件监听、@Async异步执行原理、TaskExecutor线程池体系、@Scheduled定时任务、Spring Retry重试机制，构建完整的Spring异步与事件处理知识体系。</p></blockquote><hr><h2 id=一spring-event事件驱动模型>一、Spring Event事件驱动模型</h2><h3 id=11-面试高频问题>1.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Spring事件机制的原理？</td><td>⭐⭐⭐⭐⭐</td><td>观察者模式 + ApplicationContext事件发布</td></tr><tr><td>2</td><td>@EventListener和ApplicationListener的区别？</td><td>⭐⭐⭐⭐</td><td>@EventListener注解更灵活，支持SpEL、条件化</td></tr><tr><td>3</td><td>@TransactionalEventListener的作用？</td><td>⭐⭐⭐⭐⭐</td><td>事务提交后执行，支持四种绑定阶段</td></tr><tr><td>4</td><td>Spring事件默认是同步还是异步？</td><td>⭐⭐⭐⭐</td><td>默认同步，需配合@Async实现异步事件</td></tr><tr><td>5</td><td>Spring事件机制的应用场景？</td><td>⭐⭐⭐⭐</td><td>业务解耦、日志审计、消息通知、数据同步</td></tr></tbody></table><h3 id=12-事件机制架构>1.2 事件机制架构</h3><pre tabindex=0><code>┌─────────────────────────────────────────────────────────────────┐
-│                    ApplicationContext                             │
-│                                                                   │
-│  ┌──────────────┐    publishEvent()    ┌──────────────────────┐  │
-│  │  Publisher    │ ──────────────────→ │   ApplicationEvent-   │  │
-│  │  (业务代码)    │                      │   Multicaster          │  │
-│  └──────────────┘                      │   (事件广播器)          │  │
-│                                        │                       │  │
-│                                        │  SimpleApplication-   │  │
-│                                        │  EventMulticaster     │  │
-│                                        │        │              │  │
-│                                        │   ┌────┴────┐        │  │
-│                                        │   │ Listener列表 │    │  │
-│                                        │   └────┬────┘        │  │
-│                                        └───────┼──────────────┘  │
-│                                                │                 │
-│                              ┌─────────────────┼─────────────┐   │
-│                              │        │        │              │   │
-│                           Listener1  Listener2  Listener3    │   │
-│                           (@EventListener/@Order控制顺序)      │   │
-└─────────────────────────────────────────────────────────────────┘
-</code></pre><p><strong>核心流程</strong>：</p><ol><li><code>ApplicationContext.publishEvent(event)</code> → 委托给 <code>ApplicationEventMulticaster</code></li><li><code>ApplicationEventMulticaster.multicastEvent()</code> → 遍历所有注册的 Listener</li><li>判断是否异步（通过 <code>Executor</code> 是否为 null）</li><li>同步/异步调用每个 Listener 的 <code>onApplicationEvent()</code> 方法</li></ol><h3 id=13-spring-event基础使用>1.3 Spring Event基础使用</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 1. 定义事件 → 继承 ApplicationEvent
+<span>1888 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一spring-event事件驱动模型>一、Spring Event事件驱动模型</a><ul><li><a href=#11-面试高频问题>1.1 面试高频问题</a></li><li><a href=#12-事件机制架构>1.2 事件机制架构</a></li><li><a href=#13-spring-event基础使用>1.3 Spring Event基础使用</a></li><li><a href=#14-transactionaleventlistener事务事件>1.4 @TransactionalEventListener：事务事件</a></li><li><a href=#15-源码剖析如何实现事务绑定>1.5 源码剖析：如何实现事务绑定？</a></li></ul></li><li><a href=#二async-异步编程>二、@Async 异步编程</a><ul><li><a href=#21-面试高频问题>2.1 面试高频问题</a></li><li><a href=#22-async-核心原理>2.2 @Async 核心原理</a></li><li><a href=#23-async-失效的常见场景及解决方案>2.3 @Async 失效的常见场景及解决方案</a></li><li><a href=#24-异步上下文传递>2.4 异步上下文传递</a></li></ul></li><li><a href=#三spring-taskexecutor-线程池体系>三、Spring TaskExecutor 线程池体系</a><ul><li><a href=#31-面试高频问题>3.1 面试高频问题</a></li><li><a href=#32-spring线程池类型全景>3.2 Spring线程池类型全景</a></li><li><a href=#33-线程池参数调优指南>3.3 线程池参数调优指南</a></li></ul></li><li><a href=#四scheduled-定时任务>四、@Scheduled 定时任务</a><ul><li><a href=#41-面试高频问题>4.1 面试高频问题</a></li><li><a href=#42-scheduled基础使用>4.2 @Scheduled基础使用</a></li><li><a href=#43-fixeddelay-vs-fixedrate-图解>4.3 fixedDelay vs fixedRate 图解</a></li><li><a href=#44-分布式定时任务方案>4.4 分布式定时任务方案</a></li></ul></li><li><a href=#五spring-retry-重试机制>五、Spring Retry 重试机制</a><ul><li><a href=#51-面试高频问题>5.1 面试高频问题</a></li><li><a href=#52-核心使用方式>5.2 核心使用方式</a></li><li><a href=#53-重试的幂等性处理>5.3 重试的幂等性处理</a></li></ul></li><li><a href=#六实战案例订单创建全链路>六、实战案例：订单创建全链路</a></li><li><a href=#七总结>七、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>🎯 <strong>本文目标</strong>：在前五篇的基础上，深入解析Spring框架中的事件驱动编程模型——ApplicationEvent机制、@EventListener注解、事务事件监听、@Async异步执行原理、TaskExecutor线程池体系、@Scheduled定时任务、Spring Retry重试机制，构建完整的Spring异步与事件处理知识体系。</p></blockquote><hr><h2 id=一spring-event事件驱动模型>一、Spring Event事件驱动模型</h2><h3 id=11-面试高频问题>1.1 面试高频问题</h3><table><thead><tr><th>#</th><th>问题</th><th>重要度</th><th>核心要点</th></tr></thead><tbody><tr><td>1</td><td>Spring事件机制的原理？</td><td>⭐⭐⭐⭐⭐</td><td>观察者模式 + ApplicationContext事件发布</td></tr><tr><td>2</td><td>@EventListener和ApplicationListener的区别？</td><td>⭐⭐⭐⭐</td><td>@EventListener注解更灵活，支持SpEL、条件化</td></tr><tr><td>3</td><td>@TransactionalEventListener的作用？</td><td>⭐⭐⭐⭐⭐</td><td>事务提交后执行，支持四种绑定阶段</td></tr><tr><td>4</td><td>Spring事件默认是同步还是异步？</td><td>⭐⭐⭐⭐</td><td>默认同步，需配合@Async实现异步事件</td></tr><tr><td>5</td><td>Spring事件机制的应用场景？</td><td>⭐⭐⭐⭐</td><td>业务解耦、日志审计、消息通知、数据同步</td></tr></tbody></table><h3 id=12-事件机制架构>1.2 事件机制架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                    ApplicationContext                             │
+</span></span><span class=line><span class=cl>│                                                                   │
+</span></span><span class=line><span class=cl>│  ┌──────────────┐    publishEvent()    ┌──────────────────────┐  │
+</span></span><span class=line><span class=cl>│  │  Publisher    │ ──────────────────→ │   ApplicationEvent-   │  │
+</span></span><span class=line><span class=cl>│  │  (业务代码)    │                      │   Multicaster          │  │
+</span></span><span class=line><span class=cl>│  └──────────────┘                      │   (事件广播器)          │  │
+</span></span><span class=line><span class=cl>│                                        │                       │  │
+</span></span><span class=line><span class=cl>│                                        │  SimpleApplication-   │  │
+</span></span><span class=line><span class=cl>│                                        │  EventMulticaster     │  │
+</span></span><span class=line><span class=cl>│                                        │        │              │  │
+</span></span><span class=line><span class=cl>│                                        │   ┌────┴────┐        │  │
+</span></span><span class=line><span class=cl>│                                        │   │ Listener列表 │    │  │
+</span></span><span class=line><span class=cl>│                                        │   └────┬────┘        │  │
+</span></span><span class=line><span class=cl>│                                        └───────┼──────────────┘  │
+</span></span><span class=line><span class=cl>│                                                │                 │
+</span></span><span class=line><span class=cl>│                              ┌─────────────────┼─────────────┐   │
+</span></span><span class=line><span class=cl>│                              │        │        │              │   │
+</span></span><span class=line><span class=cl>│                           Listener1  Listener2  Listener3    │   │
+</span></span><span class=line><span class=cl>│                           (@EventListener/@Order控制顺序)      │   │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────────────┘
+</span></span></code></pre></div><p><strong>核心流程</strong>：</p><ol><li><code>ApplicationContext.publishEvent(event)</code> → 委托给 <code>ApplicationEventMulticaster</code></li><li><code>ApplicationEventMulticaster.multicastEvent()</code> → 遍历所有注册的 Listener</li><li>判断是否异步（通过 <code>Executor</code> 是否为 null）</li><li>同步/异步调用每个 Listener 的 <code>onApplicationEvent()</code> 方法</li></ol><h3 id=13-spring-event基础使用>1.3 Spring Event基础使用</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// 1. 定义事件 → 继承 ApplicationEvent
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Getter</span>
 </span></span><span class=line><span class=cl><span class=nd>@ToString</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>OrderCreatedEvent</span> <span class=kd>extends</span> <span class=n>ApplicationEvent</span> <span class=o>{</span>
@@ -480,18 +480,18 @@
 </span></span><span class=line><span class=cl>        <span class=n>taskRegistrar</span><span class=o>.</span><span class=na>setTaskScheduler</span><span class=o>(</span><span class=n>scheduler</span><span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h3 id=43-fixeddelay-vs-fixedrate-图解>4.3 fixedDelay vs fixedRate 图解</h3><pre tabindex=0><code>fixedDelay = 60s（任务耗时30s）
-|--任务(30s)--|--等待60s--|--任务(30s)--|--等待60s--|--任务(30s)--|
-                    ↑ 每次间隔一致
-
-fixedRate = 60s（任务耗时30s）
-|---任务(30s)---|---任务(30s)---|---任务(30s)---|
-   ↑每个整60s时刻启动                             间隔固定
-
-fixedRate = 60s（任务耗时90s，超过间隔）
-|------任务(90s)------|立即启动|------任务(90s)------|立即启动|
-                       ↑ 任务耗时超过间隔，不会并发，排队执行
-</code></pre><h3 id=44-分布式定时任务方案>4.4 分布式定时任务方案</h3><blockquote><p><strong>注意</strong>：分布式定时任务的完整技术方案（XXL-Job、Elastic-Job、Quartz集群等）请参考《分布式系统面试八股文（七）——分布式定时任务与工作流引擎》。这里补充Spring层面的轻量级分布式锁方案 <strong>ShedLock</strong>：</p></blockquote><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ShedLock：基于数据库/Redis的分布式锁，保证同一时刻只有一个实例执行
+</span></span></code></pre></div><h3 id=43-fixeddelay-vs-fixedrate-图解>4.3 fixedDelay vs fixedRate 图解</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>fixedDelay = 60s（任务耗时30s）
+</span></span><span class=line><span class=cl>|--任务(30s)--|--等待60s--|--任务(30s)--|--等待60s--|--任务(30s)--|
+</span></span><span class=line><span class=cl>                    ↑ 每次间隔一致
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>fixedRate = 60s（任务耗时30s）
+</span></span><span class=line><span class=cl>|---任务(30s)---|---任务(30s)---|---任务(30s)---|
+</span></span><span class=line><span class=cl>   ↑每个整60s时刻启动                             间隔固定
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>fixedRate = 60s（任务耗时90s，超过间隔）
+</span></span><span class=line><span class=cl>|------任务(90s)------|立即启动|------任务(90s)------|立即启动|
+</span></span><span class=line><span class=cl>                       ↑ 任务耗时超过间隔，不会并发，排队执行
+</span></span></code></pre></div><h3 id=44-分布式定时任务方案>4.4 分布式定时任务方案</h3><blockquote><p><strong>注意</strong>：分布式定时任务的完整技术方案（XXL-Job、Elastic-Job、Quartz集群等）请参考《分布式系统面试八股文（七）——分布式定时任务与工作流引擎》。这里补充Spring层面的轻量级分布式锁方案 <strong>ShedLock</strong>：</p></blockquote><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ShedLock：基于数据库/Redis的分布式锁，保证同一时刻只有一个实例执行
 </span></span></span><span class=line><span class=cl><span class=c1>// 1. 添加依赖
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=o>&lt;</span><span class=n>dependency</span><span class=o>&gt;</span>
 </span></span><span class=line><span class=cl>    <span class=o>&lt;</span><span class=n>groupId</span><span class=o>&gt;</span><span class=n>net</span><span class=o>.</span><span class=na>javacrumbs</span><span class=o>.</span><span class=na>shedlock</span><span class=o>&lt;/</span><span class=n>groupId</span><span class=o>&gt;</span>

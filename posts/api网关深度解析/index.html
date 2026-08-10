@@ -9,177 +9,177 @@
 <a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>API网关深度解析</h1><p class=article-description>在微服务架构中，客户端需要调用多个微服务才能完成一个业务功能。如果每个微服务都暴露独立的网络地址，客户端需要了解每个服务的地址、处理不同的协议、实现负载均衡、处理认证授权等横切关注点。API网关正是为了解决这些问题而诞生的，它是微服务架构的"看门人"，统一了所有外部请求的入口。 本文将从API网关的。</p><div class=article-meta><span>发布于 <time datetime=2026-05-15>2026-05-15</time></span>
 <span>最后验证 2026-05</span>
 <span>11 分钟阅读</span>
-<span>2238 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a><ul><li><a href=#没有api网关的问题>没有API网关的问题</a></li></ul></li><li><a href=#二api网关核心功能>二、API网关核心功能</a><ul><li><a href=#21-核心功能矩阵>2.1 核心功能矩阵</a></li><li><a href=#22-网关-vs-负载均衡器>2.2 网关 vs 负载均衡器</a></li></ul></li><li><a href=#三zuul深度解析>三、Zuul深度解析</a><ul><li><a href=#31-zuul-1x-架构>3.1 Zuul 1.x 架构</a></li><li><a href=#32-zuul-2x-架构>3.2 Zuul 2.x 架构</a></li><li><a href=#33-zuul-过滤器详解>3.3 Zuul 过滤器详解</a></li><li><a href=#34-zuul-路由配置>3.4 Zuul 路由配置</a></li></ul></li><li><a href=#四spring-cloud-gateway深度解析>四、Spring Cloud Gateway深度解析</a><ul><li><a href=#41-gateway-核心架构>4.1 Gateway 核心架构</a></li><li><a href=#42-核心概念>4.2 核心概念</a></li><li><a href=#43-路由配置>4.3 路由配置</a></li><li><a href=#44-自定义过滤器>4.4 自定义过滤器</a></li><li><a href=#45-熔断与限流>4.5 熔断与限流</a></li></ul></li><li><a href=#五kong深度解析>五、Kong深度解析</a><ul><li><a href=#51-kong-架构设计>5.1 Kong 架构设计</a></li><li><a href=#52-kong-核心概念>5.2 Kong 核心概念</a></li><li><a href=#53-kong-配置示例>5.3 Kong 配置示例</a></li><li><a href=#54-kong-插件开发>5.4 Kong 插件开发</a></li></ul></li><li><a href=#六apisix深度解析>六、APISIX深度解析</a><ul><li><a href=#61-apisix-架构设计>6.1 APISIX 架构设计</a></li><li><a href=#62-apisix-vs-kong-对比>6.2 APISIX vs Kong 对比</a></li><li><a href=#63-apisix-配置示例>6.3 APISIX 配置示例</a></li><li><a href=#64-apisix-插件开发>6.4 APISIX 插件开发</a></li></ul></li><li><a href=#七api网关高可用设计>七、API网关高可用设计</a><ul><li><a href=#71-高可用架构>7.1 高可用架构</a></li><li><a href=#72-容错设计>7.2 容错设计</a></li><li><a href=#73-性能优化>7.3 性能优化</a></li></ul></li><li><a href=#八面试高频问题>八、面试高频问题</a><ul><li><a href=#q1为什么需要api网关>Q1：为什么需要API网关？</a></li><li><a href=#q2zuul-1x和2x的区别>Q2：Zuul 1.x和2.x的区别？</a></li><li><a href=#q3spring-cloud-gateway的核心概念>Q3：Spring Cloud Gateway的核心概念？</a></li><li><a href=#q4如何设计一个高可用的api网关>Q4：如何设计一个高可用的API网关？</a></li><li><a href=#q5api网关的性能瓶颈在哪里>Q5：API网关的性能瓶颈在哪里？</a></li><li><a href=#q6网关如何做认证授权>Q6：网关如何做认证授权？</a></li><li><a href=#q7如何防止api网关成为单点故障>Q7：如何防止API网关成为单点故障？</a></li><li><a href=#q8api网关-vs-负载均衡器>Q8：API网关 vs 负载均衡器？</a></li></ul></li><li><a href=#九总结>九、总结</a><ul><li><a href=#核心要点>核心要点</a></li><li><a href=#最佳实践>最佳实践</a></li><li><a href=#技术选型>技术选型</a></li><li><a href=#面试速记口诀>面试速记口诀</a></li></ul></li></ul></nav></details><div class=post-content data-article-content><h2 id=一引言>一、引言</h2><p>在微服务架构中，客户端需要调用多个微服务才能完成一个业务功能。如果每个微服务都暴露独立的网络地址，客户端需要了解每个服务的地址、处理不同的协议、实现负载均衡、处理认证授权等横切关注点。API网关正是为了解决这些问题而诞生的，它是微服务架构的"看门人"，统一了所有外部请求的入口。</p><p>本文将从API网关的核心价值出发，深度解析主流API网关的实现原理与最佳实践，包括Zuul、Spring Cloud Gateway、Kong和APISIX，并探讨网关的高可用设计与性能优化。</p><h3 id=没有api网关的问题>没有API网关的问题</h3><pre tabindex=0><code>客户端直接调用微服务
-┌─────┐     ┌─────────┐
-│Client│────►│UserService│
-└─────┘     └─────────┘
-    │         ┌─────────┐
-    ├────────►│OrderService│
-    │         └─────────┘
-    │         ┌─────────┐
-    ├────────►│PaymentService│
-    │         └─────────┘
-    │         ┌─────────┐
-    └────────►│Notification│
-              └─────────┘
-
-问题：
-1. 客户端需要知道所有微服务地址
-2. 每个服务都要实现认证、限流、监控
-3. 协议不统一（HTTP/REST、gRPC、WebSocket）
-4. 客户端多次请求，延迟高
-5. 难以重构（服务拆分/合并对客户端不透明）
-</code></pre><pre tabindex=0><code>引入API网关后
-┌─────┐     ┌─────────┐     ┌─────────┐
-│Client│────►│  API   │────►│UserService│
-└─────┘     │ Gateway │     └─────────┘
-             └─────────┘     ┌─────────┐
-                  │           │OrderService│
-                  └──────────►└─────────┘
-                              ┌─────────┐
-                              │Payment  │
-                              └─────────┘
-
-优势：
-1. 统一入口，客户端只需知道网关地址
-2. 统一认证、限流、监控
-3. 协议转换（HTTP→gRPC）
-4. 请求聚合（一次请求获取多个资源）
-5. 服务重构对客户端透明
-</code></pre><h2 id=二api网关核心功能>二、API网关核心功能</h2><h3 id=21-核心功能矩阵>2.1 核心功能矩阵</h3><pre tabindex=0><code>API网关核心功能
-┌───────────────────────────────────────────────┐
-│                  路由转发                    │
-│   - URL路径匹配                             │
-│   - 负载均衡                                │
-│   - 服务发现                                │
-└───────────────────────────────────────────────┘
-┌───────────────────────────────────────────────┐
-│                  过滤器链                    │
-│   - 认证授权                                │
-│   - 限流熔断                                │
-│   - 请求/响应修改                           │
-│   - 日志记录                                │
-└───────────────────────────────────────────────┘
-┌───────────────────────────────────────────────┐
-│                  协议转换                    │
-│   - HTTP/HTTPS ↔ gRPC                       │
-│   - WebSocket ↔ HTTP                        │
-│   - GraphQL ↔ REST                          │
-└───────────────────────────────────────────────┘
-┌───────────────────────────────────────────────┐
-│                  请求聚合                    │
-│   - 一次请求调用多个服务                    │
-│   - 并行调用提高性能                        │
-└───────────────────────────────────────────────┘
-┌───────────────────────────────────────────────┐
-│                  安全防护                    │
-│   - IP黑白名单                              │
-│   - SQL注入防护                             │
-│   - XSS防护                                 │
-│   - HTTPS卸载                              │
-└───────────────────────────────────────────────┘
-</code></pre><h3 id=22-网关-vs-负载均衡器>2.2 网关 vs 负载均衡器</h3><table><thead><tr><th>维度</th><th>API网关</th><th>负载均衡器</th></tr></thead><tbody><tr><td><strong>工作层级</strong></td><td>应用层（L7）</td><td>传输层（L4）或应用层（L7）</td></tr><tr><td><strong>功能</strong></td><td>路由、过滤、聚合、协议转换</td><td>流量分发</td></tr><tr><td><strong>智能性</strong></td><td>高（业务感知）</td><td>低（连接感知）</td></tr><tr><td><strong>配置复杂度</strong></td><td>高</td><td>低</td></tr><tr><td><strong>性能</strong></td><td>中（额外处理）</td><td>高</td></tr><tr><td><strong>典型产品</strong></td><td>Zuul、Gateway、Kong</td><td>Nginx、HAProxy、F5</td></tr></tbody></table><p><strong>关系</strong>：</p><pre tabindex=0><code>                    ┌─────────────┐
-                    │   DNS      │
-                    └─────────────┘
-                         │
-                         ▼
-                    ┌─────────────┐
-                    │ Load       │
-                    │ Balancer   │ (L4/L7 负载均衡)
-                    │ (Nginx)    │
-                    └─────────────┘
-                         │
-                         ▼
-                    ┌─────────────┐
-                    │  API Gateway│ (L7 应用路由)
-                    │ (Gateway)   │
-                    └─────────────┘
-                         │
-            ┌────────────┼────────────┐
-            ▼            ▼            ▼
-       ┌─────────┐  ┌─────────┐  ┌─────────┐
-       │Service A│  │Service B│  │Service C│
-       └─────────┘  └─────────┘  └─────────┘
-</code></pre><h2 id=三zuul深度解析>三、Zuul深度解析</h2><h3 id=31-zuul-1x-架构>3.1 Zuul 1.x 架构</h3><pre tabindex=0><code>Zuul 1.x 架构（同步阻塞）
-┌───────────────────────────────────────────────┐
-│               HTTP Request                   │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│           Zuul Servlet                      │
-│         (Spring MVC)                        │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│            Pre Filters                       │
-│   - ServletDetectionFilter                  │
-│   - Servlet30WrapperFilter                  │
-│   - FormBodyWrapperFilter                   │
-│   - DebugFilter                             │
-│   - PreDecorationFilter (路由)              │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│           Routing Filters                    │
-│   - RibbonRoutingFilter                    │
-│   - SimpleHostRoutingFilter                 │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│           Post Filters                       │
-│   - SendResponseFilter                     │
-│   - ErrorResponseFilter                     │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│               HTTP Response                  │
-└───────────────────────────────────────────────┘
-
-特点：
-- 同步阻塞I/O（Servlet API）
-- 线程池模式（连接池）
-- 性能受限（无法处理大量并发）
-</code></pre><h3 id=32-zuul-2x-架构>3.2 Zuul 2.x 架构</h3><pre tabindex=0><code>Zuul 2.x 架构（异步非阻塞）
-┌───────────────────────────────────────────────┐
-│               HTTP Request                   │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│            Netty Server                      │
-│         (异步非阻塞)                        │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│            Filter Chain                      │
-│   - Inbound Filters (请求过滤)              │
-│   - Endpoint Filters (路由转发)              │
-│   - Outbound Filters (响应过滤)             │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│            Netty Client                      │
-│         (异步非阻塞)                        │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│               HTTP Response                  │
-└───────────────────────────────────────────────┘
-
-特点：
-- 基于Netty（异步非阻塞I/O）
-- 事件驱动模型
-- 更高性能（连接数不受限）
-- 与Zuul 1.x不兼容
-</code></pre><h3 id=33-zuul-过滤器详解>3.3 Zuul 过滤器详解</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Zuul 1.x 过滤器示例
+<span>2238 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a><ul><li><a href=#没有api网关的问题>没有API网关的问题</a></li></ul></li><li><a href=#二api网关核心功能>二、API网关核心功能</a><ul><li><a href=#21-核心功能矩阵>2.1 核心功能矩阵</a></li><li><a href=#22-网关-vs-负载均衡器>2.2 网关 vs 负载均衡器</a></li></ul></li><li><a href=#三zuul深度解析>三、Zuul深度解析</a><ul><li><a href=#31-zuul-1x-架构>3.1 Zuul 1.x 架构</a></li><li><a href=#32-zuul-2x-架构>3.2 Zuul 2.x 架构</a></li><li><a href=#33-zuul-过滤器详解>3.3 Zuul 过滤器详解</a></li><li><a href=#34-zuul-路由配置>3.4 Zuul 路由配置</a></li></ul></li><li><a href=#四spring-cloud-gateway深度解析>四、Spring Cloud Gateway深度解析</a><ul><li><a href=#41-gateway-核心架构>4.1 Gateway 核心架构</a></li><li><a href=#42-核心概念>4.2 核心概念</a></li><li><a href=#43-路由配置>4.3 路由配置</a></li><li><a href=#44-自定义过滤器>4.4 自定义过滤器</a></li><li><a href=#45-熔断与限流>4.5 熔断与限流</a></li></ul></li><li><a href=#五kong深度解析>五、Kong深度解析</a><ul><li><a href=#51-kong-架构设计>5.1 Kong 架构设计</a></li><li><a href=#52-kong-核心概念>5.2 Kong 核心概念</a></li><li><a href=#53-kong-配置示例>5.3 Kong 配置示例</a></li><li><a href=#54-kong-插件开发>5.4 Kong 插件开发</a></li></ul></li><li><a href=#六apisix深度解析>六、APISIX深度解析</a><ul><li><a href=#61-apisix-架构设计>6.1 APISIX 架构设计</a></li><li><a href=#62-apisix-vs-kong-对比>6.2 APISIX vs Kong 对比</a></li><li><a href=#63-apisix-配置示例>6.3 APISIX 配置示例</a></li><li><a href=#64-apisix-插件开发>6.4 APISIX 插件开发</a></li></ul></li><li><a href=#七api网关高可用设计>七、API网关高可用设计</a><ul><li><a href=#71-高可用架构>7.1 高可用架构</a></li><li><a href=#72-容错设计>7.2 容错设计</a></li><li><a href=#73-性能优化>7.3 性能优化</a></li></ul></li><li><a href=#八面试高频问题>八、面试高频问题</a><ul><li><a href=#q1为什么需要api网关>Q1：为什么需要API网关？</a></li><li><a href=#q2zuul-1x和2x的区别>Q2：Zuul 1.x和2.x的区别？</a></li><li><a href=#q3spring-cloud-gateway的核心概念>Q3：Spring Cloud Gateway的核心概念？</a></li><li><a href=#q4如何设计一个高可用的api网关>Q4：如何设计一个高可用的API网关？</a></li><li><a href=#q5api网关的性能瓶颈在哪里>Q5：API网关的性能瓶颈在哪里？</a></li><li><a href=#q6网关如何做认证授权>Q6：网关如何做认证授权？</a></li><li><a href=#q7如何防止api网关成为单点故障>Q7：如何防止API网关成为单点故障？</a></li><li><a href=#q8api网关-vs-负载均衡器>Q8：API网关 vs 负载均衡器？</a></li></ul></li><li><a href=#九总结>九、总结</a><ul><li><a href=#核心要点>核心要点</a></li><li><a href=#最佳实践>最佳实践</a></li><li><a href=#技术选型>技术选型</a></li><li><a href=#面试速记口诀>面试速记口诀</a></li></ul></li></ul></nav></details><div class=post-content data-article-content><h2 id=一引言>一、引言</h2><p>在微服务架构中，客户端需要调用多个微服务才能完成一个业务功能。如果每个微服务都暴露独立的网络地址，客户端需要了解每个服务的地址、处理不同的协议、实现负载均衡、处理认证授权等横切关注点。API网关正是为了解决这些问题而诞生的，它是微服务架构的"看门人"，统一了所有外部请求的入口。</p><p>本文将从API网关的核心价值出发，深度解析主流API网关的实现原理与最佳实践，包括Zuul、Spring Cloud Gateway、Kong和APISIX，并探讨网关的高可用设计与性能优化。</p><h3 id=没有api网关的问题>没有API网关的问题</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>客户端直接调用微服务
+</span></span><span class=line><span class=cl>┌─────┐     ┌─────────┐
+</span></span><span class=line><span class=cl>│Client│────►│UserService│
+</span></span><span class=line><span class=cl>└─────┘     └─────────┘
+</span></span><span class=line><span class=cl>    │         ┌─────────┐
+</span></span><span class=line><span class=cl>    ├────────►│OrderService│
+</span></span><span class=line><span class=cl>    │         └─────────┘
+</span></span><span class=line><span class=cl>    │         ┌─────────┐
+</span></span><span class=line><span class=cl>    ├────────►│PaymentService│
+</span></span><span class=line><span class=cl>    │         └─────────┘
+</span></span><span class=line><span class=cl>    │         ┌─────────┐
+</span></span><span class=line><span class=cl>    └────────►│Notification│
+</span></span><span class=line><span class=cl>              └─────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>问题：
+</span></span><span class=line><span class=cl>1. 客户端需要知道所有微服务地址
+</span></span><span class=line><span class=cl>2. 每个服务都要实现认证、限流、监控
+</span></span><span class=line><span class=cl>3. 协议不统一（HTTP/REST、gRPC、WebSocket）
+</span></span><span class=line><span class=cl>4. 客户端多次请求，延迟高
+</span></span><span class=line><span class=cl>5. 难以重构（服务拆分/合并对客户端不透明）
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>引入API网关后
+</span></span><span class=line><span class=cl>┌─────┐     ┌─────────┐     ┌─────────┐
+</span></span><span class=line><span class=cl>│Client│────►│  API   │────►│UserService│
+</span></span><span class=line><span class=cl>└─────┘     │ Gateway │     └─────────┘
+</span></span><span class=line><span class=cl>             └─────────┘     ┌─────────┐
+</span></span><span class=line><span class=cl>                  │           │OrderService│
+</span></span><span class=line><span class=cl>                  └──────────►└─────────┘
+</span></span><span class=line><span class=cl>                              ┌─────────┐
+</span></span><span class=line><span class=cl>                              │Payment  │
+</span></span><span class=line><span class=cl>                              └─────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>优势：
+</span></span><span class=line><span class=cl>1. 统一入口，客户端只需知道网关地址
+</span></span><span class=line><span class=cl>2. 统一认证、限流、监控
+</span></span><span class=line><span class=cl>3. 协议转换（HTTP→gRPC）
+</span></span><span class=line><span class=cl>4. 请求聚合（一次请求获取多个资源）
+</span></span><span class=line><span class=cl>5. 服务重构对客户端透明
+</span></span></code></pre></div><h2 id=二api网关核心功能>二、API网关核心功能</h2><h3 id=21-核心功能矩阵>2.1 核心功能矩阵</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>API网关核心功能
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                  路由转发                    │
+</span></span><span class=line><span class=cl>│   - URL路径匹配                             │
+</span></span><span class=line><span class=cl>│   - 负载均衡                                │
+</span></span><span class=line><span class=cl>│   - 服务发现                                │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                  过滤器链                    │
+</span></span><span class=line><span class=cl>│   - 认证授权                                │
+</span></span><span class=line><span class=cl>│   - 限流熔断                                │
+</span></span><span class=line><span class=cl>│   - 请求/响应修改                           │
+</span></span><span class=line><span class=cl>│   - 日志记录                                │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                  协议转换                    │
+</span></span><span class=line><span class=cl>│   - HTTP/HTTPS ↔ gRPC                       │
+</span></span><span class=line><span class=cl>│   - WebSocket ↔ HTTP                        │
+</span></span><span class=line><span class=cl>│   - GraphQL ↔ REST                          │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                  请求聚合                    │
+</span></span><span class=line><span class=cl>│   - 一次请求调用多个服务                    │
+</span></span><span class=line><span class=cl>│   - 并行调用提高性能                        │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                  安全防护                    │
+</span></span><span class=line><span class=cl>│   - IP黑白名单                              │
+</span></span><span class=line><span class=cl>│   - SQL注入防护                             │
+</span></span><span class=line><span class=cl>│   - XSS防护                                 │
+</span></span><span class=line><span class=cl>│   - HTTPS卸载                              │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=22-网关-vs-负载均衡器>2.2 网关 vs 负载均衡器</h3><table><thead><tr><th>维度</th><th>API网关</th><th>负载均衡器</th></tr></thead><tbody><tr><td><strong>工作层级</strong></td><td>应用层（L7）</td><td>传输层（L4）或应用层（L7）</td></tr><tr><td><strong>功能</strong></td><td>路由、过滤、聚合、协议转换</td><td>流量分发</td></tr><tr><td><strong>智能性</strong></td><td>高（业务感知）</td><td>低（连接感知）</td></tr><tr><td><strong>配置复杂度</strong></td><td>高</td><td>低</td></tr><tr><td><strong>性能</strong></td><td>中（额外处理）</td><td>高</td></tr><tr><td><strong>典型产品</strong></td><td>Zuul、Gateway、Kong</td><td>Nginx、HAProxy、F5</td></tr></tbody></table><p><strong>关系</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                    ┌─────────────┐
+</span></span><span class=line><span class=cl>                    │   DNS      │
+</span></span><span class=line><span class=cl>                    └─────────────┘
+</span></span><span class=line><span class=cl>                         │
+</span></span><span class=line><span class=cl>                         ▼
+</span></span><span class=line><span class=cl>                    ┌─────────────┐
+</span></span><span class=line><span class=cl>                    │ Load       │
+</span></span><span class=line><span class=cl>                    │ Balancer   │ (L4/L7 负载均衡)
+</span></span><span class=line><span class=cl>                    │ (Nginx)    │
+</span></span><span class=line><span class=cl>                    └─────────────┘
+</span></span><span class=line><span class=cl>                         │
+</span></span><span class=line><span class=cl>                         ▼
+</span></span><span class=line><span class=cl>                    ┌─────────────┐
+</span></span><span class=line><span class=cl>                    │  API Gateway│ (L7 应用路由)
+</span></span><span class=line><span class=cl>                    │ (Gateway)   │
+</span></span><span class=line><span class=cl>                    └─────────────┘
+</span></span><span class=line><span class=cl>                         │
+</span></span><span class=line><span class=cl>            ┌────────────┼────────────┐
+</span></span><span class=line><span class=cl>            ▼            ▼            ▼
+</span></span><span class=line><span class=cl>       ┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>       │Service A│  │Service B│  │Service C│
+</span></span><span class=line><span class=cl>       └─────────┘  └─────────┘  └─────────┘
+</span></span></code></pre></div><h2 id=三zuul深度解析>三、Zuul深度解析</h2><h3 id=31-zuul-1x-架构>3.1 Zuul 1.x 架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Zuul 1.x 架构（同步阻塞）
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│               HTTP Request                   │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│           Zuul Servlet                      │
+</span></span><span class=line><span class=cl>│         (Spring MVC)                        │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            Pre Filters                       │
+</span></span><span class=line><span class=cl>│   - ServletDetectionFilter                  │
+</span></span><span class=line><span class=cl>│   - Servlet30WrapperFilter                  │
+</span></span><span class=line><span class=cl>│   - FormBodyWrapperFilter                   │
+</span></span><span class=line><span class=cl>│   - DebugFilter                             │
+</span></span><span class=line><span class=cl>│   - PreDecorationFilter (路由)              │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│           Routing Filters                    │
+</span></span><span class=line><span class=cl>│   - RibbonRoutingFilter                    │
+</span></span><span class=line><span class=cl>│   - SimpleHostRoutingFilter                 │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│           Post Filters                       │
+</span></span><span class=line><span class=cl>│   - SendResponseFilter                     │
+</span></span><span class=line><span class=cl>│   - ErrorResponseFilter                     │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│               HTTP Response                  │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>特点：
+</span></span><span class=line><span class=cl>- 同步阻塞I/O（Servlet API）
+</span></span><span class=line><span class=cl>- 线程池模式（连接池）
+</span></span><span class=line><span class=cl>- 性能受限（无法处理大量并发）
+</span></span></code></pre></div><h3 id=32-zuul-2x-架构>3.2 Zuul 2.x 架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Zuul 2.x 架构（异步非阻塞）
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│               HTTP Request                   │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            Netty Server                      │
+</span></span><span class=line><span class=cl>│         (异步非阻塞)                        │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            Filter Chain                      │
+</span></span><span class=line><span class=cl>│   - Inbound Filters (请求过滤)              │
+</span></span><span class=line><span class=cl>│   - Endpoint Filters (路由转发)              │
+</span></span><span class=line><span class=cl>│   - Outbound Filters (响应过滤)             │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            Netty Client                      │
+</span></span><span class=line><span class=cl>│         (异步非阻塞)                        │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│               HTTP Response                  │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>特点：
+</span></span><span class=line><span class=cl>- 基于Netty（异步非阻塞I/O）
+</span></span><span class=line><span class=cl>- 事件驱动模型
+</span></span><span class=line><span class=cl>- 更高性能（连接数不受限）
+</span></span><span class=line><span class=cl>- 与Zuul 1.x不兼容
+</span></span></code></pre></div><h3 id=33-zuul-过滤器详解>3.3 Zuul 过滤器详解</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// Zuul 1.x 过滤器示例
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Component</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>AuthFilter</span> <span class=kd>extends</span> <span class=n>ZuulFilter</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
@@ -247,59 +247,59 @@
 </span></span></span><span class=line><span class=cl><span class=w>    
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 重试配置</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>retryable</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
-</span></span></span></code></pre></div><h2 id=四spring-cloud-gateway深度解析>四、Spring Cloud Gateway深度解析</h2><h3 id=41-gateway-核心架构>4.1 Gateway 核心架构</h3><pre tabindex=0><code>Spring Cloud Gateway 架构
-┌───────────────────────────────────────────────┐
-│            HTTP Request                      │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│         Gateway Handler Mapping              │
-│   （路由匹配）                               │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│            Gateway Web Handler               │
-│   （请求处理）                               │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│               Filter Chain                   │
-│   ┌─────────────────────────────────┐      │
-│   │  GatewayFilter (按Order排序)    │      │
-│   │  - AddRequestHeader             │      │
-│   │  - AddResponseHeader            │      │
-│   │  - Retry                       │      │
-│   │  - RequestRateLimiter          │      │
-│   │  - Hystrix (熔断)              │      │
-│   └─────────────────────────────────┘      │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│            Proxy Exchange                    │
-│   （代理交换）                               │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│            Netty HttpClient                  │
-│   （异步非阻塞转发）                         │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│            HTTP Response                     │
-└───────────────────────────────────────────────┘
-
-核心特点：
-- 基于Spring 5、Project Reactor、Netty
-- 异步非阻塞（WebFlux）
-- 性能优于Zuul 1.x
-- 功能丰富（限流、熔断、重试）
-</code></pre><h3 id=42-核心概念>4.2 核心概念</h3><table><thead><tr><th>概念</th><th>说明</th><th>示例</th></tr></thead><tbody><tr><td><strong>Route</strong></td><td>路由规则</td><td>路径 <code>/user/**</code> → <code>user-service</code></td></tr><tr><td><strong>Predicate</strong></td><td>匹配条件</td><td>Path、Method、Header、Query、Host</td></tr><tr><td><strong>Filter</strong></td><td>过滤器</td><td>修改请求/响应</td></tr><tr><td><strong>Order</strong></td><td>优先级</td><td>数字越小优先级越高</td></tr></tbody></table><h3 id=43-路由配置>4.3 路由配置</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Spring Cloud Gateway 配置</span><span class=w>
+</span></span></span></code></pre></div><h2 id=四spring-cloud-gateway深度解析>四、Spring Cloud Gateway深度解析</h2><h3 id=41-gateway-核心架构>4.1 Gateway 核心架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Spring Cloud Gateway 架构
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            HTTP Request                      │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│         Gateway Handler Mapping              │
+</span></span><span class=line><span class=cl>│   （路由匹配）                               │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            Gateway Web Handler               │
+</span></span><span class=line><span class=cl>│   （请求处理）                               │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│               Filter Chain                   │
+</span></span><span class=line><span class=cl>│   ┌─────────────────────────────────┐      │
+</span></span><span class=line><span class=cl>│   │  GatewayFilter (按Order排序)    │      │
+</span></span><span class=line><span class=cl>│   │  - AddRequestHeader             │      │
+</span></span><span class=line><span class=cl>│   │  - AddResponseHeader            │      │
+</span></span><span class=line><span class=cl>│   │  - Retry                       │      │
+</span></span><span class=line><span class=cl>│   │  - RequestRateLimiter          │      │
+</span></span><span class=line><span class=cl>│   │  - Hystrix (熔断)              │      │
+</span></span><span class=line><span class=cl>│   └─────────────────────────────────┘      │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            Proxy Exchange                    │
+</span></span><span class=line><span class=cl>│   （代理交换）                               │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            Netty HttpClient                  │
+</span></span><span class=line><span class=cl>│   （异步非阻塞转发）                         │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            HTTP Response                     │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>核心特点：
+</span></span><span class=line><span class=cl>- 基于Spring 5、Project Reactor、Netty
+</span></span><span class=line><span class=cl>- 异步非阻塞（WebFlux）
+</span></span><span class=line><span class=cl>- 性能优于Zuul 1.x
+</span></span><span class=line><span class=cl>- 功能丰富（限流、熔断、重试）
+</span></span></code></pre></div><h3 id=42-核心概念>4.2 核心概念</h3><table><thead><tr><th>概念</th><th>说明</th><th>示例</th></tr></thead><tbody><tr><td><strong>Route</strong></td><td>路由规则</td><td>路径 <code>/user/**</code> → <code>user-service</code></td></tr><tr><td><strong>Predicate</strong></td><td>匹配条件</td><td>Path、Method、Header、Query、Host</td></tr><tr><td><strong>Filter</strong></td><td>过滤器</td><td>修改请求/响应</td></tr><tr><td><strong>Order</strong></td><td>优先级</td><td>数字越小优先级越高</td></tr></tbody></table><h3 id=43-路由配置>4.3 路由配置</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># Spring Cloud Gateway 配置</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spring</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>cloud</span><span class=p>:</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>gateway</span><span class=p>:</span><span class=w>
@@ -461,52 +461,52 @@
 </span></span><span class=line><span class=cl>        <span class=o>);</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><h2 id=五kong深度解析>五、Kong深度解析</h2><h3 id=51-kong-架构设计>5.1 Kong 架构设计</h3><pre tabindex=0><code>Kong 架构
-┌───────────────────────────────────────────────┐
-│               Client                         │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│            Kong API Gateway                   │
-│   ┌─────────────────────────────────┐      │
-│   │  Nginx + OpenResty (Lua)        │      │
-│   │  - Event-driven                 │      │
-│   │  - Non-blocking I/O             │      │
-│   └─────────────────────────────────┘      │
-│                 │                           │
-│                 ▼                           │
-│   ┌─────────────────────────────────┐      │
-│   │  Plugin Architecture            │      │
-│   │  - Authentication              │      │
-│   │  - Rate Limiting                │      │
-│   │  - Logging                      │      │
-│   │  - Security                     │      │
-│   └─────────────────────────────────┘      │
-└───────────────────┬───────────────────────────┘
-                    │
-        ┌───────────┼───────────┐
-        │           │           │
-        ▼           ▼           ▼
-   ┌────────┐  ┌────────┐  ┌────────┐
-   │Service │  │Service │  │Service │
-   │   A    │  │   B    │  │   C    │
-   └────────┘  └────────┘  └────────┘
-        │
-        ▼
-┌───────────────────────────────────────────────┐
-│            Datastore (PostgreSQL/Cassandra)   │
-│   - 配置存储                                 │
-│   - 插件配置                                 │
-│   - 统计分析                                 │
-└───────────────────────────────────────────────┘
-
-特点：
-- 基于Nginx+OpenResty（高性能）
-- 插件化架构（易于扩展）
-- 支持多种协议（HTTP/HTTPS/gRPC/TCP/UDP）
-- 丰富的插件生态
-</code></pre><h3 id=52-kong-核心概念>5.2 Kong 核心概念</h3><table><thead><tr><th>概念</th><th>说明</th><th>示例</th></tr></thead><tbody><tr><td><strong>Service</strong></td><td>后端服务抽象</td><td><code>name: user-service, host: user-service, port: 80</code></td></tr><tr><td><strong>Route</strong></td><td>路由规则</td><td><code>paths: ["/user"], methods: ["GET"]</code></td></tr><tr><td><strong>Consumer</strong></td><td>API消费者</td><td><code>username: user123</code></td></tr><tr><td><strong>Plugin</strong></td><td>插件</td><td><code>rate-limiting, key-auth, cors</code></td></tr><tr><td><strong>Upstream</strong></td><td>负载均衡上游</td><td><code>name: user-upstream, algorithm: round-robin</code></td></tr><tr><td><strong>Target</strong></td><td>上游目标节点</td><td><code>target: 192.168.1.1:8080, weight: 100</code></td></tr></tbody></table><h3 id=53-kong-配置示例>5.3 Kong 配置示例</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. 添加Service</span>
+</span></span></code></pre></div><h2 id=五kong深度解析>五、Kong深度解析</h2><h3 id=51-kong-架构设计>5.1 Kong 架构设计</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Kong 架构
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│               Client                         │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            Kong API Gateway                   │
+</span></span><span class=line><span class=cl>│   ┌─────────────────────────────────┐      │
+</span></span><span class=line><span class=cl>│   │  Nginx + OpenResty (Lua)        │      │
+</span></span><span class=line><span class=cl>│   │  - Event-driven                 │      │
+</span></span><span class=line><span class=cl>│   │  - Non-blocking I/O             │      │
+</span></span><span class=line><span class=cl>│   └─────────────────────────────────┘      │
+</span></span><span class=line><span class=cl>│                 │                           │
+</span></span><span class=line><span class=cl>│                 ▼                           │
+</span></span><span class=line><span class=cl>│   ┌─────────────────────────────────┐      │
+</span></span><span class=line><span class=cl>│   │  Plugin Architecture            │      │
+</span></span><span class=line><span class=cl>│   │  - Authentication              │      │
+</span></span><span class=line><span class=cl>│   │  - Rate Limiting                │      │
+</span></span><span class=line><span class=cl>│   │  - Logging                      │      │
+</span></span><span class=line><span class=cl>│   │  - Security                     │      │
+</span></span><span class=line><span class=cl>│   └─────────────────────────────────┘      │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>        ┌───────────┼───────────┐
+</span></span><span class=line><span class=cl>        │           │           │
+</span></span><span class=line><span class=cl>        ▼           ▼           ▼
+</span></span><span class=line><span class=cl>   ┌────────┐  ┌────────┐  ┌────────┐
+</span></span><span class=line><span class=cl>   │Service │  │Service │  │Service │
+</span></span><span class=line><span class=cl>   │   A    │  │   B    │  │   C    │
+</span></span><span class=line><span class=cl>   └────────┘  └────────┘  └────────┘
+</span></span><span class=line><span class=cl>        │
+</span></span><span class=line><span class=cl>        ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            Datastore (PostgreSQL/Cassandra)   │
+</span></span><span class=line><span class=cl>│   - 配置存储                                 │
+</span></span><span class=line><span class=cl>│   - 插件配置                                 │
+</span></span><span class=line><span class=cl>│   - 统计分析                                 │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>特点：
+</span></span><span class=line><span class=cl>- 基于Nginx+OpenResty（高性能）
+</span></span><span class=line><span class=cl>- 插件化架构（易于扩展）
+</span></span><span class=line><span class=cl>- 支持多种协议（HTTP/HTTPS/gRPC/TCP/UDP）
+</span></span><span class=line><span class=cl>- 丰富的插件生态
+</span></span></code></pre></div><h3 id=52-kong-核心概念>5.2 Kong 核心概念</h3><table><thead><tr><th>概念</th><th>说明</th><th>示例</th></tr></thead><tbody><tr><td><strong>Service</strong></td><td>后端服务抽象</td><td><code>name: user-service, host: user-service, port: 80</code></td></tr><tr><td><strong>Route</strong></td><td>路由规则</td><td><code>paths: ["/user"], methods: ["GET"]</code></td></tr><tr><td><strong>Consumer</strong></td><td>API消费者</td><td><code>username: user123</code></td></tr><tr><td><strong>Plugin</strong></td><td>插件</td><td><code>rate-limiting, key-auth, cors</code></td></tr><tr><td><strong>Upstream</strong></td><td>负载均衡上游</td><td><code>name: user-upstream, algorithm: round-robin</code></td></tr><tr><td><strong>Target</strong></td><td>上游目标节点</td><td><code>target: 192.168.1.1:8080, weight: 100</code></td></tr></tbody></table><h3 id=53-kong-配置示例>5.3 Kong 配置示例</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. 添加Service</span>
 </span></span><span class=line><span class=cl>curl -i -X POST http://kong:8001/services <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>  --data <span class=s2>&#34;name=user-service&#34;</span> <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>  --data <span class=s2>&#34;url=http://user-service:8080&#34;</span>
@@ -576,44 +576,44 @@
 </span></span><span class=line><span class=cl><span class=kr>end</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=kr>return</span> <span class=n>CustomHandler</span>
-</span></span></code></pre></div><h2 id=六apisix深度解析>六、APISIX深度解析</h2><h3 id=61-apisix-架构设计>6.1 APISIX 架构设计</h3><pre tabindex=0><code>APISIX 架构
-┌───────────────────────────────────────────────┐
-│               Client                         │
-└───────────────────┬───────────────────────────┘
-                    │
-                    ▼
-┌───────────────────────────────────────────────┐
-│            APISIX (Nginx+Lua)                │
-│   ┌─────────────────────────────────┐      │
-│   │  etcd (配置中心)                │      │
-│   │  - 路由配置                     │      │
-│   │  - 上游配置                     │      │
-│   │  - 插件配置                     │      │
-│   └─────────────────────────────────┘      │
-│                 │                           │
-│                 ▼                           │
-│   ┌─────────────────────────────────┐      │
-│   │  Matching + Plugin Runner       │      │
-│   │  - 路由匹配                     │      │
-│   │  - 插件执行                     │      │
-│   └─────────────────────────────────┘      │
-└───────────────────┬───────────────────────────┘
-                    │
-        ┌───────────┼───────────┐
-        │           │           │
-        ▼           ▼           ▼
-   ┌────────┐  ┌────────┐  ┌────────┐
-   │Service │  │Service │  │Service │
-   │   A    │  │   B    │  │   C    │
-   └────────┘  └────────┘  └────────┘
-
-特点：
-- 基于Nginx+Lua（高性能）
-- 使用etcd作为配置中心（强一致）
-- 插件热加载（无需重启）
-- 支持多语言插件（Java/Python/Go）
-- 性能优于Kong（基准测试）
-</code></pre><h3 id=62-apisix-vs-kong-对比>6.2 APISIX vs Kong 对比</h3><table><thead><tr><th>维度</th><th>APISIX</th><th>Kong</th></tr></thead><tbody><tr><td><strong>配置中心</strong></td><td>etcd（强一致）</td><td>PostgreSQL/Cassandra</td></tr><tr><td><strong>性能</strong></td><td>更高（基准测试）</td><td>高</td></tr><tr><td><strong>插件热加载</strong></td><td>✅</td><td>❌（需重启）</td></tr><tr><td><strong>多语言插件</strong></td><td>✅（Java/Python/Go）</td><td>❌（仅Lua）</td></tr><tr><td><strong>Dashboard</strong></td><td>✅（APISIX Dashboard）</td><td>✅（Konga等）</td></tr><tr><td><strong>社区</strong></td><td>快速发展</td><td>成熟</td></tr><tr><td><strong>学习曲线</strong></td><td>中</td><td>中</td></tr><tr><td><strong>适用场景</strong></td><td>高性能要求</td><td>企业级（插件丰富）</td></tr></tbody></table><h3 id=63-apisix-配置示例>6.3 APISIX 配置示例</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. 添加上游（Upstream）</span>
+</span></span></code></pre></div><h2 id=六apisix深度解析>六、APISIX深度解析</h2><h3 id=61-apisix-架构设计>6.1 APISIX 架构设计</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>APISIX 架构
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│               Client                         │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>                    ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│            APISIX (Nginx+Lua)                │
+</span></span><span class=line><span class=cl>│   ┌─────────────────────────────────┐      │
+</span></span><span class=line><span class=cl>│   │  etcd (配置中心)                │      │
+</span></span><span class=line><span class=cl>│   │  - 路由配置                     │      │
+</span></span><span class=line><span class=cl>│   │  - 上游配置                     │      │
+</span></span><span class=line><span class=cl>│   │  - 插件配置                     │      │
+</span></span><span class=line><span class=cl>│   └─────────────────────────────────┘      │
+</span></span><span class=line><span class=cl>│                 │                           │
+</span></span><span class=line><span class=cl>│                 ▼                           │
+</span></span><span class=line><span class=cl>│   ┌─────────────────────────────────┐      │
+</span></span><span class=line><span class=cl>│   │  Matching + Plugin Runner       │      │
+</span></span><span class=line><span class=cl>│   │  - 路由匹配                     │      │
+</span></span><span class=line><span class=cl>│   │  - 插件执行                     │      │
+</span></span><span class=line><span class=cl>│   └─────────────────────────────────┘      │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>        ┌───────────┼───────────┐
+</span></span><span class=line><span class=cl>        │           │           │
+</span></span><span class=line><span class=cl>        ▼           ▼           ▼
+</span></span><span class=line><span class=cl>   ┌────────┐  ┌────────┐  ┌────────┐
+</span></span><span class=line><span class=cl>   │Service │  │Service │  │Service │
+</span></span><span class=line><span class=cl>   │   A    │  │   B    │  │   C    │
+</span></span><span class=line><span class=cl>   └────────┘  └────────┘  └────────┘
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>特点：
+</span></span><span class=line><span class=cl>- 基于Nginx+Lua（高性能）
+</span></span><span class=line><span class=cl>- 使用etcd作为配置中心（强一致）
+</span></span><span class=line><span class=cl>- 插件热加载（无需重启）
+</span></span><span class=line><span class=cl>- 支持多语言插件（Java/Python/Go）
+</span></span><span class=line><span class=cl>- 性能优于Kong（基准测试）
+</span></span></code></pre></div><h3 id=62-apisix-vs-kong-对比>6.2 APISIX vs Kong 对比</h3><table><thead><tr><th>维度</th><th>APISIX</th><th>Kong</th></tr></thead><tbody><tr><td><strong>配置中心</strong></td><td>etcd（强一致）</td><td>PostgreSQL/Cassandra</td></tr><tr><td><strong>性能</strong></td><td>更高（基准测试）</td><td>高</td></tr><tr><td><strong>插件热加载</strong></td><td>✅</td><td>❌（需重启）</td></tr><tr><td><strong>多语言插件</strong></td><td>✅（Java/Python/Go）</td><td>❌（仅Lua）</td></tr><tr><td><strong>Dashboard</strong></td><td>✅（APISIX Dashboard）</td><td>✅（Konga等）</td></tr><tr><td><strong>社区</strong></td><td>快速发展</td><td>成熟</td></tr><tr><td><strong>学习曲线</strong></td><td>中</td><td>中</td></tr><tr><td><strong>适用场景</strong></td><td>高性能要求</td><td>企业级（插件丰富）</td></tr></tbody></table><h3 id=63-apisix-配置示例>6.3 APISIX 配置示例</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 1. 添加上游（Upstream）</span>
 </span></span><span class=line><span class=cl>curl -X PUT http://apisix:9180/apisix/admin/upstreams/1 <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>  -H <span class=s2>&#34;X-API-KEY: </span><span class=si>${</span><span class=nv>ADMIN_KEY</span><span class=si>}</span><span class=s2>&#34;</span> <span class=se>\
 </span></span></span><span class=line><span class=cl><span class=se></span>  -d <span class=s1>&#39;{
@@ -694,29 +694,29 @@
 </span></span><span class=line><span class=cl><span class=kr>end</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=kr>return</span> <span class=n>CustomPlugin</span>
-</span></span></code></pre></div><h2 id=七api网关高可用设计>七、API网关高可用设计</h2><h3 id=71-高可用架构>7.1 高可用架构</h3><pre tabindex=0><code>API网关高可用架构
-┌───────────────────────────────────────────────┐
-│               DNS (GSLB)                    │
-│         （全局负载均衡）                      │
-└───────────────────┬───────────────────────────┘
-                    │
-        ┌───────────┼───────────┐
-        │           │           │
-        ▼           ▼           ▼
-┌─────────┐  ┌─────────┐  ┌─────────┐
-│  AZ 1   │  │  AZ 2   │  │  AZ 3   │
-│ Gateway │  │ Gateway │  │ Gateway │
-│  (主)   │  │  (备)   │  │  (备)   │
-└────┬────┘  └────┬────┘  └────┬────┘
-     │             │             │
-     └─────────────┼─────────────┘
-                   │
-                   ▼
-┌───────────────────────────────────────────────┐
-│           服务注册中心                         │
-│         （Eureka/Nacos/Consul）               │
-└───────────────────────────────────────────────┘
-</code></pre><h3 id=72-容错设计>7.2 容错设计</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// API网关容错策略
+</span></span></code></pre></div><h2 id=七api网关高可用设计>七、API网关高可用设计</h2><h3 id=71-高可用架构>7.1 高可用架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>API网关高可用架构
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│               DNS (GSLB)                    │
+</span></span><span class=line><span class=cl>│         （全局负载均衡）                      │
+</span></span><span class=line><span class=cl>└───────────────────┬───────────────────────────┘
+</span></span><span class=line><span class=cl>                    │
+</span></span><span class=line><span class=cl>        ┌───────────┼───────────┐
+</span></span><span class=line><span class=cl>        │           │           │
+</span></span><span class=line><span class=cl>        ▼           ▼           ▼
+</span></span><span class=line><span class=cl>┌─────────┐  ┌─────────┐  ┌─────────┐
+</span></span><span class=line><span class=cl>│  AZ 1   │  │  AZ 2   │  │  AZ 3   │
+</span></span><span class=line><span class=cl>│ Gateway │  │ Gateway │  │ Gateway │
+</span></span><span class=line><span class=cl>│  (主)   │  │  (备)   │  │  (备)   │
+</span></span><span class=line><span class=cl>└────┬────┘  └────┬────┘  └────┬────┘
+</span></span><span class=line><span class=cl>     │             │             │
+</span></span><span class=line><span class=cl>     └─────────────┼─────────────┘
+</span></span><span class=line><span class=cl>                   │
+</span></span><span class=line><span class=cl>                   ▼
+</span></span><span class=line><span class=cl>┌───────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│           服务注册中心                         │
+</span></span><span class=line><span class=cl>│         （Eureka/Nacos/Consul）               │
+</span></span><span class=line><span class=cl>└───────────────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=72-容错设计>7.2 容错设计</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// API网关容错策略
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=nd>@Configuration</span>
 </span></span><span class=line><span class=cl><span class=kd>public</span> <span class=kd>class</span> <span class=nc>GatewayFaultToleranceConfig</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    
@@ -788,32 +788,32 @@
 </span></span></span><span class=line><span class=cl><span class=w>        
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=c># 4. 初始路由缓存大小</span><span class=w>
 </span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>initial-route-cache-size</span><span class=p>:</span><span class=w> </span><span class=m>512</span><span class=w>
-</span></span></span></code></pre></div><p><strong>性能优化 Checklist</strong>：</p><table><thead><tr><th>优化项</th><th>说明</th><th>推荐值</th></tr></thead><tbody><tr><td><strong>连接池</strong></td><td>最大连接数</td><td>1000+</td></tr><tr><td><strong>线程池</strong></td><td>核心线程数</td><td>CPU核数 * 2</td></tr><tr><td><strong>超时时间</strong></td><td>连接超时</td><td>2-5秒</td></tr><tr><td><strong>缓冲区</strong></td><td>响应缓冲区</td><td>8192字节</td></tr><tr><td><strong>压缩</strong></td><td>启用GZIP</td><td>✅</td></tr><tr><td><strong>缓存</strong></td><td>路由缓存</td><td>512+</td></tr><tr><td><strong>监控</strong></td><td>启用Metrics</td><td>✅</td></tr></tbody></table><h2 id=八面试高频问题>八、面试高频问题</h2><h3 id=q1为什么需要api网关>Q1：为什么需要API网关？</h3><p><strong>答</strong>：API网关解决了微服务架构中的核心痛点：</p><ol><li><strong>统一入口</strong>：客户端只需知道网关地址，不需要了解所有微服务地址</li><li><strong>横切关注点统一处理</strong>：认证、授权、限流、监控、日志等只需在网关实现</li><li><strong>协议转换</strong>：支持不同协议（HTTP/HTTPS/gRPC/WebSocket）</li><li><strong>请求聚合</strong>：一次请求可调用多个服务，减少网络往返</li><li><strong>服务重构透明</strong>：服务拆分/合并对客户端透明</li><li><strong>安全防护</strong>：IP黑白名单、SQL注入防护、HTTPS卸载</li></ol><h3 id=q2zuul-1x和2x的区别>Q2：Zuul 1.x和2.x的区别？</h3><p><strong>答</strong>：</p><table><thead><tr><th>维度</th><th>Zuul 1.x</th><th>Zuul 2.x</th></tr></thead><tbody><tr><td><strong>I/O模型</strong></td><td>同步阻塞（Servlet）</td><td>异步非阻塞（Netty）</td></tr><tr><td><strong>性能</strong></td><td>低（线程池受限）</td><td>高（事件驱动）</td></tr><tr><td><strong>资源占用</strong></td><td>高（每个连接一个线程）</td><td>低（少量线程处理大量连接）</td></tr><tr><td><strong>兼容性</strong></td><td>兼容Spring Cloud</td><td>不兼容（需重写）</td></tr><tr><td><strong>学习曲线</strong></td><td>低</td><td>中</td></tr><tr><td><strong>社区</strong></td><td>Netflix已停止维护</td><td>Netflix维护中</td></tr></tbody></table><p><strong>选择建议</strong>：新项目选Spring Cloud Gateway（性能优于Zuul 1.x，且是Spring官方推荐）</p><h3 id=q3spring-cloud-gateway的核心概念>Q3：Spring Cloud Gateway的核心概念？</h3><p><strong>答</strong>：Spring Cloud Gateway有三个核心概念：</p><ol><li><p><strong>Route（路由）</strong>：路由规则，定义了请求如何转发</p><ul><li><code>id</code>：路由唯一标识</li><li><code>uri</code>：目标服务地址</li><li><code>predicates</code>：匹配条件</li><li><code>filters</code>：过滤器链</li></ul></li><li><p><strong>Predicate（断言）</strong>：匹配条件，决定哪些请求会被路由</p><ul><li><code>Path</code>：路径匹配</li><li><code>Method</code>：HTTP方法匹配</li><li><code>Header</code>：请求头匹配</li><li><code>Query</code>：查询参数匹配</li><li><code>Host</code>：Host匹配</li></ul></li><li><p><strong>Filter（过滤器）</strong>：拦截器，修改请求/响应</p><ul><li><code>GatewayFilter</code>：针对特定路由</li><li><code>GlobalFilter</code>：全局过滤器</li></ul></li></ol><h3 id=q4如何设计一个高可用的api网关>Q4：如何设计一个高可用的API网关？</h3><p><strong>答</strong>：高可用API网关设计：</p><ol><li><strong>集群部署</strong>：多实例部署，避免单点故障</li><li><strong>负载均衡</strong>：DNS + 负载均衡器（Nginx/LVS）</li><li><strong>健康检查</strong>：定期健康检查，自动摘除故障节点</li><li><strong>限流熔断</strong>：防止雪崩效应</li><li><strong>降级策略</strong>：核心功能保证，非核心功能降级</li><li><strong>监控告警</strong>：实时监控QPS、RT、错误率</li><li><strong>压测演练</strong>：定期进行全链路压测</li></ol><h3 id=q5api网关的性能瓶颈在哪里>Q5：API网关的性能瓶颈在哪里？</h3><p><strong>答</strong>：API网关的性能瓶颈通常在：</p><ol><li><strong>I/O模型</strong>：同步阻塞模型（Zuul 1.x）是最大瓶颈</li><li><strong>线程池</strong>：线程池大小限制并发处理能力</li><li><strong>连接池</strong>：后端服务连接池大小</li><li><strong>过滤器链</strong>：过多的过滤器会增加延迟</li><li><strong>协议转换</strong>：复杂的协议转换消耗CPU</li><li><strong>日志记录</strong>：详细的日志记录影响性能</li></ol><p><strong>优化方向</strong>：</p><ul><li>使用异步非阻塞模型（WebFlux/Netty）</li><li>调整线程池和连接池大小</li><li>精简过滤器链</li><li>启用响应压缩</li><li>异步日志记录</li></ul><h3 id=q6网关如何做认证授权>Q6：网关如何做认证授权？</h3><p><strong>答</strong>：网关认证授权常见方案：</p><ol><li><p><strong>JWT（JSON Web Token）</strong>：</p><ul><li>客户端登录后获取JWT</li><li>后续请求携带JWT（Header）</li><li>网关验证JWT签名和过期时间</li></ul></li><li><p><strong>API Key</strong>：</p><ul><li>为每个消费者分配API Key</li><li>网关验证API Key有效性</li></ul></li><li><p><strong>OAuth 2.0</strong>：</p><ul><li>第三方登录（授权码模式）</li><li>网关验证Access Token</li></ul></li><li><p><strong>统一认证服务</strong>：</p><ul><li>网关将认证转发到认证服务</li><li>认证服务返回用户信息</li></ul></li></ol><h3 id=q7如何防止api网关成为单点故障>Q7：如何防止API网关成为单点故障？</h3><p><strong>答</strong>：防止单点故障：</p><ol><li><strong>集群部署</strong>：至少2个实例（推荐3+）</li><li><strong>多AZ部署</strong>：跨可用区部署</li><li><strong>健康检查</strong>：自动摘除故障节点</li><li><strong>限流熔断</strong>：防止个别服务拖垮网关</li><li><strong>降级策略</strong>：网关自身也要有降级策略</li><li><strong>监控告警</strong>：实时监控网关状态</li><li><strong>容量规划</strong>：定期进行压力测试</li></ol><h3 id=q8api网关-vs-负载均衡器>Q8：API网关 vs 负载均衡器？</h3><p><strong>答</strong>：</p><table><thead><tr><th>维度</th><th>API网关</th><th>负载均衡器</th></tr></thead><tbody><tr><td><strong>工作层级</strong></td><td>应用层（L7）</td><td>传输层（L4）或应用层（L7）</td></tr><tr><td><strong>智能性</strong></td><td>高（业务感知）</td><td>低（连接感知）</td></tr><tr><td><strong>功能</strong></td><td>路由、过滤、聚合、协议转换</td><td>流量分发</td></tr><tr><td><strong>配置复杂度</strong></td><td>高</td><td>低</td></tr><tr><td><strong>性能</strong></td><td>中（额外处理）</td><td>高</td></tr><tr><td><strong>典型产品</strong></td><td>Zuul、Gateway、Kong</td><td>Nginx、HAProxy、F5</td></tr><tr><td><strong>使用场景</strong></td><td>微服务入口</td><td>四层/七层负载均衡</td></tr></tbody></table><p><strong>关系</strong>：负载均衡器通常部署在API网关前面，用于分发流量到多个网关实例。</p><h2 id=九总结>九、总结</h2><h3 id=核心要点>核心要点</h3><ol><li><strong>API网关是微服务入口</strong>：统一入口、路由转发、过滤链</li><li><strong>主流方案对比</strong>：<ul><li>Zuul 1.x（同步阻塞，已停止维护）</li><li>Spring Cloud Gateway（异步非阻塞，Spring官方推荐）</li><li>Kong（Nginx+Lua，插件丰富）</li><li>APISIX（Nginx+Lua+etcd，性能更高）</li></ul></li><li><strong>高可用设计</strong>：集群+负载均衡+健康检查+限流熔断</li><li><strong>性能优化</strong>：异步非阻塞+连接池调优+过滤器精简</li></ol><h3 id=最佳实践>最佳实践</h3><ol><li><strong>认证授权在网关统一处理</strong></li><li><strong>限流熔断防止雪崩</strong></li><li><strong>监控告警必不可少</strong></li><li><strong>协议转换减少客户端复杂度</strong></li><li><strong>请求聚合提高性能</strong></li><li><strong>定期压测验证容量</strong></li></ol><h3 id=技术选型>技术选型</h3><pre tabindex=0><code>选型决策树
-
-是否需要API网关？
-    │
-    ├─ 否 → 直接调用微服务
-    │
-    └─ 是 ─→ 性能要求高？
-              │
-              ├─ 是 → APISIX（性能最高）
-              │
-              └─ 否 ──→ Spring Cloud项目？
-                        │
-                        ├─ 是 → Spring Cloud Gateway
-                        │
-                        └─ 否 → 需要丰富插件？
-                                  │
-                                  ├─ 是 → Kong
-                                  │
-                                  └─ 否 → Spring Cloud Gateway
-</code></pre><h3 id=面试速记口诀>面试速记口诀</h3><pre tabindex=0><code>API网关作用大，统一入口管全家
-路由转发是核心，过滤链上做文章
-认证授权统一做，限流熔断保平安
-Zuul已老Gateway新，Kong插件APISIX强
-高可用是必修课，集群部署不能忘
-性能优化异步化，监控告警要跟上
-</code></pre></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>← 上一篇</span><strong>配置中心深度解析</strong></a>
+</span></span></span></code></pre></div><p><strong>性能优化 Checklist</strong>：</p><table><thead><tr><th>优化项</th><th>说明</th><th>推荐值</th></tr></thead><tbody><tr><td><strong>连接池</strong></td><td>最大连接数</td><td>1000+</td></tr><tr><td><strong>线程池</strong></td><td>核心线程数</td><td>CPU核数 * 2</td></tr><tr><td><strong>超时时间</strong></td><td>连接超时</td><td>2-5秒</td></tr><tr><td><strong>缓冲区</strong></td><td>响应缓冲区</td><td>8192字节</td></tr><tr><td><strong>压缩</strong></td><td>启用GZIP</td><td>✅</td></tr><tr><td><strong>缓存</strong></td><td>路由缓存</td><td>512+</td></tr><tr><td><strong>监控</strong></td><td>启用Metrics</td><td>✅</td></tr></tbody></table><h2 id=八面试高频问题>八、面试高频问题</h2><h3 id=q1为什么需要api网关>Q1：为什么需要API网关？</h3><p><strong>答</strong>：API网关解决了微服务架构中的核心痛点：</p><ol><li><strong>统一入口</strong>：客户端只需知道网关地址，不需要了解所有微服务地址</li><li><strong>横切关注点统一处理</strong>：认证、授权、限流、监控、日志等只需在网关实现</li><li><strong>协议转换</strong>：支持不同协议（HTTP/HTTPS/gRPC/WebSocket）</li><li><strong>请求聚合</strong>：一次请求可调用多个服务，减少网络往返</li><li><strong>服务重构透明</strong>：服务拆分/合并对客户端透明</li><li><strong>安全防护</strong>：IP黑白名单、SQL注入防护、HTTPS卸载</li></ol><h3 id=q2zuul-1x和2x的区别>Q2：Zuul 1.x和2.x的区别？</h3><p><strong>答</strong>：</p><table><thead><tr><th>维度</th><th>Zuul 1.x</th><th>Zuul 2.x</th></tr></thead><tbody><tr><td><strong>I/O模型</strong></td><td>同步阻塞（Servlet）</td><td>异步非阻塞（Netty）</td></tr><tr><td><strong>性能</strong></td><td>低（线程池受限）</td><td>高（事件驱动）</td></tr><tr><td><strong>资源占用</strong></td><td>高（每个连接一个线程）</td><td>低（少量线程处理大量连接）</td></tr><tr><td><strong>兼容性</strong></td><td>兼容Spring Cloud</td><td>不兼容（需重写）</td></tr><tr><td><strong>学习曲线</strong></td><td>低</td><td>中</td></tr><tr><td><strong>社区</strong></td><td>Netflix已停止维护</td><td>Netflix维护中</td></tr></tbody></table><p><strong>选择建议</strong>：新项目选Spring Cloud Gateway（性能优于Zuul 1.x，且是Spring官方推荐）</p><h3 id=q3spring-cloud-gateway的核心概念>Q3：Spring Cloud Gateway的核心概念？</h3><p><strong>答</strong>：Spring Cloud Gateway有三个核心概念：</p><ol><li><p><strong>Route（路由）</strong>：路由规则，定义了请求如何转发</p><ul><li><code>id</code>：路由唯一标识</li><li><code>uri</code>：目标服务地址</li><li><code>predicates</code>：匹配条件</li><li><code>filters</code>：过滤器链</li></ul></li><li><p><strong>Predicate（断言）</strong>：匹配条件，决定哪些请求会被路由</p><ul><li><code>Path</code>：路径匹配</li><li><code>Method</code>：HTTP方法匹配</li><li><code>Header</code>：请求头匹配</li><li><code>Query</code>：查询参数匹配</li><li><code>Host</code>：Host匹配</li></ul></li><li><p><strong>Filter（过滤器）</strong>：拦截器，修改请求/响应</p><ul><li><code>GatewayFilter</code>：针对特定路由</li><li><code>GlobalFilter</code>：全局过滤器</li></ul></li></ol><h3 id=q4如何设计一个高可用的api网关>Q4：如何设计一个高可用的API网关？</h3><p><strong>答</strong>：高可用API网关设计：</p><ol><li><strong>集群部署</strong>：多实例部署，避免单点故障</li><li><strong>负载均衡</strong>：DNS + 负载均衡器（Nginx/LVS）</li><li><strong>健康检查</strong>：定期健康检查，自动摘除故障节点</li><li><strong>限流熔断</strong>：防止雪崩效应</li><li><strong>降级策略</strong>：核心功能保证，非核心功能降级</li><li><strong>监控告警</strong>：实时监控QPS、RT、错误率</li><li><strong>压测演练</strong>：定期进行全链路压测</li></ol><h3 id=q5api网关的性能瓶颈在哪里>Q5：API网关的性能瓶颈在哪里？</h3><p><strong>答</strong>：API网关的性能瓶颈通常在：</p><ol><li><strong>I/O模型</strong>：同步阻塞模型（Zuul 1.x）是最大瓶颈</li><li><strong>线程池</strong>：线程池大小限制并发处理能力</li><li><strong>连接池</strong>：后端服务连接池大小</li><li><strong>过滤器链</strong>：过多的过滤器会增加延迟</li><li><strong>协议转换</strong>：复杂的协议转换消耗CPU</li><li><strong>日志记录</strong>：详细的日志记录影响性能</li></ol><p><strong>优化方向</strong>：</p><ul><li>使用异步非阻塞模型（WebFlux/Netty）</li><li>调整线程池和连接池大小</li><li>精简过滤器链</li><li>启用响应压缩</li><li>异步日志记录</li></ul><h3 id=q6网关如何做认证授权>Q6：网关如何做认证授权？</h3><p><strong>答</strong>：网关认证授权常见方案：</p><ol><li><p><strong>JWT（JSON Web Token）</strong>：</p><ul><li>客户端登录后获取JWT</li><li>后续请求携带JWT（Header）</li><li>网关验证JWT签名和过期时间</li></ul></li><li><p><strong>API Key</strong>：</p><ul><li>为每个消费者分配API Key</li><li>网关验证API Key有效性</li></ul></li><li><p><strong>OAuth 2.0</strong>：</p><ul><li>第三方登录（授权码模式）</li><li>网关验证Access Token</li></ul></li><li><p><strong>统一认证服务</strong>：</p><ul><li>网关将认证转发到认证服务</li><li>认证服务返回用户信息</li></ul></li></ol><h3 id=q7如何防止api网关成为单点故障>Q7：如何防止API网关成为单点故障？</h3><p><strong>答</strong>：防止单点故障：</p><ol><li><strong>集群部署</strong>：至少2个实例（推荐3+）</li><li><strong>多AZ部署</strong>：跨可用区部署</li><li><strong>健康检查</strong>：自动摘除故障节点</li><li><strong>限流熔断</strong>：防止个别服务拖垮网关</li><li><strong>降级策略</strong>：网关自身也要有降级策略</li><li><strong>监控告警</strong>：实时监控网关状态</li><li><strong>容量规划</strong>：定期进行压力测试</li></ol><h3 id=q8api网关-vs-负载均衡器>Q8：API网关 vs 负载均衡器？</h3><p><strong>答</strong>：</p><table><thead><tr><th>维度</th><th>API网关</th><th>负载均衡器</th></tr></thead><tbody><tr><td><strong>工作层级</strong></td><td>应用层（L7）</td><td>传输层（L4）或应用层（L7）</td></tr><tr><td><strong>智能性</strong></td><td>高（业务感知）</td><td>低（连接感知）</td></tr><tr><td><strong>功能</strong></td><td>路由、过滤、聚合、协议转换</td><td>流量分发</td></tr><tr><td><strong>配置复杂度</strong></td><td>高</td><td>低</td></tr><tr><td><strong>性能</strong></td><td>中（额外处理）</td><td>高</td></tr><tr><td><strong>典型产品</strong></td><td>Zuul、Gateway、Kong</td><td>Nginx、HAProxy、F5</td></tr><tr><td><strong>使用场景</strong></td><td>微服务入口</td><td>四层/七层负载均衡</td></tr></tbody></table><p><strong>关系</strong>：负载均衡器通常部署在API网关前面，用于分发流量到多个网关实例。</p><h2 id=九总结>九、总结</h2><h3 id=核心要点>核心要点</h3><ol><li><strong>API网关是微服务入口</strong>：统一入口、路由转发、过滤链</li><li><strong>主流方案对比</strong>：<ul><li>Zuul 1.x（同步阻塞，已停止维护）</li><li>Spring Cloud Gateway（异步非阻塞，Spring官方推荐）</li><li>Kong（Nginx+Lua，插件丰富）</li><li>APISIX（Nginx+Lua+etcd，性能更高）</li></ul></li><li><strong>高可用设计</strong>：集群+负载均衡+健康检查+限流熔断</li><li><strong>性能优化</strong>：异步非阻塞+连接池调优+过滤器精简</li></ol><h3 id=最佳实践>最佳实践</h3><ol><li><strong>认证授权在网关统一处理</strong></li><li><strong>限流熔断防止雪崩</strong></li><li><strong>监控告警必不可少</strong></li><li><strong>协议转换减少客户端复杂度</strong></li><li><strong>请求聚合提高性能</strong></li><li><strong>定期压测验证容量</strong></li></ol><h3 id=技术选型>技术选型</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>选型决策树
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>是否需要API网关？
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    ├─ 否 → 直接调用微服务
+</span></span><span class=line><span class=cl>    │
+</span></span><span class=line><span class=cl>    └─ 是 ─→ 性能要求高？
+</span></span><span class=line><span class=cl>              │
+</span></span><span class=line><span class=cl>              ├─ 是 → APISIX（性能最高）
+</span></span><span class=line><span class=cl>              │
+</span></span><span class=line><span class=cl>              └─ 否 ──→ Spring Cloud项目？
+</span></span><span class=line><span class=cl>                        │
+</span></span><span class=line><span class=cl>                        ├─ 是 → Spring Cloud Gateway
+</span></span><span class=line><span class=cl>                        │
+</span></span><span class=line><span class=cl>                        └─ 否 → 需要丰富插件？
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                                  ├─ 是 → Kong
+</span></span><span class=line><span class=cl>                                  │
+</span></span><span class=line><span class=cl>                                  └─ 否 → Spring Cloud Gateway
+</span></span></code></pre></div><h3 id=面试速记口诀>面试速记口诀</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>API网关作用大，统一入口管全家
+</span></span><span class=line><span class=cl>路由转发是核心，过滤链上做文章
+</span></span><span class=line><span class=cl>认证授权统一做，限流熔断保平安
+</span></span><span class=line><span class=cl>Zuul已老Gateway新，Kong插件APISIX强
+</span></span><span class=line><span class=cl>高可用是必修课，集群部署不能忘
+</span></span><span class=line><span class=cl>性能优化异步化，监控告警要跟上
+</span></span></code></pre></div></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>← 上一篇</span><strong>配置中心深度解析</strong></a>
 <a class=next href=/posts/%E5%88%86%E5%B8%83%E5%BC%8F%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90/><span>下一篇 →</span><strong>分布式链路追踪深度解析</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%AB%E7%94%9F%E4%BA%A7%E7%BA%A7%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E7%81%BE%E5%A4%87/><span>2026-08-09</span><strong>Kubernetes与云原生面试八股文（八）——生产级高可用与灾备</strong><p>面试高频问题：Kubernetes 生产集群如何实现高可用？etcd 如何做备份与恢复？多集群联邦如何设计？灾备策略有哪些？RPO/RTO 如何权衡？本文系统讲解 K8s 生产级高 …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/><span>2026-08-08</span><strong>Kubernetes与云原生面试八股文（七）——可观测性与故障排查</strong><p>面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/><span>2026-08-06</span><strong>Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps</strong><p>面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD …</p></a></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9AAPI%E7%BD%91%E5%85%B3%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一引言>一、引言</a><ul><li><a href=#没有api网关的问题>没有API网关的问题</a></li></ul></li><li><a href=#二api网关核心功能>二、API网关核心功能</a><ul><li><a href=#21-核心功能矩阵>2.1 核心功能矩阵</a></li><li><a href=#22-网关-vs-负载均衡器>2.2 网关 vs 负载均衡器</a></li></ul></li><li><a href=#三zuul深度解析>三、Zuul深度解析</a><ul><li><a href=#31-zuul-1x-架构>3.1 Zuul 1.x 架构</a></li><li><a href=#32-zuul-2x-架构>3.2 Zuul 2.x 架构</a></li><li><a href=#33-zuul-过滤器详解>3.3 Zuul 过滤器详解</a></li><li><a href=#34-zuul-路由配置>3.4 Zuul 路由配置</a></li></ul></li><li><a href=#四spring-cloud-gateway深度解析>四、Spring Cloud Gateway深度解析</a><ul><li><a href=#41-gateway-核心架构>4.1 Gateway 核心架构</a></li><li><a href=#42-核心概念>4.2 核心概念</a></li><li><a href=#43-路由配置>4.3 路由配置</a></li><li><a href=#44-自定义过滤器>4.4 自定义过滤器</a></li><li><a href=#45-熔断与限流>4.5 熔断与限流</a></li></ul></li><li><a href=#五kong深度解析>五、Kong深度解析</a><ul><li><a href=#51-kong-架构设计>5.1 Kong 架构设计</a></li><li><a href=#52-kong-核心概念>5.2 Kong 核心概念</a></li><li><a href=#53-kong-配置示例>5.3 Kong 配置示例</a></li><li><a href=#54-kong-插件开发>5.4 Kong 插件开发</a></li></ul></li><li><a href=#六apisix深度解析>六、APISIX深度解析</a><ul><li><a href=#61-apisix-架构设计>6.1 APISIX 架构设计</a></li><li><a href=#62-apisix-vs-kong-对比>6.2 APISIX vs Kong 对比</a></li><li><a href=#63-apisix-配置示例>6.3 APISIX 配置示例</a></li><li><a href=#64-apisix-插件开发>6.4 APISIX 插件开发</a></li></ul></li><li><a href=#七api网关高可用设计>七、API网关高可用设计</a><ul><li><a href=#71-高可用架构>7.1 高可用架构</a></li><li><a href=#72-容错设计>7.2 容错设计</a></li><li><a href=#73-性能优化>7.3 性能优化</a></li></ul></li><li><a href=#八面试高频问题>八、面试高频问题</a><ul><li><a href=#q1为什么需要api网关>Q1：为什么需要API网关？</a></li><li><a href=#q2zuul-1x和2x的区别>Q2：Zuul 1.x和2.x的区别？</a></li><li><a href=#q3spring-cloud-gateway的核心概念>Q3：Spring Cloud Gateway的核心概念？</a></li><li><a href=#q4如何设计一个高可用的api网关>Q4：如何设计一个高可用的API网关？</a></li><li><a href=#q5api网关的性能瓶颈在哪里>Q5：API网关的性能瓶颈在哪里？</a></li><li><a href=#q6网关如何做认证授权>Q6：网关如何做认证授权？</a></li><li><a href=#q7如何防止api网关成为单点故障>Q7：如何防止API网关成为单点故障？</a></li><li><a href=#q8api网关-vs-负载均衡器>Q8：API网关 vs 负载均衡器？</a></li></ul></li><li><a href=#九总结>九、总结</a><ul><li><a href=#核心要点>核心要点</a></li><li><a href=#最佳实践>最佳实践</a></li><li><a href=#技术选型>技术选型</a></li><li><a href=#面试速记口诀>面试速记口诀</a></li></ul></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
 <a href=mailto:liyafei.work@foxmail.com>邮箱</a>
 <a href=/index.xml>RSS</a>

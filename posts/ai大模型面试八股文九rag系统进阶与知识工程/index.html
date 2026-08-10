@@ -19,14 +19,14 @@
 </span></span><span class=line><span class=cl><span class=p>)</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=n>chunks</span> <span class=o>=</span> <span class=n>splitter</span><span class=o>.</span><span class=n>split_text</span><span class=p>(</span><span class=n>long_document</span><span class=p>)</span>
-</span></span></code></pre></div><ul><li>优点：实现简单，分块大小可控</li><li>缺点：可能在句子中间切断，破坏语义完整性</li><li>适用：格式统一的文本（日志、标准化报告）</li></ul><h4 id=递归字符分块recursive-character-splitting>递归字符分块（Recursive Character Splitting）</h4><p>LangChain默认策略，按分隔符优先级递归切分，优先在段落边界切，其次在句子边界切。</p><pre tabindex=0><code>分隔符优先级（中文场景）:
-1. \n\n （段落）
-2. \n   （换行）
-3. 。    （句号）
-4. ！？  （问叹号）
-5. ；    （分号）
-6. 空格
-</code></pre><ul><li>优点：尽量在自然边界切分，兼顾语义和长度</li><li>缺点：对结构化文档（表格、代码）效果差</li><li>适用：大多数通用文本文档</li></ul><h4 id=语义分块semantic-chunking>语义分块（Semantic Chunking）</h4><p>基于Embedding相似度动态决定切分点。计算相邻句子的向量相似度，当相似度低于阈值时切分。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain_experimental.text_splitter</span> <span class=kn>import</span> <span class=n>SemanticChunker</span>
+</span></span></code></pre></div><ul><li>优点：实现简单，分块大小可控</li><li>缺点：可能在句子中间切断，破坏语义完整性</li><li>适用：格式统一的文本（日志、标准化报告）</li></ul><h4 id=递归字符分块recursive-character-splitting>递归字符分块（Recursive Character Splitting）</h4><p>LangChain默认策略，按分隔符优先级递归切分，优先在段落边界切，其次在句子边界切。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>分隔符优先级（中文场景）:
+</span></span><span class=line><span class=cl>1. \n\n （段落）
+</span></span><span class=line><span class=cl>2. \n   （换行）
+</span></span><span class=line><span class=cl>3. 。    （句号）
+</span></span><span class=line><span class=cl>4. ！？  （问叹号）
+</span></span><span class=line><span class=cl>5. ；    （分号）
+</span></span><span class=line><span class=cl>6. 空格
+</span></span></code></pre></div><ul><li>优点：尽量在自然边界切分，兼顾语义和长度</li><li>缺点：对结构化文档（表格、代码）效果差</li><li>适用：大多数通用文本文档</li></ul><h4 id=语义分块semantic-chunking>语义分块（Semantic Chunking）</h4><p>基于Embedding相似度动态决定切分点。计算相邻句子的向量相似度，当相似度低于阈值时切分。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain_experimental.text_splitter</span> <span class=kn>import</span> <span class=n>SemanticChunker</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain_openai</span> <span class=kn>import</span> <span class=n>OpenAIEmbeddings</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=n>splitter</span> <span class=o>=</span> <span class=n>SemanticChunker</span><span class=p>(</span>
@@ -53,14 +53,14 @@
 </span></span><span class=line><span class=cl><span class=k>for</span> <span class=n>chunk</span> <span class=ow>in</span> <span class=n>chunks</span><span class=p>:</span>
 </span></span><span class=line><span class=cl>    <span class=nb>print</span><span class=p>(</span><span class=n>chunk</span><span class=o>.</span><span class=n>metadata</span><span class=p>)</span>  <span class=c1># {&#39;Header 1&#39;: &#39;第一章&#39;, &#39;Header 2&#39;: &#39;1.1 节&#39;}</span>
 </span></span><span class=line><span class=cl>    <span class=nb>print</span><span class=p>(</span><span class=n>chunk</span><span class=o>.</span><span class=n>page_content</span><span class=p>[:</span><span class=mi>100</span><span class=p>])</span>
-</span></span></code></pre></div><ul><li>优点：保留文档结构信息，metadata可用于过滤检索</li><li>缺点：依赖文档格式规范，不规则的文档无法使用</li><li>适用：技术文档、产品手册、API文档</li></ul><h4 id=父子分块parent-child-chunking>父子分块（Parent-Child Chunking）</h4><p>核心思想：小块做检索（精度高），大块做生成（上下文足）。</p><pre tabindex=0><code>父块（2000 tokens）
-├── 子块1（200 tokens）→ 用于Embedding检索
-├── 子块2（200 tokens）→ 用于Embedding检索
-├── 子块3（200 tokens）→ 用于Embedding检索
-└── 子块4（200 tokens）→ 用于Embedding检索
-
-检索命中子块2 → 返回父块（包含完整上下文）给LLM生成
-</code></pre><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.retrievers</span> <span class=kn>import</span> <span class=n>ParentDocumentRetriever</span>
+</span></span></code></pre></div><ul><li>优点：保留文档结构信息，metadata可用于过滤检索</li><li>缺点：依赖文档格式规范，不规则的文档无法使用</li><li>适用：技术文档、产品手册、API文档</li></ul><h4 id=父子分块parent-child-chunking>父子分块（Parent-Child Chunking）</h4><p>核心思想：小块做检索（精度高），大块做生成（上下文足）。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>父块（2000 tokens）
+</span></span><span class=line><span class=cl>├── 子块1（200 tokens）→ 用于Embedding检索
+</span></span><span class=line><span class=cl>├── 子块2（200 tokens）→ 用于Embedding检索
+</span></span><span class=line><span class=cl>├── 子块3（200 tokens）→ 用于Embedding检索
+</span></span><span class=line><span class=cl>└── 子块4（200 tokens）→ 用于Embedding检索
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>检索命中子块2 → 返回父块（包含完整上下文）给LLM生成
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.retrievers</span> <span class=kn>import</span> <span class=n>ParentDocumentRetriever</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.storage</span> <span class=kn>import</span> <span class=n>InMemoryStore</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain_community.vectorstores</span> <span class=kn>import</span> <span class=n>Chroma</span>
 </span></span><span class=line><span class=cl>
@@ -82,30 +82,30 @@
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 检索时：用子块匹配，返回父块</span>
 </span></span><span class=line><span class=cl><span class=n>results</span> <span class=o>=</span> <span class=n>retriever</span><span class=o>.</span><span class=n>get_relevant_documents</span><span class=p>(</span><span class=s2>&#34;查询问题&#34;</span><span class=p>)</span>
-</span></span></code></pre></div><ul><li>优点：兼顾检索精度和生成上下文完整性</li><li>缺点：存储开销增大（父子两套索引）</li><li>适用：知识库文档、需要完整上下文的问答场景</li></ul><h3 id=13-分块参数调优>1.3 分块参数调优</h3><p><strong>Q: chunk_size和chunk_overlap怎么选？</strong></p><p>A: 没有银弹，需要根据文档类型和业务场景实验确定。以下是经验参考值：</p><table><thead><tr><th>文档类型</th><th>推荐 chunk_size</th><th>推荐 overlap</th><th>理由</th></tr></thead><tbody><tr><td>FAQ/短问答</td><td>200-300</td><td>0</td><td>每条本身就是独立语义单元</td></tr><tr><td>技术文档</td><td>500-800</td><td>50-100</td><td>段落级，兼顾上下文</td></tr><tr><td>法律/合同</td><td>1000-1500</td><td>100-200</td><td>条款间有强关联</td></tr><tr><td>代码文档</td><td>按函数/类分</td><td>0</td><td>函数级天然边界</td></tr><tr><td>长篇小说/报告</td><td>300-500</td><td>50</td><td>语义连贯性要求高</td></tr></tbody></table><p><strong>关键原则</strong>：分块不是一次性工作，应该建立评估反馈闭环——用测试集测量不同分块策略的召回率和答案质量，数据驱动地选择最优配置。</p><h2 id=二检索架构演进与混合检索>二、检索架构演进与混合检索</h2><h3 id=21-rag架构演进路线>2.1 RAG架构演进路线</h3><p><strong>Q: RAG架构经历了哪些演进阶段？</strong></p><p>A: 业界通常将RAG分为三代：</p><h4 id=naive-rag朴素rag>Naive RAG（朴素RAG）</h4><pre tabindex=0><code>用户Query → Embedding → 向量检索 → Top-K文档 → LLM生成
-</code></pre><ul><li>流程简单，适合原型验证</li><li>问题：单一向量检索，召回率有限；不做重排序；无查询理解</li></ul><h4 id=advanced-rag增强rag>Advanced RAG（增强RAG）</h4><pre tabindex=0><code>用户Query
-    ↓
-[查询理解] → 查询改写/扩展/分解
-    ↓
-[多路检索] → 向量检索 + 关键词检索 + 语义检索
-    ↓
-[重排序] → Cross-Encoder重排
-    ↓
-[上下文组装] → 压缩/过滤/加权
-    ↓
-LLM生成
-</code></pre><ul><li>增加了查询预处理和后处理</li><li>支持混合检索和重排序</li><li>适合中等规模知识库</li></ul><h4 id=modular-rag模块化rag>Modular RAG（模块化RAG）</h4><pre tabindex=0><code>用户Query
-    ↓
-[路由判断] → 是否需要检索？检索哪个知识库？
-    ↓ ↓ ↓
-[检索模块] [记忆模块] [工具模块]
-    ↓     ↓     ↓
-[结果融合] → 重排序 → 上下文组装
-    ↓
-[生成模块] → 自省→是否需要再次检索？
-    ↓
-LLM生成答案
-</code></pre><ul><li>检索、记忆、生成模块解耦，可灵活组合</li><li>支持迭代检索（Agentic RAG的雏形）</li><li>适合大规模、多知识库、复杂推理场景</li></ul><h3 id=22-混合检索>2.2 混合检索</h3><p><strong>Q: 什么是混合检索？为什么比纯向量检索更好？</strong></p><p>A: 混合检索（Hybrid Search）是将稠密向量检索（Dense Retrieval）和稀疏关键词检索（Sparse Retrieval）结合的检索策略。</p><p>两种检索方式的互补性：</p><table><thead><tr><th>维度</th><th>稠密向量检索</th><th>稀疏关键词检索（BM25）</th></tr></thead><tbody><tr><td>原理</td><td>语义相似度</td><td>词频匹配</td></tr><tr><td>优势</td><td>理解同义词、语义相近</td><td>精确匹配专有名词、代码、ID</td></tr><tr><td>弱点</td><td>对精确术语不敏感</td><td>无法理解语义近似</td></tr><tr><td>适用</td><td>&ldquo;怎么优化MySQL查询&rdquo;</td><td>&ldquo;MySQL error 1213&rdquo;</td></tr></tbody></table><h4 id=混合检索架构实现>混合检索架构实现</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.retrievers</span> <span class=kn>import</span> <span class=n>EnsembleRetriever</span>
+</span></span></code></pre></div><ul><li>优点：兼顾检索精度和生成上下文完整性</li><li>缺点：存储开销增大（父子两套索引）</li><li>适用：知识库文档、需要完整上下文的问答场景</li></ul><h3 id=13-分块参数调优>1.3 分块参数调优</h3><p><strong>Q: chunk_size和chunk_overlap怎么选？</strong></p><p>A: 没有银弹，需要根据文档类型和业务场景实验确定。以下是经验参考值：</p><table><thead><tr><th>文档类型</th><th>推荐 chunk_size</th><th>推荐 overlap</th><th>理由</th></tr></thead><tbody><tr><td>FAQ/短问答</td><td>200-300</td><td>0</td><td>每条本身就是独立语义单元</td></tr><tr><td>技术文档</td><td>500-800</td><td>50-100</td><td>段落级，兼顾上下文</td></tr><tr><td>法律/合同</td><td>1000-1500</td><td>100-200</td><td>条款间有强关联</td></tr><tr><td>代码文档</td><td>按函数/类分</td><td>0</td><td>函数级天然边界</td></tr><tr><td>长篇小说/报告</td><td>300-500</td><td>50</td><td>语义连贯性要求高</td></tr></tbody></table><p><strong>关键原则</strong>：分块不是一次性工作，应该建立评估反馈闭环——用测试集测量不同分块策略的召回率和答案质量，数据驱动地选择最优配置。</p><h2 id=二检索架构演进与混合检索>二、检索架构演进与混合检索</h2><h3 id=21-rag架构演进路线>2.1 RAG架构演进路线</h3><p><strong>Q: RAG架构经历了哪些演进阶段？</strong></p><p>A: 业界通常将RAG分为三代：</p><h4 id=naive-rag朴素rag>Naive RAG（朴素RAG）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用户Query → Embedding → 向量检索 → Top-K文档 → LLM生成
+</span></span></code></pre></div><ul><li>流程简单，适合原型验证</li><li>问题：单一向量检索，召回率有限；不做重排序；无查询理解</li></ul><h4 id=advanced-rag增强rag>Advanced RAG（增强RAG）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用户Query
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>[查询理解] → 查询改写/扩展/分解
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>[多路检索] → 向量检索 + 关键词检索 + 语义检索
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>[重排序] → Cross-Encoder重排
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>[上下文组装] → 压缩/过滤/加权
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>LLM生成
+</span></span></code></pre></div><ul><li>增加了查询预处理和后处理</li><li>支持混合检索和重排序</li><li>适合中等规模知识库</li></ul><h4 id=modular-rag模块化rag>Modular RAG（模块化RAG）</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用户Query
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>[路由判断] → 是否需要检索？检索哪个知识库？
+</span></span><span class=line><span class=cl>    ↓ ↓ ↓
+</span></span><span class=line><span class=cl>[检索模块] [记忆模块] [工具模块]
+</span></span><span class=line><span class=cl>    ↓     ↓     ↓
+</span></span><span class=line><span class=cl>[结果融合] → 重排序 → 上下文组装
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>[生成模块] → 自省→是否需要再次检索？
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>LLM生成答案
+</span></span></code></pre></div><ul><li>检索、记忆、生成模块解耦，可灵活组合</li><li>支持迭代检索（Agentic RAG的雏形）</li><li>适合大规模、多知识库、复杂推理场景</li></ul><h3 id=22-混合检索>2.2 混合检索</h3><p><strong>Q: 什么是混合检索？为什么比纯向量检索更好？</strong></p><p>A: 混合检索（Hybrid Search）是将稠密向量检索（Dense Retrieval）和稀疏关键词检索（Sparse Retrieval）结合的检索策略。</p><p>两种检索方式的互补性：</p><table><thead><tr><th>维度</th><th>稠密向量检索</th><th>稀疏关键词检索（BM25）</th></tr></thead><tbody><tr><td>原理</td><td>语义相似度</td><td>词频匹配</td></tr><tr><td>优势</td><td>理解同义词、语义相近</td><td>精确匹配专有名词、代码、ID</td></tr><tr><td>弱点</td><td>对精确术语不敏感</td><td>无法理解语义近似</td></tr><tr><td>适用</td><td>&ldquo;怎么优化MySQL查询&rdquo;</td><td>&ldquo;MySQL error 1213&rdquo;</td></tr></tbody></table><h4 id=混合检索架构实现>混合检索架构实现</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.retrievers</span> <span class=kn>import</span> <span class=n>EnsembleRetriever</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain_community.retrievers</span> <span class=kn>import</span> <span class=n>BM25Retriever</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain_community.vectorstores</span> <span class=kn>import</span> <span class=n>Chroma</span>
 </span></span><span class=line><span class=cl>
@@ -123,15 +123,15 @@ LLM生成答案
 </span></span><span class=line><span class=cl><span class=p>)</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=n>results</span> <span class=o>=</span> <span class=n>ensemble_retriever</span><span class=o>.</span><span class=n>get_relevant_documents</span><span class=p>(</span><span class=s2>&#34;MySQL索引优化方案&#34;</span><span class=p>)</span>
-</span></span></code></pre></div><h4 id=融合策略>融合策略</h4><p>混合检索的核心是分数融合算法，主流方案有两种：</p><p><strong>RRF（Reciprocal Rank Fusion）</strong>：</p><pre tabindex=0><code>score(d) = Σ 1 / (k + rank_i(d))
-
-# k通常取60
-# rank_i(d) 是文档d在第i路检索中的排名
-</code></pre><ul><li>不需要分数归一化，对不同检索器的分数尺度不敏感</li><li>实现简单，效果稳定，是工程实践的首选</li></ul><p><strong>加权线性融合</strong>：</p><pre tabindex=0><code>score(d) = α * normalize(dense_score) + (1-α) * normalize(sparse_score)
-
-# 需要将不同检索器的分数归一化到同一尺度
-# α需要通过实验调优
-</code></pre><ul><li>理论上更灵活，但实践上调参成本高，且分数归一化不当时效果反而不如RRF</li></ul><h3 id=23-查询理解与改写>2.3 查询理解与改写</h3><p><strong>Q: 为什么要在检索前处理用户查询？</strong></p><p>A: 用户原始查询通常不是最优的检索输入。比如：</p><ul><li>&ldquo;这个bug怎么解决&rdquo; — 缺少上下文，检索引擎不知道"这个"指什么</li><li>&ldquo;Spring和SpringBoot的区别&rdquo; — 可以拆分为两个子查询分别检索</li><li>&ldquo;之前提到的那个方案&rdquo; — 需要结合对话历史改写</li></ul><h4 id=查询改写query-rewriting>查询改写（Query Rewriting）</h4><p>用LLM将用户查询改写为更适合检索的形式：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.retrievers</span> <span class=kn>import</span> <span class=n>MultiQueryRetriever</span>
+</span></span></code></pre></div><h4 id=融合策略>融合策略</h4><p>混合检索的核心是分数融合算法，主流方案有两种：</p><p><strong>RRF（Reciprocal Rank Fusion）</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>score(d) = Σ 1 / (k + rank_i(d))
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl># k通常取60
+</span></span><span class=line><span class=cl># rank_i(d) 是文档d在第i路检索中的排名
+</span></span></code></pre></div><ul><li>不需要分数归一化，对不同检索器的分数尺度不敏感</li><li>实现简单，效果稳定，是工程实践的首选</li></ul><p><strong>加权线性融合</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>score(d) = α * normalize(dense_score) + (1-α) * normalize(sparse_score)
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl># 需要将不同检索器的分数归一化到同一尺度
+</span></span><span class=line><span class=cl># α需要通过实验调优
+</span></span></code></pre></div><ul><li>理论上更灵活，但实践上调参成本高，且分数归一化不当时效果反而不如RRF</li></ul><h3 id=23-查询理解与改写>2.3 查询理解与改写</h3><p><strong>Q: 为什么要在检索前处理用户查询？</strong></p><p>A: 用户原始查询通常不是最优的检索输入。比如：</p><ul><li>&ldquo;这个bug怎么解决&rdquo; — 缺少上下文，检索引擎不知道"这个"指什么</li><li>&ldquo;Spring和SpringBoot的区别&rdquo; — 可以拆分为两个子查询分别检索</li><li>&ldquo;之前提到的那个方案&rdquo; — 需要结合对话历史改写</li></ul><h4 id=查询改写query-rewriting>查询改写（Query Rewriting）</h4><p>用LLM将用户查询改写为更适合检索的形式：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.retrievers</span> <span class=kn>import</span> <span class=n>MultiQueryRetriever</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain_openai</span> <span class=kn>import</span> <span class=n>ChatOpenAI</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=n>llm</span> <span class=o>=</span> <span class=n>ChatOpenAI</span><span class=p>(</span><span class=n>temperature</span><span class=o>=</span><span class=mi>0</span><span class=p>)</span>
@@ -146,34 +146,34 @@ LLM生成答案
 </span></span><span class=line><span class=cl><span class=c1># 2. &#34;JVM内存溢出诊断工具与分析步骤&#34;</span>
 </span></span><span class=line><span class=cl><span class=c1># 3. &#34;OOM常见原因与调优方案&#34;</span>
 </span></span><span class=line><span class=cl><span class=c1># 每个查询分别检索，结果去重合并</span>
-</span></span></code></pre></div><h4 id=查询分解query-decomposition>查询分解（Query Decomposition）</h4><p>将复杂问题拆分为子问题：</p><pre tabindex=0><code>用户Query: &#34;对比MySQL和PostgreSQL在索引、事务、复制方面的差异&#34;
-
-分解为：
-1. &#34;MySQL索引机制&#34;
-2. &#34;PostgreSQL索引机制&#34;
-3. &#34;MySQL事务特性&#34;
-4. &#34;PostgreSQL事务特性&#34;
-5. &#34;MySQL复制方案&#34;
-6. &#34;PostgreSQL复制方案&#34;
-
-每个子查询独立检索，最后融合结果
-</code></pre><h4 id=hydehypothetical-document-embeddings>HyDE（Hypothetical Document Embeddings）</h4><p><strong>Q: 什么是HyDE？什么场景下有效？</strong></p><p>A: HyDE的核心思想是：先用LLM生成一个假设性答案文档，再用这个假设文档去检索，而不是直接用原始query检索。</p><pre tabindex=0><code>用户Query: &#34;怎么配置Spring Boot的Profile&#34;
-    ↓
-LLM生成假设答案（可能是幻觉）:
-&#34;Spring Boot的Profile可以通过在application.yml中
-设置spring.profiles.active来激活，也可以用@Profile注解...&#34;
-    ↓
-用假设答案做向量检索 → 检索到真实的配置文档
-    ↓
-用真实文档 + 用户Query → LLM生成最终答案
-</code></pre><ul><li>原理：query和document在向量空间中分布不同（query通常短、问句式，document长、陈述式），直接检索存在"语义gap"。假设答案更接近document的分布，检索效果更好</li><li>适用：query短且语义模糊的场景</li><li>不适用：事实性问题（假设文档中的错误细节可能误导检索）</li></ul><h3 id=24-重排序re-ranking>2.4 重排序（Re-ranking）</h3><p><strong>Q: 为什么需要重排序？向量检索的Top-K不够吗？</strong></p><p>A: 向量检索使用的是Bi-Encoder（双塔模型），query和document分别编码再计算相似度，速度快但精度有限。重排序使用Cross-Encoder，将query和document拼接后输入模型，输出相关性分数，精度更高但计算成本也高。</p><pre tabindex=0><code>向量检索（Bi-Encoder）：
-  Embedding(query) · Embedding(doc) → 相似度分数
-  → 快，适合从百万文档中粗筛Top-100
-
-重排序（Cross-Encoder）：
-  Model([query, doc]) → 相关性分数
-  → 精准，适合从Top-100精选Top-10
-</code></pre><h4 id=重排序工程实践>重排序工程实践</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.retrievers</span> <span class=kn>import</span> <span class=n>ContextualCompressionRetriever</span>
+</span></span></code></pre></div><h4 id=查询分解query-decomposition>查询分解（Query Decomposition）</h4><p>将复杂问题拆分为子问题：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用户Query: &#34;对比MySQL和PostgreSQL在索引、事务、复制方面的差异&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>分解为：
+</span></span><span class=line><span class=cl>1. &#34;MySQL索引机制&#34;
+</span></span><span class=line><span class=cl>2. &#34;PostgreSQL索引机制&#34;
+</span></span><span class=line><span class=cl>3. &#34;MySQL事务特性&#34;
+</span></span><span class=line><span class=cl>4. &#34;PostgreSQL事务特性&#34;
+</span></span><span class=line><span class=cl>5. &#34;MySQL复制方案&#34;
+</span></span><span class=line><span class=cl>6. &#34;PostgreSQL复制方案&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>每个子查询独立检索，最后融合结果
+</span></span></code></pre></div><h4 id=hydehypothetical-document-embeddings>HyDE（Hypothetical Document Embeddings）</h4><p><strong>Q: 什么是HyDE？什么场景下有效？</strong></p><p>A: HyDE的核心思想是：先用LLM生成一个假设性答案文档，再用这个假设文档去检索，而不是直接用原始query检索。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用户Query: &#34;怎么配置Spring Boot的Profile&#34;
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>LLM生成假设答案（可能是幻觉）:
+</span></span><span class=line><span class=cl>&#34;Spring Boot的Profile可以通过在application.yml中
+</span></span><span class=line><span class=cl>设置spring.profiles.active来激活，也可以用@Profile注解...&#34;
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>用假设答案做向量检索 → 检索到真实的配置文档
+</span></span><span class=line><span class=cl>    ↓
+</span></span><span class=line><span class=cl>用真实文档 + 用户Query → LLM生成最终答案
+</span></span></code></pre></div><ul><li>原理：query和document在向量空间中分布不同（query通常短、问句式，document长、陈述式），直接检索存在"语义gap"。假设答案更接近document的分布，检索效果更好</li><li>适用：query短且语义模糊的场景</li><li>不适用：事实性问题（假设文档中的错误细节可能误导检索）</li></ul><h3 id=24-重排序re-ranking>2.4 重排序（Re-ranking）</h3><p><strong>Q: 为什么需要重排序？向量检索的Top-K不够吗？</strong></p><p>A: 向量检索使用的是Bi-Encoder（双塔模型），query和document分别编码再计算相似度，速度快但精度有限。重排序使用Cross-Encoder，将query和document拼接后输入模型，输出相关性分数，精度更高但计算成本也高。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>向量检索（Bi-Encoder）：
+</span></span><span class=line><span class=cl>  Embedding(query) · Embedding(doc) → 相似度分数
+</span></span><span class=line><span class=cl>  → 快，适合从百万文档中粗筛Top-100
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>重排序（Cross-Encoder）：
+</span></span><span class=line><span class=cl>  Model([query, doc]) → 相关性分数
+</span></span><span class=line><span class=cl>  → 精准，适合从Top-100精选Top-10
+</span></span></code></pre></div><h4 id=重排序工程实践>重排序工程实践</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.retrievers</span> <span class=kn>import</span> <span class=n>ContextualCompressionRetriever</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain_cohere</span> <span class=kn>import</span> <span class=n>CohereRerank</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=c1># 第一步：向量检索粗筛 Top-50</span>
@@ -188,20 +188,20 @@ LLM生成假设答案（可能是幻觉）:
 </span></span><span class=line><span class=cl><span class=p>)</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=n>results</span> <span class=o>=</span> <span class=n>compression_retriever</span><span class=o>.</span><span class=n>get_relevant_documents</span><span class=p>(</span><span class=s2>&#34;查询内容&#34;</span><span class=p>)</span>
-</span></span></code></pre></div><h4 id=重排序模型选择>重排序模型选择</h4><table><thead><tr><th>模型</th><th>类型</th><th>特点</th></tr></thead><tbody><tr><td>Cohere Rerank</td><td>API服务</td><td>效果好，按调用收费</td></tr><tr><td>BGE-Reranker</td><td>开源(智源)</td><td>中英文效果好，可本地部署</td></tr><tr><td>Jina Reranker</td><td>开源</td><td>多语言支持好</td></tr><tr><td>Cross-Encoder (ms-marco)</td><td>开源</td><td>经典英文模型</td></tr><tr><td>Qwen-Reranker</td><td>开源(阿里)</td><td>中文效果好</td></tr></tbody></table><p><strong>Q: 重排序模型的输入长度限制怎么处理？</strong></p><p>A: Cross-Encoder的输入是 <code>[CLS] query [SEP] document [SEP]</code>，通常有512 token限制。如果document很长（比如父块2000 tokens），有两种处理方式：</p><ol><li><strong>截断</strong>：只取document前512 token做重排序（最常用，因为开头通常最重要）</li><li><strong>滑动窗口</strong>：将长文档分段，每段与query做Cross-Encoder，取最高分作为该文档的分数</li></ol><h2 id=三graphrag与知识图谱融合>三、GraphRAG与知识图谱融合</h2><h3 id=31-向量检索的局限性>3.1 向量检索的局限性</h3><p><strong>Q: 向量检索有什么解决不了的问题？</strong></p><p>A: 当问题涉及"跨文档关联"或"全局推理"时，纯向量检索会失效。典型场景：</p><table><thead><tr><th>问题类型</th><th>例子</th><th>向量检索为什么不行</th></tr></thead><tbody><tr><td>多跳推理</td><td>&ldquo;A公司的CEO曾在B公司任职，B公司的主营业务是什么？&rdquo;</td><td>答案跨两篇文档，单次检索无法覆盖</td></tr><tr><td>全局摘要</td><td>&ldquo;这个知识库的主要主题有哪些？&rdquo;</td><td>需要遍历所有文档，Top-K检索只返回最相似的</td></tr><tr><td>关系查询</td><td>&ldquo;Spring框架中哪些模块依赖了BeanFactory？&rdquo;</td><td>需要结构化的依赖关系，而非语义相似</td></tr></tbody></table><h3 id=32-graphrag核心思想>3.2 GraphRAG核心思想</h3><p><strong>Q: 什么是GraphRAG？它和传统RAG有什么区别？</strong></p><p>A: GraphRAG（由微软在2024年提出）是在向量检索基础上引入知识图谱，通过图结构来捕获文档间的关联关系。</p><p>传统RAG vs GraphRAG 的架构对比：</p><pre tabindex=0><code>传统RAG:
-  文档 → 分块 → Embedding → 向量索引 → 检索 → 生成
-
-GraphRAG:
-  文档 → 分块 → Embedding → 向量索引 ──┐
-  ↓                                    │ 混合检索
-  实体抽取 → 关系抽取 → 知识图谱 ───────┘
-                              ↓
-                    社区检测(层级聚类)
-                              ↓
-                    社区摘要生成
-                              ↓
-              [向量检索 + 图遍历 + 社区摘要] → 生成
-</code></pre><h3 id=33-graphrag构建流程>3.3 GraphRAG构建流程</h3><h4 id=第一步实体与关系抽取>第一步：实体与关系抽取</h4><p>用LLM从每个文档块中抽取实体（Entity）和关系（Relationship）：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># GraphRAG的实体抽取Prompt（简化版）</span>
+</span></span></code></pre></div><h4 id=重排序模型选择>重排序模型选择</h4><table><thead><tr><th>模型</th><th>类型</th><th>特点</th></tr></thead><tbody><tr><td>Cohere Rerank</td><td>API服务</td><td>效果好，按调用收费</td></tr><tr><td>BGE-Reranker</td><td>开源(智源)</td><td>中英文效果好，可本地部署</td></tr><tr><td>Jina Reranker</td><td>开源</td><td>多语言支持好</td></tr><tr><td>Cross-Encoder (ms-marco)</td><td>开源</td><td>经典英文模型</td></tr><tr><td>Qwen-Reranker</td><td>开源(阿里)</td><td>中文效果好</td></tr></tbody></table><p><strong>Q: 重排序模型的输入长度限制怎么处理？</strong></p><p>A: Cross-Encoder的输入是 <code>[CLS] query [SEP] document [SEP]</code>，通常有512 token限制。如果document很长（比如父块2000 tokens），有两种处理方式：</p><ol><li><strong>截断</strong>：只取document前512 token做重排序（最常用，因为开头通常最重要）</li><li><strong>滑动窗口</strong>：将长文档分段，每段与query做Cross-Encoder，取最高分作为该文档的分数</li></ol><h2 id=三graphrag与知识图谱融合>三、GraphRAG与知识图谱融合</h2><h3 id=31-向量检索的局限性>3.1 向量检索的局限性</h3><p><strong>Q: 向量检索有什么解决不了的问题？</strong></p><p>A: 当问题涉及"跨文档关联"或"全局推理"时，纯向量检索会失效。典型场景：</p><table><thead><tr><th>问题类型</th><th>例子</th><th>向量检索为什么不行</th></tr></thead><tbody><tr><td>多跳推理</td><td>&ldquo;A公司的CEO曾在B公司任职，B公司的主营业务是什么？&rdquo;</td><td>答案跨两篇文档，单次检索无法覆盖</td></tr><tr><td>全局摘要</td><td>&ldquo;这个知识库的主要主题有哪些？&rdquo;</td><td>需要遍历所有文档，Top-K检索只返回最相似的</td></tr><tr><td>关系查询</td><td>&ldquo;Spring框架中哪些模块依赖了BeanFactory？&rdquo;</td><td>需要结构化的依赖关系，而非语义相似</td></tr></tbody></table><h3 id=32-graphrag核心思想>3.2 GraphRAG核心思想</h3><p><strong>Q: 什么是GraphRAG？它和传统RAG有什么区别？</strong></p><p>A: GraphRAG（由微软在2024年提出）是在向量检索基础上引入知识图谱，通过图结构来捕获文档间的关联关系。</p><p>传统RAG vs GraphRAG 的架构对比：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>传统RAG:
+</span></span><span class=line><span class=cl>  文档 → 分块 → Embedding → 向量索引 → 检索 → 生成
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>GraphRAG:
+</span></span><span class=line><span class=cl>  文档 → 分块 → Embedding → 向量索引 ──┐
+</span></span><span class=line><span class=cl>  ↓                                    │ 混合检索
+</span></span><span class=line><span class=cl>  实体抽取 → 关系抽取 → 知识图谱 ───────┘
+</span></span><span class=line><span class=cl>                              ↓
+</span></span><span class=line><span class=cl>                    社区检测(层级聚类)
+</span></span><span class=line><span class=cl>                              ↓
+</span></span><span class=line><span class=cl>                    社区摘要生成
+</span></span><span class=line><span class=cl>                              ↓
+</span></span><span class=line><span class=cl>              [向量检索 + 图遍历 + 社区摘要] → 生成
+</span></span></code></pre></div><h3 id=33-graphrag构建流程>3.3 GraphRAG构建流程</h3><h4 id=第一步实体与关系抽取>第一步：实体与关系抽取</h4><p>用LLM从每个文档块中抽取实体（Entity）和关系（Relationship）：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=c1># GraphRAG的实体抽取Prompt（简化版）</span>
 </span></span><span class=line><span class=cl><span class=n>entity_extraction_prompt</span> <span class=o>=</span> <span class=s2>&#34;&#34;&#34;
 </span></span></span><span class=line><span class=cl><span class=s2>从以下文本中抽取实体和关系，输出JSON格式。
 </span></span></span><span class=line><span class=cl><span class=s2>
@@ -257,28 +257,28 @@ GraphRAG:
 </span></span><span class=line><span class=cl>    <span class=p>)</span>
 </span></span><span class=line><span class=cl>    
 </span></span><span class=line><span class=cl>    <span class=n>community_summaries</span><span class=p>[</span><span class=n>i</span><span class=p>]</span> <span class=o>=</span> <span class=n>community_summary</span>
-</span></span></code></pre></div><h3 id=34-graphrag检索模式>3.4 GraphRAG检索模式</h3><p>GraphRAG支持三种检索模式，应对不同类型的问题：</p><h4 id=全局搜索global-search>全局搜索（Global Search）</h4><p>用于"全局摘要"类问题：遍历所有社区摘要，聚合生成答案。</p><pre tabindex=0><code>问题: &#34;这个知识库涉及哪些主要技术主题？&#34;
-
-流程:
-1. 读取所有社区摘要
-2. 对每个社区摘要，用LLM生成与问题相关的部分回答
-3. 汇总所有部分回答，生成最终摘要
-</code></pre><h4 id=局部搜索local-search>局部搜索（Local Search）</h4><p>用于"实体关联"类问题：从问题中提取实体，找到图中的关联实体和文本。</p><pre tabindex=0><code>问题: &#34;Spring Boot和Spring Cloud什么关系？&#34;
-
-流程:
-1. 提取实体: &#34;Spring Boot&#34;, &#34;Spring Cloud&#34;
-2. 在图中找到这两个节点的邻居
-3. 获取相关边的描述（&#34;依赖&#34;、&#34;属于&#34;）
-4. 获取关联文本块
-5. 组装上下文，生成答案
-</code></pre><h4 id=混合搜索hybrid-search>混合搜索（Hybrid Search）</h4><p>结合向量检索和图检索：</p><pre tabindex=0><code>问题: &#34;微服务怎么做服务发现？&#34;
-
-流程:
-1. 向量检索 → 获取语义相关文本块
-2. 图遍历 → 从&#34;服务发现&#34;节点出发，找到关联实体（&#34;Eureka&#34;、&#34;Nacos&#34;、&#34;Consul&#34;）
-3. 社区摘要 → 获取相关社区的主题摘要
-4. 三路结果融合 → 组装上下文 → 生成答案
-</code></pre><h3 id=35-graphrag的权衡>3.5 GraphRAG的权衡</h3><p><strong>Q: GraphRAG这么好，是不是应该替代传统RAG？</strong></p><p>A: 不是。GraphRAG在带来更强推理能力的同时，也引入了显著成本：</p><table><thead><tr><th>维度</th><th>传统RAG</th><th>GraphRAG</th></tr></thead><tbody><tr><td>构建成本</td><td>文档Embedding</td><td>文档Embedding + LLM实体抽取 + LLM关系抽取 + LLM社区摘要</td></tr><tr><td>索引时间</td><td>秒级</td><td>分钟到小时级（取决于文档量）</td></tr><tr><td>更新成本</td><td>增量索引简单</td><td>新文档可能影响社区结构，需要重新聚类</td></tr><tr><td>检索延迟</td><td>毫秒级</td><td>局部搜索较快，全局搜索需要多次LLM调用</td></tr><tr><td>推理能力</td><td>单跳为主</td><td>多跳推理、全局摘要</td></tr></tbody></table><p><strong>选型建议</strong>：</p><ul><li><strong>传统RAG</strong>：知识库规模中等（&lt;10万文档）、问题以事实查询为主 → 性价比最高</li><li><strong>GraphRAG</strong>：需要多跳推理、全局摘要、或知识库中实体关系密集（如企业知识图谱、法律条文）</li><li><strong>混合方案</strong>：大部分用传统RAG，仅对特定问题类型走GraphRAG路径</li></ul><h2 id=四agentic-rag与自适应检索>四、Agentic RAG与自适应检索</h2><h3 id=41-从固定流程到自适应检索>4.1 从固定流程到自适应检索</h3><p><strong>Q: 什么是Agentic RAG？它和普通RAG有什么区别？</strong></p><p>A: 传统RAG是"一次性检索"——用户提问→检索→生成，流程固定。但在复杂场景下，一次检索往往不够：</p><ul><li>检索结果不相关 → 需要改写查询重新检索</li><li>问题需要多步推理 → 需要多次检索</li><li>不同子问题需要检索不同知识库 → 需要路由</li></ul><p>Agentic RAG将RAG从"Pipeline"升级为"Agent"——让LLM自主决定何时检索、如何检索、检索几次、何时停止。</p><h3 id=42-agentic-rag核心机制>4.2 Agentic RAG核心机制</h3><h4 id=检索决策>检索决策</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.agents</span> <span class=kn>import</span> <span class=n>AgentExecutor</span><span class=p>,</span> <span class=n>create_openai_tools_agent</span>
+</span></span></code></pre></div><h3 id=34-graphrag检索模式>3.4 GraphRAG检索模式</h3><p>GraphRAG支持三种检索模式，应对不同类型的问题：</p><h4 id=全局搜索global-search>全局搜索（Global Search）</h4><p>用于"全局摘要"类问题：遍历所有社区摘要，聚合生成答案。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>问题: &#34;这个知识库涉及哪些主要技术主题？&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>流程:
+</span></span><span class=line><span class=cl>1. 读取所有社区摘要
+</span></span><span class=line><span class=cl>2. 对每个社区摘要，用LLM生成与问题相关的部分回答
+</span></span><span class=line><span class=cl>3. 汇总所有部分回答，生成最终摘要
+</span></span></code></pre></div><h4 id=局部搜索local-search>局部搜索（Local Search）</h4><p>用于"实体关联"类问题：从问题中提取实体，找到图中的关联实体和文本。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>问题: &#34;Spring Boot和Spring Cloud什么关系？&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>流程:
+</span></span><span class=line><span class=cl>1. 提取实体: &#34;Spring Boot&#34;, &#34;Spring Cloud&#34;
+</span></span><span class=line><span class=cl>2. 在图中找到这两个节点的邻居
+</span></span><span class=line><span class=cl>3. 获取相关边的描述（&#34;依赖&#34;、&#34;属于&#34;）
+</span></span><span class=line><span class=cl>4. 获取关联文本块
+</span></span><span class=line><span class=cl>5. 组装上下文，生成答案
+</span></span></code></pre></div><h4 id=混合搜索hybrid-search>混合搜索（Hybrid Search）</h4><p>结合向量检索和图检索：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>问题: &#34;微服务怎么做服务发现？&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>流程:
+</span></span><span class=line><span class=cl>1. 向量检索 → 获取语义相关文本块
+</span></span><span class=line><span class=cl>2. 图遍历 → 从&#34;服务发现&#34;节点出发，找到关联实体（&#34;Eureka&#34;、&#34;Nacos&#34;、&#34;Consul&#34;）
+</span></span><span class=line><span class=cl>3. 社区摘要 → 获取相关社区的主题摘要
+</span></span><span class=line><span class=cl>4. 三路结果融合 → 组装上下文 → 生成答案
+</span></span></code></pre></div><h3 id=35-graphrag的权衡>3.5 GraphRAG的权衡</h3><p><strong>Q: GraphRAG这么好，是不是应该替代传统RAG？</strong></p><p>A: 不是。GraphRAG在带来更强推理能力的同时，也引入了显著成本：</p><table><thead><tr><th>维度</th><th>传统RAG</th><th>GraphRAG</th></tr></thead><tbody><tr><td>构建成本</td><td>文档Embedding</td><td>文档Embedding + LLM实体抽取 + LLM关系抽取 + LLM社区摘要</td></tr><tr><td>索引时间</td><td>秒级</td><td>分钟到小时级（取决于文档量）</td></tr><tr><td>更新成本</td><td>增量索引简单</td><td>新文档可能影响社区结构，需要重新聚类</td></tr><tr><td>检索延迟</td><td>毫秒级</td><td>局部搜索较快，全局搜索需要多次LLM调用</td></tr><tr><td>推理能力</td><td>单跳为主</td><td>多跳推理、全局摘要</td></tr></tbody></table><p><strong>选型建议</strong>：</p><ul><li><strong>传统RAG</strong>：知识库规模中等（&lt;10万文档）、问题以事实查询为主 → 性价比最高</li><li><strong>GraphRAG</strong>：需要多跳推理、全局摘要、或知识库中实体关系密集（如企业知识图谱、法律条文）</li><li><strong>混合方案</strong>：大部分用传统RAG，仅对特定问题类型走GraphRAG路径</li></ul><h2 id=四agentic-rag与自适应检索>四、Agentic RAG与自适应检索</h2><h3 id=41-从固定流程到自适应检索>4.1 从固定流程到自适应检索</h3><p><strong>Q: 什么是Agentic RAG？它和普通RAG有什么区别？</strong></p><p>A: 传统RAG是"一次性检索"——用户提问→检索→生成，流程固定。但在复杂场景下，一次检索往往不够：</p><ul><li>检索结果不相关 → 需要改写查询重新检索</li><li>问题需要多步推理 → 需要多次检索</li><li>不同子问题需要检索不同知识库 → 需要路由</li></ul><p>Agentic RAG将RAG从"Pipeline"升级为"Agent"——让LLM自主决定何时检索、如何检索、检索几次、何时停止。</p><h3 id=42-agentic-rag核心机制>4.2 Agentic RAG核心机制</h3><h4 id=检索决策>检索决策</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.agents</span> <span class=kn>import</span> <span class=n>AgentExecutor</span><span class=p>,</span> <span class=n>create_openai_tools_agent</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>langchain.tools</span> <span class=kn>import</span> <span class=n>Tool</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=k>def</span> <span class=nf>retrieve_from_kb</span><span class=p>(</span><span class=n>query</span><span class=p>:</span> <span class=nb>str</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=nb>str</span><span class=p>:</span>
@@ -307,41 +307,41 @@ GraphRAG:
 </span></span><span class=line><span class=cl><span class=p>)</span>
 </span></span><span class=line><span class=cl>
 </span></span><span class=line><span class=cl><span class=n>result</span> <span class=o>=</span> <span class=n>agent</span><span class=o>.</span><span class=n>invoke</span><span class=p>({</span><span class=s2>&#34;input&#34;</span><span class=p>:</span> <span class=s2>&#34;Spring Boot 3.0有哪些新特性？和2.x有什么区别？&#34;</span><span class=p>})</span>
-</span></span></code></pre></div><h4 id=迭代检索与自省>迭代检索与自省</h4><pre tabindex=0><code>用户Query: &#34;对比2024年主流向量数据库的性能&#34;
-
-Agent思考:
-1. 需要检索&#34;向量数据库性能对比&#34; → 检索结果不够全面
-2. 改写查询: &#34;Milvus vs Pinecone vs Qdrant benchmark&#34; → 检索到部分数据
-3. 发现缺少Weaviate的数据 → 再次检索 &#34;Weaviate性能测试&#34;
-4. 信息足够 → 生成对比答案
-</code></pre><p>关键设计：每轮检索后，Agent评估当前信息是否足够回答问题：</p><ul><li><strong>足够</strong> → 生成答案</li><li><strong>不够</strong> → 决定改写查询/换知识库/终止</li></ul><h3 id=43-agentic-rag架构模式>4.3 Agentic RAG架构模式</h3><h4 id=单agent--多工具>单Agent + 多工具</h4><p>最简单的模式，一个Agent管理多个检索工具：</p><pre tabindex=0><code>Agent → [知识库检索] [网络搜索] [数据库查询] [代码执行]
-</code></pre><h4 id=多agent协作>多Agent协作</h4><p>复杂问题拆分给不同领域的Agent：</p><pre tabindex=0><code>Router Agent
-├── 技术文档Agent → 技术知识库
-├── 产品文档Agent → 产品知识库
-├── 数据分析Agent → SQL数据库 + 代码执行
-└── 汇总Agent → 融合各子Agent的结果，生成最终答案
-</code></pre><h4 id=self-rag自省rag>Self-RAG（自省RAG）</h4><p>模型在生成过程中自主决定是否需要检索、检索结果是否相关：</p><pre tabindex=0><code>Step 1: 接收Query → 判断 [需要检索?]
-  ├── Yes → 检索 → 判断 [检索结果相关?]
-  │     ├── Yes → 使用检索结果生成
-  │     └── No → 不使用检索结果，靠模型自身知识生成
-  └── No → 直接生成
-  
-Step 2: 生成答案 → 判断 [答案是否需要事实支撑?]
-  ├── Yes → 检索验证 → 如果矛盾则修正
-  └── No → 输出答案
-</code></pre><h3 id=44-agentic-rag的工程挑战>4.4 Agentic RAG的工程挑战</h3><p><strong>Q: Agentic RAG在生产环境有哪些坑？</strong></p><p>A: 主要有三个工程挑战：</p><h4 id=延迟控制>延迟控制</h4><p>Agent每轮决策需要一次LLM调用，多轮迭代后总延迟可能超过用户容忍度。</p><ul><li><strong>对策</strong>：设置max_iterations上限（通常3-5轮）；使用更快的模型做决策（如GPT-4o-mini），更强的模型做生成；对简单问题直接走Pipeline模式，只有复杂问题才走Agent模式</li></ul><h4 id=成本控制>成本控制</h4><p>每次LLM调用都消耗token，多轮迭代可能导致单次问答成本是传统RAG的10倍以上。</p><ul><li><strong>对策</strong>：缓存检索结果；对常见问题类型建立路由规则避免不必要的Agent流程；监控每次查询的token消耗并设置预算上限</li></ul><h4 id=评估困难>评估困难</h4><p>传统RAG用RAGAS等框架评估，但Agentic RAG的检索路径不固定，难以用单一指标衡量。</p><ul><li><strong>对策</strong>：引入过程评估——记录每轮决策的合理性，而不仅看最终答案质量；建立测试集覆盖典型问题类型；监控各轮检索的命中率和有用率</li></ul><h2 id=五rag评估体系>五、RAG评估体系</h2><h3 id=51-ragas框架>5.1 RAGAS框架</h3><p><strong>Q: 如何系统化评估RAG系统的质量？</strong></p><p>A: RAGAS是目前最主流的RAG评估框架，从三个维度评估：</p><pre tabindex=0><code>                    RAGAS评估框架
-                         │
-          ┌──────────────┼──────────────┐
-          ↓              ↓              ↓
-     检索质量         生成质量         端到端
-          │              │              │
-    - 上下文精度    - 答案相关性    - 答案准确性
-    - 上下文召回    - 忠实性        - 答案完整性
-    (Context       (Answer        (Answer
-     Precision)    Relevancy)      Correctness)
-    (Context                                        
-     Recall)                                        (Faithfulness)
-</code></pre><h4 id=核心指标>核心指标</h4><table><thead><tr><th>指标</th><th>含义</th><th>计算方式</th></tr></thead><tbody><tr><td><strong>Faithfulness（忠实性）</strong></td><td>答案是否忠实于检索到的上下文，不编造</td><td>答案中的claim能否在上下文中找到支撑</td></tr><tr><td><strong>Answer Relevancy（答案相关性）</strong></td><td>答案是否回答了用户的问题</td><td>从答案反向生成问题，与原问题的相似度</td></tr><tr><td><strong>Context Precision（上下文精度）</strong></td><td>检索结果中有多少是相关的</td><td>相关文档在Top-K中的占比</td></tr><tr><td><strong>Context Recall（上下文召回）</strong></td><td>回答问题所需的信息是否都被检索到</td><td>标注答案中的信息在检索结果中的覆盖率</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>ragas</span> <span class=kn>import</span> <span class=n>evaluate</span>
+</span></span></code></pre></div><h4 id=迭代检索与自省>迭代检索与自省</h4><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>用户Query: &#34;对比2024年主流向量数据库的性能&#34;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>Agent思考:
+</span></span><span class=line><span class=cl>1. 需要检索&#34;向量数据库性能对比&#34; → 检索结果不够全面
+</span></span><span class=line><span class=cl>2. 改写查询: &#34;Milvus vs Pinecone vs Qdrant benchmark&#34; → 检索到部分数据
+</span></span><span class=line><span class=cl>3. 发现缺少Weaviate的数据 → 再次检索 &#34;Weaviate性能测试&#34;
+</span></span><span class=line><span class=cl>4. 信息足够 → 生成对比答案
+</span></span></code></pre></div><p>关键设计：每轮检索后，Agent评估当前信息是否足够回答问题：</p><ul><li><strong>足够</strong> → 生成答案</li><li><strong>不够</strong> → 决定改写查询/换知识库/终止</li></ul><h3 id=43-agentic-rag架构模式>4.3 Agentic RAG架构模式</h3><h4 id=单agent--多工具>单Agent + 多工具</h4><p>最简单的模式，一个Agent管理多个检索工具：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Agent → [知识库检索] [网络搜索] [数据库查询] [代码执行]
+</span></span></code></pre></div><h4 id=多agent协作>多Agent协作</h4><p>复杂问题拆分给不同领域的Agent：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Router Agent
+</span></span><span class=line><span class=cl>├── 技术文档Agent → 技术知识库
+</span></span><span class=line><span class=cl>├── 产品文档Agent → 产品知识库
+</span></span><span class=line><span class=cl>├── 数据分析Agent → SQL数据库 + 代码执行
+</span></span><span class=line><span class=cl>└── 汇总Agent → 融合各子Agent的结果，生成最终答案
+</span></span></code></pre></div><h4 id=self-rag自省rag>Self-RAG（自省RAG）</h4><p>模型在生成过程中自主决定是否需要检索、检索结果是否相关：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Step 1: 接收Query → 判断 [需要检索?]
+</span></span><span class=line><span class=cl>  ├── Yes → 检索 → 判断 [检索结果相关?]
+</span></span><span class=line><span class=cl>  │     ├── Yes → 使用检索结果生成
+</span></span><span class=line><span class=cl>  │     └── No → 不使用检索结果，靠模型自身知识生成
+</span></span><span class=line><span class=cl>  └── No → 直接生成
+</span></span><span class=line><span class=cl>  
+</span></span><span class=line><span class=cl>Step 2: 生成答案 → 判断 [答案是否需要事实支撑?]
+</span></span><span class=line><span class=cl>  ├── Yes → 检索验证 → 如果矛盾则修正
+</span></span><span class=line><span class=cl>  └── No → 输出答案
+</span></span></code></pre></div><h3 id=44-agentic-rag的工程挑战>4.4 Agentic RAG的工程挑战</h3><p><strong>Q: Agentic RAG在生产环境有哪些坑？</strong></p><p>A: 主要有三个工程挑战：</p><h4 id=延迟控制>延迟控制</h4><p>Agent每轮决策需要一次LLM调用，多轮迭代后总延迟可能超过用户容忍度。</p><ul><li><strong>对策</strong>：设置max_iterations上限（通常3-5轮）；使用更快的模型做决策（如GPT-4o-mini），更强的模型做生成；对简单问题直接走Pipeline模式，只有复杂问题才走Agent模式</li></ul><h4 id=成本控制>成本控制</h4><p>每次LLM调用都消耗token，多轮迭代可能导致单次问答成本是传统RAG的10倍以上。</p><ul><li><strong>对策</strong>：缓存检索结果；对常见问题类型建立路由规则避免不必要的Agent流程；监控每次查询的token消耗并设置预算上限</li></ul><h4 id=评估困难>评估困难</h4><p>传统RAG用RAGAS等框架评估，但Agentic RAG的检索路径不固定，难以用单一指标衡量。</p><ul><li><strong>对策</strong>：引入过程评估——记录每轮决策的合理性，而不仅看最终答案质量；建立测试集覆盖典型问题类型；监控各轮检索的命中率和有用率</li></ul><h2 id=五rag评估体系>五、RAG评估体系</h2><h3 id=51-ragas框架>5.1 RAGAS框架</h3><p><strong>Q: 如何系统化评估RAG系统的质量？</strong></p><p>A: RAGAS是目前最主流的RAG评估框架，从三个维度评估：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>                    RAGAS评估框架
+</span></span><span class=line><span class=cl>                         │
+</span></span><span class=line><span class=cl>          ┌──────────────┼──────────────┐
+</span></span><span class=line><span class=cl>          ↓              ↓              ↓
+</span></span><span class=line><span class=cl>     检索质量         生成质量         端到端
+</span></span><span class=line><span class=cl>          │              │              │
+</span></span><span class=line><span class=cl>    - 上下文精度    - 答案相关性    - 答案准确性
+</span></span><span class=line><span class=cl>    - 上下文召回    - 忠实性        - 答案完整性
+</span></span><span class=line><span class=cl>    (Context       (Answer        (Answer
+</span></span><span class=line><span class=cl>     Precision)    Relevancy)      Correctness)
+</span></span><span class=line><span class=cl>    (Context                                        
+</span></span><span class=line><span class=cl>     Recall)                                        (Faithfulness)
+</span></span></code></pre></div><h4 id=核心指标>核心指标</h4><table><thead><tr><th>指标</th><th>含义</th><th>计算方式</th></tr></thead><tbody><tr><td><strong>Faithfulness（忠实性）</strong></td><td>答案是否忠实于检索到的上下文，不编造</td><td>答案中的claim能否在上下文中找到支撑</td></tr><tr><td><strong>Answer Relevancy（答案相关性）</strong></td><td>答案是否回答了用户的问题</td><td>从答案反向生成问题，与原问题的相似度</td></tr><tr><td><strong>Context Precision（上下文精度）</strong></td><td>检索结果中有多少是相关的</td><td>相关文档在Top-K中的占比</td></tr><tr><td><strong>Context Recall（上下文召回）</strong></td><td>回答问题所需的信息是否都被检索到</td><td>标注答案中的信息在检索结果中的覆盖率</td></tr></tbody></table><div class=highlight><pre tabindex=0 class=chroma><code class=language-python data-lang=python><span class=line><span class=cl><span class=kn>from</span> <span class=nn>ragas</span> <span class=kn>import</span> <span class=n>evaluate</span>
 </span></span><span class=line><span class=cl><span class=kn>from</span> <span class=nn>ragas.metrics</span> <span class=kn>import</span> <span class=p>(</span>
 </span></span><span class=line><span class=cl>    <span class=n>faithfulness</span><span class=p>,</span> <span class=n>answer_relevancy</span><span class=p>,</span>
 </span></span><span class=line><span class=cl>    <span class=n>context_precision</span><span class=p>,</span> <span class=n>context_recall</span>

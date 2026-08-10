@@ -10,32 +10,32 @@
 <span>/</span><a href=/series/java-design-patterns/>GoF 设计模式</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Java设计模式（十八）：桥接模式深度实践</h1><p class=article-description>桥接模式（Bridge Pattern）是一种结构型设计模式，它的核心思想是：将抽象部分与实现部分分离，使它们都可以独立地变化。 核心思想：用组合替代继承，将两个独立变化的维度解耦。 假设我们要开发一个图形绘制系统，支持多种形状（圆形、矩形、三角形）和多种颜色（红色、蓝色、绿色）。用继承实现： 新增。</p><div class=article-meta><span>发布于 <time datetime=2026-04-22>2026-04-22</time></span>
 <span>最后验证 2026-04</span>
 <span>9 分钟阅读</span>
-<span>1875 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#前言>前言</a></li><li><a href=#一为什么需要桥接模式>一、为什么需要桥接模式</a><ul><li><a href=#11-继承爆炸问题>1.1 继承爆炸问题</a></li><li><a href=#12-两个独立变化的维度>1.2 两个独立变化的维度</a></li></ul></li><li><a href=#二桥接模式的结构>二、桥接模式的结构</a><ul><li><a href=#21-类图>2.1 类图</a></li><li><a href=#22-核心角色>2.2 核心角色</a></li><li><a href=#23-完整实现>2.3 完整实现</a></li></ul></li><li><a href=#三桥接模式的高级用法>三、桥接模式的高级用法</a><ul><li><a href=#31-消息系统桥接>3.1 消息系统桥接</a></li><li><a href=#32-设备与遥控器桥接>3.2 设备与遥控器桥接</a></li></ul></li><li><a href=#四桥接模式在-jdk-中的应用>四、桥接模式在 JDK 中的应用</a><ul><li><a href=#41-jdbc-驱动>4.1 JDBC 驱动</a></li><li><a href=#42-awt-组件与-peer>4.2 AWT 组件与 Peer</a></li></ul></li><li><a href=#五桥接模式-vs-其他模式>五、桥接模式 vs 其他模式</a><ul><li><a href=#51-对比策略模式>5.1 对比策略模式</a></li><li><a href=#52-对比适配器模式>5.2 对比适配器模式</a></li></ul></li><li><a href=#六桥接模式的优缺点>六、桥接模式的优缺点</a><ul><li><a href=#优点>优点</a></li><li><a href=#缺点>缺点</a></li><li><a href=#适用场景>适用场景</a></li></ul></li><li><a href=#七实战跨平台-ui-渲染>七、实战：跨平台 UI 渲染</a></li><li><a href=#八桥接模式在-spring-中的应用>八、桥接模式在 Spring 中的应用</a><ul><li><a href=#81-platformtransactionmanager>8.1 PlatformTransactionManager</a></li><li><a href=#82-viewresolver>8.2 ViewResolver</a></li></ul></li><li><a href=#九面试常见问题>九、面试常见问题</a><ul><li><a href=#q1-桥接模式的核心思想是什么>Q1: 桥接模式的核心思想是什么？</a></li><li><a href=#q2-桥接模式和策略模式有什么区别>Q2: 桥接模式和策略模式有什么区别？</a></li><li><a href=#q3-什么场景下应该使用桥接模式>Q3: 什么场景下应该使用桥接模式？</a></li><li><a href=#q4-如何识别需要桥接的维度>Q4: 如何识别需要桥接的维度？</a></li><li><a href=#q5-桥接模式中抽象和实现的关系是什么>Q5: 桥接模式中抽象和实现的关系是什么？</a></li></ul></li><li><a href=#十总结>十、总结</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=前言>前言</h2><p>桥接模式（Bridge Pattern）是一种结构型设计模式，它的核心思想是：<strong>将抽象部分与实现部分分离，使它们都可以独立地变化</strong>。</p><p><strong>核心思想</strong>：用组合替代继承，将两个独立变化的维度解耦。</p><h2 id=一为什么需要桥接模式>一、为什么需要桥接模式</h2><h3 id=11-继承爆炸问题>1.1 继承爆炸问题</h3><p>假设我们要开发一个图形绘制系统，支持多种形状（圆形、矩形、三角形）和多种颜色（红色、蓝色、绿色）。用继承实现：</p><pre tabindex=0><code>        Shape
-       / | \
-    Circle Rectangle Triangle
-    / | \     / | \     / | \
- RedCircle BlueCircle GreenCircle
- RedRect   BlueRect   GreenRect
- RedTriangle BlueTriangle GreenTriangle
-</code></pre><p>新增一种形状或颜色，子类数量呈指数级增长。这就是<strong>类爆炸</strong>问题。</p><p>桥接模式通过将"形状"和"颜色"分离为两个独立的维度，用组合代替继承来解决：</p><pre tabindex=0><code>Shape ←→ Color (组合关系)
-  |         |
-Circle    Red
-Rectangle Blue
-Triangle  Green
-</code></pre><h3 id=12-两个独立变化的维度>1.2 两个独立变化的维度</h3><p>桥接模式适用于"两个维度独立变化"的场景：</p><table><thead><tr><th>抽象维度</th><th>实现维度</th></tr></thead><tbody><tr><td>形状</td><td>颜色</td></tr><tr><td>消息类型</td><td>发送方式</td></tr><tr><td>设备类型</td><td>远程控制协议</td></tr><tr><td>图形</td><td>渲染引擎</td></tr></tbody></table><h2 id=二桥接模式的结构>二、桥接模式的结构</h2><h3 id=21-类图>2.1 类图</h3><pre tabindex=0><code>┌───────────────────┐        ┌──────────────────┐
-│  Abstraction      │        │ Implementor      │
-│  (抽象类)         │        │ (实现接口)        │
-│───────────────────│        │──────────────────│
-│ # impl: Implementor│──────→│ + operationImpl()│
-│───────────────────│        └────────┬─────────┘
-│ + operation()     │                 │
-└────────┬──────────┘          ┌──────┴──────┐
-         │                     │             │
-    ┌────┴─────┐         ┌─────┴────┐  ┌─────┴────┐
-    │RefinedAb-│         │ConcreteIm-│  │ConcreteIm-│
-    │ straction│         │  plA      │  │  plB      │
-    └──────────┘         └──────────┘  └──────────┘
-</code></pre><h3 id=22-核心角色>2.2 核心角色</h3><table><thead><tr><th>角色</th><th>职责</th></tr></thead><tbody><tr><td>Abstraction（抽象类）</td><td>定义抽象接口，持有 Implementor 引用</td></tr><tr><td>RefinedAbstraction</td><td>扩展 Abstraction 的接口</td></tr><tr><td>Implementor（实现接口）</td><td>定义实现类的接口</td></tr><tr><td>ConcreteImplementor</td><td>具体实现类</td></tr></tbody></table><h3 id=23-完整实现>2.3 完整实现</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 1. 实现接口：颜色 ==========
+<span>1875 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#前言>前言</a></li><li><a href=#一为什么需要桥接模式>一、为什么需要桥接模式</a><ul><li><a href=#11-继承爆炸问题>1.1 继承爆炸问题</a></li><li><a href=#12-两个独立变化的维度>1.2 两个独立变化的维度</a></li></ul></li><li><a href=#二桥接模式的结构>二、桥接模式的结构</a><ul><li><a href=#21-类图>2.1 类图</a></li><li><a href=#22-核心角色>2.2 核心角色</a></li><li><a href=#23-完整实现>2.3 完整实现</a></li></ul></li><li><a href=#三桥接模式的高级用法>三、桥接模式的高级用法</a><ul><li><a href=#31-消息系统桥接>3.1 消息系统桥接</a></li><li><a href=#32-设备与遥控器桥接>3.2 设备与遥控器桥接</a></li></ul></li><li><a href=#四桥接模式在-jdk-中的应用>四、桥接模式在 JDK 中的应用</a><ul><li><a href=#41-jdbc-驱动>4.1 JDBC 驱动</a></li><li><a href=#42-awt-组件与-peer>4.2 AWT 组件与 Peer</a></li></ul></li><li><a href=#五桥接模式-vs-其他模式>五、桥接模式 vs 其他模式</a><ul><li><a href=#51-对比策略模式>5.1 对比策略模式</a></li><li><a href=#52-对比适配器模式>5.2 对比适配器模式</a></li></ul></li><li><a href=#六桥接模式的优缺点>六、桥接模式的优缺点</a><ul><li><a href=#优点>优点</a></li><li><a href=#缺点>缺点</a></li><li><a href=#适用场景>适用场景</a></li></ul></li><li><a href=#七实战跨平台-ui-渲染>七、实战：跨平台 UI 渲染</a></li><li><a href=#八桥接模式在-spring-中的应用>八、桥接模式在 Spring 中的应用</a><ul><li><a href=#81-platformtransactionmanager>8.1 PlatformTransactionManager</a></li><li><a href=#82-viewresolver>8.2 ViewResolver</a></li></ul></li><li><a href=#九面试常见问题>九、面试常见问题</a><ul><li><a href=#q1-桥接模式的核心思想是什么>Q1: 桥接模式的核心思想是什么？</a></li><li><a href=#q2-桥接模式和策略模式有什么区别>Q2: 桥接模式和策略模式有什么区别？</a></li><li><a href=#q3-什么场景下应该使用桥接模式>Q3: 什么场景下应该使用桥接模式？</a></li><li><a href=#q4-如何识别需要桥接的维度>Q4: 如何识别需要桥接的维度？</a></li><li><a href=#q5-桥接模式中抽象和实现的关系是什么>Q5: 桥接模式中抽象和实现的关系是什么？</a></li></ul></li><li><a href=#十总结>十、总结</a></li></ul></nav></details><div class=post-content data-article-content><h2 id=前言>前言</h2><p>桥接模式（Bridge Pattern）是一种结构型设计模式，它的核心思想是：<strong>将抽象部分与实现部分分离，使它们都可以独立地变化</strong>。</p><p><strong>核心思想</strong>：用组合替代继承，将两个独立变化的维度解耦。</p><h2 id=一为什么需要桥接模式>一、为什么需要桥接模式</h2><h3 id=11-继承爆炸问题>1.1 继承爆炸问题</h3><p>假设我们要开发一个图形绘制系统，支持多种形状（圆形、矩形、三角形）和多种颜色（红色、蓝色、绿色）。用继承实现：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>        Shape
+</span></span><span class=line><span class=cl>       / | \
+</span></span><span class=line><span class=cl>    Circle Rectangle Triangle
+</span></span><span class=line><span class=cl>    / | \     / | \     / | \
+</span></span><span class=line><span class=cl> RedCircle BlueCircle GreenCircle
+</span></span><span class=line><span class=cl> RedRect   BlueRect   GreenRect
+</span></span><span class=line><span class=cl> RedTriangle BlueTriangle GreenTriangle
+</span></span></code></pre></div><p>新增一种形状或颜色，子类数量呈指数级增长。这就是<strong>类爆炸</strong>问题。</p><p>桥接模式通过将"形状"和"颜色"分离为两个独立的维度，用组合代替继承来解决：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>Shape ←→ Color (组合关系)
+</span></span><span class=line><span class=cl>  |         |
+</span></span><span class=line><span class=cl>Circle    Red
+</span></span><span class=line><span class=cl>Rectangle Blue
+</span></span><span class=line><span class=cl>Triangle  Green
+</span></span></code></pre></div><h3 id=12-两个独立变化的维度>1.2 两个独立变化的维度</h3><p>桥接模式适用于"两个维度独立变化"的场景：</p><table><thead><tr><th>抽象维度</th><th>实现维度</th></tr></thead><tbody><tr><td>形状</td><td>颜色</td></tr><tr><td>消息类型</td><td>发送方式</td></tr><tr><td>设备类型</td><td>远程控制协议</td></tr><tr><td>图形</td><td>渲染引擎</td></tr></tbody></table><h2 id=二桥接模式的结构>二、桥接模式的结构</h2><h3 id=21-类图>2.1 类图</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌───────────────────┐        ┌──────────────────┐
+</span></span><span class=line><span class=cl>│  Abstraction      │        │ Implementor      │
+</span></span><span class=line><span class=cl>│  (抽象类)         │        │ (实现接口)        │
+</span></span><span class=line><span class=cl>│───────────────────│        │──────────────────│
+</span></span><span class=line><span class=cl>│ # impl: Implementor│──────→│ + operationImpl()│
+</span></span><span class=line><span class=cl>│───────────────────│        └────────┬─────────┘
+</span></span><span class=line><span class=cl>│ + operation()     │                 │
+</span></span><span class=line><span class=cl>└────────┬──────────┘          ┌──────┴──────┐
+</span></span><span class=line><span class=cl>         │                     │             │
+</span></span><span class=line><span class=cl>    ┌────┴─────┐         ┌─────┴────┐  ┌─────┴────┐
+</span></span><span class=line><span class=cl>    │RefinedAb-│         │ConcreteIm-│  │ConcreteIm-│
+</span></span><span class=line><span class=cl>    │ straction│         │  plA      │  │  plB      │
+</span></span><span class=line><span class=cl>    └──────────┘         └──────────┘  └──────────┘
+</span></span></code></pre></div><h3 id=22-核心角色>2.2 核心角色</h3><table><thead><tr><th>角色</th><th>职责</th></tr></thead><tbody><tr><td>Abstraction（抽象类）</td><td>定义抽象接口，持有 Implementor 引用</td></tr><tr><td>RefinedAbstraction</td><td>扩展 Abstraction 的接口</td></tr><tr><td>Implementor（实现接口）</td><td>定义实现类的接口</td></tr><tr><td>ConcreteImplementor</td><td>具体实现类</td></tr></tbody></table><h3 id=23-完整实现>2.3 完整实现</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 1. 实现接口：颜色 ==========
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>interface</span> <span class=nc>Color</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=n>String</span> <span class=nf>applyColor</span><span class=o>();</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
@@ -150,14 +150,14 @@ Triangle  Green
 </span></span><span class=line><span class=cl>        <span class=n>redCircle</span><span class=o>.</span><span class=na>draw</span><span class=o>();</span>
 </span></span><span class=line><span class=cl>    <span class=o>}</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
-</span></span></code></pre></div><p>运行结果：</p><pre tabindex=0><code>绘制圆形 [半径=10, 颜色=🔴 红色]
-绘制圆形 [半径=20, 颜色=🔵 蓝色]
-绘制矩形 [宽=30, 高=40, 颜色=🟢 绿色]
-绘制三角形 [底=15, 高=20, 颜色=🔴 红色]
-
---- 切换颜色 ---
-绘制圆形 [半径=10, 颜色=🔵 蓝色]
-</code></pre><h2 id=三桥接模式的高级用法>三、桥接模式的高级用法</h2><h3 id=31-消息系统桥接>3.1 消息系统桥接</h3><p>将消息类型与发送方式分离：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 实现接口：发送方式 ==========
+</span></span></code></pre></div><p>运行结果：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>绘制圆形 [半径=10, 颜色=🔴 红色]
+</span></span><span class=line><span class=cl>绘制圆形 [半径=20, 颜色=🔵 蓝色]
+</span></span><span class=line><span class=cl>绘制矩形 [宽=30, 高=40, 颜色=🟢 绿色]
+</span></span><span class=line><span class=cl>绘制三角形 [底=15, 高=20, 颜色=🔴 红色]
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>--- 切换颜色 ---
+</span></span><span class=line><span class=cl>绘制圆形 [半径=10, 颜色=🔵 蓝色]
+</span></span></code></pre></div><h2 id=三桥接模式的高级用法>三、桥接模式的高级用法</h2><h3 id=31-消息系统桥接>3.1 消息系统桥接</h3><p>将消息类型与发送方式分离：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=c1>// ========== 实现接口：发送方式 ==========
 </span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>public</span> <span class=kd>interface</span> <span class=nc>MessageSender</span> <span class=o>{</span>
 </span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=nf>sendMessage</span><span class=o>(</span><span class=n>String</span> <span class=n>content</span><span class=o>,</span> <span class=n>String</span> <span class=n>recipient</span><span class=o>);</span>
 </span></span><span class=line><span class=cl><span class=o>}</span>
