@@ -1,0 +1,672 @@
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Kubernetes自定义调度器实战：从框架扩展到生产落地｜Raphael Lab</title><meta name=description content="标准调度器满足不了你的场景？GPU集群如何让AI训练任务优先调度到有闲置卡片的节点？在线服务如何与离线批处理任务共享集群而不互相干扰？本文从调度框架扩展点出发，手把手带你写一个自定义调度器，从Demo到生产级改造，涵盖多调度器共存、调度策略注入、高可用与灰度切换，一次性打通自定义调度的全链路。"><meta name=author content="李亚飞"><meta name=referrer content="strict-origin-when-cross-origin"><meta http-equiv=content-security-policy content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"><meta name=robots content="index,follow,max-image-preview:large"><link rel=canonical href=https://raphaell2e.github.io/posts/kubernetes%E8%87%AA%E5%AE%9A%E4%B9%89%E8%B0%83%E5%BA%A6%E5%99%A8%E5%AE%9E%E6%88%98%E4%BB%8E%E6%A1%86%E6%9E%B6%E6%89%A9%E5%B1%95%E5%88%B0%E7%94%9F%E4%BA%A7%E8%90%BD%E5%9C%B0/><link rel=alternate type=application/rss+xml title="Raphael Lab RSS" href=https://raphaell2e.github.io/index.xml><link rel=icon href=/favicon.svg type=image/svg+xml><link rel=stylesheet href=/css/site.css><meta property="og:locale" content="zh_CN"><meta property="og:site_name" content="Raphael Lab"><meta property="og:title" content="Kubernetes自定义调度器实战：从框架扩展到生产落地｜Raphael Lab"><meta property="og:description" content="标准调度器满足不了你的场景？GPU集群如何让AI训练任务优先调度到有闲置卡片的节点？在线服务如何与离线批处理任务共享集群而不互相干扰？本文从调度框架扩展点出发，手把手带你写一个自定义调度器，从Demo到生产级改造，涵盖多调度器共存、调度策略注入、高可用与灰度切换，一次性打通自定义调度的全链路。"><meta property="og:url" content="https://raphaell2e.github.io/posts/kubernetes%E8%87%AA%E5%AE%9A%E4%B9%89%E8%B0%83%E5%BA%A6%E5%99%A8%E5%AE%9E%E6%88%98%E4%BB%8E%E6%A1%86%E6%9E%B6%E6%89%A9%E5%B1%95%E5%88%B0%E7%94%9F%E4%BA%A7%E8%90%BD%E5%9C%B0/"><meta property="og:image" content="https://raphaell2e.github.io/images/og-default.png"><meta property="og:type" content="article"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="Kubernetes自定义调度器实战：从框架扩展到生产落地｜Raphael Lab"><meta name=twitter:description content="标准调度器满足不了你的场景？GPU集群如何让AI训练任务优先调度到有闲置卡片的节点？在线服务如何与离线批处理任务共享集群而不互相干扰？本文从调度框架扩展点出发，手把手带你写一个自定义调度器，从Demo到生产级改造，涵盖多调度器共存、调度策略注入、高可用与灰度切换，一次性打通自定义调度的全链路。"><meta name=twitter:image content="https://raphaell2e.github.io/images/og-default.png"><meta property="article:published_time" content="2026-08-21T10:00:00+08:00"><meta property="article:modified_time" content="2026-08-21T10:00:00+08:00"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"WebSite","alternateName":"飞哥 AI 实验室","description":"记录后端工程、分布式系统与 AI 工程化的真实实践。","inLanguage":"zh-CN","name":"Raphael Lab｜飞哥 AI 实验室","publisher":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"url":"https://raphaell2e.github.io/"},{"@type":"TechArticle","author":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"dateModified":"2026-08-21T10:00:00+08:00","datePublished":"2026-08-21T10:00:00+08:00","description":"标准调度器满足不了你的场景？GPU集群如何让AI训练任务优先调度到有闲置卡片的节点？在线服务如何与离线批处理任务共享集群而不互相干扰？本文从调度框架扩展点出发，手把手带你写一个自定义调度器，从Demo到生产级改造，涵盖多调度器共存、调度策略注入、高可用与灰度切换，一次性打通自定义调度的全链路。","headline":"Kubernetes自定义调度器实战：从框架扩展到生产落地","inLanguage":"zh-CN","mainEntityOfPage":"https://raphaell2e.github.io/posts/kubernetes%E8%87%AA%E5%AE%9A%E4%B9%89%E8%B0%83%E5%BA%A6%E5%99%A8%E5%AE%9E%E6%88%98%E4%BB%8E%E6%A1%86%E6%9E%B6%E6%89%A9%E5%B1%95%E5%88%B0%E7%94%9F%E4%BA%A7%E8%90%BD%E5%9C%B0/","publisher":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"url":"https://raphaell2e.github.io/posts/kubernetes%E8%87%AA%E5%AE%9A%E4%B9%89%E8%B0%83%E5%BA%A6%E5%99%A8%E5%AE%9E%E6%88%98%E4%BB%8E%E6%A1%86%E6%9E%B6%E6%89%A9%E5%B1%95%E5%88%B0%E7%94%9F%E4%BA%A7%E8%90%BD%E5%9C%B0/"}]}</script></head><body class="page-page section-posts"><a class=skip-link href=#main-content>跳到正文</a><header class=site-header><div class=header-inner><a class=brand href=/><span class=brand-mark aria-hidden=true>R</span>
+<span>Raphael Lab</span></a><nav class=desktop-nav aria-label=主导航><a href=/>首页</a>
+<a href=/series/>专题</a>
+<a href=/posts/>文章库</a>
+<a href=/projects/>项目</a>
+<a href=/about/>关于</a></nav><div class=header-actions><a class=search-trigger href=/search/ aria-label=搜索文章><span aria-hidden=true>⌕</span><span class=search-label>搜索</span><kbd>/</kbd></a>
+<button class=menu-toggle type=button aria-expanded=false aria-controls=mobile-nav aria-label=打开导航><span></span><span></span><span></span></button></div></div><nav class=mobile-nav id=mobile-nav aria-label=移动端导航 hidden><a href=/>首页</a><a href=/series/>专题</a><a href=/posts/>文章库</a><a href=/projects/>项目</a><a href=/about/>关于</a>
+<a href=/search/>搜索</a></nav></header><main id=main-content class=site-main><article class="article-shell shell"><div class=reading-progress aria-hidden=true><span></span></div><div class=article-main><nav class=breadcrumbs aria-label=面包屑><a href=/>首页</a><span>/</span>
+<a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Kubernetes自定义调度器实战：从框架扩展到生产落地</h1><p class=article-description>标准调度器满足不了你的场景？GPU集群如何让AI训练任务优先调度到有闲置卡片的节点？在线服务如何与离线批处理任务共享集群而不互相干扰？本文从调度框架扩展点出发，手把手带你写一个自定义调度器，从Demo到生产级改造，涵盖多调度器共存、调度策略注入、高可用与灰度切换，一次性打通自定义调度的全链路。</p><div class=article-meta><span>发布于 <time datetime=2026-08-21>2026-08-21</time></span>
+<span>最后验证 2026-08</span>
+<span>10 分钟阅读</span>
+<span>2024 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一什么时候需要自定义调度器>一、什么时候需要自定义调度器</a></li><li><a href=#二调度框架scheduler-framework概览>二、调度框架（Scheduler Framework）概览</a></li><li><a href=#三从零写一个独立自定义调度器>三、从零写一个独立自定义调度器</a><ul><li><a href=#31-架构设计>3.1 架构设计</a></li><li><a href=#32-核心代码实现>3.2 核心代码实现</a></li><li><a href=#33-filter-阶段--节点过滤逻辑>3.3 Filter 阶段 — 节点过滤逻辑</a></li><li><a href=#34-score-阶段--节点打分策略>3.4 Score 阶段 — 节点打分策略</a></li><li><a href=#35-bind-阶段--绑定-pod-到节点>3.5 Bind 阶段 — 绑定 Pod 到节点</a></li><li><a href=#36-部署自定义调度器>3.6 部署自定义调度器</a></li><li><a href=#37-让-pod-使用自定义调度器>3.7 让 Pod 使用自定义调度器</a></li></ul></li><li><a href=#四生产级改造从-demo-到企业级调度器>四、生产级改造：从 Demo 到企业级调度器</a><ul><li><a href=#41-调度队列与失败重试>4.1 调度队列与失败重试</a></li><li><a href=#42-调度器高可用主备切换>4.2 调度器高可用：主备切换</a></li><li><a href=#43-与默认调度器混合调度>4.3 与默认调度器混合调度</a></li><li><a href=#44-调度策略热更新>4.4 调度策略热更新</a></li></ul></li><li><a href=#五性能优化万节点集群的调度实践>五、性能优化：万节点集群的调度实践</a><ul><li><a href=#51-node-缓存层>5.1 Node 缓存层</a></li><li><a href=#52-并行化-filter-和-score>5.2 并行化 Filter 和 Score</a></li><li><a href=#53-调度队列优先级>5.3 调度队列优先级</a></li></ul></li><li><a href=#六实战案例gpu-集群调度踩坑记>六、实战案例：GPU 集群调度踩坑记</a></li><li><a href=#七总结与后续方向>七、总结与后续方向</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>标准调度器满足不了你的场景？GPU集群如何让AI训练任务优先调度到有闲置卡片的节点？在线服务如何与离线批处理任务共享集群而不互相干扰？本文从调度框架扩展点出发，手把手带你写一个自定义调度器，从Demo到生产级改造，涵盖多调度器共存、调度策略注入、高可用与灰度切换，一次性打通自定义调度的全链路。</p></blockquote><h2 id=一什么时候需要自定义调度器>一、什么时候需要自定义调度器</h2><p>在深入代码之前，先回答一个根本问题：什么时候该走自定义调度这条路？</p><p>Kubernetes默认调度器（kube-scheduler）已经很强大了——它支持基于资源用量的亲和性/反亲和性、污点容忍、拓扑分布约束……但现实场景往往有更细腻的诉求：</p><p><strong>典型强需求场景：</strong></p><ol><li><strong>异构资源调度</strong>：GPU、TPU、FPGA等 accelerator 资源。默认调度器只知道"有没有 CPU 和内存"，它不知道节点上哪块 GPU 空闲、哪块卡的显存更大。</li><li><strong>业务感知调度</strong>：比如在线服务要求低延迟，希望调度到离数据库近的节点；批处理任务只要求吞吐，可以容忍稍长启动时间。</li><li><strong>多租户与配额控制</strong>：在共享集群中，不同租户有不同优先级，需要保证关键业务的调度权重。</li><li><strong>Bin-packing vs Spread 的精细控制</strong>：默认提供两种策略，但实际业务可能需要更复杂的资源分配模式。</li><li><strong>调度延迟敏感场景</strong>：超大规模集群（1000+节点），默认调度器可能成为瓶颈，需要定向优化调度路径。</li></ol><p>如果你遇到了以上场景，且现有的亲和性规则、优先级配置无法满足，自定义调度器就是答案。</p><blockquote><p>💡 <strong>前置阅读</strong>：如果对调度器基础概念不熟悉，建议先阅读 <a href=/posts/kubernetes-scheduler-principles/>Kubernetes调度器核心原理：Pod是如何被安排到节点的</a>。</p></blockquote><h2 id=二调度框架scheduler-framework概览>二、调度框架（Scheduler Framework）概览</h2><p>从 Kubernetes 1.19 开始，官方推荐使用 <strong>Scheduler Framework</strong>（调度框架）来扩展调度器，而不是早期版本的 <strong>scheduler-extender</strong>（调度器扩展 Webhook）。Framework 的优势在于：</p><ul><li>扩展点（Extension Points）清晰，插件化架构</li><li>与调度器核心在同一进程运行，性能更好</li><li>支持动态注册插件，无需修改调度器代码</li><li>完整的测试框架支持</li></ul><p>调度器的工作流程分为多个阶段（Phases），每个阶段可以插入自定义插件：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>QueueSort → PreFilter → Filter → PostFilter → 
+</span></span><span class=line><span class=cl>PreScore → Scoring → Reserve → Permit → 
+</span></span><span class=line><span class=cl>Bind → PostBind
+</span></span></code></pre></div><p><strong>各阶段含义：</strong></p><table><thead><tr><th>阶段</th><th>作用</th><th>可否自定义</th></tr></thead><tbody><tr><td>QueueSort</td><td>决定待调度Pod的排序顺序</td><td>✅</td></tr><tr><td>PreFilter</td><td>预处理，检查节点是否满足前置条件</td><td>✅</td></tr><tr><td>Filter</td><td>过滤不符合条件的节点</td><td>✅</td></tr><tr><td>PostFilter</td><td>Filter阶段后的补救，如抢占</td><td>✅</td></tr><tr><td>PreScore</td><td>预打分，准备评分数据</td><td>✅</td></tr><tr><td>Scoring</td><td>为通过的节点打分</td><td>✅</td></tr><tr><td>Reserve</td><td>预留资源，锁定节点</td><td>✅</td></tr><tr><td>Permit</td><td>审批通过/拒绝/等待</td><td>✅</td></tr><tr><td>Bind</td><td>将Pod绑定到节点</td><td>✅</td></tr><tr><td>PostBind</td><td>绑定后的清理动作</td><td>✅</td></tr></tbody></table><p>自定义调度器有两种主流写法：</p><ol><li><strong>Scheduler Framework 插件</strong>：编译成 Go 插件，注入到 kube-scheduler 进程</li><li><strong>独立调度器</strong>：另起一个进程，通过 Pod 的 <code>.spec.schedulerName</code> 指定</li></ol><p>本文采用**方案2（独立调度器）**讲解，因为它的门槛最低、演示最直观，且与 Framework 插件的原理完全相通。</p><h2 id=三从零写一个独立自定义调度器>三、从零写一个独立自定义调度器</h2><h3 id=31-架构设计>3.1 架构设计</h3><p>我们的目标：写一个调度器，能够根据节点上的<strong>GPU可用数量</strong>和<strong>GPU型号</strong>来调度 AI 训练任务。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│         Kubernetes API Server       │
+</span></span><span class=line><span class=cl>└──────────────┬──────────────────────┘
+</span></span><span class=line><span class=cl>               │ Watch / List
+</span></span><span class=line><span class=cl>┌──────────────▼──────────────────────┐
+</span></span><span class=line><span class=cl>│         Custom Scheduler            │
+</span></span><span class=line><span class=cl>│  ┌─────────────────────────────┐   │
+</span></span><span class=line><span class=cl>│  │ 调度队列 (Pending Pods)       │   │
+</span></span><span class=line><span class=cl>│  │ 调度决策 (Filter+Score)       │   │
+</span></span><span class=line><span class=cl>│  │ 绑定执行 (Bind to Node)       │   │
+</span></span><span class=line><span class=cl>│  └─────────────────────────────┘   │
+</span></span><span class=line><span class=cl>└────────────────────────────────────┘
+</span></span><span class=line><span class=cl>               │
+</span></span><span class=line><span class=cl>┌──────────────▼──────────────────────┐
+</span></span><span class=line><span class=cl>│  Nodes with GPU Labels              │
+</span></span><span class=line><span class=cl>│  node-A: nvidia.com/gpu-count=4    │
+</span></span><span class=line><span class=cl>│          nvidia.com/gpu-model=A100  │
+</span></span><span class=line><span class=cl>│  node-B: nvidia.com/gpu-count=8    │
+</span></span><span class=line><span class=cl>│          nvidia.com/gpu-model=V100  │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────┘
+</span></span></code></pre></div><h3 id=32-核心代码实现>3.2 核心代码实现</h3><p>创建一个 Go 项目（最小化依赖，不引入重型框架）：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>gpu-scheduler/
+</span></span><span class=line><span class=cl>├── main.go
+</span></span><span class=line><span class=cl>├── scheduler/
+</span></span><span class=line><span class=cl>│   ├── scheduler.go
+</span></span><span class=line><span class=cl>│   ├── filter.go
+</span></span><span class=line><span class=cl>│   ├── score.go
+</span></span><span class=line><span class=cl>│   └── bind.go
+</span></span><span class=line><span class=cl>└── go.mod
+</span></span></code></pre></div><p><strong>go.mod：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nx>module</span> <span class=nx>gpu</span><span class=o>-</span><span class=nx>scheduler</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=k>go</span> <span class=mf>1.21</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=nf>require</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=nx>k8s</span><span class=p>.</span><span class=nx>io</span><span class=o>/</span><span class=nx>api</span> <span class=nx>v0</span><span class=mf>.29.0</span>
+</span></span><span class=line><span class=cl>    <span class=nx>k8s</span><span class=p>.</span><span class=nx>io</span><span class=o>/</span><span class=nx>apimachinery</span> <span class=nx>v0</span><span class=mf>.29.0</span>
+</span></span><span class=line><span class=cl>    <span class=nx>k8s</span><span class=p>.</span><span class=nx>io</span><span class=o>/</span><span class=nx>client</span><span class=o>-</span><span class=k>go</span> <span class=nx>v0</span><span class=mf>.29.0</span>
+</span></span><span class=line><span class=cl>    <span class=nx>k8s</span><span class=p>.</span><span class=nx>io</span><span class=o>/</span><span class=nx>klog</span><span class=o>/</span><span class=nx>v2</span> <span class=nx>v2</span><span class=mf>.120.1</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span></code></pre></div><p><strong>main.go：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>main</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;context&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;flag&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;fmt&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;time&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>corev1</span> <span class=s>&#34;k8s.io/api/core/v1&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/apimachinery/pkg/labels&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/apimachinery/pkg/runtime&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/client-go/informers&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/client-go/kubernetes&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/client-go/tools/cache&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/client-go/tools/clientcmd&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/klog/v2&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;gpu-scheduler/scheduler&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>var</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=nx>kubeconfig</span>   <span class=p>=</span> <span class=nx>flag</span><span class=p>.</span><span class=nf>String</span><span class=p>(</span><span class=s>&#34;kubeconfig&#34;</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=s>&#34;Path to kubeconfig file&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>masterURL</span>    <span class=p>=</span> <span class=nx>flag</span><span class=p>.</span><span class=nf>String</span><span class=p>(</span><span class=s>&#34;master&#34;</span><span class=p>,</span> <span class=s>&#34;&#34;</span><span class=p>,</span> <span class=s>&#34;Kubernetes API server address&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>schedulerName</span> <span class=p>=</span> <span class=nx>flag</span><span class=p>.</span><span class=nf>String</span><span class=p>(</span><span class=s>&#34;scheduler-name&#34;</span><span class=p>,</span> <span class=s>&#34;gpu-scheduler&#34;</span><span class=p>,</span> <span class=s>&#34;Scheduler name&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>klog</span><span class=p>.</span><span class=nf>InitFlags</span><span class=p>(</span><span class=kc>nil</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>flag</span><span class=p>.</span><span class=nf>Parse</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>cfg</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>clientcmd</span><span class=p>.</span><span class=nf>BuildConfigFromFlags</span><span class=p>(</span><span class=o>*</span><span class=nx>masterURL</span><span class=p>,</span> <span class=o>*</span><span class=nx>kubeconfig</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>klog</span><span class=p>.</span><span class=nf>Fatalf</span><span class=p>(</span><span class=s>&#34;Failed to build config: %v&#34;</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>clientset</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>kubernetes</span><span class=p>.</span><span class=nf>NewForConfig</span><span class=p>(</span><span class=nx>cfg</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>klog</span><span class=p>.</span><span class=nf>Fatalf</span><span class=p>(</span><span class=s>&#34;Failed to create clientset: %v&#34;</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 创建调度器实例
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>sched</span> <span class=o>:=</span> <span class=nx>scheduler</span><span class=p>.</span><span class=nf>NewScheduler</span><span class=p>(</span><span class=nx>clientset</span><span class=p>,</span> <span class=o>*</span><span class=nx>schedulerName</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 启动 SharedInformer，监听 Pod 和 Node 变化
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>informersFactory</span> <span class=o>:=</span> <span class=nx>informers</span><span class=p>.</span><span class=nf>NewSharedInformerFactory</span><span class=p>(</span><span class=nx>clientset</span><span class=p>,</span> <span class=mi>0</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>podInformer</span> <span class=o>:=</span> <span class=nx>informersFactory</span><span class=p>.</span><span class=nf>Core</span><span class=p>().</span><span class=nf>V1</span><span class=p>().</span><span class=nf>Pods</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=nx>nodeInformer</span> <span class=o>:=</span> <span class=nx>informersFactory</span><span class=p>.</span><span class=nf>Core</span><span class=p>().</span><span class=nf>V1</span><span class=p>().</span><span class=nf>Nodes</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 注册事件处理
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>podInformer</span><span class=p>.</span><span class=nf>Informer</span><span class=p>().</span><span class=nf>AddEventHandler</span><span class=p>(</span><span class=nx>cache</span><span class=p>.</span><span class=nx>FilteringResourceEventHandler</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>FilterFunc</span><span class=p>:</span> <span class=kd>func</span><span class=p>(</span><span class=nx>obj</span> <span class=kd>interface</span><span class=p>{})</span> <span class=kt>bool</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>pod</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>obj</span><span class=p>.(</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=p>!</span><span class=nx>ok</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=k>return</span> <span class=kc>false</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=c1>// 只处理我们调度器负责的、且处于Pending状态的Pod
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=k>return</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>SchedulerName</span> <span class=o>==</span> <span class=o>*</span><span class=nx>schedulerName</span> <span class=o>&amp;&amp;</span>
+</span></span><span class=line><span class=cl>                   <span class=nx>pod</span><span class=p>.</span><span class=nx>DeletionTimestamp</span> <span class=o>==</span> <span class=kc>nil</span> <span class=o>&amp;&amp;</span>
+</span></span><span class=line><span class=cl>                   <span class=nx>pod</span><span class=p>.</span><span class=nx>Status</span><span class=p>.</span><span class=nx>Phase</span> <span class=o>==</span> <span class=nx>corev1</span><span class=p>.</span><span class=nx>PodPending</span>
+</span></span><span class=line><span class=cl>        <span class=p>},</span>
+</span></span><span class=line><span class=cl>        <span class=nx>Handler</span><span class=p>:</span> <span class=nx>cache</span><span class=p>.</span><span class=nx>ResourceEventHandlerFuncs</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>AddFunc</span><span class=p>:</span> <span class=kd>func</span><span class=p>(</span><span class=nx>obj</span> <span class=kd>interface</span><span class=p>{})</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=nx>pod</span> <span class=o>:=</span> <span class=nx>obj</span><span class=p>.(</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=nx>klog</span><span class=p>.</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;[%s] Pod added: %s/%s&#34;</span><span class=p>,</span> <span class=o>*</span><span class=nx>schedulerName</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Namespace</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=k>go</span> <span class=nx>sched</span><span class=p>.</span><span class=nf>ScheduleOne</span><span class=p>(</span><span class=nx>pod</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=p>},</span>
+</span></span><span class=line><span class=cl>        <span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 启动 informers
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>stopCh</span> <span class=o>:=</span> <span class=nb>make</span><span class=p>(</span><span class=kd>chan</span> <span class=kd>struct</span><span class=p>{})</span>
+</span></span><span class=line><span class=cl>    <span class=nx>informersFactory</span><span class=p>.</span><span class=nf>Start</span><span class=p>(</span><span class=nx>stopCh</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>informersFactory</span><span class=p>.</span><span class=nf>WaitForCacheSync</span><span class=p>(</span><span class=nx>stopCh</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>klog</span><span class=p>.</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;GPU Scheduler %s is running...&#34;</span><span class=p>,</span> <span class=o>*</span><span class=nx>schedulerName</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=o>&lt;-</span><span class=nx>stopCh</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p><strong>scheduler.go — 调度主流程：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>scheduler</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;context&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;fmt&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>corev1</span> <span class=s>&#34;k8s.io/api/core/v1&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/client-go/kubernetes&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/klog/v2&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>type</span> <span class=nx>Scheduler</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>clientset</span>     <span class=o>*</span><span class=nx>kubernetes</span><span class=p>.</span><span class=nx>Clientset</span>
+</span></span><span class=line><span class=cl>    <span class=nx>schedulerName</span> <span class=kt>string</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>NewScheduler</span><span class=p>(</span><span class=nx>clientset</span> <span class=o>*</span><span class=nx>kubernetes</span><span class=p>.</span><span class=nx>Clientset</span><span class=p>,</span> <span class=nx>name</span> <span class=kt>string</span><span class=p>)</span> <span class=o>*</span><span class=nx>Scheduler</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=o>&amp;</span><span class=nx>Scheduler</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>clientset</span><span class=p>:</span>     <span class=nx>clientset</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>schedulerName</span><span class=p>:</span> <span class=nx>name</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// ScheduleOne 对单个Pod执行完整调度流程
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>ScheduleOne</span><span class=p>(</span><span class=nx>pod</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>ctx</span> <span class=o>:=</span> <span class=nx>context</span><span class=p>.</span><span class=nf>Background</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>klog</span><span class=p>.</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;Scheduling pod %s/%s&#34;</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Namespace</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// Step 1: 获取所有候选节点
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>nodes</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nf>listNodes</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>klog</span><span class=p>.</span><span class=nf>Errorf</span><span class=p>(</span><span class=s>&#34;Failed to list nodes: %v&#34;</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// Step 2: Filter — 过滤不符合条件的节点
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>candidateNodes</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nf>filterNodes</span><span class=p>(</span><span class=nx>pod</span><span class=p>,</span> <span class=nx>nodes</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=nx>candidateNodes</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>klog</span><span class=p>.</span><span class=nf>Warnf</span><span class=p>(</span><span class=s>&#34;No suitable nodes for pod %s/%s&#34;</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Namespace</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// Step 3: Score — 对候选节点打分
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>bestNode</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nf>scoreNodes</span><span class=p>(</span><span class=nx>pod</span><span class=p>,</span> <span class=nx>candidateNodes</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// Step 4: Bind — 绑定到最优节点
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>err</span> <span class=p>=</span> <span class=nx>s</span><span class=p>.</span><span class=nf>bindPod</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>pod</span><span class=p>,</span> <span class=nx>bestNode</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>klog</span><span class=p>.</span><span class=nf>Errorf</span><span class=p>(</span><span class=s>&#34;Failed to bind pod %s/%s to node %s: %v&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=nx>pod</span><span class=p>.</span><span class=nx>Namespace</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>bestNode</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>klog</span><span class=p>.</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;Pod %s/%s scheduled to node %s&#34;</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Namespace</span><span class=p>,</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>bestNode</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>listNodes</span><span class=p>()</span> <span class=p>([]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ... 见下一节 filter.go
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>filterNodes</span><span class=p>(</span><span class=nx>pod</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>,</span> <span class=nx>nodes</span> <span class=p>[]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span> <span class=p>[]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ... 见下一节
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>scoreNodes</span><span class=p>(</span><span class=nx>pod</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>,</span> <span class=nx>nodes</span> <span class=p>[]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ... 见下一节
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>bindPod</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>pod</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>,</span> <span class=nx>node</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// ... 见下一节
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>}</span>
+</span></span></code></pre></div><h3 id=33-filter-阶段--节点过滤逻辑>3.3 Filter 阶段 — 节点过滤逻辑</h3><p>这是调度器的核心决策层。我们的策略是：</p><ul><li>如果 Pod 申请了 GPU（通过 <code>nvidia.com/gpu</code> Resource Request），只调度到有 GPU 标签的节点</li><li>检查节点上 GPU 是否足够</li><li>检查节点是否 Ready</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>scheduler</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;strconv&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>corev1</span> <span class=s>&#34;k8s.io/api/core/v1&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/apimachinery/pkg/api/resource&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>const</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=nx>LabelGPUCount</span>  <span class=p>=</span> <span class=s>&#34;nvidia.com/gpu-count&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>LabelGPUModel</span>  <span class=p>=</span> <span class=s>&#34;nvidia.com/gpu-model&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>ResourceGPU</span>    <span class=p>=</span> <span class=s>&#34;nvidia.com/gpu&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>filterNodes</span><span class=p>(</span><span class=nx>pod</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>,</span> <span class=nx>nodes</span> <span class=p>[]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span> <span class=p>[]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 计算Pod需要的GPU数量
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>requiredGPU</span> <span class=o>:=</span> <span class=nf>getRequiredGPU</span><span class=p>(</span><span class=nx>pod</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>klog</span><span class=p>.</span><span class=nf>V</span><span class=p>(</span><span class=mi>3</span><span class=p>).</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;Pod requires %d GPUs&#34;</span><span class=p>,</span> <span class=nx>requiredGPU</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kd>var</span> <span class=nx>candidates</span> <span class=p>[]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>node</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>nodes</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 检查节点是否 Ready
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>if</span> <span class=p>!</span><span class=nf>isNodeReady</span><span class=p>(</span><span class=nx>node</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>klog</span><span class=p>.</span><span class=nf>V</span><span class=p>(</span><span class=mi>4</span><span class=p>).</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;Node %s is not Ready, skip&#34;</span><span class=p>,</span> <span class=nx>node</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>continue</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// 如果Pod不需要GPU，则不过滤任何节点
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>if</span> <span class=nx>requiredGPU</span> <span class=o>==</span> <span class=mi>0</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>candidates</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>candidates</span><span class=p>,</span> <span class=nx>node</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>continue</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// 检查GPU标签
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>gpuCountStr</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>node</span><span class=p>.</span><span class=nx>Labels</span><span class=p>[</span><span class=nx>LabelGPUCount</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=p>!</span><span class=nx>ok</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>klog</span><span class=p>.</span><span class=nf>V</span><span class=p>(</span><span class=mi>4</span><span class=p>).</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;Node %s has no GPU label, skip&#34;</span><span class=p>,</span> <span class=nx>node</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>continue</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=nx>gpuCount</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>strconv</span><span class=p>.</span><span class=nf>Atoi</span><span class=p>(</span><span class=nx>gpuCountStr</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=o>||</span> <span class=nx>gpuCount</span> <span class=p>&lt;</span> <span class=nx>requiredGPU</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>klog</span><span class=p>.</span><span class=nf>V</span><span class=p>(</span><span class=mi>4</span><span class=p>).</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;Node %s has insufficient GPU (%d &lt; %d), skip&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                <span class=nx>node</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>gpuCount</span><span class=p>,</span> <span class=nx>requiredGPU</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>continue</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// 检查GPU是否被其他Pod占用
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>allocatedGPU</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nf>getAllocatedGPU</span><span class=p>(</span><span class=nx>node</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=nx>availableGPU</span> <span class=o>:=</span> <span class=nx>gpuCount</span> <span class=o>-</span> <span class=nx>allocatedGPU</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>availableGPU</span> <span class=p>&lt;</span> <span class=nx>requiredGPU</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>klog</span><span class=p>.</span><span class=nf>V</span><span class=p>(</span><span class=mi>4</span><span class=p>).</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;Node %s has %d available GPU, need %d, skip&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>                <span class=nx>node</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>availableGPU</span><span class=p>,</span> <span class=nx>requiredGPU</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=k>continue</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=nx>candidates</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>candidates</span><span class=p>,</span> <span class=nx>node</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>candidates</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// getRequiredGPU 从 Pod 的 Resource Requests 中获取 GPU 需求
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=nf>getRequiredGPU</span><span class=p>(</span><span class=nx>pod</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>)</span> <span class=kt>int</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kd>var</span> <span class=nx>gpuQty</span> <span class=nx>resource</span><span class=p>.</span><span class=nx>Quantity</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>container</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Containers</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>q</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>container</span><span class=p>.</span><span class=nx>Resources</span><span class=p>.</span><span class=nx>Requests</span><span class=p>[</span><span class=nx>corev1</span><span class=p>.</span><span class=nf>ResourceName</span><span class=p>(</span><span class=nx>ResourceGPU</span><span class=p>)];</span> <span class=nx>ok</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>gpuQty</span><span class=p>.</span><span class=nf>Add</span><span class=p>(</span><span class=nx>q</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nb>int</span><span class=p>(</span><span class=nx>gpuQty</span><span class=p>.</span><span class=nf>Value</span><span class=p>())</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>getAllocatedGPU</span><span class=p>(</span><span class=nx>node</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span> <span class=kt>int</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 这里需要查询当前节点上已调度的 Pod 数量
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// 简化版：直接读节点的 annotaiton 或通过 clientset 列出所有 Pod
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>pods</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nx>clientset</span><span class=p>.</span><span class=nf>CoreV1</span><span class=p>().</span><span class=nf>Pods</span><span class=p>(</span><span class=s>&#34;&#34;</span><span class=p>).</span><span class=nf>List</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nf>TODO</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>        <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>{</span><span class=nx>FieldSelector</span><span class=p>:</span> <span class=s>&#34;spec.nodeName=&#34;</span><span class=o>+</span><span class=nx>node</span><span class=p>.</span><span class=nx>Name</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=mi>0</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kd>var</span> <span class=nx>allocated</span> <span class=kt>int</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>pod</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>pods</span><span class=p>.</span><span class=nx>Items</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=c1>// 排除已终止的Pod
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>if</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Status</span><span class=p>.</span><span class=nx>Phase</span> <span class=o>==</span> <span class=nx>corev1</span><span class=p>.</span><span class=nx>PodSucceeded</span> <span class=o>||</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Status</span><span class=p>.</span><span class=nx>Phase</span> <span class=o>==</span> <span class=nx>corev1</span><span class=p>.</span><span class=nx>PodFailed</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>continue</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>container</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Spec</span><span class=p>.</span><span class=nx>Containers</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=nx>q</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>container</span><span class=p>.</span><span class=nx>Resources</span><span class=p>.</span><span class=nx>Requests</span><span class=p>[</span><span class=nx>corev1</span><span class=p>.</span><span class=nf>ResourceName</span><span class=p>(</span><span class=nx>ResourceGPU</span><span class=p>)];</span> <span class=nx>ok</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=nx>allocated</span> <span class=o>+=</span> <span class=nb>int</span><span class=p>(</span><span class=nx>q</span><span class=p>.</span><span class=nf>Value</span><span class=p>())</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>allocated</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>isNodeReady</span><span class=p>(</span><span class=nx>node</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span> <span class=kt>bool</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>condition</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>node</span><span class=p>.</span><span class=nx>Status</span><span class=p>.</span><span class=nx>Conditions</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>condition</span><span class=p>.</span><span class=nx>Type</span> <span class=o>==</span> <span class=nx>corev1</span><span class=p>.</span><span class=nx>NodeReady</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span> <span class=nx>condition</span><span class=p>.</span><span class=nx>Status</span> <span class=o>==</span> <span class=nx>corev1</span><span class=p>.</span><span class=nx>ConditionTrue</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=kc>false</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><h3 id=34-score-阶段--节点打分策略>3.4 Score 阶段 — 节点打分策略</h3><p>过滤后的节点可能不止一个，需要打分选出最优节点。我们的打分策略：</p><ul><li><code>nvidia.com/gpu-model</code> 优先：Tesla A100 > A10 > V100 > T4</li><li>资源利用率均衡：优先选择 GPU 空闲率更高的节点（Spread 而非 Bin-packing）</li><li>打分范围：0-100，归一化处理</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>scheduler</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>var</span> <span class=nx>gpuModelPriority</span> <span class=p>=</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=kt>int</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;A100&#34;</span><span class=p>:</span>  <span class=mi>100</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;A10&#34;</span><span class=p>:</span>   <span class=mi>80</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;V100&#34;</span><span class=p>:</span>  <span class=mi>60</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;T4&#34;</span><span class=p>:</span>    <span class=mi>40</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;P100&#34;</span><span class=p>:</span>  <span class=mi>20</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>scoreNodes</span><span class=p>(</span><span class=nx>pod</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>,</span> <span class=nx>nodes</span> <span class=p>[]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kd>type</span> <span class=nx>nodeScore</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>node</span>  <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span>
+</span></span><span class=line><span class=cl>        <span class=nx>score</span> <span class=kt>int64</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>scores</span> <span class=o>:=</span> <span class=nb>make</span><span class=p>([]</span><span class=nx>nodeScore</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=nb>len</span><span class=p>(</span><span class=nx>nodes</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>node</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>nodes</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=kd>var</span> <span class=nx>totalScore</span> <span class=kt>int64</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// 因素1: GPU型号优先级（权重 60%）
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=k>if</span> <span class=nx>model</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>node</span><span class=p>.</span><span class=nx>Labels</span><span class=p>[</span><span class=nx>LabelGPUModel</span><span class=p>];</span> <span class=nx>ok</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>if</span> <span class=nx>priority</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>gpuModelPriority</span><span class=p>[</span><span class=nx>model</span><span class=p>];</span> <span class=nx>ok</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=nx>totalScore</span> <span class=o>+=</span> <span class=nb>int64</span><span class=p>(</span><span class=nx>priority</span> <span class=o>*</span> <span class=mi>60</span> <span class=o>/</span> <span class=mi>100</span> <span class=o>*</span> <span class=mi>100</span><span class=p>)</span> <span class=c1>// 归一化
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=c1>// 因素2: GPU可用率（权重 40%）
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=c1>// 可用率 = (总GPU - 已占用GPU) / 总GPU
+</span></span></span><span class=line><span class=cl><span class=c1></span>        <span class=nx>gpuCountStr</span> <span class=o>:=</span> <span class=nx>node</span><span class=p>.</span><span class=nx>Labels</span><span class=p>[</span><span class=nx>LabelGPUCount</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>        <span class=nx>gpuCount</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>strconv</span><span class=p>.</span><span class=nf>Atoi</span><span class=p>(</span><span class=nx>gpuCountStr</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=nx>allocated</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nf>getAllocatedGPU</span><span class=p>(</span><span class=nx>node</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>gpuCount</span> <span class=p>&gt;</span> <span class=mi>0</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>utilization</span> <span class=o>:=</span> <span class=nb>float64</span><span class=p>(</span><span class=nx>gpuCount</span><span class=o>-</span><span class=nx>allocated</span><span class=p>)</span> <span class=o>/</span> <span class=nb>float64</span><span class=p>(</span><span class=nx>gpuCount</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=nx>totalScore</span> <span class=o>+=</span> <span class=nb>int64</span><span class=p>(</span><span class=nb>float64</span><span class=p>(</span><span class=mi>100</span><span class=p>)</span> <span class=o>*</span> <span class=nx>utilization</span> <span class=o>*</span> <span class=mf>0.4</span> <span class=o>*</span> <span class=mi>100</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>        <span class=nx>scores</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>scores</span><span class=p>,</span> <span class=nx>nodeScore</span><span class=p>{</span><span class=nx>node</span><span class=p>:</span> <span class=nx>node</span><span class=p>,</span> <span class=nx>score</span><span class=p>:</span> <span class=nx>totalScore</span><span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=c1>// 选出最高分节点
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=kd>var</span> <span class=nx>best</span> <span class=nx>nodeScore</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>ns</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>scores</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>ns</span><span class=p>.</span><span class=nx>score</span> <span class=p>&gt;</span> <span class=nx>best</span><span class=p>.</span><span class=nx>score</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>best</span> <span class=p>=</span> <span class=nx>ns</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>klog</span><span class=p>.</span><span class=nf>V</span><span class=p>(</span><span class=mi>2</span><span class=p>).</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;Selected node %s with score %d (candidates: %d)&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>best</span><span class=p>.</span><span class=nx>node</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span> <span class=nx>best</span><span class=p>.</span><span class=nx>score</span><span class=p>,</span> <span class=nb>len</span><span class=p>(</span><span class=nx>scores</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>best</span><span class=p>.</span><span class=nx>node</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><h3 id=35-bind-阶段--绑定-pod-到节点>3.5 Bind 阶段 — 绑定 Pod 到节点</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>package</span> <span class=nx>scheduler</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;context&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>corev1</span> <span class=s>&#34;k8s.io/api/core/v1&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=nx>metav1</span> <span class=s>&#34;k8s.io/apimachinery/pkg/apis/meta/v1&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/apimachinery/pkg/types&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>bindPod</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>pod</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>,</span> <span class=nx>node</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span> <span class=kt>error</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 通过 Patch 更新 Pod 的 nodeName 字段
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>binding</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Binding</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>ObjectMeta</span><span class=p>:</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ObjectMeta</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>Name</span><span class=p>:</span>      <span class=nx>pod</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=nx>Namespace</span><span class=p>:</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Namespace</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=nx>UID</span><span class=p>:</span>       <span class=nx>pod</span><span class=p>.</span><span class=nx>UID</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=p>},</span>
+</span></span><span class=line><span class=cl>        <span class=nx>Target</span><span class=p>:</span> <span class=nx>corev1</span><span class=p>.</span><span class=nx>ObjectReference</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>Kind</span><span class=p>:</span> <span class=s>&#34;Node&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=nx>Name</span><span class=p>:</span> <span class=nx>node</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>s</span><span class=p>.</span><span class=nx>clientset</span><span class=p>.</span><span class=nf>CoreV1</span><span class=p>().</span><span class=nf>Pods</span><span class=p>(</span><span class=nx>pod</span><span class=p>.</span><span class=nx>Namespace</span><span class=p>).</span><span class=nf>Bind</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>binding</span><span class=p>,</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>CreateOptions</span><span class=p>{})</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><h3 id=36-部署自定义调度器>3.6 部署自定义调度器</h3><p>将调度器打包成 Deployment，与 kube-scheduler <strong>共存</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># gpu-scheduler.yaml</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>apps/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Deployment</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>kube-system</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>replicas</span><span class=p>:</span><span class=w> </span><span class=m>1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>selector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>template</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>serviceAccountName</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>your-registry/gpu-scheduler:v1.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>args</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- --<span class=l>kubeconfig=/etc/kubernetes/kubeconfig</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- --<span class=l>scheduler-name=gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>kubeconfig</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/etc/kubernetes</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>readOnly</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;100m&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;256Mi&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>cpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;500m&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span><span class=nt>memory</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;512Mi&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>volumes</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>kubeconfig</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>hostPath</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>            </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=l>/etc/kubernetes/admin.conf</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ServiceAccount</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>kube-system</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>rbac.authorization.k8s.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ClusterRole</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>rules</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>apiGroups</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>resources</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;pods&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;nodes&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>verbs</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;get&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;list&#34;</span><span class=p>,</span><span class=w> </span><span class=s2>&#34;watch&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>apiGroups</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>resources</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;pods/binding&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>verbs</span><span class=p>:</span><span class=w> </span><span class=p>[</span><span class=s2>&#34;create&#34;</span><span class=p>]</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nn>---</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>rbac.authorization.k8s.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ClusterRoleBinding</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>roleRef</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>apiGroup</span><span class=p>:</span><span class=w> </span><span class=l>rbac.authorization.k8s.io</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ClusterRole</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>subjects</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ServiceAccount</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>namespace</span><span class=p>:</span><span class=w> </span><span class=l>kube-system</span><span class=w>
+</span></span></span></code></pre></div><h3 id=37-让-pod-使用自定义调度器>3.7 让 Pod 使用自定义调度器</h3><p>在 Pod 的 <code>spec.schedulerName</code> 中指定：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>Pod</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>training-job</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>schedulerName</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler   </span><span class=w> </span><span class=c># ← 指定使用自定义调度器</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>trainer</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>pytorch-training:v1.0</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>resources</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>requests</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>nvidia.com/gpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;2&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>limits</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>nvidia.com/gpu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;2&#34;</span><span class=w>
+</span></span></span></code></pre></div><h2 id=四生产级改造从-demo-到企业级调度器>四、生产级改造：从 Demo 到企业级调度器</h2><p>上面的 Demo 调度器能跑，但离生产级还有距离。以下是关键改造点：</p><h3 id=41-调度队列与失败重试>4.1 调度队列与失败重试</h3><p>Demo 中 Pod Add 时直接调度，如果彼时没有合适节点，Pod 就被错过了。</p><p>生产级调度器需要维护自己的<strong>调度队列</strong>，并定期重试 Pending 的 Pod：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>SchedulingQueue</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>lock</span>    <span class=nx>sync</span><span class=p>.</span><span class=nx>Mutex</span>
+</span></span><span class=line><span class=cl>    <span class=nx>pending</span> <span class=p>[]</span><span class=o>*</span><span class=nx>v1</span><span class=p>.</span><span class=nx>Pod</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>q</span> <span class=o>*</span><span class=nx>SchedulingQueue</span><span class=p>)</span> <span class=nf>Add</span><span class=p>(</span><span class=nx>pod</span> <span class=o>*</span><span class=nx>v1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>q</span><span class=p>.</span><span class=nx>lock</span><span class=p>.</span><span class=nf>Lock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=k>defer</span> <span class=nx>q</span><span class=p>.</span><span class=nx>lock</span><span class=p>.</span><span class=nf>Unlock</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 避免重复入队
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>p</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>q</span><span class=p>.</span><span class=nx>pending</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>p</span><span class=p>.</span><span class=nx>UID</span> <span class=o>==</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>UID</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=nx>q</span><span class=p>.</span><span class=nx>pending</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>q</span><span class=p>.</span><span class=nx>pending</span><span class=p>,</span> <span class=nx>pod</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1>// 定期重试调度
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>runSchedulingLoop</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>ticker</span> <span class=o>:=</span> <span class=nx>time</span><span class=p>.</span><span class=nf>NewTicker</span><span class=p>(</span><span class=mi>30</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>defer</span> <span class=nx>ticker</span><span class=p>.</span><span class=nf>Stop</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>select</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=o>&lt;-</span><span class=nx>ctx</span><span class=p>.</span><span class=nf>Done</span><span class=p>():</span>
+</span></span><span class=line><span class=cl>            <span class=k>return</span>
+</span></span><span class=line><span class=cl>        <span class=k>case</span> <span class=o>&lt;-</span><span class=nx>ticker</span><span class=p>.</span><span class=nx>C</span><span class=p>:</span>
+</span></span><span class=line><span class=cl>            <span class=c1>// 扫描所有Pending状态的Pod，重新调度
+</span></span></span><span class=line><span class=cl><span class=c1></span>            <span class=nx>pods</span><span class=p>,</span> <span class=nx>_</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nx>clientset</span><span class=p>.</span><span class=nf>CoreV1</span><span class=p>().</span><span class=nf>Pods</span><span class=p>(</span><span class=s>&#34;&#34;</span><span class=p>).</span><span class=nf>List</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ListOptions</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=nx>FieldSelector</span><span class=p>:</span> <span class=s>&#34;spec.schedulerName=&#34;</span> <span class=o>+</span> <span class=nx>s</span><span class=p>.</span><span class=nx>schedulerName</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=p>})</span>
+</span></span><span class=line><span class=cl>            <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>pod</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>pods</span><span class=p>.</span><span class=nx>Items</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=k>if</span> <span class=nx>pod</span><span class=p>.</span><span class=nx>Status</span><span class=p>.</span><span class=nx>Phase</span> <span class=o>==</span> <span class=nx>v1</span><span class=p>.</span><span class=nx>PodPending</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                    <span class=k>go</span> <span class=nx>s</span><span class=p>.</span><span class=nf>ScheduleOne</span><span class=p>(</span><span class=o>&amp;</span><span class=nx>pod</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=p>}</span>
+</span></span><span class=line><span class=cl>            <span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><h3 id=42-调度器高可用主备切换>4.2 调度器高可用：主备切换</h3><p>独立调度器的风险是单点故障。生产环境需要多副本 + leader election：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>import</span> <span class=p>(</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/client-go/tools/leaderelection&#34;</span>
+</span></span><span class=line><span class=cl>    <span class=s>&#34;k8s.io/client-go/tools/leaderelection/resourcelock&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=nf>runWithLeaderElection</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>,</span> <span class=nx>runFunc</span> <span class=kd>func</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>))</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>lock</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>resourcelock</span><span class=p>.</span><span class=nx>ConfigMapLock</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>ConfigMapMeta</span><span class=p>:</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>ObjectMeta</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>Name</span><span class=p>:</span>      <span class=s>&#34;gpu-scheduler-leader&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>            <span class=nx>Namespace</span><span class=p>:</span> <span class=s>&#34;kube-system&#34;</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=p>},</span>
+</span></span><span class=line><span class=cl>        <span class=nx>ClientConfig</span><span class=p>:</span> <span class=nx>clientset</span><span class=p>.</span><span class=nf>CoreV1</span><span class=p>().</span><span class=nf>RESTClient</span><span class=p>(),</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>leaderelection</span><span class=p>.</span><span class=nf>RunOrDie</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>leaderelection</span><span class=p>.</span><span class=nx>LeaderElectionConfig</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>Lock</span><span class=p>:</span>            <span class=nx>lock</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>LeaseDuration</span><span class=p>:</span>   <span class=mi>15</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>RenewDeadline</span><span class=p>:</span>   <span class=mi>10</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>RetryPeriod</span><span class=p>:</span>     <span class=mi>5</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>ReleaseOnCancel</span><span class=p>:</span> <span class=kc>true</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>LeaderElect</span><span class=p>:</span>     <span class=kc>true</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>        <span class=nx>LeaderElectionCallbacks</span><span class=p>:</span> <span class=nx>leaderelection</span><span class=p>.</span><span class=nx>LeaderCallbacks</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>OnStartedLeading</span><span class=p>:</span> <span class=kd>func</span><span class=p>(</span><span class=nx>ctx</span> <span class=nx>context</span><span class=p>.</span><span class=nx>Context</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=nx>klog</span><span class=p>.</span><span class=nf>Info</span><span class=p>(</span><span class=s>&#34;Won leadership, starting scheduler&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>                <span class=nf>runFunc</span><span class=p>(</span><span class=nx>ctx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=p>},</span>
+</span></span><span class=line><span class=cl>            <span class=nx>OnStoppedLeading</span><span class=p>:</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>                <span class=nx>klog</span><span class=p>.</span><span class=nf>Info</span><span class=p>(</span><span class=s>&#34;Lost leadership, stopping scheduler&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=p>},</span>
+</span></span><span class=line><span class=cl>        <span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=p>})</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><h3 id=43-与默认调度器混合调度>4.3 与默认调度器混合调度</h3><p>生产中往往需要两个调度器共存——默认调度器处理普通服务，自定义调度器处理特殊任务。</p><p>配置多个调度器有两种推荐方式：</p><p><strong>方式一：Pod 级指定（推荐）：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 普通服务 → 默认调度器（不需要指定，默认就是 default-scheduler）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>web</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>nginx:1.25</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># AI训练任务 → GPU调度器</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>schedulerName</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>containers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>trainer</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>image</span><span class=p>:</span><span class=w> </span><span class=l>pytorch:v2.0</span><span class=w>
+</span></span></span></code></pre></div><p><strong>方式二：Node 亲和性配合：</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># 为有GPU的节点打上标签</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=l>kubectl label node node-gpu-1 nvidia.com/gpu-model=A100</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=l>kubectl label node node-gpu-1 gpu-capable=true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=c># 通过节点亲和性，让特定Pod只调度到GPU节点</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>affinity</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>nodeAffinity</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>requiredDuringSchedulingIgnoredDuringExecution</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>nodeSelectorTerms</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span>- <span class=nt>matchExpressions</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>              </span>- <span class=nt>key</span><span class=p>:</span><span class=w> </span><span class=l>gpu-capable</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>                </span><span class=nt>operator</span><span class=p>:</span><span class=w> </span><span class=l>Exists</span><span class=w>
+</span></span></span></code></pre></div><h3 id=44-调度策略热更新>4.4 调度策略热更新</h3><p>生产环境调度策略可能需要频繁调整（比如促销期间临时提升批处理任务优先级），不想每次改代码都要重新部署镜像。</p><p>解决方案：<strong>将调度策略写入 ConfigMap，通过文件挂载或 API 动态加载</strong>：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>SchedulerConfig</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>GPUModelPriority</span> <span class=kd>map</span><span class=p>[</span><span class=kt>string</span><span class=p>]</span><span class=kt>int</span> <span class=s>`json:&#34;gpuModelPriority&#34;`</span>
+</span></span><span class=line><span class=cl>    <span class=nx>GPUWeight</span>        <span class=kt>float64</span>        <span class=s>`json:&#34;gpuWeight&#34;`</span>
+</span></span><span class=line><span class=cl>    <span class=nx>AvailableWeight</span>  <span class=kt>float64</span>        <span class=s>`json:&#34;availableWeight&#34;`</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>loadConfig</span><span class=p>(</span><span class=nx>path</span> <span class=kt>string</span><span class=p>)</span> <span class=p>(</span><span class=o>*</span><span class=nx>SchedulerConfig</span><span class=p>,</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>data</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>os</span><span class=p>.</span><span class=nf>ReadFile</span><span class=p>(</span><span class=nx>path</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=kd>var</span> <span class=nx>cfg</span> <span class=nx>SchedulerConfig</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>json</span><span class=p>.</span><span class=nf>Unmarshal</span><span class=p>(</span><span class=nx>data</span><span class=p>,</span> <span class=o>&amp;</span><span class=nx>cfg</span><span class=p>);</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>nil</span><span class=p>,</span> <span class=nx>err</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=o>&amp;</span><span class=nx>cfg</span><span class=p>,</span> <span class=kc>nil</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p>通过 Kubernetes ConfigMap 挂载：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>volumeMounts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>scheduler-config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>mountPath</span><span class=p>:</span><span class=w> </span><span class=l>/etc/scheduler/config.json</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>readOnly</span><span class=p>:</span><span class=w> </span><span class=kc>true</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>volumes</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>scheduler-config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>configMap</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>gpu-scheduler-config</span><span class=w>
+</span></span></span></code></pre></div><p>修改 ConfigMap 后，调度器 reload 配置即可生效，无需重启 Pod。</p><h2 id=五性能优化万节点集群的调度实践>五、性能优化：万节点集群的调度实践</h2><p>当集群规模超过 1000 个节点时，调度器的性能会成为瓶颈。以下是经过验证的优化手段：</p><h3 id=51-node-缓存层>5.1 Node 缓存层</h3><p>不要每次调度都调用 API Server 列举节点，用 Informer + Local Cache：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=c1>// 启动时一次性加载所有节点到本地缓存
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nx>nodeInformer</span><span class=p>.</span><span class=nf>Informer</span><span class=p>().</span><span class=nf>AddEventHandler</span><span class=p>(</span><span class=nx>cache</span><span class=p>.</span><span class=nx>ResourceEventHandlerFuncs</span><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>AddFunc</span><span class=p>:</span>    <span class=kd>func</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span> <span class=p>{</span> <span class=nx>s</span><span class=p>.</span><span class=nx>nodeCache</span><span class=p>.</span><span class=nf>Add</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=nx>UpdateFunc</span><span class=p>:</span> <span class=kd>func</span><span class=p>(</span><span class=nx>old</span><span class=p>,</span> <span class=nx>new</span><span class=p>)</span> <span class=p>{</span> <span class=nx>s</span><span class=p>.</span><span class=nx>nodeCache</span><span class=p>.</span><span class=nf>Add</span><span class=p>(</span><span class=nx>new</span><span class=p>)</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl>    <span class=nx>DeleteFunc</span><span class=p>:</span> <span class=kd>func</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span> <span class=p>{</span> <span class=nx>s</span><span class=p>.</span><span class=nx>nodeCache</span><span class=p>.</span><span class=nf>Delete</span><span class=p>(</span><span class=nx>obj</span><span class=p>)</span> <span class=p>},</span>
+</span></span><span class=line><span class=cl><span class=p>})</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>listNodes</span><span class=p>()</span> <span class=p>[]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>s</span><span class=p>.</span><span class=nx>nodeCache</span><span class=p>.</span><span class=nf>Range</span><span class=p>(</span><span class=kd>func</span><span class=p>(</span><span class=nx>key</span><span class=p>,</span> <span class=nx>value</span> <span class=kd>interface</span><span class=p>{})</span> <span class=kt>bool</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>nodes</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>nodes</span><span class=p>,</span> <span class=nx>value</span><span class=p>.(</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>true</span>
+</span></span><span class=line><span class=cl>    <span class=p>})</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>nodes</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><h3 id=52-并行化-filter-和-score>5.2 并行化 Filter 和 Score</h3><p>多个节点之间没有依赖关系，完全可以并行打分：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kn>import</span> <span class=s>&#34;sync&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>scoreNodesParallel</span><span class=p>(</span><span class=nx>pod</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>,</span> <span class=nx>nodes</span> <span class=p>[]</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kd>type</span> <span class=nx>result</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>node</span>  <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span>
+</span></span><span class=line><span class=cl>        <span class=nx>score</span> <span class=kt>int64</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=nx>results</span> <span class=o>:=</span> <span class=nb>make</span><span class=p>(</span><span class=kd>chan</span> <span class=nx>result</span><span class=p>,</span> <span class=nb>len</span><span class=p>(</span><span class=nx>nodes</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>    <span class=kd>var</span> <span class=nx>wg</span> <span class=nx>sync</span><span class=p>.</span><span class=nx>WaitGroup</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>n</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>nodes</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>wg</span><span class=p>.</span><span class=nf>Add</span><span class=p>(</span><span class=mi>1</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>go</span> <span class=kd>func</span><span class=p>(</span><span class=nx>node</span> <span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=k>defer</span> <span class=nx>wg</span><span class=p>.</span><span class=nf>Done</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>            <span class=nx>score</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nf>calculateScore</span><span class=p>(</span><span class=nx>pod</span><span class=p>,</span> <span class=nx>node</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>            <span class=nx>results</span> <span class=o>&lt;-</span> <span class=nx>result</span><span class=p>{</span><span class=nx>node</span><span class=p>,</span> <span class=nx>score</span><span class=p>}</span>
+</span></span><span class=line><span class=cl>        <span class=p>}(</span><span class=nx>n</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=k>go</span> <span class=kd>func</span><span class=p>()</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=nx>wg</span><span class=p>.</span><span class=nf>Wait</span><span class=p>()</span>
+</span></span><span class=line><span class=cl>        <span class=nb>close</span><span class=p>(</span><span class=nx>results</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=p>}()</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>    <span class=kd>var</span> <span class=nx>best</span> <span class=nx>result</span>
+</span></span><span class=line><span class=cl>    <span class=k>for</span> <span class=nx>r</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>results</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>if</span> <span class=nx>r</span><span class=p>.</span><span class=nx>score</span> <span class=p>&gt;</span> <span class=nx>best</span><span class=p>.</span><span class=nx>score</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>            <span class=nx>best</span> <span class=p>=</span> <span class=nx>r</span>
+</span></span><span class=line><span class=cl>        <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>best</span><span class=p>.</span><span class=nx>node</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><h3 id=53-调度队列优先级>5.3 调度队列优先级</h3><p>用 Go 的 <code>container/heap</code> 实现优先级队列，让紧急任务优先调度：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>type</span> <span class=nx>PriorityQueue</span> <span class=kd>struct</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>items</span>    <span class=p>[]</span><span class=o>*</span><span class=nx>v1</span><span class=p>.</span><span class=nx>Pod</span>
+</span></span><span class=line><span class=cl>    <span class=nx>priority</span> <span class=kd>func</span><span class=p>(</span><span class=o>*</span><span class=nx>v1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>)</span> <span class=kt>int</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>pq</span> <span class=o>*</span><span class=nx>PriorityQueue</span><span class=p>)</span> <span class=nf>Push</span><span class=p>(</span><span class=nx>pod</span> <span class=o>*</span><span class=nx>v1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>)</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>heap</span><span class=p>.</span><span class=nf>Push</span><span class=p>(</span><span class=nx>pq</span><span class=p>,</span> <span class=nx>pod</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>pq</span> <span class=o>*</span><span class=nx>PriorityQueue</span><span class=p>)</span> <span class=nf>Pop</span><span class=p>()</span> <span class=o>*</span><span class=nx>v1</span><span class=p>.</span><span class=nx>Pod</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>heap</span><span class=p>.</span><span class=nf>Pop</span><span class=p>(</span><span class=nx>pq</span><span class=p>).(</span><span class=o>*</span><span class=nx>v1</span><span class=p>.</span><span class=nx>Pod</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><h2 id=六实战案例gpu-集群调度踩坑记>六、实战案例：GPU 集群调度踩坑记</h2><p>分享几个实际落地过程中遇到的典型问题：</p><p><strong>问题一：Pod 调度成功后 GPU 不可用</strong></p><p>Root Cause：节点上 GPU 被其他进程（nvidia-container-runtime 外的进程）占用，但 Kubernetes 不知道。</p><p>Solution：引入 DCGM（Data Center GPU Manager）监控，在 Filter 阶段主动探测 GPU 健康状态：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=kd>func</span> <span class=p>(</span><span class=nx>s</span> <span class=o>*</span><span class=nx>Scheduler</span><span class=p>)</span> <span class=nf>checkGPUHealth</span><span class=p>(</span><span class=nx>nodeName</span> <span class=kt>string</span><span class=p>)</span> <span class=kt>bool</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=c1>// 通过节点 Annotations 获取 GPU 健康状态
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=c1>// DCGM Exporter 会定期更新节点 annotations
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=nx>node</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>s</span><span class=p>.</span><span class=nx>clientset</span><span class=p>.</span><span class=nf>CoreV1</span><span class=p>().</span><span class=nf>Nodes</span><span class=p>().</span><span class=nf>Get</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>nodeName</span><span class=p>,</span> <span class=nx>metav1</span><span class=p>.</span><span class=nx>GetOptions</span><span class=p>{})</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=kc>false</span>
+</span></span><span class=line><span class=cl>    <span class=p>}</span>
+</span></span><span class=line><span class=cl>    <span class=nx>health</span><span class=p>,</span> <span class=nx>ok</span> <span class=o>:=</span> <span class=nx>node</span><span class=p>.</span><span class=nx>Annotations</span><span class=p>[</span><span class=s>&#34;nvidia.com/gpu.health&#34;</span><span class=p>]</span>
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=nx>ok</span> <span class=o>&amp;&amp;</span> <span class=nx>health</span> <span class=o>==</span> <span class=s>&#34;healthy&#34;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p><strong>问题二：调度器更新导致 Pod 漂移</strong></p><p>某次调度器配置更新后，所有已在 GPU 节点上运行的 Pod 被认为"调度到了错误节点"，需要重建。</p><p>Solution：调度器的 Filter 阶段只影响新调度请求，<strong>不要</strong>在 Filter 中包含已运行 Pod 的重新决策。如果需要迁移，用 Descheduler（反调度器）单独处理，不要让调度器主动驱逐。</p><p><strong>问题三：节点标签变更后调度不生效</strong></p><p>Node 的 GPU 标签变了，但调度器缓存的还是旧值。</p><p>Solution：Informer 的 Update 事件要完整刷新 Node 缓存，而不是增量合并：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=line><span class=cl><span class=nx>UpdateFunc</span><span class=p>:</span> <span class=kd>func</span><span class=p>(</span><span class=nx>old</span><span class=p>,</span> <span class=nx>new</span> <span class=kd>interface</span><span class=p>{})</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=nx>node</span> <span class=o>:=</span> <span class=nx>new</span><span class=p>.(</span><span class=o>*</span><span class=nx>corev1</span><span class=p>.</span><span class=nx>Node</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>klog</span><span class=p>.</span><span class=nf>Infof</span><span class=p>(</span><span class=s>&#34;Node %s updated, refreshing cache&#34;</span><span class=p>,</span> <span class=nx>node</span><span class=p>.</span><span class=nx>Name</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>    <span class=nx>s</span><span class=p>.</span><span class=nx>nodeCache</span><span class=p>.</span><span class=nf>Add</span><span class=p>(</span><span class=nx>new</span><span class=p>)</span>  <span class=c1>// 直接覆盖
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=p>},</span>
+</span></span></code></pre></div><h2 id=七总结与后续方向>七、总结与后续方向</h2><p>本文从零构建了一个自定义 GPU 调度器，覆盖了：</p><ol><li><strong>何时需要自定义调度器</strong> — 异构资源、业务感知、多租户等场景</li><li><strong>Scheduler Framework vs 独立调度器</strong> — 两种扩展方式的对比</li><li><strong>完整调度器实现</strong> — Filter → Score → Bind 三大阶段</li><li><strong>部署与使用</strong> — 多调度器共存、Pod 级指定</li><li><strong>生产级改造</strong> — 队列管理、高可用、热更新、性能优化</li><li><strong>踩坑案例</strong> — GPU 健康探测、Pod 漂移、缓存失效</li></ol><p><strong>后续演进方向：</strong></p><ul><li><strong>Scheduler Framework 插件化</strong>：将上述逻辑编译为 Kube Scheduler 插件，直接注入默认调度器，享受原生调度器的高可用能力</li><li><strong>调度可视化</strong>：接入 Prometheus + Grafana，监控调度延迟、成功率、资源分配率</li><li><strong>成本优化</strong>：结合云厂商 Spot 实例，在调度策略中加入成本权重</li></ul><p>调度器是 Kubernetes 扩展性最强的组件之一。希望本文帮你打通了从原理到实战的全链路，有任何问题欢迎留言交流。</p><hr><p><strong>推荐阅读：</strong></p><ul><li><a href=/posts/kubernetes-scheduler-principles/>Kubernetes调度器核心原理：Pod是如何被安排到节点的</a> — 调度器内部工作流程详解</li><li><a href=/posts/kubernetes-interview-one/>Kubernetes与云原生面试八股文（一）——Kubernetes架构核心与集群管理</a> — K8s 基础知识体系</li><li><a href=/posts/kubernetes-interview-eight/>Kubernetes与云原生面试八股文（八）——生产级高可用与灾备</a> — 集群高可用设计</li></ul><hr></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%E5%AE%9E%E6%88%98%E4%BB%8Ecpu%E9%A3%99%E9%AB%98%E5%88%B0%E7%B3%BB%E7%BB%9F%E5%8D%A1%E9%A1%BF%E7%9A%84%E5%85%A8%E9%93%BE%E8%B7%AF%E6%8E%92%E6%9F%A5/><span>← 上一篇</span><strong>操作系统性能调优实战：从CPU飙高到系统卡顿的全链路排查</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/kubernetes%E8%B0%83%E5%BA%A6%E5%99%A8%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86pod%E6%98%AF%E5%A6%82%E4%BD%95%E8%A2%AB%E5%AE%89%E6%8E%92%E5%88%B0%E8%8A%82%E7%82%B9%E7%9A%84/><span>2026-08-18</span><strong>Kubernetes调度器核心原理：Pod是如何被安排到节点的</strong><p>Pod是怎么被调度到合适的节点的？Kubernetes调度器的工作原理是什么？为什么你的Pod一直处于Pending状态？为什么两个Pod被调度到了同一个节点？调度器是如何在数千个 …</p></a></div></section><section class=article-interaction data-content-key=8a42c3f37c3e21f06acd472320ef7960 aria-label=文章互动><div class=article-interaction-copy><strong>参与完善这篇内容</strong><p>登录后可以收藏、评论，或反馈文章中的错误。</p></div><div class=article-interaction-actions><button type=button data-interaction-action=favorite disabled>收藏</button>
+<button type=button data-interaction-action=comment disabled>评论</button>
+<button type=button data-interaction-action=feedback disabled>反馈错误</button></div><p class=article-interaction-status data-interaction-status>互动服务准备中。</p><div class=article-interaction-comments data-interaction-comments aria-live=polite></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9AKubernetes%E8%87%AA%E5%AE%9A%E4%B9%89%E8%B0%83%E5%BA%A6%E5%99%A8%E5%AE%9E%E6%88%98%EF%BC%9A%E4%BB%8E%E6%A1%86%E6%9E%B6%E6%89%A9%E5%B1%95%E5%88%B0%E7%94%9F%E4%BA%A7%E8%90%BD%E5%9C%B0" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一什么时候需要自定义调度器>一、什么时候需要自定义调度器</a></li><li><a href=#二调度框架scheduler-framework概览>二、调度框架（Scheduler Framework）概览</a></li><li><a href=#三从零写一个独立自定义调度器>三、从零写一个独立自定义调度器</a><ul><li><a href=#31-架构设计>3.1 架构设计</a></li><li><a href=#32-核心代码实现>3.2 核心代码实现</a></li><li><a href=#33-filter-阶段--节点过滤逻辑>3.3 Filter 阶段 — 节点过滤逻辑</a></li><li><a href=#34-score-阶段--节点打分策略>3.4 Score 阶段 — 节点打分策略</a></li><li><a href=#35-bind-阶段--绑定-pod-到节点>3.5 Bind 阶段 — 绑定 Pod 到节点</a></li><li><a href=#36-部署自定义调度器>3.6 部署自定义调度器</a></li><li><a href=#37-让-pod-使用自定义调度器>3.7 让 Pod 使用自定义调度器</a></li></ul></li><li><a href=#四生产级改造从-demo-到企业级调度器>四、生产级改造：从 Demo 到企业级调度器</a><ul><li><a href=#41-调度队列与失败重试>4.1 调度队列与失败重试</a></li><li><a href=#42-调度器高可用主备切换>4.2 调度器高可用：主备切换</a></li><li><a href=#43-与默认调度器混合调度>4.3 与默认调度器混合调度</a></li><li><a href=#44-调度策略热更新>4.4 调度策略热更新</a></li></ul></li><li><a href=#五性能优化万节点集群的调度实践>五、性能优化：万节点集群的调度实践</a><ul><li><a href=#51-node-缓存层>5.1 Node 缓存层</a></li><li><a href=#52-并行化-filter-和-score>5.2 并行化 Filter 和 Score</a></li><li><a href=#53-调度队列优先级>5.3 调度队列优先级</a></li></ul></li><li><a href=#六实战案例gpu-集群调度踩坑记>六、实战案例：GPU 集群调度踩坑记</a></li><li><a href=#七总结与后续方向>七、总结与后续方向</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
+<a href=mailto:liyafei.work@foxmail.com>邮箱</a>
+<a href=/index.xml>RSS</a>
+<a class=private-tool-link href=/wealth/ title=加密私有工具>财富系统 <span aria-hidden=true>↗</span></a></div><p class=copyright>© 2026 李亚飞</p></footer><div class=sr-only id=live-region aria-live=polite></div><script src=/js/site.js defer></script></body></html>
