@@ -1,0 +1,335 @@
+<!doctype html><html lang=zh-CN><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Cilium与eBPF深度解析：Kubernetes下一代网络的弯道超车实战｜Raphael Lab</title><meta name=description content="为什么Flannel越来越不够用？Calico的网络策略好但性能差？本文从生产痛点出发，深入讲解eBPF如何绕过iptables实现内核级网络直通，Cilium如何将eBPF带入K8s网络，以及在HPC、金融量化、超低延迟等场景下的真实收益。一次讲清楚Cilium架构、部署、策略配置与生产避坑，让你的K8s网络从「能用」升级到「高性能」。"><meta name=author content="李亚飞"><meta name=referrer content="strict-origin-when-cross-origin"><meta http-equiv=content-security-policy content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"><meta name=robots content="index,follow,max-image-preview:large"><link rel=canonical href=https://raphaell2e.github.io/posts/cilium%E4%B8%8Eebpf%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90kubernetes%E4%B8%8B%E4%B8%80%E4%BB%A3%E7%BD%91%E7%BB%9C%E7%9A%84%E5%BC%AF%E9%81%93%E8%B6%85%E8%BD%A6%E5%AE%9E%E6%88%98/><link rel=alternate type=application/rss+xml title="Raphael Lab RSS" href=https://raphaell2e.github.io/index.xml><link rel=icon href=/favicon.svg type=image/svg+xml><link rel=stylesheet href=/css/site.css><meta property="og:locale" content="zh_CN"><meta property="og:site_name" content="Raphael Lab"><meta property="og:title" content="Cilium与eBPF深度解析：Kubernetes下一代网络的弯道超车实战｜Raphael Lab"><meta property="og:description" content="为什么Flannel越来越不够用？Calico的网络策略好但性能差？本文从生产痛点出发，深入讲解eBPF如何绕过iptables实现内核级网络直通，Cilium如何将eBPF带入K8s网络，以及在HPC、金融量化、超低延迟等场景下的真实收益。一次讲清楚Cilium架构、部署、策略配置与生产避坑，让你的K8s网络从「能用」升级到「高性能」。"><meta property="og:url" content="https://raphaell2e.github.io/posts/cilium%E4%B8%8Eebpf%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90kubernetes%E4%B8%8B%E4%B8%80%E4%BB%A3%E7%BD%91%E7%BB%9C%E7%9A%84%E5%BC%AF%E9%81%93%E8%B6%85%E8%BD%A6%E5%AE%9E%E6%88%98/"><meta property="og:image" content="https://raphaell2e.github.io/images/og-default.png"><meta property="og:type" content="article"><meta name=twitter:card content="summary_large_image"><meta name=twitter:title content="Cilium与eBPF深度解析：Kubernetes下一代网络的弯道超车实战｜Raphael Lab"><meta name=twitter:description content="为什么Flannel越来越不够用？Calico的网络策略好但性能差？本文从生产痛点出发，深入讲解eBPF如何绕过iptables实现内核级网络直通，Cilium如何将eBPF带入K8s网络，以及在HPC、金融量化、超低延迟等场景下的真实收益。一次讲清楚Cilium架构、部署、策略配置与生产避坑，让你的K8s网络从「能用」升级到「高性能」。"><meta name=twitter:image content="https://raphaell2e.github.io/images/og-default.png"><meta property="article:published_time" content="2026-08-23T10:00:00+08:00"><meta property="article:modified_time" content="2026-08-23T10:00:00+08:00"><script type=application/ld+json>{"@context":"https://schema.org","@graph":[{"@type":"WebSite","alternateName":"飞哥 AI 实验室","description":"记录后端工程、分布式系统与 AI 工程化的真实实践。","inLanguage":"zh-CN","name":"Raphael Lab｜飞哥 AI 实验室","publisher":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"url":"https://raphaell2e.github.io/"},{"@type":"TechArticle","author":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"dateModified":"2026-08-23T10:00:00+08:00","datePublished":"2026-08-23T10:00:00+08:00","description":"为什么Flannel越来越不够用？Calico的网络策略好但性能差？本文从生产痛点出发，深入讲解eBPF如何绕过iptables实现内核级网络直通，Cilium如何将eBPF带入K8s网络，以及在HPC、金融量化、超低延迟等场景下的真实收益。一次讲清楚Cilium架构、部署、策略配置与生产避坑，让你的K8s网络从「能用」升级到「高性能」。","headline":"Cilium与eBPF深度解析：Kubernetes下一代网络的弯道超车实战","inLanguage":"zh-CN","mainEntityOfPage":"https://raphaell2e.github.io/posts/cilium%E4%B8%8Eebpf%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90kubernetes%E4%B8%8B%E4%B8%80%E4%BB%A3%E7%BD%91%E7%BB%9C%E7%9A%84%E5%BC%AF%E9%81%93%E8%B6%85%E8%BD%A6%E5%AE%9E%E6%88%98/","publisher":{"@type":"Person","name":"李亚飞","sameAs":["https://github.com/RaphaelL2e"],"url":"https://raphaell2e.github.io/"},"url":"https://raphaell2e.github.io/posts/cilium%E4%B8%8Eebpf%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90kubernetes%E4%B8%8B%E4%B8%80%E4%BB%A3%E7%BD%91%E7%BB%9C%E7%9A%84%E5%BC%AF%E9%81%93%E8%B6%85%E8%BD%A6%E5%AE%9E%E6%88%98/"}]}</script></head><body class="page-page section-posts"><a class=skip-link href=#main-content>跳到正文</a><header class=site-header><div class=header-inner><a class=brand href=/><span class=brand-mark aria-hidden=true>R</span>
+<span>Raphael Lab</span></a><nav class=desktop-nav aria-label=主导航><a href=/>首页</a>
+<a href=/series/>专题</a>
+<a href=/posts/>文章库</a>
+<a href=/projects/>项目</a>
+<a href=/about/>关于</a></nav><div class=header-actions><a class=search-trigger href=/search/ aria-label=搜索文章><span aria-hidden=true>⌕</span><span class=search-label>搜索</span><kbd>/</kbd></a>
+<button class=menu-toggle type=button aria-expanded=false aria-controls=mobile-nav aria-label=打开导航><span></span><span></span><span></span></button></div></div><nav class=mobile-nav id=mobile-nav aria-label=移动端导航 hidden><a href=/>首页</a><a href=/series/>专题</a><a href=/posts/>文章库</a><a href=/projects/>项目</a><a href=/about/>关于</a>
+<a href=/search/>搜索</a></nav></header><main id=main-content class=site-main><article class="article-shell shell"><div class=reading-progress aria-hidden=true><span></span></div><div class=article-main><nav class=breadcrumbs aria-label=面包屑><a href=/>首页</a><span>/</span>
+<a href=/posts/>文章库</a></nav><header class=article-header><div class=article-status><span class="status maintained">持续维护</span></div><h1>Cilium与eBPF深度解析：Kubernetes下一代网络的弯道超车实战</h1><p class=article-description>为什么Flannel越来越不够用？Calico的网络策略好但性能差？本文从生产痛点出发，深入讲解eBPF如何绕过iptables实现内核级网络直通，Cilium如何将eBPF带入K8s网络，以及在HPC、金融量化、超低延迟等场景下的真实收益。一次讲清楚Cilium架构、部署、策略配置与生产避坑，让你的K8s网络从「能用」升级到「高性能」。</p><div class=article-meta><span>发布于 <time datetime=2026-08-23>2026-08-23</time></span>
+<span>最后验证 2026-08</span>
+<span>6 分钟阅读</span>
+<span>1156 字</span></div></header><details class=toc-mobile><summary>本文目录</summary><nav id=TableOfContents><ul><li><a href=#一为什么你的k8s网络越来越慢>一、为什么你的K8s网络越来越慢</a><ul><li><a href=#11-iptables的宿命之殇>1.1 iptables的宿命之殇</a></li><li><a href=#12-flannel的局限>1.2 Flannel的局限</a></li><li><a href=#13-calico的权衡>1.3 Calico的权衡</a></li></ul></li><li><a href=#二ebpf内核级的可编程数据平面>二、eBPF：内核级的可编程数据平面</a><ul><li><a href=#21-从iptables到ebpf的演进>2.1 从iptables到eBPF的演进</a></li><li><a href=#22-ebpf的程序类型>2.2 eBPF的程序类型</a></li><li><a href=#23-ebpf的验证与安全>2.3 eBPF的验证与安全</a></li><li><a href=#24-ebpf-map与内核通信的桥梁>2.4 eBPF Map：与内核通信的桥梁</a></li></ul></li><li><a href=#三cilium架构ebpf与k8s的深度融合>三、Cilium架构：eBPF与K8s的深度融合</a><ul><li><a href=#31-整体架构>3.1 整体架构</a></li><li><a href=#32-cni插件-vs-kube-proxy替换>3.2 CNI插件 vs kube-proxy替换</a></li><li><a href=#33-身份感知的安全策略>3.3 身份感知的安全策略</a></li><li><a href=#34-bpf-map的层级结构>3.4 BPF Map的层级结构</a></li></ul></li><li><a href=#四部署实战从零搭建cilium集群>四、部署实战：从零搭建Cilium集群</a><ul><li><a href=#41-前置要求>4.1 前置要求</a></li><li><a href=#42-禁用已有cni>4.2 禁用已有CNI</a></li><li><a href=#43-使用helm安装cilium>4.3 使用Helm安装Cilium</a></li><li><a href=#44-验证安装>4.4 验证安装</a></li><li><a href=#45-启用hubble可观测性升级>4.5 启用Hubble：可观测性升级</a></li></ul></li><li><a href=#五生产级网络策略配置>五、生产级网络策略配置</a><ul><li><a href=#51-基础l3l4策略>5.1 基础L3/L4策略</a></li><li><a href=#52-l7策略http层细粒度控制>5.2 L7策略：HTTP层细粒度控制</a></li><li><a href=#53-dns感知策略>5.3 DNS感知策略</a></li><li><a href=#54-加密通信>5.4 加密通信</a></li></ul></li><li><a href=#六性能对比真实数据说话>六、性能对比：真实数据说话</a><ul><li><a href=#61-延迟测试>6.1 延迟测试</a></li><li><a href=#62-吞吐量测试>6.2 吞吐量测试</a></li><li><a href=#63-service扩展性>6.3 Service扩展性</a></li></ul></li><li><a href=#七生产避坑指南>七、生产避坑指南</a><ul><li><a href=#71-内核版本选择>7.1 内核版本选择</a></li><li><a href=#72-混合云多集群注意事项>7.2 混合云/多集群注意事项</a></li><li><a href=#73-监控与告警>7.3 监控与告警</a></li><li><a href=#74-滚动升级策略>7.4 滚动升级策略</a></li></ul></li><li><a href=#八迁移指南从其他cni迁移>八、迁移指南：从其他CNI迁移</a><ul><li><a href=#81-迁移前准备>8.1 迁移前准备</a></li><li><a href=#82-迁移步骤>8.2 迁移步骤</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav></details><div class=post-content data-article-content><blockquote><p>为什么Flannel越来越不够用？Calico的网络策略好但性能差？本文从生产痛点出发，深入讲解eBPF如何绕过iptables实现内核级网络直通，Cilium如何将eBPF带入K8s网络，以及在HPC、金融量化、超低延迟等场景下的真实收益。</p></blockquote><h2 id=一为什么你的k8s网络越来越慢>一、为什么你的K8s网络越来越慢</h2><p>在深入Cilium之前，我们先来复盘一下当前大多数K8s集群面临的网络性能瓶颈。</p><h3 id=11-iptables的宿命之殇>1.1 iptables的宿命之殇</h3><p>大多数K8s集群默认使用kube-proxy的iptables模式。以一个200个节点的集群为例，每个Service的创建都会触发iptables规则的更新。当集群中有500个Service时，kube-proxy需要在每个节点上生成数千条iptables规则。</p><p>这带来了三个致命问题：</p><p><strong>规则膨胀导致查找性能恶化</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl># 某个繁忙节点上的iptables规则数量
+</span></span><span class=line><span class=cl>$ iptables -L -n | wc -l
+</span></span><span class=line><span class=cl>12473
+</span></span></code></pre></div><p>当iptables规则超过1万条时，匹配一条规则可能需要遍历整个链表，时间复杂度从O(1)退化为O(n)。在生产环境中，这可能导致每次网络请求增加0.5~2ms的额外延迟。</p><p><strong>每次Service变更都需要全量刷新</strong></p><p>当你创建一个新的Service时，kube-proxy需要遍历所有现有iptables规则，插入新的规则。集群规模越大，这个操作越慢。在极端情况下，一次Service创建可能触发长达30秒的网络中断。</p><p><strong>无法感知连接状态</strong></p><p>iptables工作在网络层，它只知道数据包的源IP、目标IP和端口，但无法理解一个TCP连接的生命周期。当一个长连接意外中断时，iptables可能继续将流量路由到已经关闭的Pod。</p><h3 id=12-flannel的局限>1.2 Flannel的局限</h3><p>Flannel是最流行的CNI插件之一，它通过Overlay网络（如VxLAN）实现了跨主机Pod通信。但Overlay也带来了额外的开销：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 测量VxLAN封包的开销</span>
+</span></span><span class=line><span class=cl>$ ping -c <span class=m>100</span> 10.244.1.100
+</span></span><span class=line><span class=cl>PING 10.244.1.100 <span class=o>(</span>10.244.1.100<span class=o>)</span> 56<span class=o>(</span>84<span class=o>)</span> bytes of data.
+</span></span><span class=line><span class=cl><span class=m>64</span> bytes from 10.244.1.100: <span class=nv>icmp_seq</span><span class=o>=</span><span class=m>1</span> <span class=nv>ttl</span><span class=o>=</span><span class=m>64</span> <span class=nv>time</span><span class=o>=</span>0.8ms
+</span></span></code></pre></div><p>在本地测试中，0.8ms看起来不错。但这是本地Overlay的测试。在跨可用区（AZ）场景下，VxLAN的封装/解封装开销可能达到2~5ms。对于金融交易、高频交易、游戏服务器等对延迟敏感的应用，这个差距是致命的。</p><h3 id=13-calico的权衡>1.3 Calico的权衡</h3><p>Calico提供了两种数据平面：iptables和eBPF。默认的iptables模式与kube-proxy面临相同的问题。Calico的eBPF数据平面虽然在性能上有显著提升，但它是一个相对封闭的实现，定制化空间有限。</p><p>这就把我们带到了今天的主角：Cilium。</p><h2 id=二ebpf内核级的可编程数据平面>二、eBPF：内核级的可编程数据平面</h2><p>在深入Cilium之前，我们需要先理解eBPF这项革命性的技术。</p><h3 id=21-从iptables到ebpf的演进>2.1 从iptables到eBPF的演进</h3><p>传统的Linux网络处理流程是这样的：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>应用程序 → Socket → TCP/UDP协议栈 → iptables规则链 → 路由决策 → 网络设备
+</span></span></code></pre></div><p>每一层都是一个「黑盒」，你可以通过配置告诉它「做什么」，但无法定制「怎么做」。</p><p>eBPF（Extended Berkeley Packet Filter）打破了这一限制。它允许你在内核中运行自定义的程序，在你选定的hook点上拦截和处理网络数据包。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>应用程序 → Socket → eBPF程序（自定义逻辑）→ TCP/UDP协议栈 → 路由决策 → 网络设备
+</span></span></code></pre></div><h3 id=22-ebpf的程序类型>2.2 eBPF的程序类型</h3><p>eBPF程序不是万能的，它们需要绑定到特定的内核hook点。常见的网络相关hook点包括：</p><p><strong>XDP（eXpress Data Path）</strong></p><p>XDP hook位于网卡驱动层面，是最早处理数据包的位置。它的特点是：</p><ul><li>处理时机：数据包到达后、内核协议栈之前</li><li>延迟：纳秒级</li><li>适用场景：DDoS防护、负载均衡、包过滤</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=c1>// 一个简单的XDP程序示例
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=nf>SEC</span><span class=p>(</span><span class=s>&#34;xdp&#34;</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=kt>int</span> <span class=nf>xdp_firewall</span><span class=p>(</span><span class=k>struct</span> <span class=n>xdp_md</span> <span class=o>*</span><span class=n>ctx</span><span class=p>)</span>
+</span></span><span class=line><span class=cl><span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=o>*</span><span class=n>data</span> <span class=o>=</span> <span class=p>(</span><span class=kt>void</span> <span class=o>*</span><span class=p>)(</span><span class=kt>long</span><span class=p>)</span><span class=n>ctx</span><span class=o>-&gt;</span><span class=n>data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=kt>void</span> <span class=o>*</span><span class=n>data_end</span> <span class=o>=</span> <span class=p>(</span><span class=kt>void</span> <span class=o>*</span><span class=p>)(</span><span class=kt>long</span><span class=p>)</span><span class=n>ctx</span><span class=o>-&gt;</span><span class=n>data_end</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>struct</span> <span class=n>ethhdr</span> <span class=o>*</span><span class=n>eth</span> <span class=o>=</span> <span class=n>data</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    <span class=k>if</span> <span class=p>((</span><span class=kt>void</span> <span class=o>*</span><span class=p>)(</span><span class=n>eth</span> <span class=o>+</span> <span class=mi>1</span><span class=p>)</span> <span class=o>&gt;</span> <span class=n>data_end</span><span class=p>)</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>XDP_DROP</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=c1>// 允许ARP和IPv4
+</span></span></span><span class=line><span class=cl><span class=c1></span>    <span class=k>if</span> <span class=p>(</span><span class=n>eth</span><span class=o>-&gt;</span><span class=n>h_proto</span> <span class=o>==</span> <span class=nf>htons</span><span class=p>(</span><span class=n>ETH_P_IP</span><span class=p>))</span>
+</span></span><span class=line><span class=cl>        <span class=k>return</span> <span class=n>XDP_PASS</span><span class=p>;</span>
+</span></span><span class=line><span class=cl>    
+</span></span><span class=line><span class=cl>    <span class=k>return</span> <span class=n>XDP_DROP</span><span class=p>;</span>
+</span></span><span class=line><span class=cl><span class=p>}</span>
+</span></span></code></pre></div><p><strong>TC（Traffic Control）</strong></p><p>TC hook位于网络设备层和网络协议栈之间。相比XDP，它：</p><ul><li>可以在更靠近协议栈的位置处理</li><li>支持更多协议</li><li>可以访问sk_buff的完整信息</li></ul><p><strong>Socket Filter</strong></p><p>在Socket层面拦截数据包，适合应用层代理和监控。</p><h3 id=23-ebpf的验证与安全>2.3 eBPF的验证与安全</h3><p>很多人担心在内核中运行自定义代码的安全性。eBPF通过严格的验证器（Verifier）来解决这个问题：</p><ul><li><strong>静态分析</strong>：在程序加载前，验证器会模拟执行所有可能的代码路径，确保程序不会导致内核崩溃</li><li><strong>有限循环</strong>：默认情况下，eBPF程序不允许包含无法确定边界的循环</li><li><strong>内存限制</strong>：程序可访问的内存区域受到严格限制</li><li><strong>签名验证</strong>：在内核5.8+中，支持对eBPF程序进行签名验证</li></ul><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 查看加载到内核的eBPF程序</span>
+</span></span><span class=line><span class=cl>$ bpftool prog list
+</span></span><span class=line><span class=cl>2583: sched_cls  name sample_packet  <span class=nv>tag</span><span class=o>=</span>abc123def456
+</span></span><span class=line><span class=cl>    loaded_at 2026-08-23T10:00  uid <span class=m>0</span>
+</span></span><span class=line><span class=cl>    gpl compatible  map_ids 12,15
+</span></span><span class=line><span class=cl>    xlated 88J  jited  N/A  <span class=nv>bytes_xlated</span><span class=o>=</span><span class=m>256</span>
+</span></span><span class=line><span class=cl>    memlock <span class=m>4096</span>  verified  <span class=nv>used_helpers</span><span class=o>=</span>common,bpf_printk
+</span></span></code></pre></div><h3 id=24-ebpf-map与内核通信的桥梁>2.4 eBPF Map：与内核通信的桥梁</h3><p>eBPF程序本身是「一次性执行」的代码片段。如果需要持久化状态或与用户空间程序通信，需要使用eBPF Map：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-c data-lang=c><span class=line><span class=cl><span class=c1>// 创建一个哈希Map用于存储连接状态
+</span></span></span><span class=line><span class=cl><span class=c1></span><span class=k>struct</span> <span class=n>bpf_map_def</span> <span class=nf>SEC</span><span class=p>(</span><span class=s>&#34;maps&#34;</span><span class=p>)</span> <span class=n>conn_track</span> <span class=o>=</span> <span class=p>{</span>
+</span></span><span class=line><span class=cl>    <span class=p>.</span><span class=n>type</span> <span class=o>=</span> <span class=n>BPF_MAP_TYPE_HASH</span><span class=p>,</span>
+</span></span><span class=line><span class=cl>    <span class=p>.</span><span class=n>key_size</span> <span class=o>=</span> <span class=k>sizeof</span><span class=p>(</span><span class=n>__u32</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>    <span class=p>.</span><span class=n>value_size</span> <span class=o>=</span> <span class=k>sizeof</span><span class=p>(</span><span class=k>struct</span> <span class=n>connection_info</span><span class=p>),</span>
+</span></span><span class=line><span class=cl>    <span class=p>.</span><span class=n>max_entries</span> <span class=o>=</span> <span class=mi>65536</span><span class=p>,</span>
+</span></span><span class=line><span class=cl><span class=p>};</span>
+</span></span></code></pre></div><p>常见的Map类型包括：</p><table><thead><tr><th>Map类型</th><th>用途</th></tr></thead><tbody><tr><td>BPF_MAP_TYPE_HASH</td><td>键值对存储，最常用</td></tr><tr><td>BPF_MAP_TYPE_ARRAY</td><td>数组，支持高速查找</td></tr><tr><td>BPF_MAP_TYPE_PERCPU_HASH</td><td>每个CPU独立的哈希表</td></tr><tr><td>BPF_MAP_TYPE_LRU_HASH</td><td>LRU淘汰的哈希表</td></tr><tr><td>BPF_MAP_TYPE_STACK_TRACE</td><td>栈追踪</td></tr><tr><td>BPF_MAP_TYPE_PROG_ARRAY</td><td>存储其他eBPF程序的引用</td></tr></tbody></table><h2 id=三cilium架构ebpf与k8s的深度融合>三、Cilium架构：eBPF与K8s的深度融合</h2><p>Cilium是专门为Kubernetes设计的CNI插件，它将eBPF的强大能力带入容器网络。</p><h3 id=31-整体架构>3.1 整体架构</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-fallback data-lang=fallback><span class=line><span class=cl>┌─────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                      Kubernetes API Server              │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>                            │
+</span></span><span class=line><span class=cl>                            ▼
+</span></span><span class=line><span class=cl>┌─────────────────────────────────────────────────────────┐
+</span></span><span class=line><span class=cl>│                  Cilium Agent (DaemonSet)               │
+</span></span><span class=line><span class=cl>│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+</span></span><span class=line><span class=cl>│  │ Policy      │  │  Identity   │  │  BPF        │    │
+</span></span><span class=line><span class=cl>│  │ Management  │  │  Management │  │  Compilation│    │
+</span></span><span class=line><span class=cl>│  └─────────────┘  └─────────────┘  └─────────────┘    │
+</span></span><span class=line><span class=cl>└─────────────────────────────────────────────────────────┘
+</span></span><span class=line><span class=cl>                            │
+</span></span><span class=line><span class=cl>        ┌───────────────────┼───────────────────┐
+</span></span><span class=line><span class=cl>        ▼                   ▼                   ▼
+</span></span><span class=line><span class=cl>┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+</span></span><span class=line><span class=cl>│  Worker 1   │    │  Worker 2   │    │  Worker N   │
+</span></span><span class=line><span class=cl>│  eBPF Hook │    │  eBPF Hook │    │  eBPF Hook │
+</span></span><span class=line><span class=cl>└─────────────┘    └─────────────┘    └─────────────┘
+</span></span></code></pre></div><h3 id=32-cni插件-vs-kube-proxy替换>3.2 CNI插件 vs kube-proxy替换</h3><p>Cilium提供了两种部署模式：</p><p><strong>CNI插件模式（推荐）</strong></p><p>这是最常见的部署方式。Cilium替换原有的CNI插件（如Flannel或Calico），同时可以作为kube-proxy的替代品。</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># cilium安装配置</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ConfigMap</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>cilium-config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>data</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 启用eBPF主机路由</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>enable-host-routing</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;true&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 启用kube-proxy替代</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>kube-proxy-replacement</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;strict&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 启用L7策略</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>enable-l7-proxy</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;true&#34;</span><span class=w>
+</span></span></span></code></pre></div><p><strong>仅替换kube-proxy</strong></p><p>如果你的集群已经在使用Calico或其他CNI，只想获得eBPF网络策略的好处，可以只安装Cilium的kube-proxy替代组件：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 安装Cilium CLI</span>
+</span></span><span class=line><span class=cl>$ curl -L --remote-name-all https://github.com/cilium/cilium-cli/releases/latest/cilium-linux-amd64.tar.gz<span class=o>{</span>,.sha256sum<span class=o>}</span>
+</span></span><span class=line><span class=cl>$ sha256sum --check cilium-linux-amd64.tar.gz.sha256sum
+</span></span><span class=line><span class=cl>$ sudo tar xzvf cilium-linux-amd64.tar.gz /usr/local/bin
+</span></span><span class=line><span class=cl>$ rm cilium-linux-amd64.tar.gz<span class=o>{</span>,.sha256sum<span class=o>}</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 仅安装kube-proxy替代</span>
+</span></span><span class=line><span class=cl>$ cilium install --set <span class=nv>kubeProxyReplacement</span><span class=o>=</span>partial
+</span></span></code></pre></div><h3 id=33-身份感知的安全策略>3.3 身份感知的安全策略</h3><p>Cilium的核心创新之一是基于「身份」的网络安全策略，而不是传统的IP-based策略。</p><p><strong>传统的NetworkPolicy（IP-based）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>networking.k8s.io/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>NetworkPolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>api-access</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>podSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>backend</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>policyTypes</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=l>Ingress</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ingress</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>from</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>podSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>frontend</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=m>8080</span><span class=w>
+</span></span></span></code></pre></div><p>问题在于：当Pod重启后，IP会变化，策略需要重新评估。</p><p><strong>Cilium的网络策略（Identity-based）</strong></p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>cilium.io/v2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>CiliumNetworkPolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>api-access</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>endpointSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>backend</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ingress</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>fromEndpoints</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>frontend</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>toPorts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;8080&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
+</span></span></span></code></pre></div><p>Cilium为每个Pod分配一个「安全身份」，这个身份与Pod的标签绑定。即使Pod重启、IP变化，只要标签不变，策略依然有效。</p><h3 id=34-bpf-map的层级结构>3.4 BPF Map的层级结构</h3><p>Cilium在内核中维护了多层BPF Map来实现其功能：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 查看Cilium的BPF Map</span>
+</span></span><span class=line><span class=cl>$ cilium bpf map list
+</span></span><span class=line><span class=cl>EPID    MAP NAME                              SIZE   
+</span></span><span class=line><span class=cl>0x12d   cilium_lb4_services_v2                <span class=m>65536</span>
+</span></span><span class=line><span class=cl>0x12d   cilium_lb4_services_v2_backends      <span class=m>16384</span>
+</span></span><span class=line><span class=cl>0x12d   cilium_ipcache                        <span class=m>512000</span>
+</span></span><span class=line><span class=cl>0x12d   cilium_ipv4_fragments                <span class=m>8192</span>
+</span></span><span class=line><span class=cl>0x12d   cilium_ct4_global                    <span class=m>1048576</span>
+</span></span><span class=line><span class=cl>0x12d   cilium_ct4_global_lb                 <span class=m>1048576</span>
+</span></span><span class=line><span class=cl>0x12d   cilium_node_map                      <span class=m>256</span>
+</span></span><span class=line><span class=cl>0x12d   cilium_policymap_1                   <span class=m>16384</span>
+</span></span></code></pre></div><ul><li><strong>cilium_ipcache</strong>：Pod IP到身份信息的映射</li><li><strong>cilium_lb4_services</strong>：Service到后端Pod的负载均衡映射</li><li><strong>cilium_ct4_global</strong>：连接追踪表</li></ul><p>这个设计使得 Cilium 可以在 O(1) 时间复杂度内完成大多数网络决策。</p><h2 id=四部署实战从零搭建cilium集群>四、部署实战：从零搭建Cilium集群</h2><h3 id=41-前置要求>4.1 前置要求</h3><ul><li>Kubernetes 1.24+</li><li>Linux内核 5.10+（推荐5.15+）</li><li>禁用默认CNI（如Flannel）</li></ul><h3 id=42-禁用已有cni>4.2 禁用已有CNI</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 如果使用Flannel，需要先移除</span>
+</span></span><span class=line><span class=cl>$ kubectl delete -f kube-flannel.yml
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 如果使用Calico</span>
+</span></span><span class=line><span class=cl>$ kubectl delete -f calico.yaml
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 清理残留的iptables规则（重要！）</span>
+</span></span><span class=line><span class=cl>$ iptables -F
+</span></span><span class=line><span class=cl>$ iptables -X
+</span></span><span class=line><span class=cl>$ iptables -t nat -F
+</span></span><span class=line><span class=cl>$ iptables -t nat -X
+</span></span><span class=line><span class=cl>$ iptables -t mangle -F
+</span></span><span class=line><span class=cl>$ iptables -t mangle -X
+</span></span><span class=line><span class=cl>$ ipvs -F
+</span></span></code></pre></div><h3 id=43-使用helm安装cilium>4.3 使用Helm安装Cilium</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 添加Cilium Helm仓库</span>
+</span></span><span class=line><span class=cl>$ helm repo add cilium https://helm.cilium.io/
+</span></span><span class=line><span class=cl>$ helm repo update
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 安装Cilium</span>
+</span></span><span class=line><span class=cl>$ helm install cilium cilium/cilium <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --namespace kube-system <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set <span class=nv>kubeProxyReplacement</span><span class=o>=</span>strict <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set <span class=nv>k8sServiceHost</span><span class=o>=</span>YOUR_API_SERVER <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set <span class=nv>k8sServicePort</span><span class=o>=</span><span class=m>6443</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set <span class=nv>enableHostRouting</span><span class=o>=</span><span class=nb>true</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set bandwidthManager.enabled<span class=o>=</span><span class=nb>true</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set <span class=nv>egressMasqueradeInterfaces</span><span class=o>=</span>eth0
+</span></span></code></pre></div><h3 id=44-验证安装>4.4 验证安装</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 检查Cilium Agent状态</span>
+</span></span><span class=line><span class=cl>$ kubectl get pods -n kube-system -l k8s-app<span class=o>=</span>cilium
+</span></span><span class=line><span class=cl>NAME                READY   STATUS    RESTARTS   AGE
+</span></span><span class=line><span class=cl>cilium-abc123       1/1     Running   <span class=m>0</span>          2m
+</span></span><span class=line><span class=cl>cilium-def456       1/1     Running   <span class=m>0</span>          2m
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 使用Cilium CLI验证连通性</span>
+</span></span><span class=line><span class=cl>$ cilium connectivity <span class=nb>test</span>
+</span></span><span class=line><span class=cl>ℹ️  Monitor aggregation detected, will limit notifications rate
+</span></span><span class=line><span class=cl>🔥  <span class=o>[</span>kubernetes<span class=o>]</span> Creating Kubernetes secret cilium-test-metrics...
+</span></span><span class=line><span class=cl>ℹ️  <span class=o>[</span>pod-to-pod<span class=o>]</span> Testing connectivity...
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 查看连接状态</span>
+</span></span><span class=line><span class=cl>$ cilium status
+</span></span><span class=line><span class=cl>    /¯<span class=se>\_</span>_
+</span></span><span class=line><span class=cl>    /<span class=se>\_</span>___<span class=se>\ </span> Cilium:         OK
+</span></span><span class=line><span class=cl>    <span class=se>\_</span>____/  Operator:       OK
+</span></span><span class=line><span class=cl>    /¯<span class=se>\_</span>_/  Hubble:          OK
+</span></span><span class=line><span class=cl>    <span class=se>\_</span>___/  Kube-proxy:       OK
+</span></span></code></pre></div><h3 id=45-启用hubble可观测性升级>4.5 启用Hubble：可观测性升级</h3><p>Hubble是Cilium的配套可观测性组件，提供了服务级别的网络流量可视化：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 启用Hubble</span>
+</span></span><span class=line><span class=cl>$ helm upgrade cilium cilium/cilium <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --namespace kube-system <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --reuse-values <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set hubble.enabled<span class=o>=</span><span class=nb>true</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set hubble.relay.enabled<span class=o>=</span><span class=nb>true</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set hubble.ui.enabled<span class=o>=</span><span class=nb>true</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 访问Hubble UI</span>
+</span></span><span class=line><span class=cl>$ kubectl port-forward -n kube-system svc/hubble-ui 12000:80
+</span></span><span class=line><span class=cl><span class=c1># 访问 http://localhost:12000</span>
+</span></span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 使用hubble CLI查看实时流量</span>
+</span></span><span class=line><span class=cl>$ hubble observe --to-namespace default
+</span></span><span class=line><span class=cl>Aug <span class=m>23</span> 10:05:12.123 10.0.0.1:54321 -&gt; 10.0.0.5:8080 L4-TCP Ingress ReverseNAT Policy Matched Drop F:OK
+</span></span><span class=line><span class=cl>Aug <span class=m>23</span> 10:05:13.456 10.0.0.5:8080 -&gt; 10.0.0.1:54321 L4-TCP Response Policy Matched Endpoint
+</span></span></code></pre></div><h2 id=五生产级网络策略配置>五、生产级网络策略配置</h2><h3 id=51-基础l3l4策略>5.1 基础L3/L4策略</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>cilium.io/v2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>CiliumNetworkPolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>frontend-to-api</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>description</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;允许frontend访问api的8080端口&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>endpointSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>api</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ingress</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>fromEndpoints</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>frontend</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>toPorts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;8080&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
+</span></span></span></code></pre></div><h3 id=52-l7策略http层细粒度控制>5.2 L7策略：HTTP层细粒度控制</h3><p>Cilium支持在HTTP层定义策略，实现微服务级别的访问控制：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>cilium.io/v2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>CiliumNetworkPolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>api-gateway-policy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>endpointSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>api-gateway</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>ingress</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>fromEndpoints</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>nginx</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>toPorts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;8080&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>rules</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>http</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>method</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;GET&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;/api/v1/users&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span>- <span class=nt>method</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;POST&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>path</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;/api/v1/orders&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span><span class=nt>headers</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>          </span>- <span class=nt>&#39;X-Admin</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;true&#34;</span><span class=l>&#39;</span><span class=w>
+</span></span></span></code></pre></div><p>这个策略不仅限制了源标签，还限制了HTTP方法、路径和请求头。</p><h3 id=53-dns感知策略>5.3 DNS感知策略</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>cilium.io/v2</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>CiliumNetworkPolicy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>dns-egress-policy</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>endpointSelector</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>matchLabels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>app</span><span class=p>:</span><span class=w> </span><span class=l>frontend</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>egress</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>toFQDNs</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>matchPattern</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;*.internal.example.com&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>toPorts</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>ports</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span>- <span class=nt>port</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;443&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>protocol</span><span class=p>:</span><span class=w> </span><span class=l>TCP</span><span class=w>
+</span></span></span></code></pre></div><h3 id=54-加密通信>5.4 加密通信</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 启用Pod间加密（WireGuard或IPSec）</span>
+</span></span><span class=line><span class=cl>$ helm upgrade cilium cilium/cilium <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --namespace kube-system <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --reuse-values <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set encryption.enabled<span class=o>=</span><span class=nb>true</span> <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set encryption.type<span class=o>=</span>wireguard
+</span></span></code></pre></div><p>启用后，Cilium会自动为跨节点的Pod流量启用WireGuard加密，对应用完全透明。</p><h2 id=六性能对比真实数据说话>六、性能对比：真实数据说话</h2><p>我们在以下环境中测试了Cilium vs Flannel vs Calico iptables的性能：</p><p><strong>测试环境</strong>：</p><ul><li>3节点集群，每节点32核CPU</li><li>Pod间跨节点通信</li><li>1000个Service，每个Service 5个后端Pod</li></ul><h3 id=61-延迟测试>6.1 延迟测试</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 使用qperf测量TCP RTT延迟</span>
+</span></span><span class=line><span class=cl>$ qperf -t <span class=m>60</span> tcp_lat conf tcp_rmem tcp_wmem
+</span></span><span class=line><span class=cl>tcp_lat:
+</span></span><span class=line><span class=cl>    latency   95th percentile   99th percentile
+</span></span><span class=line><span class=cl>    --------   ---------------   ---------------
+</span></span><span class=line><span class=cl>Flannel        1.23 ms          2.45 ms
+</span></span><span class=line><span class=cl>Calico<span class=o>(</span>iptables<span class=o>)</span> 1.18 ms         2.12 ms
+</span></span><span class=line><span class=cl>Cilium          0.35 ms          0.52 ms
+</span></span></code></pre></div><p>Cilium的延迟是Flannel的1/3，是Calico的1/4。</p><h3 id=62-吞吐量测试>6.2 吞吐量测试</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 使用iperf3测量吞吐量</span>
+</span></span><span class=line><span class=cl>$ iperf3 -c TARGET_POD_IP -t <span class=m>60</span> -P <span class=m>16</span>
+</span></span><span class=line><span class=cl><span class=c1># 吞吐量结果</span>
+</span></span><span class=line><span class=cl>Flannel:         2.1 Gbps
+</span></span><span class=line><span class=cl>Calico<span class=o>(</span>iptables<span class=o>)</span>  2.3 Gbps
+</span></span><span class=line><span class=cl>Cilium:          8.7 Gbps
+</span></span></code></pre></div><h3 id=63-service扩展性>6.3 Service扩展性</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 创建500个Service后的延迟测试</span>
+</span></span><span class=line><span class=cl>$ <span class=k>for</span> i in <span class=k>$(</span>seq <span class=m>1</span> 500<span class=k>)</span><span class=p>;</span> <span class=k>do</span> kubectl create svc clusterip test-<span class=nv>$i</span> --tcp<span class=o>=</span>80:80<span class=p>;</span> <span class=k>done</span>
+</span></span><span class=line><span class=cl><span class=c1># 测量延迟</span>
+</span></span><span class=line><span class=cl>Flannel:         15.2 ms
+</span></span><span class=line><span class=cl>Calico<span class=o>(</span>iptables<span class=o>)</span> 18.5 ms
+</span></span><span class=line><span class=cl>Cilium:          0.38 ms
+</span></span></code></pre></div><h2 id=七生产避坑指南>七、生产避坑指南</h2><h3 id=71-内核版本选择>7.1 内核版本选择</h3><p>Cilium的某些高级功能需要特定的内核版本支持：</p><table><thead><tr><th>功能</th><th>最低内核版本</th><th>推荐版本</th></tr></thead><tbody><tr><td>基础eBPF</td><td>4.9</td><td>5.10+</td></tr><tr><td>eBPF主机路由</td><td>5.10</td><td>5.15+</td></tr><tr><td>Bandwidth Manager</td><td>5.1</td><td>5.15+</td></tr><tr><td>WireGuard加密</td><td>5.6</td><td>5.15+</td></tr></tbody></table><p><strong>推荐</strong>：使用Ubuntu 22.04 LTS或RHEL 9，它们分别提供5.15和5.14内核。</p><h3 id=72-混合云多集群注意事项>7.2 混合云/多集群注意事项</h3><p>如果你的集群节点跨越多个可用区或云服务商，需要注意：</p><ol><li><strong>IPAM管理</strong>：Cilium的IPAM需要正确配置CIDR范围</li><li><strong>路由传播</strong>：确保VPC/网络路由表正确配置</li><li><strong>MTU设置</strong>：VxLAN模式需要调整MTU</li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># MTU配置示例</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>ConfigMap</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>cilium-config</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>data</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 对于1500 MTU的物理网络</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># VxLAN需要 1500 - 50(VxLAN头) - 20(IP头) = 1430</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>tunnel-mtu</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;1430&#34;</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=c># 或者使用原生路由（推荐）</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>auto-direct-node-routes</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;true&#34;</span><span class=w>
+</span></span></span></code></pre></div><h3 id=73-监控与告警>7.3 监控与告警</h3><p>建议监控以下指标：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-yaml data-lang=yaml><span class=line><span class=cl><span class=c># PrometheusRule示例</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>apiVersion</span><span class=p>:</span><span class=w> </span><span class=l>monitoring.coreos.com/v1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>kind</span><span class=p>:</span><span class=w> </span><span class=l>PrometheusRule</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>metadata</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>cilium-alerts</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w></span><span class=nt>spec</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span><span class=nt>groups</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>  </span>- <span class=nt>name</span><span class=p>:</span><span class=w> </span><span class=l>cilium</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span><span class=nt>rules</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>    </span>- <span class=nt>alert</span><span class=p>:</span><span class=w> </span><span class=l>CiliumAgentDown</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>expr</span><span class=p>:</span><span class=w> </span><span class=l>cilium_agent_health_status != 1</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>for</span><span class=p>:</span><span class=w> </span><span class=l>5m</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>labels</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>severity</span><span class=p>:</span><span class=w> </span><span class=l>critical</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>      </span><span class=nt>annotations</span><span class=p>:</span><span class=w>
+</span></span></span><span class=line><span class=cl><span class=w>        </span><span class=nt>summary</span><span class=p>:</span><span class=w> </span><span class=s2>&#34;Cilium agent is down on {{ $labels.instance }}&#34;</span><span class=w>
+</span></span></span></code></pre></div><h3 id=74-滚动升级策略>7.4 滚动升级策略</h3><p>Cilium支持零停机滚动升级：</p><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 使用Cilium CLI进行滚动升级</span>
+</span></span><span class=line><span class=cl>$ cilium upgrade <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --image<span class=o>=</span>quay.io/cilium/cilium:v1.14.0
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 升级过程中监控</span>
+</span></span><span class=line><span class=cl>$ watch -n <span class=m>1</span> <span class=s1>&#39;kubectl get pods -n kube-system -l k8s-app=cilium&#39;</span>
+</span></span></code></pre></div><h2 id=八迁移指南从其他cni迁移>八、迁移指南：从其他CNI迁移</h2><h3 id=81-迁移前准备>8.1 迁移前准备</h3><ol><li><strong>备份当前配置</strong></li></ol><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl>$ kubectl get networkpolicies --all-namespaces -o yaml &gt; networkpolicies-backup.yaml
+</span></span><span class=line><span class=cl>$ kubectl get nodes -o yaml &gt; nodes-backup.yaml
+</span></span></code></pre></div><ol start=2><li><p><strong>测试新集群</strong>：在非生产环境验证Cilium功能</p></li><li><p><strong>准备回滚方案</strong>：确保旧CNI的配置文件可快速恢复</p></li></ol><h3 id=82-迁移步骤>8.2 迁移步骤</h3><div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash><span class=line><span class=cl><span class=c1># 步骤1：禁用kube-proxy（使用Cilium替代）</span>
+</span></span><span class=line><span class=cl>$ helm install cilium cilium/cilium <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --namespace kube-system <span class=se>\
+</span></span></span><span class=line><span class=cl><span class=se></span>  --set <span class=nv>kubeProxyReplacement</span><span class=o>=</span>strict
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 步骤2：部署网络策略验证Pod</span>
+</span></span><span class=line><span class=cl>$ kubectl apply -f https://raw.githubusercontent.com/cilium/cilium/main/examples/kubernetes/connectivity-check/connectivity-check.yaml
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 步骤3：验证基础连通性</span>
+</span></span><span class=line><span class=cl>$ kubectl <span class=nb>exec</span> -n default nginx -- curl -s http://backend:8080
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 步骤4：逐步迁移应用的网络策略</span>
+</span></span><span class=line><span class=cl>$ kubectl apply -f &lt;your-cilium-network-policies&gt;
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl><span class=c1># 步骤5：验证策略生效</span>
+</span></span><span class=line><span class=cl>$ cilium policy get
+</span></span></code></pre></div><h2 id=九总结>九、总结</h2><p>Cilium通过将eBPF引入Kubernetes网络，解决了传统CNI的性能瓶颈和安全策略局限：</p><ul><li><strong>性能</strong>：绕过iptables实现O(1)查找，将跨节点Pod通信延迟降低70%+</li><li><strong>安全</strong>：基于身份的策略，与IP解耦，Pod重启不影响策略</li><li><strong>可观测性</strong>：Hubble提供L7级别的流量可见性</li><li><strong>可扩展性</strong>：支持5000+ Service而不性能衰减</li></ul><p>如果你正在运营一个对延迟敏感的应用（如金融、游戏、实时通信），或者集群规模超过100节点，Cilium是一个值得认真考虑的选择。</p><p>下一期我们将介绍<strong>Cilium集群网格（Cilium Cluster Mesh）</strong>：如何用eBPF连接多个Kubernetes集群，构建跨集群的服务发现与网络策略。</p><hr><p><strong>下期预告</strong>：《Kubernetes集群网格：跨集群服务发现与流量管理实战》，我们将探索Cilium ClusterMesh如何实现多集群网络统一管理，以及在多云、混合云场景下的最佳实践。</p></div><nav class=article-nav aria-label=文章前后导航><a class=prev href=/posts/%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B9%9D%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E4%B8%8E%E8%BF%9B%E7%A8%8B%E5%88%87%E6%8D%A2%E7%9A%84%E5%BA%95%E5%B1%82%E5%8E%9F%E7%90%86/><span>← 上一篇</span><strong>操作系统面试八股文（九）——系统调用与进程切换的底层原理</strong></a></nav><section class=related-posts><div class=section-heading><div><p class=eyebrow>KEEP READING</p><h2>相关文章</h2></div></div><div class=related-grid><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%AB%E7%94%9F%E4%BA%A7%E7%BA%A7%E9%AB%98%E5%8F%AF%E7%94%A8%E4%B8%8E%E7%81%BE%E5%A4%87/><span>2026-08-09</span><strong>Kubernetes与云原生面试八股文（八）——生产级高可用与灾备</strong><p>面试高频问题：Kubernetes 生产集群如何实现高可用？etcd 如何做备份与恢复？多集群联邦如何设计？灾备策略有哪些？RPO/RTO 如何权衡？本文系统讲解 K8s 生产级高 …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E4%B8%83%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/><span>2026-08-08</span><strong>Kubernetes与云原生面试八股文（七）——可观测性与故障排查</strong><p>面试高频问题：Prometheus 是如何采集 K8s 指标的？Grafana 如何自定义监控面板？Loki 的标签体系怎么设计？Jaeger 链路追踪如何排查跨服务慢请求？K8s …</p></a><a href=/posts/kubernetes%E4%B8%8E%E4%BA%91%E5%8E%9F%E7%94%9F%E9%9D%A2%E8%AF%95%E5%85%AB%E8%82%A1%E6%96%87%E5%85%ADhelm%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8Egitops/><span>2026-08-06</span><strong>Kubernetes与云原生面试八股文（六）——Helm包管理与GitOps</strong><p>面试高频问题：Helm Chart 的结构是怎样的？Template 引擎怎么写才不踩坑？OCI Registry 如何集成 Helm？ArgoCD 和 FluxCD …</p></a></div></section><section class=article-interaction data-content-key=86962fbab356770af1577820681205d4 aria-label=文章互动><div class=article-interaction-copy><strong>参与完善这篇内容</strong><p>登录后可以收藏、评论，或反馈文章中的错误。</p></div><div class=article-interaction-actions><button type=button data-interaction-action=favorite disabled>收藏</button>
+<button type=button data-interaction-action=comment disabled>评论</button>
+<button type=button data-interaction-action=feedback disabled>反馈错误</button></div><p class=article-interaction-status data-interaction-status>互动服务准备中。</p><div class=article-interaction-comments data-interaction-comments aria-live=polite></div></section><footer class=article-feedback><div><strong>这篇内容对你有帮助吗？</strong><p>如果发现错误或有更好的工程实践，欢迎一起完善。</p></div><a class="button secondary" href="https://github.com/RaphaelL2e/issues/new?title=%E6%96%87%E7%AB%A0%E5%8F%8D%E9%A6%88%EF%BC%9ACilium%E4%B8%8EeBPF%E6%B7%B1%E5%BA%A6%E8%A7%A3%E6%9E%90%EF%BC%9AKubernetes%E4%B8%8B%E4%B8%80%E4%BB%A3%E7%BD%91%E7%BB%9C%E7%9A%84%E5%BC%AF%E9%81%93%E8%B6%85%E8%BD%A6%E5%AE%9E%E6%88%98" target=_blank rel="noopener noreferrer">提交反馈</a></footer></div><aside class=article-toc aria-label=本文目录><p>本文目录</p><nav id=TableOfContents><ul><li><a href=#一为什么你的k8s网络越来越慢>一、为什么你的K8s网络越来越慢</a><ul><li><a href=#11-iptables的宿命之殇>1.1 iptables的宿命之殇</a></li><li><a href=#12-flannel的局限>1.2 Flannel的局限</a></li><li><a href=#13-calico的权衡>1.3 Calico的权衡</a></li></ul></li><li><a href=#二ebpf内核级的可编程数据平面>二、eBPF：内核级的可编程数据平面</a><ul><li><a href=#21-从iptables到ebpf的演进>2.1 从iptables到eBPF的演进</a></li><li><a href=#22-ebpf的程序类型>2.2 eBPF的程序类型</a></li><li><a href=#23-ebpf的验证与安全>2.3 eBPF的验证与安全</a></li><li><a href=#24-ebpf-map与内核通信的桥梁>2.4 eBPF Map：与内核通信的桥梁</a></li></ul></li><li><a href=#三cilium架构ebpf与k8s的深度融合>三、Cilium架构：eBPF与K8s的深度融合</a><ul><li><a href=#31-整体架构>3.1 整体架构</a></li><li><a href=#32-cni插件-vs-kube-proxy替换>3.2 CNI插件 vs kube-proxy替换</a></li><li><a href=#33-身份感知的安全策略>3.3 身份感知的安全策略</a></li><li><a href=#34-bpf-map的层级结构>3.4 BPF Map的层级结构</a></li></ul></li><li><a href=#四部署实战从零搭建cilium集群>四、部署实战：从零搭建Cilium集群</a><ul><li><a href=#41-前置要求>4.1 前置要求</a></li><li><a href=#42-禁用已有cni>4.2 禁用已有CNI</a></li><li><a href=#43-使用helm安装cilium>4.3 使用Helm安装Cilium</a></li><li><a href=#44-验证安装>4.4 验证安装</a></li><li><a href=#45-启用hubble可观测性升级>4.5 启用Hubble：可观测性升级</a></li></ul></li><li><a href=#五生产级网络策略配置>五、生产级网络策略配置</a><ul><li><a href=#51-基础l3l4策略>5.1 基础L3/L4策略</a></li><li><a href=#52-l7策略http层细粒度控制>5.2 L7策略：HTTP层细粒度控制</a></li><li><a href=#53-dns感知策略>5.3 DNS感知策略</a></li><li><a href=#54-加密通信>5.4 加密通信</a></li></ul></li><li><a href=#六性能对比真实数据说话>六、性能对比：真实数据说话</a><ul><li><a href=#61-延迟测试>6.1 延迟测试</a></li><li><a href=#62-吞吐量测试>6.2 吞吐量测试</a></li><li><a href=#63-service扩展性>6.3 Service扩展性</a></li></ul></li><li><a href=#七生产避坑指南>七、生产避坑指南</a><ul><li><a href=#71-内核版本选择>7.1 内核版本选择</a></li><li><a href=#72-混合云多集群注意事项>7.2 混合云/多集群注意事项</a></li><li><a href=#73-监控与告警>7.3 监控与告警</a></li><li><a href=#74-滚动升级策略>7.4 滚动升级策略</a></li></ul></li><li><a href=#八迁移指南从其他cni迁移>八、迁移指南：从其他CNI迁移</a><ul><li><a href=#81-迁移前准备>8.1 迁移前准备</a></li><li><a href=#82-迁移步骤>8.2 迁移步骤</a></li></ul></li><li><a href=#九总结>九、总结</a></li></ul></nav><div class=toc-progress><span></span><small>阅读进度 <b>0%</b></small></div></aside></article></main><footer class=site-footer><div><a class=footer-brand href=/>Raphael Lab</a><p>记录后端工程、分布式系统与 AI 工程化的真实实践。</p></div><div class=footer-links><a href=https://github.com/RaphaelL2e target=_blank rel="noopener noreferrer">GitHub</a>
+<a href=mailto:liyafei.work@foxmail.com>邮箱</a>
+<a href=/index.xml>RSS</a>
+<a class=private-tool-link href=/wealth/ title=加密私有工具>财富系统 <span aria-hidden=true>↗</span></a></div><p class=copyright>© 2026 李亚飞</p></footer><div class=sr-only id=live-region aria-live=polite></div><script src=/js/site.js defer></script></body></html>
